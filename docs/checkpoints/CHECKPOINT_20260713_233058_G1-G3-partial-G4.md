@@ -1,4 +1,23 @@
-# TASKBOARD — SuperAI_v1
+﻿# Checkpoint: G1-G3-partial-G4
+
+- **When:** 2026-07-13 23:31:17 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Git HEAD:** f2acb53
+- **Git status:** ## master...origin/master [ahead 1]
+- **Pytest:** 31 passed in 12.53s
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI_v1
 
 **Purpose:** Source of truth for *done* vs *left*. Resume here after any fault.  
 **Progress table:** `docs/PROGRESS.md`  
@@ -9,14 +28,14 @@
 ### Scope rule
 
 - Everything in the implementation plans is **required**.
-- Work may be **sequenced later** (Tracks G–I). Never mark plan work optional or cancelled.
+- Work may be **sequenced later** (Tracks Gâ€“I). Never mark plan work optional or cancelled.
 
 ### Autonomous work
 
 - Agents may continue the next pending item without waiting for human approval between items.
-- After each item (or ~30–45 min), run a **checkpoint** and update Last session.
+- After each item (or ~30â€“45 min), run a **checkpoint** and update Last session.
 
-**Status legend:** `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked
+**Status legend:** `[ ]` pending Â· `[~]` in progress Â· `[x]` done Â· `[!]` blocked
 
 ---
 
@@ -24,35 +43,35 @@
 
 | Priority | ID | Item | Status |
 |----------|-----|------|--------|
-| P0–P4 | A–E | Stabilize + Phase 1–5 core | `[x]` |
-| P5 | F | Phase 2–5 remaining | `[x]` |
-| P6 | G | Phase 6 polish / docs / CI | `[~]` **← IN PROGRESS** |
+| P0â€“P4 | Aâ€“E | Stabilize + Phase 1â€“5 core | `[x]` |
+| P5 | F | Phase 2â€“5 remaining | `[x]` |
+| P6 | G | Phase 6 polish / docs / CI | `[~]` **â† IN PROGRESS** |
 | P7 | H | Phase 7 advanced | `[ ]` |
 | P8 | I | Phase 8 agentic + ecosystem | `[ ]` |
 
 ---
 
-## Track A — Stabilize (DONE)
+## Track A â€” Stabilize (DONE)
 
-- [x] A1–A5 packaging, wiring, smoke mock run
+- [x] A1â€“A5 packaging, wiring, smoke mock run
 
-## Track B — Phase 1 foundation (DONE)
+## Track B â€” Phase 1 foundation (DONE)
 
-- [x] B0–B7 config, history, tests, honest docs, DoD
+- [x] B0â€“B7 config, history, tests, honest docs, DoD
 
-## Track C — Phase 2 routing core (DONE)
+## Track C â€” Phase 2 routing core (DONE)
 
-- [x] C1–C6 scoring, LB, cost/usage, stats (live path code present)
+- [x] C1â€“C6 scoring, LB, cost/usage, stats (live path code present)
 
-## Track D — Phase 3 learning core (DONE)
+## Track D â€” Phase 3 learning core (DONE)
 
-- [x] D1–D4 LearningEngine, persist distill, success signals, CLI
+- [x] D1â€“D4 LearningEngine, persist distill, success signals, CLI
 
-## Track E — Skills + local backup (DONE)
+## Track E â€” Skills + local backup (DONE)
 
-- [x] E1–E5 skill inject/auto-create; local backup/verify/restore/atexit
+- [x] E1â€“E5 skill inject/auto-create; local backup/verify/restore/atexit
 
-## Track F — Phase 2–5 remaining (DONE 2026-07-13)
+## Track F â€” Phase 2â€“5 remaining (DONE 2026-07-13)
 
 ### F2
 - [x] F2.1 smoke-providers
@@ -70,7 +89,7 @@
 - [x] F3.5 `superai evolve <topic>` knowledge evolution
 
 ### F4
-- [x] F4.1–F4.4 sandbox/promote/rollback/stats/relevance
+- [x] F4.1â€“F4.4 sandbox/promote/rollback/stats/relevance
 
 ### F5
 - [x] F5.1 backup --cloud
@@ -83,7 +102,7 @@
 
 ---
 
-## Track G — Phase 6 (IN PROGRESS)
+## Track G â€” Phase 6 (IN PROGRESS)
 
 - [x] G1 Rich progress bars / spinners on multi-step runs
 - [x] G2 Suggested fixes on common CLI errors
@@ -93,13 +112,13 @@
 - [ ] G6 GitHub Pages (or equivalent) for docs
 - [ ] G7 CONTRIBUTING / release notes accuracy
 
-## Track H — Phase 7 (PENDING)
+## Track H â€” Phase 7 (PENDING)
 
-- [ ] H1–H8 external CLI delegation, RL routing, dual dashboards, tool proposals
+- [ ] H1â€“H8 external CLI delegation, RL routing, dual dashboards, tool proposals
 
-## Track I — Phase 8 (PENDING)
+## Track I â€” Phase 8 (PENDING)
 
-- [ ] I1–I7 MCP-deep context, agentic workflows, wings/rooms, ecosystem, advanced init
+- [ ] I1â€“I7 MCP-deep context, agentic workflows, wings/rooms, ecosystem, advanced init
 
 ---
 
@@ -110,5 +129,7 @@
 | **When** | 2026-07-13 |
 | **What** | Track F complete + checkpoint; started G (G1 progress, G2 fixes, G3 completion, QUICK_REFERENCE) |
 | **Next agent action** | Finish **G4** (FEATURES/ARCHITECTURE), **G6** Pages, **G7**; then Track H |
-| **Verify** | `pytest -q` → **31+** passed; git `f2acb53` checkpoint track-F-complete |
+| **Verify** | `pytest -q` â†’ **31+** passed; git `f2acb53` checkpoint track-F-complete |
 | **Checkpoint** | `docs/checkpoints/CHECKPOINT_20260713_232905_track-F-complete.md` |
+
+```

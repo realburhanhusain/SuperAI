@@ -1,87 +1,89 @@
-# SuperAI Quick Reference Card
+# SuperAI Quick Reference
 
-## Installation
+**Repo:** `SuperAI_v1` · **Resume:** `TASKBOARD.md` · **Progress:** `docs/PROGRESS.md` · **Checkpoints:** `scripts/checkpoint.ps1`
 
-```bash
-pip install -e .
+## Install
+
+```powershell
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+pip install -e ".[dev]"
+# Optional richer embeddings:
+# pip install -e ".[embeddings]"
 ```
 
-## First Time Setup
+Shell completion (G3):
 
-```bash
-superai init
+```powershell
+superai --install-completion
+# restart shell
 ```
 
-During init you can:
-- Enable automatic encrypted backup + cloud sync
-- Set your rclone remote for cloud backups (non-interactively via env vars also supported)
+## First-time setup
 
-## Core CLI Commands
-
-| Command                              | Description                                      | Example |
-|--------------------------------------|--------------------------------------------------|--------|
-| `superai init`                       | First-time initialization + optional backup setup | `superai init` |
-| `superai discover`                   | Discover installed AI CLIs and models            | `superai discover` |
-| `superai list-models [--refresh]`    | List all known models (refresh from web)         | `superai list-models --refresh` |
-| `superai set-supervisor <model>`     | Set default supervisor model persistently        | `superai set-supervisor grok-4.5` |
-| `superai set-strategy <strategy>`    | Change load balancing strategy                   | `superai set-strategy latency_based` |
-| `superai backup-status`              | Show backup statistics and status                | `superai backup-status` |
-| `superai backup-verify [--latest]`   | Verify integrity of latest or specific backup    | `superai backup-verify` |
-| `superai backup`                     | Manually trigger encrypted incremental backup    | `superai backup` |
-
-## Backup & Restore
-
-| Action                    | Command                                      | Notes |
-|---------------------------|----------------------------------------------|-------|
-| **Automatic Backup**      | Enabled on clean exit (after `init`)         | Encrypted + compressed |
-| **Manual Backup**         | `superai backup`                             | Creates encrypted local backup |
-| **Cloud Sync**            | Automatic if configured during `init`        | Uses rclone |
-| **View Status**           | `superai backup-status`                      | Shows last backup, size, cloud config |
-| **Verify Integrity**      | `superai backup-verify`                      | Checks decryption + tar structure |
-| **Restore**               | `superai restore` (or via `SecureBackupManager`) | Requires encryption key |
-
-**Local Backup Location:**
-```
-./backups/superai_secure_YYYYMMDD_HHMMSS.tar.zst.enc
+```powershell
+superai init --non-interactive
 ```
 
-**Encryption Key Location:**
+Creates `~/.superai/` (config, logs, history, memory, skills, backups).
+
+## Core commands
+
+| Command | Description |
+|---------|-------------|
+| `superai version` / `status` | Version and system status |
+| `superai run "<task>" [-v] [-m model] [--format json]` | Orchestrated run (mock by default) |
+| `superai plan "<task>"` | Plan only |
+| `superai history` | Recent task runs |
+| `superai config show\|get\|set` | Configuration |
+| `superai list-models [--refresh]` | Model registry |
+| `superai set-supervisor <model>` | Default supervisor |
+| `superai set-strategy <strategy>` | smart_fallback \| round_robin \| latency_based \| cost_based |
+| `superai routing-stats [--explain "..."]` | Routing aggregates |
+| `superai smoke-providers [--mock]` | Provider smoke tests |
+| `superai provider-health` | Health + quota windows |
+| `superai learnings` / `reflect` / `conflicts` / `evolve <topic>` | Learning |
+| `superai feedback <task_id> "..."` | Human feedback |
+| `superai list-skills` / `skill-promote` / `skill-rollback` | Skills |
+| `superai backup [--full] [--cloud] [--keep N]` | Encrypted backup |
+| `superai backup-status` / `backup-verify` | Backup ops |
+| `superai restore <path>` or `restore --cloud` | Restore local or pull+restore |
+
+## Paths
+
+| Item | Location |
+|------|----------|
+| Config | `~/.superai/config.json` |
+| History | `~/.superai/history/` |
+| Memory | `~/.superai/memory/` |
+| Skills | `~/.superai/skills/` |
+| Backups | `~/.superai/backups/` |
+| Encryption key | `~/.superai/.backup_key` (**back up securely**) |
+| Provider health | `~/.superai/provider_health.json` |
+
+## Environment
+
+| Variable | Purpose |
+|----------|---------|
+| `SUPERAI_MOCK_MODE` | true/false |
+| `SUPERAI_LOG_LEVEL` | INFO/DEBUG/... |
+| `SUPERAI_NON_INTERACTIVE` | skip prompts |
+| `SUPERAI_MODELS_URL` | remote models JSON for `--refresh` |
+| `SUPERAI_EMBEDDING_MODEL` | HF/ST model id (`auto` default) |
+| `SUPERAI_EMBEDDING_HASH` | `1` = offline hash embeddings |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GOOGLE_API_KEY`, … | live providers |
+
+## Strategies
+
+`smart_fallback` (default), `round_robin`, `latency_based`, `cost_based`
+
+## Checkpoint after work
+
+```powershell
+powershell -File scripts\checkpoint.ps1 -Label "G1-progress"
 ```
-config/.backup_key
+
+## Tests
+
+```powershell
+pytest -q
 ```
-**Important:** Back up this file securely. Without it, encrypted backups cannot be restored.
-
-## Load Balancing Strategies
-
-Available strategies (change with `superai set-strategy`):
-
-- `smart_fallback` (default)
-- `round_robin`
-- `latency_based`
-- `cost_based`
-
-## Environment Variables (for scripting / non-interactive use)
-
-| Variable                    | Purpose |
-|-----------------------------|---------|
-| `SUPERAI_CLOUD_REMOTE`      | rclone remote name |
-| `SUPERAI_CLOUD_PATH`        | Path inside remote (default: `superai-backups/`) |
-| `SUPERAI_BACKUP_DIR`        | Override local backup directory |
-
-## Key Features
-
-- **Model Routing**: Intelligent selection with human override priority
-- **Load Balancing**: Multiple strategies + Circuit Breaker + Retry with backoff
-- **Self-Learning**: Automatic skill creation and improvement
-- **Memory**: Persistent semantic memory (ChromaDB)
-- **Security**: Encrypted local backups + cloud sync of encrypted data
-- **Automation**: Backup on exit, model discovery on start
-
-## Important Notes
-
-- `rclone` must be installed for cloud sync features.
-- The encryption key (`config/.backup_key`) is critical — back it up.
-- Human/manual model selection always overrides automated routing.
-
----
-**SuperAI v0.1** — July 2026

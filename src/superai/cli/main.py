@@ -27,7 +27,7 @@ from superai.core.task_planner import TaskPlanner
 app = typer.Typer(
     name="superai",
     help="SuperAI - Intelligent Multi-Model AI Orchestration Platform",
-    add_completion=False,
+    add_completion=True,  # G3: enable `superai --install-completion`
     no_args_is_help=True,
 )
 
@@ -77,11 +77,38 @@ def _main_callback(
         _register_auto_backup_if_enabled()
 
 
+def _suggest_fix(exc: Exception) -> Optional[str]:
+    """G2: suggested fixes for common failures."""
+    msg = str(exc).lower()
+    if "api key" in msg or "authentication" in msg or "401" in msg:
+        return (
+            "Set the provider API key env var and `superai config set mock_mode false`. "
+            "Check `superai smoke-providers`."
+        )
+    if "rclone" in msg or "not found on path" in msg:
+        return "Install/configure rclone, or use local `superai backup` / `superai restore <file>`."
+    if "empty" in msg and "task" in msg:
+        return 'Provide a non-empty task string, e.g. superai run "Create a FastAPI app"'
+    if "chromadb" in msg or "embedding" in msg:
+        return (
+            "Set SUPERAI_EMBEDDING_HASH=1 for offline hash embeddings, "
+            "or pip install -e \".[embeddings]\"."
+        )
+    if "connection" in msg or "timeout" in msg or "network" in msg:
+        return "Check network/VPN; retry; or use mock_mode true for offline work."
+    if isinstance(exc, SuperAIError) and exc.hint:
+        return None  # already in user_message
+    return "Run with --debug for traceback; see TASKBOARD.md and docs/PROGRESS.md."
+
+
 def _print_error(exc: Exception, debug: bool = False) -> None:
     if isinstance(exc, SuperAIError):
         console.print(f"[red]Error:[/red] {exc.user_message()}")
     else:
         console.print(f"[red]Error:[/red] {exc}")
+    suggestion = _suggest_fix(exc)
+    if suggestion:
+        console.print(f"[yellow]Suggested fix:[/yellow] {suggestion}")
     if debug:
         console.print(traceback.format_exc())
 

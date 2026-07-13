@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from .config import Config
 from .errors import OrchestratorError, UserInputError
@@ -170,7 +171,9 @@ class SuperAIOrchestrator:
                 logger.debug("Skill lookup failed: %s", e)
 
             context = ""
-            for step in plan_steps:
+
+            def _run_one_step(step):
+                nonlocal total_tokens, total_cost, context, selected_model
                 if verbose:
                     console.print(
                         f"\n[bold blue]Step {step.step_id}:[/bold blue] {step.description}"
@@ -192,6 +195,8 @@ class SuperAIOrchestrator:
                 step_status = "success"
                 step_output: Any = None
                 step_error: Optional[str] = None
+                usage: Dict[str, Any] = {}
+                cost = 0.0
 
                 try:
                     prompt_parts = [step.description]
@@ -217,14 +222,11 @@ class SuperAIOrchestrator:
                         prompt=prompt,
                     )
                     step_output = self._extract_response_text(call_result)
-                    usage = {}
-                    cost = 0.0
                     if isinstance(call_result, dict):
                         usage = call_result.get("usage") or {}
                         cost = float(call_result.get("estimated_cost_usd") or 0.0)
                         total_tokens += int(usage.get("total_tokens") or 0)
                         total_cost += cost
-                        # Treat explicit provider error payloads as step failure
                         if call_result.get("status") == "error":
                             step_status = "failed"
                             step_error = str(
@@ -238,7 +240,7 @@ class SuperAIOrchestrator:
                             console.print(
                                 f"[red]✗ Step {step.step_id} failed: {step_error}[/red]"
                             )
-                except Exception as e:  # noqa: BLE001 — capture per-step failure
+                except Exception as e:  # noqa: BLE001
                     step_status = "failed"
                     step_error = str(e)
                     step_output = f"Error: {e}"
@@ -248,19 +250,40 @@ class SuperAIOrchestrator:
                     if verbose:
                         console.print(f"[red]✗ Step {step.step_id} failed: {e}[/red]")
 
-                step_records.append(
-                    {
-                        "step": step.step_id,
-                        "description": step.description,
-                        "model": selected_model,
-                        "status": step_status,
-                        "result": step_output,
-                        "error": step_error,
-                        "duration_ms": int((time.time() - step_start) * 1000),
-                        "usage": usage if step_status == "success" else {},
-                        "estimated_cost_usd": cost if step_status == "success" else 0.0,
-                    }
-                )
+                return {
+                    "step": step.step_id,
+                    "description": step.description,
+                    "model": selected_model,
+                    "status": step_status,
+                    "result": step_output,
+                    "error": step_error,
+                    "duration_ms": int((time.time() - step_start) * 1000),
+                    "usage": usage if step_status == "success" else {},
+                    "estimated_cost_usd": cost if step_status == "success" else 0.0,
+                }
+
+            # G1: progress UI for multi-step runs (skip heavy bar in verbose mode)
+            if not verbose and len(plan_steps) > 1:
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TextColumn("{task.completed}/{task.total}"),
+                    TimeElapsedColumn(),
+                    console=console,
+                    transient=True,
+                ) as progress:
+                    task_prog = progress.add_task("Executing steps", total=len(plan_steps))
+                    for step in plan_steps:
+                        progress.update(
+                            task_prog,
+                            description=f"Step {step.step_id}: {step.description[:40]}",
+                        )
+                        step_records.append(_run_one_step(step))
+                        progress.advance(task_prog)
+            else:
+                for step in plan_steps:
+                    step_records.append(_run_one_step(step))
 
             # Synthesize final answer only if we have successful material
             success_steps = [s for s in step_records if s["status"] == "success"]

@@ -1,10 +1,29 @@
-# TASKBOARD — SuperAI_v1
+﻿# Checkpoint: msg-vega-plugin-bandit
+
+- **When:** 2026-07-14 00:42:10 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Git HEAD:** 32578ea
+- **Git status:** ## master...origin/master [ahead 6]
+- **Pytest:** skipped
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI_v1
 
 **No approval pauses** except external blockers (keys, rclone, GitHub admin, missing paid APIs).  
-**Checkpoints:** `scripts/checkpoint.ps1` · `docs/checkpoints/`  
-**Progress:** `docs/PROGRESS.md` · **External checklist:** `docs/OTHER_TOOL_FEATURES.md`
+**Checkpoints:** `scripts/checkpoint.ps1` Â· `docs/checkpoints/`  
+**Progress:** `docs/PROGRESS.md` Â· **External checklist:** `docs/OTHER_TOOL_FEATURES.md`
 
-**Legend:** `[ ]` pending · `[~]` thin remaining · `[x]` done · `[!]` external
+**Legend:** `[ ]` pending Â· `[~]` thin remaining Â· `[x]` done Â· `[!]` external
 
 ---
 
@@ -12,7 +31,7 @@
 
 | Track | Status |
 |-------|--------|
-| A–F | `[x]` |
+| Aâ€“F | `[x]` |
 | G | `[x]` |
 | H | `[x]` |
 | I | `[x]` |
@@ -50,6 +69,8 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Messengers TG/Slack, Vega HTML, plugin registry, bandit→router, tests |
+| **What** | Messengers TG/Slack, Vega HTML, plugin registry, banditâ†’router, tests |
 | **Next** | External host verification only (keys, rclone, Pages, live bots) |
-| **Verify** | `pytest -q` → **54 passed** |
+| **Verify** | `pytest -q` â†’ **54 passed** |
+
+```

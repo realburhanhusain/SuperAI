@@ -12,8 +12,10 @@ score = (
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
+from .bandit_router import EpsilonGreedyBandit
 from .load_balancer import LoadBalancer, LoadBalancingStrategy
 from .logger import get_logger
 from .model_registry import ModelInfo, ModelRegistry
@@ -23,6 +25,13 @@ from .routing_stats import compute_model_stats
 logger = get_logger("superai.router")
 
 
+def _env_truthy(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class ModelRouter:
     def __init__(
         self,
@@ -30,6 +39,9 @@ class ModelRouter:
         load_balancer: Optional[LoadBalancer] = None,
         history_stats: Optional[Dict[str, Dict[str, Any]]] = None,
         health_store: Optional[ProviderHealthStore] = None,
+        bandit: Optional[EpsilonGreedyBandit] = None,
+        use_bandit: Optional[bool] = None,
+        bandit_blend: float = 0.25,
     ):
         self.registry = registry
         self.load_balancer = load_balancer or LoadBalancer(
@@ -43,6 +55,18 @@ class ModelRouter:
         # Precomputed task-history stats; refreshed via refresh_history_stats()
         self._history_stats = history_stats or {}
         self.last_scores: List[Dict[str, Any]] = []
+        # Bandit: optional exploration/exploitation on top of scoring
+        if use_bandit is None:
+            use_bandit = _env_truthy("SUPERAI_USE_BANDIT", default=True)
+        self.use_bandit = bool(use_bandit)
+        self.bandit_blend = max(0.0, min(1.0, float(bandit_blend)))
+        self.bandit = bandit
+        if self.use_bandit and self.bandit is None:
+            try:
+                self.bandit = EpsilonGreedyBandit()
+            except Exception:  # noqa: BLE001
+                self.bandit = None
+                self.use_bandit = False
 
     def refresh_history_stats(self, limit: int = 200) -> None:
         self._history_stats = compute_model_stats(limit=limit)
@@ -154,6 +178,15 @@ class ModelRouter:
         ]
         return ranked
 
+    def _bandit_mean(self, model_name: str) -> float:
+        if not self.bandit:
+            return 0.5
+        arm = self.bandit.state.get(model_name) or {}
+        n = float(arm.get("n") or 0.0)
+        if n <= 0:
+            return 0.5  # neutral prior
+        return float(arm.get("reward_sum", 0.0)) / n
+
     def get_best_model(
         self,
         task: str,
@@ -171,7 +204,60 @@ class ModelRouter:
                 pass
 
         ranked = self.rank_models(task)
-        return ranked[0][0] if ranked else None
+        if not ranked:
+            return None
+
+        # Blend score with bandit means; epsilon explore among top-K
+        if self.use_bandit and self.bandit and len(ranked) > 1:
+            top_k = ranked[: min(8, len(ranked))]
+            candidates = [m.name for m, _ in top_k]
+            try:
+                # Epsilon-greedy among top scorers
+                import random
+
+                if random.random() < self.bandit.epsilon:
+                    chosen = self.bandit.select(candidates)
+                    for m, parts in top_k:
+                        if m.name == chosen:
+                            parts = dict(parts)
+                            parts["bandit_explore"] = True
+                            parts["bandit_mean"] = round(self._bandit_mean(m.name), 4)
+                            self.last_scores = [
+                                {
+                                    "model": mm.name,
+                                    "provider": mm.provider,
+                                    **pp,
+                                    "bandit_mean": round(self._bandit_mean(mm.name), 4),
+                                }
+                                for mm, pp in ranked[:15]
+                            ]
+                            return m
+                # Exploit: re-rank top-K by blended score
+                blended: List[Tuple[ModelInfo, Dict[str, float], float]] = []
+                for m, parts in top_k:
+                    bmean = self._bandit_mean(m.name)
+                    total = float(parts.get("total", 0.0))
+                    combined = (1.0 - self.bandit_blend) * total + self.bandit_blend * bmean
+                    blended.append((m, parts, combined))
+                blended.sort(key=lambda x: x[2], reverse=True)
+                best_m, best_parts, best_c = blended[0]
+                best_parts = dict(best_parts)
+                best_parts["bandit_mean"] = round(self._bandit_mean(best_m.name), 4)
+                best_parts["bandit_blend"] = round(best_c, 4)
+                self.last_scores = [
+                    {
+                        "model": mm.name,
+                        "provider": mm.provider,
+                        **pp,
+                        "bandit_mean": round(self._bandit_mean(mm.name), 4),
+                    }
+                    for mm, pp in ranked[:15]
+                ]
+                return best_m
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Bandit selection fallback: %s", e)
+
+        return ranked[0][0]
 
     def select_model(
         self,
@@ -187,14 +273,39 @@ class ModelRouter:
                 task_type = self.classify_task(task_description)
                 _, parts = self.score_model(model, task_type)
                 logger.info(
-                    "Selected %s (provider=%s, type=%s, score=%s)",
+                    "Selected %s (provider=%s, type=%s, score=%s, bandit=%s)",
                     model.name,
                     model.provider,
                     task_type,
                     parts.get("total"),
+                    round(self._bandit_mean(model.name), 3) if self.use_bandit else "off",
                 )
             return model.name
         return preferred_model or "mock-model"
+
+    def update_bandit(
+        self,
+        model: str,
+        success: bool,
+        latency: float = 1.0,
+        cost: float = 0.0,
+        user_satisfaction: float = 0.5,
+    ) -> Optional[float]:
+        """Record outcome reward for the bandit arm. Returns reward or None."""
+        if not self.use_bandit or not self.bandit or not model:
+            return None
+        try:
+            reward = EpsilonGreedyBandit.reward_from_outcome(
+                success=success,
+                latency=latency,
+                cost=cost,
+                user_satisfaction=user_satisfaction,
+            )
+            self.bandit.update(model, reward)
+            return reward
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Bandit update failed: %s", e)
+            return None
 
     def explain_selection(self, task: str, top_k: int = 5) -> List[Dict[str, Any]]:
         ranked = self.rank_models(task)

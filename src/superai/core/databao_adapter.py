@@ -462,12 +462,31 @@ class DatabaoAdapter:
             "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
             "description": question,
             "data": {"values": values},
-            "mark": "bar",
+            "mark": {"type": "bar", "tooltip": True},
             "encoding": {
-                "x": {"field": cat, "type": "nominal"},
+                "x": {"field": cat, "type": "nominal", "sort": "-y"},
                 "y": {"field": val, "type": "quantitative"},
+                "tooltip": [
+                    {"field": cat, "type": "nominal"},
+                    {"field": val, "type": "quantitative"},
+                ],
             },
+            "width": "container",
+            "height": 320,
         }
+
+    def write_chart_html(
+        self,
+        chart: Optional[Dict[str, Any]] = None,
+        title: str = "SuperAI Data Chart",
+        path: Optional[Path] = None,
+    ) -> Optional[Path]:
+        """Write interactive Vega HTML for a chart spec."""
+        from .vega_charts import write_chart_html
+
+        if not chart:
+            return None
+        return write_chart_html(chart, path=path, title=title)
 
     def _ask_mock(self, question: str, thread: Optional[DataThread]) -> DataAnswer:
         columns = ["country", "total_amount", "order_count"]

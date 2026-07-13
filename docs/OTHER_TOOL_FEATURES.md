@@ -11,7 +11,7 @@
 
 - [x] SuperAI supervisor layer
 - [x] Modular registries / adapters
-- [~] Deeper third-party plugin marketplace (structure via registries)
+- [x] Plugin marketplace registry (`plugin_registry.py`, `plugins` CLI)
 
 ---
 
@@ -47,8 +47,9 @@ https://github.com/AtomicBot-ai/atomic-hermes
 - [x] Multi-round deliberation
 - [x] Skills reusable components
 - [x] File time-travel snapshots (`tt-snapshot` / `tt-list` / `tt-restore`)
-- [x] Multi-messenger bus foundation (`msg-send` / `msg-channels`)
-- [~] Full Telegram/Slack production connectors (webhook channel ready)
+- [x] Multi-messenger bus (`msg-send` / `msg-channels` / `msg-broadcast`)
+- [x] Telegram + Slack adapters (env tokens; `SUPERAI_MESSENGER_DRY_RUN=1` for offline)
+- [!] Live bot tokens for production E2E (host)
 
 ---
 
@@ -69,7 +70,7 @@ https://github.com/realburhanhusain/databao-agent
 - [x] NL → tables + chart specs
 - [x] SQLAlchemy / demo SQLite + optional databao package
 - [x] Conversational threads
-- [~] Full interactive Vega frontend (JSON spec exported)
+- [x] Interactive Vega-Lite HTML (`--chart-html`, `/charts`, `vega_charts.py`)
 
 ---
 

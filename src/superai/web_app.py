@@ -13,7 +13,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 try:
-    from fastapi import FastAPI, HTTPException, Query
+    from fastapi import FastAPI, HTTPException, Query, Request
     from fastapi.responses import HTMLResponse, JSONResponse
     from pydantic import BaseModel, Field
 
@@ -22,6 +22,7 @@ except ImportError:
     HAS_FASTAPI = False
     FastAPI = object  # type: ignore
     BaseModel = object  # type: ignore
+    Request = object  # type: ignore
 
 
 def create_app() -> Any:
@@ -148,6 +149,74 @@ async function status(){
         from superai.core.memory_palace import MemoryPalace
 
         return LearningEngine(MemoryPalace()).get_learnings_summary()
+
+    @app.get("/charts", response_class=HTMLResponse)
+    def charts_home() -> str:
+        return """<!doctype html>
+<html><head><meta charset="utf-8"><title>SuperAI Charts</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:960px;margin:2rem auto;padding:0 1rem}
+ textarea{width:100%;min-height:180px;font-family:ui-monospace,monospace}
+ button{font-size:1rem;padding:.5rem 1rem;margin-top:.5rem}
+ #frame{width:100%;min-height:420px;border:1px solid #ccc;border-radius:8px;margin-top:1rem}
+</style></head>
+<body>
+<h1>Interactive Vega charts</h1>
+<p>Paste a Vega-Lite JSON spec (from <code>superai data-ask --chart</code>) and render.</p>
+<textarea id="spec" placeholder='{"$schema":"https://vega.github.io/schema/vega-lite/v5.json",...}'></textarea>
+<br/><button onclick="render()">Render</button>
+<iframe id="frame" title="chart"></iframe>
+<script>
+async function render(){
+  let spec;
+  try { spec = JSON.parse(document.getElementById('spec').value); }
+  catch(e){ alert('Invalid JSON: '+e); return; }
+  const r = await fetch('/api/charts/render', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({spec: spec, title:'SuperAI Chart'})
+  });
+  const html = await r.text();
+  const frame = document.getElementById('frame');
+  frame.srcdoc = html;
+}
+</script>
+</body></html>"""
+
+    @app.post("/api/charts/render", response_class=HTMLResponse)
+    async def render_chart(request: Request) -> str:
+        """Accept raw JSON body: {spec: {...}, title?: str}."""
+        from superai.core.vega_charts import render_vega_html
+
+        try:
+            payload = await request.json()
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}") from e
+        if not isinstance(payload, dict) or "spec" not in payload:
+            raise HTTPException(status_code=400, detail="Body must include 'spec'")
+        spec = payload["spec"]
+        title = str(payload.get("title") or "SuperAI Chart")
+        if not isinstance(spec, dict):
+            raise HTTPException(status_code=400, detail="'spec' must be an object")
+        try:
+            return render_vega_html(spec, title=title)
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+    @app.get("/api/plugins")
+    def list_plugins(q: Optional[str] = None) -> Dict[str, Any]:
+        from superai.core.plugin_registry import PluginRegistry
+
+        reg = PluginRegistry()
+        plugins = reg.search(q) if q else reg.list_plugins()
+        return {"summary": reg.marketplace_summary(), "plugins": plugins}
+
+    @app.get("/api/bandit")
+    def bandit_state() -> Dict[str, Any]:
+        from superai.core.bandit_router import EpsilonGreedyBandit
+
+        b = EpsilonGreedyBandit()
+        return {"epsilon": b.epsilon, "arms": b.state, "path": str(b.path)}
 
     return app
 

@@ -395,6 +395,19 @@ class SuperAIOrchestrator:
             except Exception as e:  # noqa: BLE001
                 logger.debug("Preference observe failed: %s", e)
 
+            # H6: update contextual bandit from task outcome
+            try:
+                reward = self.model_router.update_bandit(
+                    model=selected_model or "unknown",
+                    success=overall_success,
+                    latency=duration,
+                    cost=total_cost,
+                )
+                if reward is not None:
+                    result["metadata"]["bandit_reward"] = reward
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Bandit update failed: %s", e)
+
             # Phase 4: record skill outcomes + auto-create after enough successes
             try:
                 for sname in result.get("metadata", {}).get("skills") or []:

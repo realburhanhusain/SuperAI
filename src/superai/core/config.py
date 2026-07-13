@@ -35,6 +35,10 @@ class Config:
         "data_dsn": None,  # e.g. sqlite:////path or postgresql://...
         "databao_llm": "gpt-4o-mini",
         "use_databao_package": True,
+        # Contextual bandit routing blend (H6)
+        "use_bandit": True,
+        "bandit_epsilon": 0.1,
+        "bandit_blend": 0.25,
     }
 
     def __init__(self, config_path: Optional[str] = None):
@@ -97,6 +101,9 @@ class Config:
             "DATABASE_URL": ("data_dsn", str),
             "SUPERAI_DATABAO_LLM": ("databao_llm", str),
             "SUPERAI_USE_DATABAO": ("use_databao_package", _as_bool),
+            "SUPERAI_USE_BANDIT": ("use_bandit", _as_bool),
+            "SUPERAI_BANDIT_EPSILON": ("bandit_epsilon", float),
+            "SUPERAI_BANDIT_BLEND": ("bandit_blend", float),
         }
         for env_key, (cfg_key, caster) in env_map.items():
             raw = os.getenv(env_key)

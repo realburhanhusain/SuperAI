@@ -890,6 +890,9 @@ def data_ask(
     ),
     show_sql: bool = typer.Option(True, "--sql/--no-sql", help="Show generated SQL"),
     show_chart: bool = typer.Option(False, "--chart", help="Print chart JSON if any"),
+    chart_html: bool = typer.Option(
+        False, "--chart-html", help="Write interactive Vega HTML and print path"
+    ),
     mock: bool = typer.Option(False, "--mock", help="Force mock/heuristic backend"),
 ):
     """Ask natural-language questions over SQL data (Databao-inspired)"""
@@ -942,6 +945,11 @@ def data_ask(
         console.print(table)
     if show_chart and answer.chart:
         console.print_json(data=answer.chart)
+    if chart_html and answer.chart:
+        from superai.core.vega_charts import write_chart_html
+
+        path = write_chart_html(answer.chart, title=question[:80])
+        console.print(f"[green]Interactive chart:[/green] {path}")
     if answer.error:
         raise typer.Exit(code=1)
 
@@ -1058,7 +1066,7 @@ def msg_send(
     message: str = typer.Argument(..., help="Message text"),
     channel: str = typer.Option("cli", "--channel", "-c"),
 ):
-    """Send via messenger bus (cli/file/webhook/…)"""
+    """Send via messenger bus (cli/file/webhook/telegram/slack)"""
     from superai.core.messengers import MessengerBus
 
     result = MessengerBus().send(message, channel=channel)
@@ -1069,10 +1077,96 @@ def msg_send(
 
 @app.command("msg-channels")
 def msg_channels():
-    """List messenger channels"""
+    """List messenger channels and configuration status"""
     from superai.core.messengers import MessengerBus
 
     console.print_json(data=MessengerBus().list_channels())
+
+
+@app.command("msg-broadcast")
+def msg_broadcast(
+    message: str = typer.Argument(..., help="Message text"),
+    channels: Optional[str] = typer.Option(
+        None, "--channels", help="Comma-separated channels (default: all enabled)"
+    ),
+):
+    """Broadcast a message to multiple messenger channels"""
+    from superai.core.messengers import MessengerBus
+
+    ch_list = [c.strip() for c in channels.split(",")] if channels else None
+    result = MessengerBus().broadcast(message, channels=ch_list)
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@app.command("plugins")
+def plugins_cmd(
+    action: str = typer.Argument(
+        "list", help="list | search | enable | disable | install | summary"
+    ),
+    arg: Optional[str] = typer.Argument(
+        None, help="plugin id / query / path depending on action"
+    ),
+    category: Optional[str] = typer.Option(None, "--category", "-c"),
+):
+    """Plugin marketplace registry (list/search/enable/install)"""
+    from superai.core.plugin_registry import PluginRegistry
+
+    reg = PluginRegistry()
+    if action == "list":
+        console.print_json(data=reg.list_plugins(category=category))
+        return
+    if action == "summary":
+        console.print_json(data=reg.marketplace_summary())
+        return
+    if action == "search":
+        console.print_json(data=reg.search(arg or ""))
+        return
+    if action == "enable":
+        if not arg:
+            console.print("[red]Need plugin id[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=reg.enable(arg))
+        return
+    if action == "disable":
+        if not arg:
+            console.print("[red]Need plugin id[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=reg.disable(arg))
+        return
+    if action == "install":
+        if not arg:
+            console.print("[red]Need path to plugin.json or directory[/red]")
+            raise typer.Exit(1)
+        from pathlib import Path as P
+
+        console.print_json(data=reg.install_from_path(P(arg)))
+        return
+    console.print(f"[red]Unknown action: {action}[/red]")
+    raise typer.Exit(1)
+
+
+@app.command("bandit")
+def bandit_cmd(
+    action: str = typer.Argument("status", help="status | reset"),
+):
+    """Show or reset contextual bandit routing state"""
+    from superai.core.bandit_router import EpsilonGreedyBandit
+
+    b = EpsilonGreedyBandit()
+    if action == "reset":
+        b.state = {}
+        b.save()
+        console.print("[green]Bandit state cleared[/green]")
+        return
+    console.print_json(
+        data={
+            "epsilon": b.epsilon,
+            "arms": b.state,
+            "path": str(b.path),
+        }
+    )
 
 
 @app.command()

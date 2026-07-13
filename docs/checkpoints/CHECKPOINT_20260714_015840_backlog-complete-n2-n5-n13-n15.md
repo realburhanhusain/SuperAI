@@ -1,20 +1,39 @@
-# TASKBOARD — SuperAI_v1
+﻿# Checkpoint: backlog-complete-n2-n5-n13-n15
+
+- **When:** 2026-07-14 01:58:41 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Git HEAD:** e576ee5
+- **Git status:** ## master...origin/master [ahead 13]
+- **Pytest:** skipped
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI_v1
 
 **Backlog:** `docs/FEATURE_BACKLOG.md`  
 **Security:** `docs/SECURITY_REVIEW.md`  
-**Layout:** `src/cli` (`scli`) · `src/core` (`core`)
+**Layout:** `src/cli` (`scli`) Â· `src/core` (`core`)
 
-**Legend:** `[x]` done · `[~]` partial · `[!]` external smoke only
-
----
-
-## Tracks A–J (prior) — `[x]`
+**Legend:** `[x]` done Â· `[~]` partial Â· `[!]` external smoke only
 
 ---
 
-## Must have (M1–M8) — all `[x]`
+## Tracks Aâ€“J (prior) â€” `[x]`
 
-## Should have (S1–S12) — all `[x]`
+---
+
+## Must have (M1â€“M8) â€” all `[x]`
+
+## Should have (S1â€“S12) â€” all `[x]`
 
 ## Nice to have (N)
 
@@ -38,7 +57,7 @@
 
 ---
 
-## External smoke (not code — host only)
+## External smoke (not code â€” host only)
 
 - [!] Live multi-provider keys E2E  
 - [!] Live Telegram/Slack tokens  
@@ -53,4 +72,6 @@
 |-------|--------|
 | **When** | 2026-07-14 |
 | **What** | Finished remaining N2/N5/N8/N13/N15 backlog items |
-| **Verify** | `pytest -q` → **97 passed** |
+| **Verify** | `pytest -q` â†’ **97 passed** |
+
+```

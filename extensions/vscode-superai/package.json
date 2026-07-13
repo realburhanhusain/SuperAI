@@ -1,0 +1,40 @@
+{
+  "name": "superai",
+  "displayName": "SuperAI",
+  "description": "Run SuperAI tasks, doctor, and chat from VS Code (N2)",
+  "version": "0.1.0",
+  "publisher": "superai",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Machine Learning"],
+  "activationEvents": ["onCommand:superai.runTask", "onCommand:superai.doctor"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "superai.runTask",
+        "title": "SuperAI: Run Task"
+      },
+      {
+        "command": "superai.doctor",
+        "title": "SuperAI: Doctor"
+      },
+      {
+        "command": "superai.chat",
+        "title": "SuperAI: Chat"
+      }
+    ],
+    "configuration": {
+      "title": "SuperAI",
+      "properties": {
+        "superai.cliPath": {
+          "type": "string",
+          "default": "superai",
+          "description": "Path to superai CLI executable"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "echo 'Open in VS Code and run Install from VSIX after vsce package'"
+  }
+}

@@ -119,3 +119,30 @@ def benchmark_models(
         )
     summary.sort(key=lambda x: (-x["success_rate"], x["avg_latency_sec"]))
     return {"prompts": prompts, "summary": summary, "rounds": rounds}
+
+
+def benchmark_report_markdown(data: Optional[Dict[str, Any]] = None, **kwargs: Any) -> str:
+    """N8: Markdown report for stakeholders."""
+    data = data or benchmark_models(**kwargs)
+    lines = [
+        "# SuperAI Model Benchmark Report",
+        "",
+        f"Prompts: {len(data.get('prompts') or [])}",
+        "",
+        "| Model | Success rate | Avg latency (s) | Runs |",
+        "|-------|-------------:|----------------:|-----:|",
+    ]
+    for row in data.get("summary") or []:
+        lines.append(
+            f"| {row.get('model')} | {row.get('success_rate')} | "
+            f"{row.get('avg_latency_sec')} | {row.get('runs')} |"
+        )
+    if data.get("summary"):
+        lines.extend(
+            [
+                "",
+                f"**Winner (by success then latency):** `{data['summary'][0].get('model')}`",
+            ]
+        )
+    lines.append("")
+    return "\n".join(lines)

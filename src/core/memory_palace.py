@@ -8,6 +8,7 @@ import os
 import re
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
@@ -18,6 +19,7 @@ except ImportError:
     CHROMADB_AVAILABLE = False
 
 from .embeddings import create_embedding_function, describe_embedding
+from .faiss_store import FaissMemoryStore, use_faiss_backend
 
 
 def _safe_metadata(metadata: Dict[str, Any], tags: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -77,6 +79,16 @@ class MemoryPalace:
         )
         self.embedding_id = describe_embedding(self.embedding_function)
 
+        # N5: optional FAISS / brute-force vector backend
+        self.use_faiss = use_faiss_backend()
+        self.faiss_store: Optional[FaissMemoryStore] = None
+        if self.use_faiss:
+            self.faiss_store = FaissMemoryStore(
+                root=Path(self.persist_directory) / "faiss"
+            )
+            self.use_chromadb = False
+            return
+
         if CHROMADB_AVAILABLE:
             self.client = chromadb.PersistentClient(path=self.persist_directory)
             safe = re.sub(r"[^a-zA-Z0-9_]+", "_", self.embedding_id)[:48] or "default"
@@ -135,6 +147,17 @@ class MemoryPalace:
         metadata.setdefault("source", metadata.get("source") or "superai")
 
         memory_id = f"{datetime.now().timestamp():.6f}-{uuid.uuid4().hex[:8]}"
+
+        if self.use_faiss and self.faiss_store is not None:
+            emb = self.embedding_function([content])[0]
+            self.faiss_store.add(
+                content=content,
+                embedding=emb,
+                metadata=metadata,
+                tags=list(tags),
+                memory_id=memory_id,
+            )
+            return memory_id
 
         if self.use_chromadb:
             safe_meta = _safe_metadata(metadata, tags=tags)
@@ -221,6 +244,31 @@ class MemoryPalace:
         if n_results is not None:
             top_k = n_results
         _ = kwargs
+
+        if self.use_faiss and self.faiss_store is not None:
+            emb = self.embedding_function([query])[0]
+            hits = self.faiss_store.search(emb, top_k=top_k * 3 if tags else top_k)
+            out = []
+            wanted = {t.lower() for t in tags} if tags else None
+            for h in hits:
+                meta = h.get("metadata") or {}
+                if not include_deprecated and meta.get("deprecated") in (
+                    True,
+                    "True",
+                    "true",
+                    1,
+                ):
+                    continue
+                if wanted:
+                    mem_tags = {str(t).lower() for t in (h.get("tags") or [])}
+                    tag_str = str(meta.get("tags") or "")
+                    mem_tags |= {t.strip().lower() for t in tag_str.split(",") if t.strip()}
+                    if not wanted.intersection(mem_tags):
+                        continue
+                out.append(h)
+                if len(out) >= top_k:
+                    break
+            return out
 
         if self.use_chromadb:
             # Fetch extra then filter if tags requested
@@ -369,6 +417,8 @@ class MemoryPalace:
         return matched
 
     def get_all_memories(self) -> List[Dict]:
+        if self.use_faiss and self.faiss_store is not None:
+            return list(self.faiss_store.docs.values())
         if self.use_chromadb:
             results = self.collection.get()
             memories = []
@@ -392,6 +442,15 @@ class MemoryPalace:
             self.memories = [m for m in self.memories if m.get("id") != memory_id]
 
     def get_memory_stats(self) -> Dict[str, Any]:
+        if self.use_faiss and self.faiss_store is not None:
+            st = self.faiss_store.stats()
+            return {
+                "total_memories": st.get("count", 0),
+                "using_chromadb": False,
+                "using_faiss": True,
+                "faiss": st,
+                "embedding": getattr(self, "embedding_id", "unknown"),
+            }
         if self.use_chromadb:
             count = self.collection.count()
         else:
@@ -399,6 +458,7 @@ class MemoryPalace:
         return {
             "total_memories": count,
             "using_chromadb": self.use_chromadb,
+            "using_faiss": False,
             "embedding": getattr(self, "embedding_id", "unknown"),
         }
 

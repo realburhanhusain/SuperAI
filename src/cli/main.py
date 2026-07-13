@@ -1446,12 +1446,22 @@ def compare_cmd(
 def benchmark_cmd(
     mock: bool = typer.Option(True, "--mock/--live"),
     models: Optional[str] = typer.Option(None, "--models"),
+    report: Optional[str] = typer.Option(
+        None, "--report", "-o", help="Write Markdown report path (N8)"
+    ),
 ):
     """Run a small multi-prompt benchmark suite across models"""
-    from core.model_compare import benchmark_models
+    from core.model_compare import benchmark_models, benchmark_report_markdown
 
     model_list = [m.strip() for m in models.split(",")] if models else None
-    console.print_json(data=benchmark_models(models=model_list, use_mock=mock))
+    data = benchmark_models(models=model_list, use_mock=mock)
+    if report:
+        from pathlib import Path as P
+
+        md = benchmark_report_markdown(data)
+        P(report).write_text(md, encoding="utf-8")
+        console.print(f"[green]Wrote report[/green] {report}")
+    console.print_json(data=data)
 
 
 @app.command("pin-model")

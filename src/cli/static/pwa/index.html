@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#3b82f6"/>
+  <link rel="manifest" href="/pwa/manifest.webmanifest"/>
+  <link rel="icon" href="/pwa/icon.svg"/>
+  <title>SuperAI PWA</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem;
+      background: #0f1419; color: #e7ecf1; max-width: 640px; margin-inline: auto; }
+    input, button { font-size: 1rem; padding: .5rem; margin: .25rem 0; }
+    input { width: 100%; box-sizing: border-box; }
+    pre { background: #1a2332; padding: .75rem; border-radius: 8px; overflow: auto; white-space: pre-wrap; }
+    .row { display: flex; gap: .5rem; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <h1>SuperAI</h1>
+  <p>Mobile-friendly shell. Set token if API is protected.</p>
+  <label>API token (optional)</label>
+  <input id="token" type="password" placeholder="SUPERAI_WEB_TOKEN"/>
+  <div class="row">
+    <button onclick="status()">Status</button>
+    <button onclick="search()">Search memory</button>
+  </div>
+  <input id="q" placeholder="Memory query…"/>
+  <pre id="out">Ready.</pre>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/pwa/sw.js').catch(()=>{});
+    }
+    function headers() {
+      const t = document.getElementById('token').value.trim();
+      const h = {};
+      if (t) h['Authorization'] = 'Bearer ' + t;
+      return h;
+    }
+    async function status() {
+      const r = await fetch('/api/status', { headers: headers() });
+      document.getElementById('out').textContent = JSON.stringify(await r.json(), null, 2);
+    }
+    async function search() {
+      const q = document.getElementById('q').value;
+      const r = await fetch('/api/memory/search?q=' + encodeURIComponent(q) + '&top_k=5', { headers: headers() });
+      document.getElementById('out').textContent = JSON.stringify(await r.json(), null, 2);
+    }
+  </script>
+</body>
+</html>

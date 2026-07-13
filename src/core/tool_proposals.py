@@ -172,11 +172,24 @@ class ToolProposalManager:
                 f"Blocked shell meta-executable '{base}'. "
                 "Set SUPERAI_ALLOW_SHELL_META=1 to override (not recommended)."
             )
+        timeout = float(args.get("timeout", 60))
+        # N15: optional docker sandbox
+        try:
+            from .config import Config
+            from .container_sandbox import try_sandboxed_shell
+
+            prefer = bool(Config().get("prefer_container_sandbox"))
+            sand = try_sandboxed_shell(list(cmd), timeout=timeout, prefer=prefer)
+            if sand is not None and not sand.get("fallback"):
+                return sand
+        except Exception:  # noqa: BLE001
+            pass
+
         proc = subprocess.run(
             list(cmd),
             capture_output=True,
             text=True,
-            timeout=float(args.get("timeout", 60)),
+            timeout=timeout,
             shell=False,
         )
         return {

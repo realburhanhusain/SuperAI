@@ -1,0 +1,17 @@
+{
+  "name": "SuperAI",
+  "short_name": "SuperAI",
+  "description": "SuperAI status, memory search, and approvals (N13)",
+  "start_url": "/pwa/",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/pwa/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

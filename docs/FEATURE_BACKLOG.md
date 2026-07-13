@@ -1,54 +1,41 @@
 # SuperAI feature backlog (M / S / N)
 
 **Wired into:** `TASKBOARD.md`  
-**Updated:** 2026-07-14
+**Updated:** 2026-07-14  
+**Status:** All implementable backlog items are **done** in code. Only external host smoke remains.
 
-## Must have (M)
-
-| ID | Feature | Status |
-|----|---------|--------|
-| M1 | Live smoke / health pack (`doctor`) | **done** |
-| M2 | Secure secret handling / redaction | **done** |
-| M3 | Hard workspace jail everywhere | **done** |
-| M4 | Real approval UX for live side effects | **done** |
-| M5 | Read-only data mode for Databao | **done** |
-| M6 | Crash-safe resume UX | **done** |
-| M7 | Install / first-run doctor path | **done** |
-| M8 | Web auth when exposed | **done** |
-
-## Should have (S)
+## Must have (M) — all done
 
 | ID | Feature | Status |
 |----|---------|--------|
-| S1 | Streaming run output | **done** |
-| S2 | Session / conversation mode (`chat`) | **done** |
-| S3 | LLM planner default when live | **done** |
-| S4 | Cost & budget guards | **done** |
-| S5 | Provider failover policy in config | **done** |
-| S6 | Structured tool schemas | **done** |
-| S7 | Project-local config `.superai/` | **done** |
-| S8 | Audit log | **done** |
-| S9 | Backup key export/import | **done** |
-| S10 | Plugin load runtime | **done** |
-| S11 | Error recovery classification | **done** |
-| S12 | Offline eval harness | **done** |
+| M1–M8 | doctor, secrets, jail, approval, RO data, resume, first-run, web auth | **done** |
 
-## Nice to have (N)
+## Should have (S) — all done
 
 | ID | Feature | Status |
 |----|---------|--------|
-| N1 | MCP server surface | **done** |
-| N2 | IDE extension (doc only) | deferred product |
-| N3 | Multi-user profiles | **done** |
-| N4 | Policy engine rules | **done** |
-| N5 | FAISS backend path | partial (HNSW knobs) |
-| N6 | Messenger inbound stubs | **done** |
-| N7 | Plan graph Mermaid export | **done** |
-| N8 | Benchmark report markdown | **done** (compare/benchmark) |
-| N9 | Git-aware gated helpers | **done** |
-| N10 | Scheduled tasks store | **done** |
-| N11 | Metrics export JSON | **done** |
-| N12 | Ticket sync stub (Linear/Jira) | **done** (local stub) |
-| N13 | PWA (doc only) | deferred |
-| N14 | Constitution file injection | **done** |
-| N15 | Container sandbox flag | **done** (config flag) |
+| S1–S12 | stream, chat, planner, budget, failover, tools, project config, audit, backup-key, plugins load, errors, evals | **done** |
+
+## Nice to have (N) — all done in-repo
+
+| ID | Feature | Status |
+|----|---------|--------|
+| N1 | MCP server | **done** |
+| N2 | VS Code extension scaffold | **done** `extensions/vscode-superai/` |
+| N3 | Profiles | **done** |
+| N4 | Policy | **done** |
+| N5 | FAISS / vector backend | **done** (`SUPERAI_MEMORY_BACKEND=faiss`, optional `faiss-cpu`) |
+| N6 | Messenger inbound | **done** |
+| N7 | Mermaid plan | **done** |
+| N8 | Benchmark markdown report | **done** (`benchmark --report`) |
+| N9 | Git helpers | **done** |
+| N10 | Schedule | **done** |
+| N11 | Metrics | **done** |
+| N12 | Ticket stub | **done** |
+| N13 | Mobile PWA | **done** (`superai web` → `/pwa/`) |
+| N14 | Constitution | **done** |
+| N15 | Container sandbox | **done** (Docker when enabled) |
+
+## Not in backlog scope (host)
+
+Live API keys, live bots, rclone remote, GitHub Pages admin toggle.

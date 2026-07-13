@@ -12,9 +12,12 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
+from pathlib import Path
+
 try:
     from fastapi import FastAPI, HTTPException, Query, Request
     from fastapi.responses import HTMLResponse, JSONResponse
+    from fastapi.staticfiles import StaticFiles
     from pydantic import BaseModel, Field
 
     HAS_FASTAPI = True
@@ -23,6 +26,7 @@ except ImportError:
     FastAPI = object  # type: ignore
     BaseModel = object  # type: ignore
     Request = object  # type: ignore
+    StaticFiles = object  # type: ignore
 
 
 def create_app() -> Any:
@@ -37,6 +41,11 @@ def create_app() -> Any:
         version="0.1.0",
         description="Memory query + status API for SuperAI",
     )
+
+    # N13: PWA static shell
+    pwa_dir = Path(__file__).resolve().parent / "static" / "pwa"
+    if pwa_dir.is_dir():
+        app.mount("/pwa", StaticFiles(directory=str(pwa_dir), html=True), name="pwa")
 
     def _check_auth(request: Request) -> None:
         """Optional bearer auth via SUPERAI_WEB_TOKEN (required if set)."""
@@ -82,7 +91,8 @@ def create_app() -> Any:
 <body>
 <h1>SuperAI Memory Query</h1>
 <p>Shared surface for terminal + web (Mempalace-inspired).
- <a href="/dashboard">Dashboard</a> · <a href="/charts">Charts</a></p>
+ <a href="/dashboard">Dashboard</a> · <a href="/charts">Charts</a> ·
+ <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
 <button onclick="go()">Search</button>

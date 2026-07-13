@@ -1,4 +1,4 @@
-# SuperAI_v1 Status
+# SuperAI Status
 
 **Updated:** 2026-07-14  
 **Resume:** `TASKBOARD.md`

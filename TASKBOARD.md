@@ -1,4 +1,4 @@
-# TASKBOARD — SuperAI_v1
+# TASKBOARD — SuperAI
 
 **Backlog:** `docs/FEATURE_BACKLOG.md`  
 **Security:** `docs/SECURITY_REVIEW.md`  

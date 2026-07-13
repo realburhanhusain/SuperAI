@@ -1,8 +1,8 @@
-﻿# Checkpoint: track-F-complete
+# Checkpoint: track-F-complete
 
 - **When:** 2026-07-13 23:29:20 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** a06b60f
 - **Git status:** ## master...origin/master
 - **Pytest:** 31 passed in 10.86s
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **Purpose:** Source of truth for *done* vs *left*. Resume here after any fault.  
 **Progress table:** `docs/PROGRESS.md`  

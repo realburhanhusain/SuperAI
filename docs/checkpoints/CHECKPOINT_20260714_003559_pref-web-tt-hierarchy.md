@@ -1,8 +1,8 @@
-﻿# Checkpoint: pref-web-tt-hierarchy
+# Checkpoint: pref-web-tt-hierarchy
 
 - **When:** 2026-07-14 00:36:22 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** b93456a
 - **Git status:** ## master...origin/master [ahead 5]
 - **Pytest:** 49 passed in 17.30s
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **No approval pauses** except external blockers (keys, rclone, GitHub admin, missing paid APIs).  
 **Checkpoints:** `scripts/checkpoint.ps1` Â· `docs/checkpoints/`  

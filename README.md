@@ -1,8 +1,8 @@
-# SuperAI (v1)
+# SuperAI
 
 **SuperAI** is a multi-model AI orchestration platform: plan → route → execute → learn, with safety rails.
 
-**Canonical tree:** this repo (`SuperAI_v1`).  
+**Canonical tree:** this repo (`Documents\Personal\github\SuperAI`).  
 **Resume:** [TASKBOARD.md](TASKBOARD.md) · **Backlog:** [docs/FEATURE_BACKLOG.md](docs/FEATURE_BACKLOG.md)
 
 > **Status (2026-07-14):** Feature backlog (M/S/N waves 1–2) **implemented in code**.  
@@ -23,7 +23,7 @@ Entry point: `superai` → `scli.main:app`
 ## Install
 
 ```powershell
-cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 pip install -e ".[dev]"
 # Optional: pip install -e ".[web]" ".[embeddings]" ".[vector]" ".[data]"
 superai onboard

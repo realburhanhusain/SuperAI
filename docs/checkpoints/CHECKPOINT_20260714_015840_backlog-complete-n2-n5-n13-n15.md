@@ -1,8 +1,8 @@
-﻿# Checkpoint: backlog-complete-n2-n5-n13-n15
+# Checkpoint: backlog-complete-n2-n5-n13-n15
 
 - **When:** 2026-07-14 01:58:41 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** e576ee5
 - **Git status:** ## master...origin/master [ahead 13]
 - **Pytest:** skipped
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **Backlog:** `docs/FEATURE_BACKLOG.md`  
 **Security:** `docs/SECURITY_REVIEW.md`  

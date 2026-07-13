@@ -1,8 +1,8 @@
-﻿# Checkpoint: security-review-and-hardening
+# Checkpoint: security-review-and-hardening
 
 - **When:** 2026-07-14 01:38:21 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** d27820f
 - **Git status:** ## master...origin/master [ahead 11]
 - **Pytest:** skipped
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **Deferred last activity:** live smoke (API keys, bots, rclone, Pages).  
 **Gap tracker:** `docs/DOC_GAP_ANALYSIS.md` (Basic + Future Plan docs)

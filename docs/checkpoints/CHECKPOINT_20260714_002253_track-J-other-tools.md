@@ -1,8 +1,8 @@
-﻿# Checkpoint: track-J-other-tools
+# Checkpoint: track-J-other-tools
 
 - **When:** 2026-07-14 00:22:54 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** 20d355e
 - **Git status:** ## master...origin/master [ahead 3]
 - **Pytest:** skipped
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **Resume:** this file + latest `docs/checkpoints/` + `docs/PROGRESS.md`  
 **No daily resume task** â€” work continues in-session until external blockers only.  
@@ -48,7 +48,7 @@ Operational blockers (not code gaps): live multi-key smoke, rclone remote prove,
 - [x] G4 FEATURES + architecture + QUICK_REFERENCE aligned
 - [x] G5 CI workflow
 - [x] G6 docs/index + pages workflow (enable Pages in GitHub)
-- [x] G7 CONTRIBUTING updated for SuperAI_v1 + checkpoints
+- [x] G7 CONTRIBUTING updated for SuperAI + checkpoints
 
 ## Track H â€” Phase 7 foundation `[x]`
 
@@ -92,7 +92,7 @@ Operational blockers (not code gaps): live multi-key smoke, rclone remote prove,
 
 Source: `docs/OTHER_TOOL_FEATURES.md` + `docs/OtherToolFeatures.txt`
 
-- [x] Copy source file into SuperAI_v1
+- [x] Copy source file into SuperAI
 - [x] Tracked checklist markdown
 - [x] Council voting: majority | supervisor | weighted (`superai council`)
 - [x] Config `require_human_approval` + env `SUPERAI_REQUIRE_HUMAN_APPROVAL`

@@ -37,10 +37,10 @@ You can contribute in many ways:
 
 ---
 
-## Development Setup (SuperAI_v1)
+## Development Setup (SuperAI)
 
 ```powershell
-cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 pip install -e ".[dev]"
 pytest -q
 ```

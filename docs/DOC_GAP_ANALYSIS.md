@@ -1,4 +1,4 @@
-# Doc gap analysis — Basic Plan + Future Plan vs SuperAI_v1
+# Doc gap analysis — Basic Plan + Future Plan vs SuperAI
 
 **Sources:**
 - `Documents/Personal/SuperAI/SuperAI Basic Plan.docx`

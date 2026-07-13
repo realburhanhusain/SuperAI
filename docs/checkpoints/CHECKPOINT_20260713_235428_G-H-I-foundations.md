@@ -1,8 +1,8 @@
-﻿# Checkpoint: G-H-I-foundations
+# Checkpoint: G-H-I-foundations
 
 - **When:** 2026-07-13 23:54:29 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** eaabae4
 - **Git status:** ## master...origin/master [ahead 2]
 - **Pytest:** skipped
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **Resume:** this file + latest `docs/checkpoints/` + `docs/PROGRESS.md`  
 **No daily resume task** â€” work continues in-session until external blockers only.  
@@ -48,7 +48,7 @@ Operational blockers (not code gaps): live multi-key smoke, rclone remote prove,
 - [x] G4 FEATURES + architecture + QUICK_REFERENCE aligned
 - [x] G5 CI workflow
 - [x] G6 docs/index + pages workflow (enable Pages in GitHub)
-- [x] G7 CONTRIBUTING updated for SuperAI_v1 + checkpoints
+- [x] G7 CONTRIBUTING updated for SuperAI + checkpoints
 
 ## Track H â€” Phase 7 foundation `[x]`
 

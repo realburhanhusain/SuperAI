@@ -1,14 +1,15 @@
-# AGENTS.md — SuperAI_v1
+# AGENTS.md — SuperAI
 
 Instructions for any AI agent working in this repository.
 
 ## Canonical path
 
 ```
-C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 ```
 
-There is also a thinner sibling at `...\github\SuperAI` (plans + skeleton). **Prefer SuperAI_v1 for code.** Plans live in both; v1 has the full modules.
+This is the **canonical SuperAI codebase** (renamed from `SuperAI_v1`).  
+Siblings such as `SuperAI_Master` / `SuperAI_v2` are separate trees — **prefer this `SuperAI` repo for product code.**
 
 ## Always resume from the taskboard + checkpoints
 

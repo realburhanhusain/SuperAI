@@ -1,8 +1,8 @@
-﻿# Checkpoint: wave2-m9-n30-complete
+# Checkpoint: wave2-m9-n30-complete
 
 - **When:** 2026-07-14 02:09:34 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** 95a756b
 - **Git status:** ## master...origin/master [ahead 14]
 - **Pytest:** skipped
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **Backlog:** `docs/FEATURE_BACKLOG.md`  
 **Security:** `docs/SECURITY_REVIEW.md`  

@@ -118,7 +118,7 @@ def version():
     """Show SuperAI version"""
     console.print(
         f"[bold green]SuperAI v{__version__}[/bold green] "
-        "- Core Foundation (stabilized SuperAI_v1)"
+        "- Core Foundation (stabilized SuperAI)"
     )
 
 

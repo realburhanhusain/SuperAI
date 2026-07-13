@@ -1,12 +1,12 @@
 # SuperAI Quick Reference
 
-**Repo:** `SuperAI_v1` · **Board:** `TASKBOARD.md` · **Progress:** `docs/PROGRESS.md`  
+**Repo:** `SuperAI` · **Board:** `TASKBOARD.md` · **Progress:** `docs/PROGRESS.md`  
 **Packages:** `core` · `scli` · **Tests:** `pytest -q` (114+)
 
 ## Install
 
 ```powershell
-cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 pip install -e ".[dev]"
 # Optional: .[web] .[embeddings] .[vector] .[data]
 superai --install-completion

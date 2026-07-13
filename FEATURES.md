@@ -1,6 +1,6 @@
 # SuperAI — Features (aligned with code)
 
-**Repo:** SuperAI_v1 · **Board:** `TASKBOARD.md` · **Tests:** 141 passed  
+**Repo:** SuperAI · **Board:** `TASKBOARD.md` · **Tests:** 141 passed  
 **Packages:** `core` · `scli` (folder `src/cli`)
 
 ## Core

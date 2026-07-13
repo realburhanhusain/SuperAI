@@ -1,7 +1,7 @@
 # SuperAI — Project Summary (honest)
 
 **Updated:** 2026-07-13  
-**Codebase:** SuperAI_v1  
+**Codebase:** SuperAI  
 
 ## Overview
 
@@ -41,6 +41,6 @@ SuperAI aims to be a multi-model orchestration platform with learning, skills, a
 
 ## Conclusion
 
-SuperAI_v1 is a **resumable engineering codebase**. Tracks A–E are complete for foundation + core Phases 2–5 (mock/local).  
+SuperAI is a **resumable engineering codebase**. Tracks A–E are complete for foundation + core Phases 2–5 (mock/local).  
 **All remaining plan features are required** and sequenced as Tracks F–I (not optional).  
 Future agents must **update the taskboard** and continue pending tracks — never restart from zero or drop plan scope.

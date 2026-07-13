@@ -1,8 +1,8 @@
-﻿# Checkpoint: final-polish-no-smoke
+# Checkpoint: final-polish-no-smoke
 
 - **When:** 2026-07-14 00:52:05 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** 4936cb3
 - **Git status:** ## master...origin/master [ahead 7]
 - **Pytest:** skipped
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **No approval pauses** except external blockers.  
 **Deferred last activity:** live smoke (API keys, bots, rclone, Pages).  

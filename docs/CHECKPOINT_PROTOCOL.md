@@ -1,4 +1,4 @@
-# Checkpoint protocol (SuperAI_v1)
+# Checkpoint protocol (SuperAI)
 
 ## Why
 
@@ -16,7 +16,7 @@ Protect progress against power loss, OS crash, network drop, or agent session de
 ## Commands
 
 ```powershell
-cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 
 # Full checkpoint (runs pytest + git commit if dirty)
 powershell -File scripts\checkpoint.ps1 -Label "F3.1-embeddings"
@@ -36,14 +36,14 @@ powershell -File scripts\checkpoint.ps1 -Label "mid-F3" -SkipTests
 
 ## Suggested improvement (optional infra, still required product work elsewhere)
 
-- Enable **Windows File History** or cloud sync of `Documents\Personal\github\SuperAI_v1` + export of `~/.superai/.backup_key`.
+- Enable **Windows File History** or cloud sync of `Documents\Personal\github\SuperAI` + export of `~/.superai/.backup_key`.
 - Keep API keys only in env / secret store, not in git.
 - Periodic `superai backup --full --keep 20` via Task Scheduler.
 
 ## Recovery after fault
 
 ```powershell
-cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 Get-ChildItem docs\checkpoints | Sort-Object LastWriteTime -Descending | Select-Object -First 3
 # read latest CHECKPOINT_*.md + TASKBOARD.md
 git log -5 --oneline

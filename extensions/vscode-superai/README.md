@@ -10,7 +10,7 @@ Scaffold that shells out to the `superai` CLI.
 
 ## Setup
 
-1. Install SuperAI CLI: `pip install -e ".[dev]"` from the SuperAI_v1 repo.
+1. Install SuperAI CLI: `pip install -e ".[dev]"` from the SuperAI repo.
 2. Open this folder in VS Code: `extensions/vscode-superai`
 3. Press F5 to launch Extension Development Host, or package with `vsce`.
 

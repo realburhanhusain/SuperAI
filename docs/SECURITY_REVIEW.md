@@ -1,4 +1,4 @@
-# SuperAI_v1 — Completeness + Security Review
+# SuperAI — Completeness + Security Review
 
 **Date:** 2026-07-14  
 **Code:** `src/cli` (import `scli`), `src/core` (import `core`)  

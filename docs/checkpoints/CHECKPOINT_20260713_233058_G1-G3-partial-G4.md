@@ -1,8 +1,8 @@
-﻿# Checkpoint: G1-G3-partial-G4
+# Checkpoint: G1-G3-partial-G4
 
 - **When:** 2026-07-13 23:31:17 +03:00
 - **Host:** IT-DV-110-L
-- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 - **Git HEAD:** f2acb53
 - **Git status:** ## master...origin/master [ahead 1]
 - **Pytest:** 31 passed in 12.53s
@@ -17,7 +17,7 @@
 ## TASKBOARD snapshot (truncated)
 
 ```markdown
-# TASKBOARD â€” SuperAI_v1
+# TASKBOARD â€” SuperAI
 
 **Purpose:** Source of truth for *done* vs *left*. Resume here after any fault.  
 **Progress table:** `docs/PROGRESS.md`  

@@ -1,4 +1,4 @@
-# SuperAI_v1 — Phase progress
+# SuperAI — Phase progress
 
 **Updated:** 2026-07-14  
 **Tests:** **151 passed**  

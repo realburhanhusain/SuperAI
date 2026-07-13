@@ -38,6 +38,26 @@ def create_app() -> Any:
         description="Memory query + status API for SuperAI",
     )
 
+    def _check_auth(request: Request) -> None:
+        """Optional bearer auth via SUPERAI_WEB_TOKEN (required if set)."""
+        token = (os.getenv("SUPERAI_WEB_TOKEN") or "").strip()
+        if not token:
+            return
+        auth = request.headers.get("authorization") or ""
+        if auth.lower().startswith("bearer "):
+            got = auth[7:].strip()
+        else:
+            got = request.headers.get("x-superai-token") or ""
+        if got != token:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    @app.middleware("http")
+    async def auth_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+        # Allow static HTML shells without token; protect /api/*
+        if request.url.path.startswith("/api/"):
+            _check_auth(request)
+        return await call_next(request)
+
     class MemoryQuery(BaseModel):
         query: str = Field(..., min_length=1)
         top_k: int = Field(8, ge=1, le=50)
@@ -75,12 +95,13 @@ async function go(){
   const r=await fetch('/api/memory/search?q='+encodeURIComponent(q)+'&top_k=8');
   const j=await r.json();
   let html='';
+  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   (j.results||[]).forEach(m=>{
-    html+='<div class="card"><b>'+(m.id||'')+'</b><br/>'+
-      (m.content||'').slice(0,400)+'<br/><small>'+
-      JSON.stringify(m.metadata||{})+'</small></div>';
+    html+='<div class="card"><b>'+esc(m.id||'')+'</b><br/>'+
+      esc((m.content||'').slice(0,400))+'<br/><small>'+
+      esc(JSON.stringify(m.metadata||{}))+'</small></div>';
   });
-  document.getElementById('out').innerHTML=html||JSON.stringify(j,null,2);
+  document.getElementById('out').innerHTML=html||esc(JSON.stringify(j,null,2));
 }
 async function status(){
   const r=await fetch('/api/status');

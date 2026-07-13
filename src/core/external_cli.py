@@ -84,7 +84,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         command="gemini",
         args_template=["-p", "{prompt}"],
         detects=["gemini", "gemini.exe"],
-        modifies_files=False,
+        modifies_files=True,  # treat as file-modifying unless proven read-only flags used
         description="Gemini CLI",
     ),
     ExternalCLISpec(

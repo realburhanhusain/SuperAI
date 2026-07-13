@@ -67,8 +67,9 @@ def sources_for_scopes(
 ) -> List[Path]:
     """
     Selective backup: scopes like memory,skills,config or full.
+    Unknown scope names are rejected (no path traversal via ../).
     """
-    root = home or (Path.home() / ".superai")
+    root = (home or (Path.home() / ".superai")).resolve()
     if not scopes:
         return default_backup_sources(root)
     names: List[str] = []
@@ -79,15 +80,27 @@ def sources_for_scopes(
         if key == "full" or key == "all":
             names = list(BACKUP_SCOPES["full"])
             break
-        names.extend(BACKUP_SCOPES.get(key, [key]))
-    # unique preserve order
+        if key not in BACKUP_SCOPES:
+            raise ValueError(
+                f"Unknown backup scope '{key}'. "
+                f"Allowed: {', '.join(sorted(BACKUP_SCOPES))} or full"
+            )
+        names.extend(BACKUP_SCOPES[key])
+    # unique preserve order; jail under root
     seen = set()
     paths: List[Path] = []
     for n in names:
         if n in seen:
             continue
+        if ".." in Path(n).parts or Path(n).is_absolute():
+            raise ValueError(f"Invalid backup path segment: {n}")
         seen.add(n)
-        paths.append(root / n)
+        p = (root / n).resolve()
+        try:
+            p.relative_to(root)
+        except ValueError as e:
+            raise ValueError(f"Backup path escapes home: {n}") from e
+        paths.append(p)
     return paths or default_backup_sources(root)
 
 
@@ -372,12 +385,39 @@ class BackupManager:
             restore_path.mkdir(parents=True, exist_ok=True)
 
             with tarfile.open(fileobj=io.BytesIO(tar_data), mode="r:") as tar:
-                # Python 3.12+ has filter=; use safe extract
+                # Always validate members (tar-slip defense even without data_filter)
+                restore_path = restore_path.resolve()
+                safe_members = []
+                for m in tar.getmembers():
+                    name = m.name.replace("\\", "/")
+                    if name.startswith("/") or name.startswith("..") or "/../" in f"/{name}/":
+                        return {
+                            "ok": False,
+                            "error": f"Unsafe tar member path rejected: {m.name}",
+                        }
+                    target = (restore_path / name).resolve()
+                    try:
+                        target.relative_to(restore_path)
+                    except ValueError:
+                        return {
+                            "ok": False,
+                            "error": f"Tar member escapes restore dir: {m.name}",
+                        }
+                    if m.issym() or m.islnk():
+                        return {
+                            "ok": False,
+                            "error": f"Symlink/hardlink members not allowed: {m.name}",
+                        }
+                    safe_members.append(m)
                 try:
-                    tar.extractall(path=restore_path, filter=tarfile.data_filter)
+                    tar.extractall(
+                        path=restore_path,
+                        members=safe_members,
+                        filter=tarfile.data_filter,
+                    )
                 except TypeError:
-                    tar.extractall(path=restore_path)
-                members = [m.name for m in tar.getmembers() if m.isfile()]
+                    tar.extractall(path=restore_path, members=safe_members)
+                members = [m.name for m in safe_members if m.isfile()]
 
             return {
                 "ok": True,

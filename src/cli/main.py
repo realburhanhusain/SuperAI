@@ -1607,6 +1607,8 @@ def web(
     port: int = typer.Option(8787, "--port"),
 ):
     """Start web memory/status UI (requires pip install -e \".[web]\")"""
+    import os
+
     try:
         import uvicorn
         from scli.web_app import create_app
@@ -1615,6 +1617,16 @@ def web(
             "[red]Web extras missing.[/red] Install: pip install -e \".[web]\""
         )
         raise typer.Exit(1) from e
+    # Refuse non-loopback bind without auth token
+    loopback = host in {"127.0.0.1", "localhost", "::1"}
+    if not loopback and not (os.getenv("SUPERAI_WEB_TOKEN") or "").strip():
+        console.print(
+            "[red]Refusing to bind non-loopback without SUPERAI_WEB_TOKEN.[/red]\n"
+            "Set SUPERAI_WEB_TOKEN or use --host 127.0.0.1"
+        )
+        raise typer.Exit(1)
+    if (os.getenv("SUPERAI_WEB_TOKEN") or "").strip():
+        console.print("[dim]API auth enabled (SUPERAI_WEB_TOKEN)[/dim]")
     console.print(f"[green]Starting SuperAI web on http://{host}:{port}[/green]")
     uvicorn.run(create_app(), host=host, port=port, log_level="info")
 

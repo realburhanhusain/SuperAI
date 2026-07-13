@@ -410,24 +410,33 @@ class DatabaoAdapter:
 
     def _sanitize_sql(self, sql: str) -> str:
         s = (sql or "").strip().rstrip(";")
-        low = s.lower()
+        # Normalize whitespace/comments for keyword scanning
+        low = re.sub(r"/\*.*?\*/", " ", s, flags=re.S).lower()
+        low = re.sub(r"--[^\n]*", " ", low)
+        low = re.sub(r"\s+", " ", low).strip()
         banned = (
-            "insert ",
-            "update ",
-            "delete ",
-            "drop ",
-            "alter ",
-            "attach ",
-            "detach ",
-            "pragma ",
-            "create ",
-            "replace ",
-            "truncate ",
+            "insert",
+            "update",
+            "delete",
+            "drop",
+            "alter",
+            "attach",
+            "detach",
+            "pragma",
+            "create",
+            "replace",
+            "truncate",
+            "grant",
+            "revoke",
+            "load_extension",
+            "into outfile",
+            "copy ",
         )
         if not (low.startswith("select") or low.startswith("with")):
             raise ValueError("Only SELECT/WITH queries are allowed")
+        # Token-ish check: keyword as whole word
         for b in banned:
-            if b in low:
+            if re.search(rf"\b{re.escape(b.strip())}\b", low):
                 raise ValueError(f"Forbidden SQL keyword detected: {b.strip()}")
         if ";" in s:
             raise ValueError("Multiple statements not allowed")

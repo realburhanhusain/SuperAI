@@ -26,7 +26,12 @@ class TaskHistory:
         return f"{stamp}-{uuid.uuid4().hex[:8]}"
 
     def save(self, record: Dict[str, Any]) -> Path:
+        import re
+
         task_id = record.get("task_id") or self.new_task_id()
+        task_id = str(task_id)
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", task_id):
+            raise HistoryError(f"Invalid task_id: {task_id!r}")
         record = {**record, "task_id": task_id}
         path = self.history_dir / f"{task_id}.json"
         try:

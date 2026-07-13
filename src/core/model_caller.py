@@ -299,6 +299,7 @@ class ModelCaller:
 
     def _call_external_cli(self, model: str, prompt: str) -> Dict[str, Any]:
         """Invoke dual-registered external CLI as if it were a model."""
+        from .config import Config
         from .external_cli import ExternalCLITool
         from .mcp_context import MCPContextPack
 
@@ -311,21 +312,37 @@ class ModelCaller:
         pack = MCPContextPack().build(task=prompt, auto_memory=True, auto_skills=True)
         wrapped = MCPContextPack().wrap_cli_prompt(pack, prompt)
 
-        tool = ExternalCLITool(
-            auto_approve=True,
-            dry_run=self.use_mock or not (info and (info.extra or {}).get("available")),
-        )
-        # Prefer dry-run when CLI not on PATH
+        # Honor require_human_approval — never hardcode auto_approve for live CLIs
+        require_approval = True
+        try:
+            require_approval = bool(Config().get("require_human_approval", True))
+        except Exception:  # noqa: BLE001
+            require_approval = True
+
+        dry = bool(self.use_mock)
         try:
             from .external_cli import ExternalCLIRegistry
 
             avail = ExternalCLIRegistry().available()
             if cli_name not in avail:
-                tool.dry_run = True
+                dry = True
         except Exception:  # noqa: BLE001
-            tool.dry_run = True
+            dry = True
+        if info and (info.extra or {}).get("available") is False:
+            dry = True
 
-        env = tool.run(cli_name, wrapped, approve=True)
+        # Live file-modifying CLIs: dry-run unless approval explicitly disabled
+        tool = ExternalCLITool(
+            auto_approve=not require_approval,
+            dry_run=dry or require_approval,  # safe default: dry-run when approval required
+        )
+        # When approval is required we dry-run from ModelCaller (no interactive prompt mid-task).
+        # Users must use `superai cli-run <name> --approve` for live file-modifying runs.
+        env = tool.run(
+            cli_name,
+            wrapped,
+            approve=(not require_approval),
+        )
         text = env.stdout or env.stderr or env.error or ""
         if tool.dry_run and not text:
             text = (

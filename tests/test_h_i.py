@@ -29,7 +29,8 @@ def test_external_cli_discovery_and_dry_run():
     assert result.to_dict()["cli"] == "claude"
 
 
-def test_tool_proposals(tmp_path: Path):
+def test_tool_proposals(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SUPERAI_WORKSPACE", str(tmp_path))
     mgr = ToolProposalManager(store_path=tmp_path / "props.json")
     p = mgr.propose(
         "edit_file",
@@ -39,7 +40,7 @@ def test_tool_proposals(tmp_path: Path):
     assert p.status == "proposed"
     mgr.approve(p.id)
     executed = mgr.execute(p.id)
-    assert executed.status == "executed"
+    assert executed.status == "executed", executed.result
     assert (tmp_path / "out.txt").read_text(encoding="utf-8") == "hi"
 
 

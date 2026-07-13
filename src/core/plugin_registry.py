@@ -183,10 +183,21 @@ class PluginRegistry:
         plugin_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Install (write) a plugin manifest under ~/.superai/plugins/<id>/."""
+        import re
+
         pid = plugin_id or manifest.get("id")
         if not pid:
             raise ValueError("manifest must include id")
-        dest = self.root / str(pid)
+        pid = str(pid)
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", pid):
+            raise ValueError(
+                "plugin id must be alphanumeric / . _ - only (no path separators)"
+            )
+        dest = (self.root / pid).resolve()
+        try:
+            dest.relative_to(self.root.resolve())
+        except ValueError as e:
+            raise ValueError("plugin path escapes plugins root") from e
         dest.mkdir(parents=True, exist_ok=True)
         data = dict(manifest)
         data["id"] = pid

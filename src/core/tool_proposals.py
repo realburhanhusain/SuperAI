@@ -135,6 +135,7 @@ class ToolProposalManager:
         return self.proposals[proposal_id]
 
     def _exec_run_shell(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        import os
         import subprocess
 
         cmd = args.get("command")
@@ -143,8 +144,40 @@ class ToolProposalManager:
         # Safety: only allow simple list form
         if isinstance(cmd, str):
             raise ValueError("command must be a list of argv (not a shell string)")
+        if not isinstance(cmd, (list, tuple)) or not cmd:
+            raise ValueError("command must be a non-empty list of argv")
+        # Block common shell meta-runners unless SUPERAI_ALLOW_SHELL_META=1
+        exe = str(cmd[0]).lower().replace("\\", "/")
+        base = Path(exe).name
+        blocked = {
+            "powershell",
+            "powershell.exe",
+            "pwsh",
+            "pwsh.exe",
+            "cmd",
+            "cmd.exe",
+            "bash",
+            "sh",
+            "zsh",
+            "wscript",
+            "cscript",
+            "mshta",
+        }
+        if base in blocked and os.getenv("SUPERAI_ALLOW_SHELL_META", "").lower() not in {
+            "1",
+            "true",
+            "yes",
+        }:
+            raise ValueError(
+                f"Blocked shell meta-executable '{base}'. "
+                "Set SUPERAI_ALLOW_SHELL_META=1 to override (not recommended)."
+            )
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=float(args.get("timeout", 60))
+            list(cmd),
+            capture_output=True,
+            text=True,
+            timeout=float(args.get("timeout", 60)),
+            shell=False,
         )
         return {
             "exit_code": proc.returncode,
@@ -153,22 +186,36 @@ class ToolProposalManager:
         }
 
     def _exec_edit_file(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        path = Path(args["path"])
+        import os
+
+        path = Path(args["path"]).expanduser()
         content = args.get("content")
         if content is None:
             raise ValueError("edit_file requires content")
+        # Jail under workspace root (cwd or SUPERAI_WORKSPACE)
+        root = Path(
+            os.getenv("SUPERAI_WORKSPACE") or Path.cwd()
+        ).expanduser().resolve()
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError as e:
+            raise ValueError(
+                f"edit_file path must be under workspace root {root}. "
+                "Set SUPERAI_WORKSPACE to change."
+            ) from e
         # Atomic-Hermes style: snapshot before overwrite
         snap = None
         try:
             from .time_travel import FileTimeTravel
 
-            snap = FileTimeTravel().snapshot(path, note="pre-edit_file proposal")
+            snap = FileTimeTravel().snapshot(resolved, note="pre-edit_file proposal")
         except Exception:
             pass
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(str(content), encoding="utf-8")
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        resolved.write_text(str(content), encoding="utf-8")
         return {
-            "path": str(path),
+            "path": str(resolved),
             "bytes": len(str(content).encode("utf-8")),
             "time_travel_snapshot": snap,
         }

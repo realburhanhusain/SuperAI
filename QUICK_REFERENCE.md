@@ -46,6 +46,11 @@ Creates `~/.superai/` (config, logs, history, memory, skills, backups).
 | `superai data-ask "list German customers"` | NL data Q&A (Databao-inspired) |
 | `superai data-schema` | Show data schema / capabilities |
 | `superai config set data_dsn "sqlite:///..."` | Data source DSN |
+| `superai pref show` | Learned + explicit preferences |
+| `superai tt-snapshot PATH` / `tt-list` / `tt-restore` | File time-travel |
+| `superai msg-send "hi" -c file` | Messenger bus |
+| `superai web --port 8787` | Web memory UI (needs `.[web]`) |
+| `superai delegate "Build X"` | Hierarchical multi-step delegation |
 | `superai provider-health` | Health + quota windows |
 | `superai learnings` / `reflect` / `conflicts` / `evolve <topic>` | Learning |
 | `superai feedback <task_id> "..."` | Human feedback |

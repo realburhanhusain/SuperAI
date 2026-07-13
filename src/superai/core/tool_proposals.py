@@ -157,9 +157,21 @@ class ToolProposalManager:
         content = args.get("content")
         if content is None:
             raise ValueError("edit_file requires content")
+        # Atomic-Hermes style: snapshot before overwrite
+        snap = None
+        try:
+            from .time_travel import FileTimeTravel
+
+            snap = FileTimeTravel().snapshot(path, note="pre-edit_file proposal")
+        except Exception:
+            pass
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(str(content), encoding="utf-8")
-        return {"path": str(path), "bytes": len(str(content).encode("utf-8"))}
+        return {
+            "path": str(path),
+            "bytes": len(str(content).encode("utf-8")),
+            "time_travel_snapshot": snap,
+        }
 
     def _exec_web_search_stub(self, args: Dict[str, Any]) -> Dict[str, Any]:
         # Real search providers plugged in Track I; keep structured stub

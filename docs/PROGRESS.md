@@ -1,40 +1,36 @@
 # SuperAI_v1 — Phase progress
 
-**Updated:** 2026-07-13 (end of continuous session push)  
-**Checkpoints:** `docs/checkpoints/` · `scripts/checkpoint.ps1`  
-**Board:** `TASKBOARD.md`
+**Updated:** 2026-07-14  
+**Tests:** 49 passed  
+**Checkpoints:** `docs/checkpoints/`
 
 ## Phase completion
 
 | Phase | Name | % complete |
 |------:|------|----------:|
-| **1** | Core Foundation | **95%** |
-| **2** | Models, routing, resilience | **93%** |
-| **3** | Self-learning + Memory Palace | **92%** |
-| **4** | Skills system | **92%** |
+| **1** | Core Foundation | **96%** |
+| **2** | Models, routing, resilience | **94%** |
+| **3** | Self-learning + Memory Palace | **94%** |
+| **4** | Skills system | **93%** |
 | **5** | Encrypted backup + cloud | **93%** |
-| **6** | Polish, CLI, docs, CI | **85%** |
-| **7** | Advanced features & ecosystem | **55%** |
-| **8** | Agentic + deep integration | **58%** |
+| **6** | Polish, CLI, docs, CI | **88%** |
+| **7** | Advanced features & ecosystem | **72%** |
+| **8** | Agentic + deep integration | **70%** |
 
-**Overall (equal weight):** ~**85%** of full plan vision in-repo (+ Track J Databao adapter).
+**Overall (equal weight): ~87.5%**
 
-### Notes on remaining %
+### Remaining (mostly depth or external)
 
-- Live multi-provider E2E depends on **API keys on the machine**.
-- Cloud backup E2E depends on **rclone remotes**.
-- GitHub Pages depends on **repo settings**.
-- Full production web dashboard, deep MCP bridging, and full RL tuning remain enhancement depth inside H/I (foundations landed).
+- Production messenger bots (Telegram/Slack tokens)
+- Host: API keys, rclone, GitHub Pages toggle
+- Interactive chart UI beyond Vega JSON
+- Plugin marketplace packaging
 
-## Completed major work
+## Session highlights
 
-- Tracks **A–F** complete in code  
-- Track **G** docs/CI/UX complete (Pages enable is host)  
-- Track **H** foundations: external CLI, proposals, bandit  
-- Track **I** foundations: discovery init, debate, wings  
-
-## Tests
-
-```text
-pytest -q  →  36+ passed
-```
+- Databao NL data adapter + CLI  
+- User preference model + routing influence  
+- File time-travel + messenger bus  
+- FastAPI web memory UI (`superai web`)  
+- Hierarchical `delegate`  
+- Council voting (3 modes) earlier in Track J  

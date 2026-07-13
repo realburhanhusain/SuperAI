@@ -962,6 +962,160 @@ def data_schema(
     console.print_json(data=adapter.capabilities())
 
 
+@app.command("pref")
+def pref_cmd(
+    action: str = typer.Argument("show", help="show | set | get | delete"),
+    key: Optional[str] = typer.Argument(None, help="Preference key"),
+    value: Optional[str] = typer.Argument(None, help="Value for set"),
+):
+    """User preferences / learned profile"""
+    from superai.core.preferences import UserPreferenceModel
+
+    pm = UserPreferenceModel()
+    if action == "show":
+        console.print_json(data=pm.profile_summary())
+        return
+    if action == "get":
+        if not key:
+            console.print("[red]key required[/red]")
+            raise typer.Exit(1)
+        console.print(pm.get(key))
+        return
+    if action == "set":
+        if not key:
+            console.print("[red]key required[/red]")
+            raise typer.Exit(1)
+        parsed: object = value
+        if value is not None and value.lower() in {"true", "false"}:
+            parsed = value.lower() == "true"
+        pm.set(key, parsed)
+        console.print(f"[green]Set preference[/green] {key}={parsed}")
+        return
+    if action == "delete":
+        if not key or not pm.delete(key):
+            console.print("[yellow]Not found[/yellow]")
+            raise typer.Exit(1)
+        console.print(f"[green]Deleted[/green] {key}")
+        return
+    console.print("[red]Unknown action[/red]")
+    raise typer.Exit(1)
+
+
+@app.command("tt-snapshot")
+def tt_snapshot(
+    path: str = typer.Argument(..., help="File path to snapshot"),
+    note: str = typer.Option("", "--note"),
+):
+    """Snapshot a file for time-travel restore"""
+    from superai.core.time_travel import FileTimeTravel
+
+    info = FileTimeTravel().snapshot(path, note=note)
+    console.print_json(data=info)
+
+
+@app.command("tt-list")
+def tt_list(path: str = typer.Argument(..., help="File path")):
+    """List time-travel versions for a file"""
+    from superai.core.time_travel import FileTimeTravel
+
+    versions = FileTimeTravel().list_versions(path)
+    if not versions:
+        console.print("[yellow]No versions[/yellow]")
+        return
+    table = Table(title=f"Versions for {path}")
+    table.add_column("Ver")
+    table.add_column("When")
+    table.add_column("Size")
+    table.add_column("Note")
+    for v in versions:
+        table.add_row(
+            str(v.get("version")),
+            str(v.get("created_at")),
+            str(v.get("size")),
+            str(v.get("note") or ""),
+        )
+    console.print(table)
+
+
+@app.command("tt-restore")
+def tt_restore(
+    path: str = typer.Argument(..., help="File path"),
+    version: int = typer.Argument(..., help="Version number"),
+):
+    """Restore a file from a time-travel snapshot"""
+    from superai.core.time_travel import FileTimeTravel
+
+    try:
+        info = FileTimeTravel().restore(path, version)
+        console.print(f"[green]Restored[/green] {info}")
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+
+
+@app.command("msg-send")
+def msg_send(
+    message: str = typer.Argument(..., help="Message text"),
+    channel: str = typer.Option("cli", "--channel", "-c"),
+):
+    """Send via messenger bus (cli/file/webhook/…)"""
+    from superai.core.messengers import MessengerBus
+
+    result = MessengerBus().send(message, channel=channel)
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@app.command("msg-channels")
+def msg_channels():
+    """List messenger channels"""
+    from superai.core.messengers import MessengerBus
+
+    console.print_json(data=MessengerBus().list_channels())
+
+
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8787, "--port"),
+):
+    """Start web memory/status UI (requires pip install -e \".[web]\")"""
+    try:
+        import uvicorn
+        from superai.web_app import create_app
+    except ImportError as e:
+        console.print(
+            "[red]Web extras missing.[/red] Install: pip install -e \".[web]\""
+        )
+        raise typer.Exit(1) from e
+    console.print(f"[green]Starting SuperAI web on http://{host}:{port}[/green]")
+    uvicorn.run(create_app(), host=host, port=port, log_level="info")
+
+
+@app.command("delegate")
+def delegate(
+    goal: str = typer.Argument(..., help="High-level goal to decompose and run"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+):
+    """Hierarchical delegation of a goal into subtasks"""
+    from superai.core.hierarchy import HierarchicalDelegator
+
+    tree = HierarchicalDelegator().run(goal, verbose=verbose)
+    console.print_json(data=_json_safe(tree))
+
+
+def _json_safe(obj):
+    """Best-effort JSON-serializable copy for nested results."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_safe(x) for x in obj]
+    if isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj
+    return str(obj)
+
+
 @app.command()
 def wings(
     list_all: bool = typer.Option(False, "--list", help="List wings and rooms"),

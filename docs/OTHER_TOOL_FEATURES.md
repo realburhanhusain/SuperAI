@@ -1,103 +1,78 @@
 # Other tool features — tracked checklist
 
-**Source:** `Documents/Personal/github/SuperAI/OtherToolFeatures.txt` (copied 2026-07-14)  
-**Policy:** inspire or reuse code as convenient. Plan features are **required** (sequenced).  
-**Board:** also mirrored under Track J in `TASKBOARD.md`.
+**Source:** `OtherToolFeatures.txt` · **Updated:** 2026-07-14  
+**Policy:** inspire or reuse code. Required scope, sequenced.
 
 **Legend:** `[ ]` pending · `[~]` in progress · `[x]` done
 
 ---
 
-## Overview / philosophy
+## Overview
 
-- [x] SuperAI as unifying **supervisor** layer (orchestrator + CLI)
-- [x] Modularity / extensibility (package layout, registries)
-- [ ] Deeper plugin system for third-party adapters
-
----
-
-## 1. LLM Council  
-Repo: https://github.com/Mohamadreza-Shahmohamadi/LLM_Council_ApplimentAI_Enhanced
-
-- [x] Multi-agent deliberation / debate patterns (`agentic`, `council`)
-- [x] Debate, critique, extend workflows
-- [x] Voting modes: **majority** | **supervisor** | **weighted** (user-selectable)
-- [x] Stage-based task classification (router)
-- [~] Richer multi-model collaboration stages (plan → debate → vote → act)
-- [~] Advanced supervisor prompt packs
-- [x] Structured agent message envelopes (JSON)
+- [x] SuperAI supervisor layer
+- [x] Modular registries / adapters
+- [~] Deeper third-party plugin marketplace (structure via registries)
 
 ---
 
-## 2. OpenClaw  
-Repo: https://github.com/openclaw/openclaw
+## 1. LLM Council
+https://github.com/Mohamadreza-Shahmohamadi/LLM_Council_ApplimentAI_Enhanced
 
-- [x] Local-first defaults (mock_mode, local memory/backup)
-- [~] Personal assistant capabilities (partial via CLI suite)
-- [x] Tool propose → approve → execute (`tool_proposals`)
-- [x] Human approval default via **config flag** (`require_human_approval`)
-- [~] Self-improving loop (learning + skills; deepen tool-usage learning)
-- [~] User modeling / preference learning
-- [x] Privacy-oriented local storage under `~/.superai/`
+- [x] Council + debate / critique
+- [x] Voting: majority | supervisor | weighted
+- [x] Stage classification (router)
+- [x] Structured JSON envelopes
+- [x] Hierarchical delegate command
 
 ---
 
-## 3. Hermes-Agent  
-Repo: https://github.com/NousResearch/hermes-agent  
-Related: https://github.com/AtomicBot-ai/atomic-hermes
+## 2. OpenClaw
+https://github.com/openclaw/openclaw
 
-- [x] Agentic workflows foundation (debate / critique-extend)
-- [~] Advanced hierarchical delegation
+- [x] Local-first defaults
+- [x] Tool propose → approve → execute
+- [x] `require_human_approval` config
+- [x] User preference / modeling (`preferences.py`, `pref` CLI)
+- [x] Self-improve via learning + skills + preference signals
+- [x] Local privacy store `~/.superai/`
+
+---
+
+## 3. Hermes / Atomic-Hermes
+https://github.com/NousResearch/hermes-agent  
+https://github.com/AtomicBot-ai/atomic-hermes
+
+- [x] Agentic debate / critique-extend
+- [x] Hierarchical delegation (`delegate`)
 - [x] Multi-round deliberation
-- [~] Self-improving agent loops (stronger)
-- [x] Observability via logs/history/health
-- [x] Skill-like reusable components
-- [ ] Atomic-hermes: time-travel file history, multi-messenger (later)
+- [x] Skills reusable components
+- [x] File time-travel snapshots (`tt-snapshot` / `tt-list` / `tt-restore`)
+- [x] Multi-messenger bus foundation (`msg-send` / `msg-channels`)
+- [~] Full Telegram/Slack production connectors (webhook channel ready)
 
 ---
 
-## 4. Mempalace  
-Repo: https://github.com/MemPalace/mempalace
+## 4. Mempalace
+https://github.com/MemPalace/mempalace
 
 - [x] Wings & rooms
-- [x] Semantic memory (Chroma + embeddings path)
-- [x] Memory versioning / provenance fields (basic)
-- [x] Long-term decay / distill / conflicts
-- [~] Shared terminal + web memory query UI
-- [x] Consolidation techniques (distill)
+- [x] Semantic memory + embeddings path
+- [x] Provenance / versioning
+- [x] Decay / distill / conflicts
+- [x] Terminal + **web** memory query UI (`superai web`, `/api/memory/search`)
 
 ---
 
-## 5. Databao-Agent  
-Repo: https://github.com/realburhanhusain/databao-agent
+## 5. Databao-Agent
+https://github.com/realburhanhusain/databao-agent
 
-- [x] NL → tables + chart specs over SQLAlchemy / demo SQLite (`databao_adapter`, `data-ask`)
-- [x] Optional real `databao-agent` package when installed (`pip install -e ".[data]"`)
-- [x] Conversational threads (`--thread`) for follow-ups
-- [~] Full chart interactivity / all remote warehouses (DSN-dependent host setup)
-- [x] Safe SELECT-only SQL path with sanitization
-
----
-
-## Secondary CLIs (workers)
-
-| Tool | Status |
-|------|--------|
-| Claude Code | `[x]` registered + approval gate |
-| Aider | `[x]` registered |
-| Cursor | `[x]` registered |
-| Grok / Gemini / Codex | `[x]` registered |
-| Continue.dev | `[x]` registered (discover when on PATH) |
-| Cline | `[x]` registered |
-| Roo Code | `[x]` registered |
+- [x] NL → tables + chart specs
+- [x] SQLAlchemy / demo SQLite + optional databao package
+- [x] Conversational threads
+- [~] Full interactive Vega frontend (JSON spec exported)
 
 ---
 
-## Decisions (2026-07-14)
+## Secondary CLIs
 
-| Topic | Decision |
-|-------|----------|
-| Code reuse | Inspire **or** reuse as convenient |
-| Council voting | **majority** \| **supervisor** \| **weighted** (user selects) |
-| Human approval default | **Config flag** `require_human_approval` (default true for file-modifying) |
-| This checklist | Live under SuperAI_v1 `docs/OTHER_TOOL_FEATURES.md` + Track J |
+Claude, Aider, Cursor, Grok, Gemini, Codex, Continue, Cline, Roo — **registered** for discovery/`cli-run`.

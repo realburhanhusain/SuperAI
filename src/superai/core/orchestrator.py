@@ -24,6 +24,7 @@ from .memory_palace import MemoryPalace
 from .model_caller import ModelCaller
 from .model_registry import ModelRegistry
 from .model_router import ModelRouter
+from .preferences import UserPreferenceModel
 from .provider_health import ProviderHealthStore
 from .skills import SkillsManager
 from .task_planner import TaskPlanner
@@ -61,6 +62,11 @@ class SuperAIOrchestrator:
         self.learning_engine = LearningEngine(self.memory_palace)
         self.skills_manager = SkillsManager()
         self.history = TaskHistory()
+        self.preferences = UserPreferenceModel()
+        try:
+            self.preferences.apply_to_config_defaults(self.config)
+        except Exception:  # noqa: BLE001
+            pass
         logger.info(
             "SuperAIOrchestrator initialized (mock_mode=%s, strategy=%s)",
             self.config.use_mock,
@@ -182,9 +188,13 @@ class SuperAIOrchestrator:
                 if forced_model:
                     selected_model = forced_model
                 else:
+                    preferred = (
+                        self.config.default_supervisor
+                        or self.preferences.preferred_model_for(task_type)
+                    )
                     selected_model = self.model_router.select_model(
                         task_description=step.description,
-                        preferred_model=self.config.default_supervisor,
+                        preferred_model=preferred,
                         verbose=verbose,
                     )
 
@@ -374,6 +384,16 @@ class SuperAIOrchestrator:
                 logger.debug("Could not store learning: %s", e)
                 if verbose:
                     console.print(f"[yellow]Warning: Could not store learning: {e}[/yellow]")
+
+            try:
+                self.preferences.observe_task(
+                    task_type=task_type,
+                    model=selected_model or "unknown",
+                    success=overall_success,
+                    duration=duration,
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Preference observe failed: %s", e)
 
             # Phase 4: record skill outcomes + auto-create after enough successes
             try:

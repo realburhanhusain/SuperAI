@@ -70,6 +70,26 @@ def run_doctor(quick: bool = False) -> Dict[str, Any]:
         f"available={env.get('clis_available') or []}",
     )
 
+    # Host tools checklist (not bundled; PATH discovery)
+    host_tools_report = None
+    try:
+        from .host_tools import checklist as host_tools_checklist
+
+        host_tools_report = host_tools_checklist(profile="full")
+        totals = host_tools_report.get("totals") or {}
+        missing_ids = [m["id"] for m in (host_tools_report.get("missing") or [])[:12]]
+        add(
+            "host_tools",
+            True,
+            (
+                f"present={totals.get('present', 0)}/"
+                f"{totals.get('checked', 0)} "
+                f"missing={missing_ids or []}"
+            ),
+        )
+    except Exception as e:  # noqa: BLE001
+        add("host_tools", False, str(e), "warn")
+
     # Backup key
     key = home / ".backup_key"
     add("backup_key", key.exists(), str(key) if key.exists() else "not generated yet")
@@ -140,6 +160,15 @@ def run_doctor(quick: bool = False) -> Dict[str, Any]:
         "workspace": str(workspace_root()),
         "next_steps": _next_steps(cfg, any_key, checks),
         "smoke": smoke,
+        "host_tools": {
+            "totals": (host_tools_report or {}).get("totals"),
+            "missing": [
+                m.get("id") for m in ((host_tools_report or {}).get("missing") or [])
+            ],
+            "package_managers": (host_tools_report or {}).get("package_managers"),
+        }
+        if host_tools_report
+        else None,
     }
     return summary
 
@@ -156,5 +185,13 @@ def _next_steps(cfg: Config, any_key: bool, checks: List[Dict[str, Any]]) -> Lis
     open_runs = next((c for c in checks if c["name"] == "incomplete_runs"), None)
     if open_runs and "count=" in str(open_runs.get("detail")) and open_runs["detail"] != "count=0":
         steps.append("Resume: superai runs list && superai runs resume <task_id>")
+    ht = next((c for c in checks if c["name"] == "host_tools"), None)
+    if ht and "missing=[" in str(ht.get("detail")) and "missing=[]" not in str(
+        ht.get("detail")
+    ):
+        steps.append(
+            "Host tools: superai host-tools check  ·  "
+            "superai host-tools install --profile core --dry-run"
+        )
     steps.append("Security: keep require_human_approval true; set SUPERAI_WORKSPACE")
     return steps

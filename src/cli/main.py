@@ -145,6 +145,31 @@ def init_cmd(
     config.set("discovered_clis", env.get("clis_available") or [], persist=True)
     const_path = ensure_default_constitution()
 
+    # Host tools checklist (not bundled). Optional auto via SUPERAI_AUTO_HOST_TOOLS.
+    ht_line = ""
+    try:
+        from core.host_tools import (
+            checklist as host_checklist,
+            maybe_auto_install_on_setup,
+            save_checklist_report,
+        )
+
+        ht = host_checklist(profile="core")
+        save_checklist_report(ht)
+        missing_ids = [m["id"] for m in (ht.get("missing") or [])]
+        ht_line = (
+            f"Host tools (core): {ht['totals']['present']}/{ht['totals']['checked']} present"
+            f" · missing={missing_ids}\n"
+        )
+        auto = maybe_auto_install_on_setup()
+        if auto is not None:
+            ht_line += (
+                f"Host tools auto ({'dry-run' if auto.get('dry_run') else 'live'}): "
+                f"{auto.get('totals')}\n"
+            )
+    except Exception:
+        pass
+
     console.print(
         Panel.fit(
             "[bold green]SuperAI initialized successfully![/bold green]\n\n"
@@ -159,8 +184,9 @@ def init_cmd(
             f"mock_mode: {config.use_mock}\n"
             f"CLIs found: {', '.join(env.get('clis_available') or []) or '(none)'}\n"
             f"Models registered: {env.get('models_registered')}\n"
-            f"rclone: {env.get('rclone_on_path')} | ollama: {env.get('ollama_on_path')}\n\n"
-            f"Next: superai doctor && superai run \"hello\"",
+            f"rclone: {env.get('rclone_on_path')} | ollama: {env.get('ollama_on_path')}\n"
+            f"{ht_line}\n"
+            f"Next: superai doctor && superai host-tools check && superai run \"hello\"",
             border_style="green",
         )
     )
@@ -821,6 +847,181 @@ def skill_cmd(
         return
     console.print(f"[red]Unknown action: {action}[/red]")
     raise typer.Exit(1)
+
+
+@app.command("host-tools")
+def host_tools_cmd(
+    action: str = typer.Argument(
+        "check",
+        help="check | install | matrix | profiles",
+    ),
+    profile: str = typer.Option(
+        "full",
+        "--profile",
+        "-p",
+        help="core | agentic | cloud | full",
+    ),
+    tools: Optional[str] = typer.Option(
+        None,
+        "--tools",
+        "-t",
+        help="Comma-separated tool ids (install only), e.g. git,gh,aider",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--live",
+        help="Install: dry-run by default; --live runs package managers",
+    ),
+    category: Optional[str] = typer.Option(
+        None,
+        "--category",
+        "-c",
+        help="Filter: shell | vcs | cloud | ai_cli | container | utility",
+    ),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """
+    Host tools checklist + optional auto-install (NOT bundled in SuperAI).
+
+    Detects git, gh, cloud CLIs, AI agent CLIs, etc. on PATH and can install
+    missing ones via winget/choco/brew/apt/pip/npm when recipes exist.
+
+    Auto on init/onboard: set SUPERAI_AUTO_HOST_TOOLS=1 (dry-run) or
+    SUPERAI_AUTO_HOST_TOOLS=install (live core profile).
+    """
+    from core.host_tools import (
+        PROFILES,
+        checklist,
+        install_tools,
+        list_catalog,
+        save_checklist_report,
+    )
+
+    if action == "profiles":
+        data = {"profiles": PROFILES}
+        if json_out:
+            console.print_json(data=data)
+        else:
+            for k, v in PROFILES.items():
+                console.print(f"[cyan]{k}[/cyan]: {v}")
+        return
+
+    if action == "matrix":
+        rows = []
+        for t in list_catalog(profile=profile, category=category):
+            rows.append(
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "category": t.category,
+                    "auto": t.auto_installable,
+                    "winget": t.winget,
+                    "brew": t.brew,
+                    "apt": t.apt,
+                    "pip": t.pip,
+                    "npm": t.npm,
+                    "url": t.url,
+                    "profiles": t.profiles,
+                }
+            )
+        if json_out:
+            console.print_json(data={"tools": rows, "bundled": False})
+            return
+        table = Table(title="Host tools install matrix (not bundled)")
+        table.add_column("id")
+        table.add_column("category")
+        table.add_column("auto")
+        table.add_column("winget / brew / pip / npm")
+        for r in rows:
+            recipe = " · ".join(
+                x
+                for x in [
+                    f"winget:{r['winget']}" if r.get("winget") else "",
+                    f"brew:{r['brew']}" if r.get("brew") else "",
+                    f"pip:{r['pip']}" if r.get("pip") else "",
+                    f"npm:{r['npm']}" if r.get("npm") else "",
+                ]
+                if x
+            ) or (r.get("url") or "manual")
+            table.add_row(
+                r["id"],
+                r["category"],
+                "yes" if r["auto"] else "no",
+                recipe[:60],
+            )
+        console.print(table)
+        console.print(
+            "[dim]These are host installs — not part of the SuperAI Python package.[/dim]"
+        )
+        return
+
+    if action == "install":
+        ids = [x.strip() for x in tools.split(",")] if tools else None
+        report = install_tools(
+            ids,
+            profile=profile,
+            dry_run=dry_run,
+            only_missing=True,
+        )
+        if json_out:
+            console.print_json(data=report)
+            return
+        table = Table(
+            title=f"Host tools install ({'dry-run' if dry_run else 'LIVE'}) · {profile}"
+        )
+        table.add_column("id")
+        table.add_column("status")
+        table.add_column("detail", max_width=70)
+        for r in report.get("results") or []:
+            detail = (
+                r.get("command_str")
+                or r.get("hint")
+                or r.get("error")
+                or r.get("path")
+                or r.get("notes")
+                or ""
+            )
+            table.add_row(str(r.get("id")), str(r.get("status")), str(detail)[:70])
+        console.print(table)
+        console.print_json(data={"totals": report.get("totals"), "next": report.get("next")})
+        if not dry_run and not report.get("ok"):
+            raise typer.Exit(1)
+        return
+
+    # check (default)
+    report = checklist(profile=profile, category=category)
+    save_checklist_report(report)
+    if json_out:
+        console.print_json(data=report)
+        return
+    table = Table(title=f"Host tools checklist · profile={profile}")
+    table.add_column("id")
+    table.add_column("status")
+    table.add_column("path / hint", max_width=70)
+    for t in report.get("tools") or []:
+        if t.get("available"):
+            table.add_row(
+                t["id"],
+                "[green]present[/green]",
+                str(t.get("path") or "")[:70],
+            )
+        else:
+            table.add_row(
+                t["id"],
+                "[yellow]missing[/yellow]",
+                str(t.get("install_hint") or "")[:70],
+            )
+    console.print(table)
+    totals = report.get("totals") or {}
+    console.print(
+        f"[dim]present={totals.get('present')}/{totals.get('checked')} · "
+        f"missing_auto={totals.get('missing_auto_installable')} · "
+        f"NOT bundled in SuperAI package[/dim]"
+    )
+    console.print(
+        "[dim]Install dry-run: superai host-tools install --profile core --dry-run\n"
+        "Install live:     superai host-tools install --profile core --live[/dim]"
+    )
 
 
 @app.command()

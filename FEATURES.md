@@ -1,6 +1,6 @@
 # SuperAI — Features (aligned with code)
 
-**Repo:** SuperAI_v1 · **Board:** `TASKBOARD.md` · **Tests:** 123 passed  
+**Repo:** SuperAI_v1 · **Board:** `TASKBOARD.md` · **Tests:** 133 passed  
 **Packages:** `core` · `scli` (folder `src/cli`)
 
 ## Core
@@ -16,6 +16,7 @@
 | Council / hierarchy / agentic roles | **Implemented** |
 | **Parallel multi-CLI pool + unified dashboard** | **Implemented** |
 | **Parallel multi-terminal pool + unified dashboard** | **Implemented** |
+| **Host tools checklist + optional auto-install** | **Implemented** |
 | Tool proposals + diff-first edits + workspace jail | **Implemented** |
 | Doctor, chat, budget, audit, policy, schedule | **Implemented** |
 | MCP server, PWA, VS Code extension scaffold | **Implemented** |
@@ -49,11 +50,25 @@ Run several shell terminals at once; every session is visible in one place.
 | CLI | `term-parallel` · `term-jobs list\|snapshot\|clear` |
 | Safety | Dry-run default; argv only (`shell=False`); workspace jail for cwd; block shell meta unless `SUPERAI_ALLOW_SHELL_META=1` |
 
+## Host tools (not bundled)
+
+External CLIs are **detected on PATH** and can be **installed via the host package manager** — they are never shipped inside the SuperAI Python package.
+
+| Piece | Detail |
+|-------|--------|
+| Engine | `core.host_tools` — catalog + `checklist` + `install_tools` |
+| Profiles | `core` · `agentic` · `cloud` · `full` |
+| Managers | winget / choco / scoop / brew / apt / pip / npm (best available) |
+| CLI | `superai host-tools check\|install\|matrix\|profiles` |
+| Bootstrap | `scripts/bootstrap.ps1` · `scripts/bootstrap.sh` |
+| Auto | `SUPERAI_AUTO_HOST_TOOLS=1` (dry-run on init/onboard) or `=install` (live core) |
+| Manual-only | cursor, antigravity, grok (ambiguous), continue — hints/URLs only |
+
 ## Key commands
 
 See `QUICK_REFERENCE.md` for the full list. Highlights:
 
-`cli-parallel` · `cli-jobs` · `term-parallel` · `term-jobs` · `dashboard` · `doctor` · `run` · `chat` · `tdd` · `diff-edit` · `forecast` · `compliance` · `onboard` · `diagnose` · `secrets` · `workspace-index` · `pr-review` · `mcp-serve` · `web` (/pwa/, /cli-pool, /terminals) · `memory-forget` · `lang`
+`host-tools` · `cli-parallel` · `cli-jobs` · `term-parallel` · `term-jobs` · `dashboard` · `doctor` · `run` · `chat` · `tdd` · `diff-edit` · `forecast` · `compliance` · `onboard` · `diagnose` · `secrets` · `workspace-index` · `pr-review` · `mcp-serve` · `web` (/pwa/, /cli-pool, /terminals) · `memory-forget` · `lang`
 
 ## Deferred host
 

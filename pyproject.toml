@@ -41,6 +41,10 @@ dev = [
 
 [project.scripts]
 superai = "scli.main:app"
+# Host CLIs (git, gh, aws, claude, …) are NOT Python deps — use:
+#   superai host-tools check|install
+#   scripts/bootstrap.ps1 | scripts/bootstrap.sh
+# Optional post-install: SUPERAI_AUTO_HOST_TOOLS=1 (dry-run) or =install
 
 [build-system]
 requires = ["setuptools>=68"]

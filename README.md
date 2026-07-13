@@ -30,6 +30,21 @@ superai onboard
 superai doctor
 ```
 
+**Host tools** (git, gh, aws, claude, gemini, …) are **not** bundled in the SuperAI package. They are detected on PATH and can be installed via winget/brew/apt/pip/npm:
+
+```powershell
+superai host-tools check --profile full
+superai host-tools install --profile core --dry-run   # preview
+superai host-tools install --profile agentic --live   # install missing
+# Or one-shot bootstrap (pip + host-tools dry-run):
+powershell -File scripts\bootstrap.ps1
+# Live host installs:
+powershell -File scripts\bootstrap.ps1 -Profile agentic -LiveHostTools
+# Optional auto on init/onboard:
+$env:SUPERAI_AUTO_HOST_TOOLS = "1"        # dry-run core
+$env:SUPERAI_AUTO_HOST_TOOLS = "install"  # live core
+```
+
 ## Quick start
 
 ```powershell

@@ -31,6 +31,8 @@ superai run "hello" --format json
 | `term-parallel "task" [--commands a;b] [--dry-run\|--live]` | Multi-terminal parallel agentic shells |
 | `term-jobs list\|snapshot\|clear` | Parallel terminal session registry |
 | `dashboard` / `web` → `/cli-pool` · `/terminals` | Single dashboard for CLI + terminal workers |
+| `host-tools check\|install\|matrix [--profile core\|agentic\|cloud\|full]` | Host CLI checklist + optional install (not bundled) |
+| `scripts/bootstrap.ps1` / `bootstrap.sh` | pip install SuperAI + host-tools dry-run/live |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |
 | `run … --stream -m model` | Stream single-model output |

@@ -49,8 +49,8 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Parallel multi-terminal + multi-CLI agentic dashboard |
-| **Verify** | `pytest -q` |
+| **What** | Host tools checklist + optional auto-install (not bundled) |
+| **Verify** | `pytest -q` · `superai host-tools check` |
 
 ### Multi-CLI parallel (new)
 

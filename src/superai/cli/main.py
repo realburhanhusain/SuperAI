@@ -879,6 +879,89 @@ def council(
     console.print(Panel.fit(str(result.get("decision")), title="Decision", border_style="green"))
 
 
+@app.command("data-ask")
+def data_ask(
+    question: str = typer.Argument(..., help="Natural language question about your data"),
+    dsn: Optional[str] = typer.Option(
+        None, "--dsn", help="SQLAlchemy DSN (default: config data_dsn or demo SQLite)"
+    ),
+    thread_id: Optional[str] = typer.Option(
+        None, "--thread", "-t", help="Conversation thread id for follow-ups"
+    ),
+    show_sql: bool = typer.Option(True, "--sql/--no-sql", help="Show generated SQL"),
+    show_chart: bool = typer.Option(False, "--chart", help="Print chart JSON if any"),
+    mock: bool = typer.Option(False, "--mock", help="Force mock/heuristic backend"),
+):
+    """Ask natural-language questions over SQL data (Databao-inspired)"""
+    from superai.core.databao_adapter import DatabaoAdapter
+    from superai.core.learning_engine import LearningEngine
+    from superai.core.memory_palace import MemoryPalace
+    from rich.table import Table as RichTable
+
+    cfg = Config()
+    use_mock = mock or cfg.use_mock
+    adapter = DatabaoAdapter(
+        dsn=dsn or cfg.get("data_dsn"),
+        use_databao=bool(cfg.get("use_databao_package", True)) and not mock,
+        use_mock=use_mock,
+        llm_name=cfg.get("databao_llm") or "gpt-4o-mini",
+    )
+    th = adapter.thread(thread_id)
+    answer = th.ask(question)
+
+    # Learn from analytics interaction
+    try:
+        LearningEngine(MemoryPalace()).learn_from_task(
+            task_description=f"data-ask: {question}",
+            task_type="research",
+            model_used=f"databao:{answer.backend}",
+            success=answer.error is None,
+            latency=0.0,
+            steps_completed=1 if answer.error is None else 0,
+            error_message=answer.error,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+    console.print(
+        Panel.fit(
+            f"[bold]Data answer[/bold]\n"
+            f"Backend: {answer.backend} | thread: {answer.thread_id}\n"
+            f"{answer.text}",
+            border_style="cyan",
+        )
+    )
+    if show_sql and answer.sql:
+        console.print(f"[dim]SQL: {answer.sql}[/dim]")
+    if answer.columns:
+        table = RichTable(title=f"Results ({answer.row_count} rows)")
+        for c in answer.columns:
+            table.add_column(str(c))
+        for row in answer.rows[:30]:
+            table.add_row(*[str(x) for x in row])
+        console.print(table)
+    if show_chart and answer.chart:
+        console.print_json(data=answer.chart)
+    if answer.error:
+        raise typer.Exit(code=1)
+
+
+@app.command("data-schema")
+def data_schema(
+    dsn: Optional[str] = typer.Option(None, "--dsn", help="SQLAlchemy DSN"),
+):
+    """Show registered/demo data schema summary"""
+    from superai.core.databao_adapter import DatabaoAdapter
+
+    cfg = Config()
+    adapter = DatabaoAdapter(
+        dsn=dsn or cfg.get("data_dsn"),
+        use_mock=cfg.use_mock,
+    )
+    console.print(Panel.fit(adapter.schema_summary(), title="Schema", border_style="blue"))
+    console.print_json(data=adapter.capabilities())
+
+
 @app.command()
 def wings(
     list_all: bool = typer.Option(False, "--list", help="List wings and rooms"),

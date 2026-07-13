@@ -31,6 +31,10 @@ class Config:
         "require_human_approval": True,
         # Council default voting: majority | supervisor | weighted
         "council_voting_mode": "majority",
+        # Databao / NL data analytics
+        "data_dsn": None,  # e.g. sqlite:////path or postgresql://...
+        "databao_llm": "gpt-4o-mini",
+        "use_databao_package": True,
     }
 
     def __init__(self, config_path: Optional[str] = None):
@@ -89,6 +93,10 @@ class Config:
             "SUPERAI_BACKUP_ENABLED": ("backup_enabled", _as_bool),
             "SUPERAI_REQUIRE_HUMAN_APPROVAL": ("require_human_approval", _as_bool),
             "SUPERAI_COUNCIL_VOTING_MODE": ("council_voting_mode", str),
+            "SUPERAI_DATA_DSN": ("data_dsn", str),
+            "DATABASE_URL": ("data_dsn", str),
+            "SUPERAI_DATABAO_LLM": ("databao_llm", str),
+            "SUPERAI_USE_DATABAO": ("use_databao_package", _as_bool),
         }
         for env_key, (cfg_key, caster) in env_map.items():
             raw = os.getenv(env_key)

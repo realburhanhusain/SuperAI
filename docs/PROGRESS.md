@@ -15,9 +15,9 @@
 | **5** | Encrypted backup + cloud | **93%** |
 | **6** | Polish, CLI, docs, CI | **85%** |
 | **7** | Advanced features & ecosystem | **55%** |
-| **8** | Agentic + deep integration | **50%** |
+| **8** | Agentic + deep integration | **58%** |
 
-**Overall (equal weight):** ~**84%** of full plan vision in-repo (+ Track J external-tool checklist).
+**Overall (equal weight):** ~**85%** of full plan vision in-repo (+ Track J Databao adapter).
 
 ### Notes on remaining %
 

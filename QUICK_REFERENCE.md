@@ -43,6 +43,9 @@ Creates `~/.superai/` (config, logs, history, memory, skills, backups).
 | `superai council "<topic>" --voting majority\|supervisor\|weighted` | Multi-model council |
 | `superai config set require_human_approval true\|false` | File-modifying CLI/tool gate |
 | `superai config set council_voting_mode majority` | Default council vote mode |
+| `superai data-ask "list German customers"` | NL data Q&A (Databao-inspired) |
+| `superai data-schema` | Show data schema / capabilities |
+| `superai config set data_dsn "sqlite:///..."` | Data source DSN |
 | `superai provider-health` | Health + quota windows |
 | `superai learnings` / `reflect` / `conflicts` / `evolve <topic>` | Learning |
 | `superai feedback <task_id> "..."` | Human feedback |

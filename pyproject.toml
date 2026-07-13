@@ -22,8 +22,13 @@ providers = [
 embeddings = [
     "sentence-transformers>=3.0",
 ]
+data = [
+    "sqlalchemy>=2.0",
+    "databao-agent>=0.1",
+]
 dev = [
     "pytest>=8.0",
+    "sqlalchemy>=2.0",
 ]
 
 [project.scripts]

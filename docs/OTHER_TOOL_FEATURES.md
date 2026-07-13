@@ -71,9 +71,11 @@ Repo: https://github.com/MemPalace/mempalace
 ## 5. Databao-Agent  
 Repo: https://github.com/realburhanhusain/databao-agent
 
-- [ ] NL → tables/charts over SQLAlchemy sources
-- [ ] Broad DB adapters (Postgres, MySQL, SQLite, DuckDB, BQ, Snowflake, …)
-- [ ] Conversational analytical context
+- [x] NL → tables + chart specs over SQLAlchemy / demo SQLite (`databao_adapter`, `data-ask`)
+- [x] Optional real `databao-agent` package when installed (`pip install -e ".[data]"`)
+- [x] Conversational threads (`--thread`) for follow-ups
+- [~] Full chart interactivity / all remote warehouses (DSN-dependent host setup)
+- [x] Safe SELECT-only SQL path with sanitization
 
 ---
 

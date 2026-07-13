@@ -1,0 +1,99 @@
+-----------------------------------------------------------------------------------------------------
+Complete list of GitHub repositories and their features we planned to implement / merge into SuperAI.
+-----------------------------------------------------------------------------------------------------
+
+Overview & Integration Philosophy
+
+How SuperAI will act as the unifying supervisor layer
+Design principles (modularity, reusability, extensibility)
+
+----------------------------------------------------------------------------------------------
+1. LLM_Council_ApplimentAI_Enhanced
+Repo: https://github.com/Mohamadreza-Shahmohamadi/LLM_Council_ApplimentAI_Enhanced
+Features to Implement / Merge:
+
+Multi-agent council / deliberation patterns
+Supervisor-worker debate, critique, extend workflows
+Voting and aggregation mechanisms between models
+Stage-based task classification and routing
+Multi-model collaboration patterns
+Advanced prompt engineering patterns for supervisor
+Structured communication between agents
+-----------------------------------------------------------------------------------------------
+
+2. OpenClaw
+Repo: https://github.com/openclaw/openclaw
+Features to Implement / Merge:
+
+Local-first execution philosophy
+Personal assistant capabilities
+Tool Proposal, Supervisor Review, Human Approval, Execution Flow
+Self-improving loop
+Strong tool usage learning
+Strong emphasis on local execution and privacy
+User modeling and preference learning
+-----------------------------------------------------------------------------------------------
+
+3. Hermes-Agent
+Repo: https://github.com/NousResearch/hermes-agent
+Features to Implement / Merge:
+
+Advanced agentic workflows
+Advanced Hierarchical delegation
+Multi-round deliberation and critique patterns
+Self-improving agent loops
+Rich observability and logging
+Skill-like reusable components
+
+Additional Repo: https://github.com/AtomicBot-ai/atomic-hermes
+Features to Implement / Merge
+
+A real AI assistant
+A full-stack AI agent
+Time travel for every file the AI agent touches
+16+ messengers support
+
+-----------------------------------------------------------------------------------------------
+
+4. Mempalace (Memory Palace, Memory Management System)
+Repo: https://github.com/MemPalace/mempalace
+Features to Implement / Merge:
+
+Wings & Rooms memory organization structure
+Advanced semantic memory organization
+Advanced Memory versioning and provenance tracking
+Long-term memory management strategies
+Memory Palace query interface (used by both terminal and web dashboard)
+Memory consolidation and summarization techniques
+-----------------------------------------------------------------------------------------------
+
+5. Databao-Agent
+Repo: https://github.com/realburhanhusain/databao-agent
+Features to Implement / Merge:
+
+Query various data sources using natural language
+Get back tables, charts, and explanations - no SQL or Code needed
+Broad DB support: PostgreSQL, MySQL, SQLite, DuckDB, Bigquery, Snowflake, DBT, etc. anything SQLAlchemy supports
+Maintains context for follow-up questions and iterative analysis
+-----------------------------------------------------------------------------------------------
+
+Additional Related Projects Mentioned (Secondary)
+
+Repository/Project: Key Features Planned
+
+Claude Code (Official): Base for external CLI delegation, structured output, tool calling
+Aider: Advanced coding agent patterns, git integration
+Cursor CLI: IDE-like agent behavior, file editing patterns
+Continue.dev: Context management and codebase awareness
+Cline: Modern agent CLI patterns
+Roo Code: Modern agent CLI patterns
+-----------------------------------------------------------------------------------------------
+
+How These Were Planned to Be Used in SuperAI
+
+Core Architecture: SuperAI would act as the supervisor layer on top of these systems.
+Memory: Mempalace-inspired structure inside MemoryPalace.
+Agent Patterns: LLM_Council + Hermes-Agent + OpenClaw patterns for deliberation, delegation, and self-improvement.
+External CLIs: Treat Claude Code, Aider, Cursor, etc., as first-class workers with seamless delegation.
+Skills: Combine skills system with patterns from OpenClaw and Hermes-Agent.
+-----------------------------------------------------------------------------------------------

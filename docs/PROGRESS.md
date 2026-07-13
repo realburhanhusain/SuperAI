@@ -17,7 +17,7 @@
 | **7** | Advanced features & ecosystem | **55%** |
 | **8** | Agentic + deep integration | **50%** |
 
-**Overall (equal weight):** ~**82%** of full plan vision in-repo.
+**Overall (equal weight):** ~**84%** of full plan vision in-repo (+ Track J external-tool checklist).
 
 ### Notes on remaining %
 

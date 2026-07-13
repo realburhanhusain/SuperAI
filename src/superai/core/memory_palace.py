@@ -117,6 +117,11 @@ class MemoryPalace:
         metadata["created_at"] = datetime.now().isoformat()
         metadata.setdefault("last_accessed", metadata["created_at"])
         metadata.setdefault("deprecated", False)
+        # Mempalace-inspired provenance
+        metadata.setdefault("version", int(metadata.get("version") or 1))
+        if metadata.get("parent_id"):
+            metadata["parent_id"] = str(metadata["parent_id"])
+        metadata.setdefault("source", metadata.get("source") or "superai")
 
         memory_id = f"{datetime.now().timestamp():.6f}-{uuid.uuid4().hex[:8]}"
 
@@ -139,6 +144,27 @@ class MemoryPalace:
                 }
             )
         return memory_id
+
+    def store_version(
+        self,
+        parent_id: str,
+        content: str,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        importance: float = 0.7,
+    ) -> str:
+        """Store a new memory version linked to parent (provenance)."""
+        meta = dict(metadata or {})
+        parent_ver = 1
+        # Try to read parent version from store
+        for mem in self.get_all_memories():
+            if mem.get("id") == parent_id:
+                parent_ver = int((mem.get("metadata") or {}).get("version") or 1)
+                break
+        meta["parent_id"] = parent_id
+        meta["version"] = parent_ver + 1
+        meta["provenance"] = f"child_of:{parent_id}"
+        return self.store(content=content, tags=tags, metadata=meta, importance=importance)
 
     def update_metadata(self, memory_id: str, metadata_updates: Dict[str, Any]) -> bool:
         """Persist metadata updates (importance, deprecated flags, etc.)."""

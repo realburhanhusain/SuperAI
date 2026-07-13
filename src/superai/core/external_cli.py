@@ -95,6 +95,30 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         modifies_files=True,
         description="OpenAI Codex CLI",
     ),
+    ExternalCLISpec(
+        name="continue",
+        command="continue",
+        args_template=["{prompt}"],
+        detects=["continue", "cn", "continue.exe"],
+        modifies_files=True,
+        description="Continue.dev CLI (if installed)",
+    ),
+    ExternalCLISpec(
+        name="cline",
+        command="cline",
+        args_template=["{prompt}"],
+        detects=["cline", "cline.exe"],
+        modifies_files=True,
+        description="Cline agent CLI (if installed)",
+    ),
+    ExternalCLISpec(
+        name="roo",
+        command="roo",
+        args_template=["{prompt}"],
+        detects=["roo", "roo-code", "roo.exe"],
+        modifies_files=True,
+        description="Roo Code CLI (if installed)",
+    ),
 ]
 
 

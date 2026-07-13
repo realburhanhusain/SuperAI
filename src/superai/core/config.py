@@ -27,6 +27,10 @@ class Config:
         "enable_logging": True,
         "backup_enabled": True,
         "non_interactive": False,
+        # OpenClaw-style human approval for file-modifying external CLIs / tools
+        "require_human_approval": True,
+        # Council default voting: majority | supervisor | weighted
+        "council_voting_mode": "majority",
     }
 
     def __init__(self, config_path: Optional[str] = None):
@@ -83,6 +87,8 @@ class Config:
             "SUPERAI_DEFAULT_MODEL": ("default_model", str),
             "SUPERAI_NON_INTERACTIVE": ("non_interactive", _as_bool),
             "SUPERAI_BACKUP_ENABLED": ("backup_enabled", _as_bool),
+            "SUPERAI_REQUIRE_HUMAN_APPROVAL": ("require_human_approval", _as_bool),
+            "SUPERAI_COUNCIL_VOTING_MODE": ("council_voting_mode", str),
         }
         for env_key, (cfg_key, caster) in env_map.items():
             raw = os.getenv(env_key)
@@ -121,6 +127,17 @@ class Config:
     @property
     def default_supervisor(self) -> Optional[str]:
         return self.get("default_supervisor") or self.get("default_model")
+
+    @property
+    def require_human_approval(self) -> bool:
+        return bool(self.get("require_human_approval", True))
+
+    @property
+    def council_voting_mode(self) -> str:
+        mode = str(self.get("council_voting_mode") or "majority").lower()
+        if mode not in {"majority", "supervisor", "weighted"}:
+            return "majority"
+        return mode
 
 
 def _as_bool(value: str) -> bool:

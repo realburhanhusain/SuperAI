@@ -707,17 +707,20 @@ def cli_run(
     name: str = typer.Argument(..., help="External CLI name from discover"),
     prompt: str = typer.Argument(..., help="Prompt/task for the CLI"),
     approve: bool = typer.Option(
-        False, "--approve", help="Approve file-modifying actions"
+        False, "--approve", help="Approve file-modifying actions this run"
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show command only"),
 ):
-    """Run an external AI CLI with approval gate (H1–H5)"""
+    """Run an external AI CLI with approval gate (config: require_human_approval)"""
     from superai.core.external_cli import ExternalCLITool
     from superai.core.learning_engine import LearningEngine
     from superai.core.memory_palace import MemoryPalace
 
-    tool = ExternalCLITool(dry_run=dry_run, auto_approve=False)
-    result = tool.run(name, prompt, approve=approve)
+    cfg = Config()
+    # If require_human_approval is False, auto-approve file-modifying CLIs
+    auto = not cfg.require_human_approval
+    tool = ExternalCLITool(dry_run=dry_run, auto_approve=auto)
+    result = tool.run(name, prompt, approve=True if auto else approve)
     data = result.to_dict()
     # Log delegation to memory palace
     try:
@@ -824,6 +827,56 @@ def debate(
         console.print(Panel(str(p.get("text")), title=f"Debater {p.get('model')}", border_style="blue"))
     for c in result.get("critiques") or []:
         console.print(Panel(str(c.get("text")), title=f"Critique {c.get('model')}", border_style="yellow"))
+
+
+@app.command()
+def council(
+    topic: str = typer.Argument(..., help="Council topic / question"),
+    voting: Optional[str] = typer.Option(
+        None,
+        "--voting",
+        "-v",
+        help="majority | supervisor | weighted (default from config)",
+    ),
+    models: Optional[str] = typer.Option(
+        None, "--models", help="Comma-separated council members"
+    ),
+    supervisor: Optional[str] = typer.Option(
+        None, "--supervisor", help="Supervisor model (for supervisor voting)"
+    ),
+    critique: bool = typer.Option(False, "--critique", help="Add critique refinement round"),
+):
+    """Multi-model council with selectable voting (LLM Council inspired)"""
+    from superai.core.council import Council, VOTING_MODES
+
+    cfg = Config()
+    mode = voting or cfg.council_voting_mode
+    if mode not in VOTING_MODES:
+        console.print(f"[red]Invalid voting mode. Use one of: {VOTING_MODES}[/red]")
+        raise typer.Exit(code=1)
+    model_list = [m.strip() for m in models.split(",")] if models else None
+    sup = supervisor or cfg.default_supervisor
+    c = Council(voting_mode=mode, supervisor_model=sup)
+    result = c.run(
+        topic,
+        models=model_list,
+        voting_mode=mode,
+        supervisor_model=sup,
+        with_critique=critique,
+    )
+    console.print(
+        Panel.fit(
+            f"[bold]Council[/bold]\nMode: {result.get('voting_mode')}\n"
+            f"Members: {', '.join(result.get('members') or [])}",
+            border_style="magenta",
+        )
+    )
+    for p in result.get("proposals") or []:
+        console.print(
+            f"• {p.get('model')}: key={p.get('vote_key')} "
+            f"conf={p.get('confidence')} — {str(p.get('summary'))[:120]}"
+        )
+    console.print(Panel.fit(str(result.get("decision")), title="Decision", border_style="green"))
 
 
 @app.command()

@@ -40,6 +40,9 @@ Creates `~/.superai/` (config, logs, history, memory, skills, backups).
 | `superai set-strategy <strategy>` | smart_fallback \| round_robin \| latency_based \| cost_based |
 | `superai routing-stats [--explain "..."]` | Routing aggregates |
 | `superai smoke-providers [--mock]` | Provider smoke tests |
+| `superai council "<topic>" --voting majority\|supervisor\|weighted` | Multi-model council |
+| `superai config set require_human_approval true\|false` | File-modifying CLI/tool gate |
+| `superai config set council_voting_mode majority` | Default council vote mode |
 | `superai provider-health` | Health + quota windows |
 | `superai learnings` / `reflect` / `conflicts` / `evolve <topic>` | Learning |
 | `superai feedback <task_id> "..."` | Human feedback |

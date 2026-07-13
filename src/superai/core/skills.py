@@ -252,3 +252,91 @@ class SkillsManager:
             else:
                 lines.append(s.get("description") or "(no content)")
         return "\n".join(lines)
+
+    def delete_skill(self, name: str) -> bool:
+        index = self._load_index()
+        if name not in index:
+            return False
+        filename = index[name].get("filename")
+        filepath = os.path.join(self.skills_dir, filename) if filename else None
+        if filepath and os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+        del index[name]
+        # Remove from others' deps
+        for meta in index.values():
+            deps = meta.get("depends_on") or []
+            if name in deps:
+                meta["depends_on"] = [d for d in deps if d != name]
+        self._save_index(index)
+        return True
+
+    def set_dependencies(self, name: str, depends_on: List[str]) -> bool:
+        index = self._load_index()
+        if name not in index:
+            return False
+        # only keep existing skills
+        deps = [d for d in depends_on if d in index and d != name]
+        index[name]["depends_on"] = deps
+        self._save_index(index)
+        return True
+
+    def resolve_dependencies(self, name: str) -> List[str]:
+        """Return dependency names in order (deps first), detecting cycles."""
+        index = self._load_index()
+        seen: List[str] = []
+        visiting: set = set()
+
+        def walk(n: str) -> None:
+            if n in seen:
+                return
+            if n in visiting:
+                raise ValueError(f"Skill dependency cycle involving {n}")
+            if n not in index:
+                return
+            visiting.add(n)
+            for d in index[n].get("depends_on") or []:
+                walk(d)
+            visiting.discard(n)
+            seen.append(n)
+
+        walk(name)
+        return seen
+
+    def validate_skill(self, name: str) -> Dict:
+        """Lightweight skill test / validation before use."""
+        index = self._load_index()
+        if name not in index:
+            return {"ok": False, "error": f"Unknown skill: {name}"}
+        meta = index[name]
+        issues: List[str] = []
+        content = self.get_skill_content(name, max_chars=5000) or ""
+        if len(content.strip()) < 10:
+            issues.append("content too short")
+        if meta.get("status") == "sandbox":
+            issues.append("still in sandbox (promote before production use)")
+        try:
+            chain = self.resolve_dependencies(name)
+        except ValueError as e:
+            issues.append(str(e))
+            chain = []
+        for dep in meta.get("depends_on") or []:
+            if dep not in index:
+                issues.append(f"missing dependency: {dep}")
+        ok = len(issues) == 0
+        result = {
+            "ok": ok,
+            "name": name,
+            "version": meta.get("version"),
+            "status": meta.get("status", "active"),
+            "depends_on": meta.get("depends_on") or [],
+            "dependency_order": chain,
+            "issues": issues,
+            "content_chars": len(content),
+        }
+        index[name]["last_validated"] = datetime.now().isoformat()
+        index[name]["validation_ok"] = ok
+        self._save_index(index)
+        return result

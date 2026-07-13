@@ -84,6 +84,26 @@ Features mark **Implemented** vs **Deferred smoke** (host credentials / admin).
 | n8n/Zapier/Make webhooks + search stubs | **Implemented** |
 | GitHub Pages workflow | **Implemented** — **Deferred** enable in repo settings |
 
+## Future Plan gap-close (2026-07-14)
+
+| Feature | Status |
+|---------|--------|
+| Model compare + benchmark | **Implemented** |
+| Plan export JSON/Markdown | **Implemented** |
+| Step result cache | **Implemented** |
+| Parallel voting LB strategy | **Implemented** |
+| Model blacklist (auto + manual) | **Implemented** |
+| Skill create/delete/improve/deps/test | **Implemented** |
+| Selective backup scopes | **Implemented** |
+| External CLI dual-register as models | **Implemented** |
+| Multi-turn memory chat | **Implemented** |
+| Model version pinning | **Implemented** |
+| Notion integration (API or dry-run) | **Implemented** |
+| HITL clarify / answer / veto | **Implemented** |
+| GitHub release + backup workflows | **Implemented** |
+
+See `docs/DOC_GAP_ANALYSIS.md`.
+
 ## Deferred (last activity — smoke only)
 
 1. Live provider API keys multi-smoke  

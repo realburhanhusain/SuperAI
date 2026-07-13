@@ -28,6 +28,8 @@ from .model_router import ModelRouter
 from .preferences import UserPreferenceModel
 from .provider_health import ProviderHealthStore
 from .skills import SkillsManager
+from .hitl import HITLStore
+from .step_cache import StepResultCache
 from .task_planner import ExecutionStep, TaskPlanner
 from .task_result import TaskResult
 
@@ -69,6 +71,13 @@ class SuperAIOrchestrator:
             self.preferences.apply_to_config_defaults(self.config)
         except Exception:  # noqa: BLE001
             pass
+        try:
+            self.model_registry.register_external_clis_as_models()
+        except Exception:  # noqa: BLE001
+            pass
+        self.step_cache = StepResultCache()
+        self.hitl = HITLStore()
+        self.use_step_cache = bool(self.config.get("use_step_cache", True))
         logger.info(
             "SuperAIOrchestrator initialized (mock_mode=%s, strategy=%s)",
             self.config.use_mock,
@@ -187,6 +196,19 @@ class SuperAIOrchestrator:
                         f"\n[bold blue]Step {step.step_id}:[/bold blue] {step.description}"
                     )
 
+                if self.hitl.is_vetoed(task_id):
+                    return {
+                        "step": step.step_id,
+                        "description": step.description,
+                        "model": None,
+                        "status": "failed",
+                        "result": None,
+                        "error": "vetoed by human",
+                        "duration_ms": 0,
+                        "usage": {},
+                        "estimated_cost_usd": 0.0,
+                    }
+
                 if forced_model:
                     selected_model = forced_model
                 else:
@@ -202,6 +224,22 @@ class SuperAIOrchestrator:
 
                 if verbose:
                     console.print(f"[green]→ Using model: {selected_model}[/green]")
+
+                # Step cache hit
+                if self.use_step_cache:
+                    cached = self.step_cache.get(step.description, selected_model)
+                    if cached and cached.get("status") == "success":
+                        if verbose:
+                            console.print(
+                                f"[dim]→ Cache hit for step {step.step_id}[/dim]"
+                            )
+                        return {
+                            **cached,
+                            "step": step.step_id,
+                            "description": step.description,
+                            "model": selected_model,
+                            "cached": True,
+                        }
 
                 step_start = time.time()
                 step_status = "success"
@@ -262,7 +300,7 @@ class SuperAIOrchestrator:
                     if verbose:
                         console.print(f"[red]✗ Step {step.step_id} failed: {e}[/red]")
 
-                return {
+                rec = {
                     "step": step.step_id,
                     "description": step.description,
                     "model": selected_model,
@@ -273,6 +311,21 @@ class SuperAIOrchestrator:
                     "usage": usage if step_status == "success" else {},
                     "estimated_cost_usd": cost if step_status == "success" else 0.0,
                 }
+                if self.use_step_cache and step_status == "success":
+                    try:
+                        self.step_cache.put(step.description, rec, selected_model)
+                    except Exception:  # noqa: BLE001
+                        pass
+                if step_status == "failed":
+                    try:
+                        from .model_blacklist import ModelBlacklist
+
+                        ModelBlacklist().record_failure(
+                            selected_model or "unknown"
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+                return rec
 
             # Execute plan respecting depends_on; parallel when can_run_parallel
             step_records, parallel_meta = self._execute_plan_steps(

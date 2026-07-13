@@ -223,11 +223,36 @@ def run(
 @app.command()
 def plan(
     task: str = typer.Argument(..., help="Task to create execution plan for"),
+    export: Optional[str] = typer.Option(
+        None, "--export", help="Export format: json | markdown | md"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Write export to file"
+    ),
 ):
-    """Show execution plan without running the task"""
+    """Show execution plan without running the task (optional --export)"""
     orchestrator = SuperAIOrchestrator()
     planner = TaskPlanner(orchestrator.model_router)
     steps = planner.create_plan(task)
+    if export:
+        fmt = export.lower().strip()
+        if fmt in {"md", "markdown"}:
+            text = planner.export_plan_markdown(task, steps)
+            if output:
+                Path = __import__("pathlib").Path
+                Path(output).write_text(text, encoding="utf-8")
+                console.print(f"[green]Wrote[/green] {output}")
+            else:
+                console.print(text)
+        else:
+            data = planner.export_plan(task, steps)
+            if output:
+                with open(output, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                console.print(f"[green]Wrote[/green] {output}")
+            else:
+                console.print_json(data=data)
+        return
     planner.print_plan(steps)
 
 
@@ -490,6 +515,11 @@ def backup(
     keep: Optional[int] = typer.Option(
         None, "--keep", help="Retention: keep newest N backups after create"
     ),
+    scope: Optional[str] = typer.Option(
+        None,
+        "--scope",
+        help="Selective scopes comma-list: memory,skills,config,history,logs,plugins,full",
+    ),
 ):
     """Create an encrypted incremental backup of SuperAI home data"""
     from superai.core.backup_manager import BackupManager
@@ -500,7 +530,10 @@ def backup(
             "[yellow]Warning: encryption key will be created. "
             f"Back up {bm.key_file} securely.[/yellow]"
         )
-    path = bm.create_backup(force_full=full, incremental=not full)
+    scopes = [s.strip() for s in scope.split(",")] if scope else None
+    path = bm.create_backup(
+        force_full=full, incremental=not full, scopes=scopes
+    )
     if path:
         console.print(f"[green]Encrypted backup created:[/green] {path}")
     else:
@@ -669,6 +702,64 @@ def skill_rollback(name: str = typer.Argument(..., help="Skill name to rollback 
     else:
         console.print(f"[yellow]Nothing to rollback or skill missing:[/yellow] {name}")
         raise typer.Exit(code=1)
+
+
+@app.command("skill")
+def skill_cmd(
+    action: str = typer.Argument(
+        ..., help="create | delete | improve | deps | test | validate"
+    ),
+    name: str = typer.Argument(..., help="Skill name"),
+    content: Optional[str] = typer.Argument(
+        None, help="Content for create/improve, or comma deps for deps"
+    ),
+    tags: Optional[str] = typer.Option(None, "--tags", help="Comma tags for create"),
+    description: str = typer.Option("", "--description", "-d"),
+):
+    """Skill CRUD: create / delete / improve / deps / test"""
+    from superai.core.skills import SkillsManager
+
+    sm = SkillsManager()
+    act = action.lower()
+    if act == "create":
+        if not content:
+            console.print("[red]Provide skill body content[/red]")
+            raise typer.Exit(1)
+        tag_list = [t.strip() for t in tags.split(",")] if tags else []
+        path = sm.create_skill(
+            name, content, tags=tag_list, description=description or name
+        )
+        console.print(f"[green]Created[/green] {path}")
+        return
+    if act == "delete":
+        ok = sm.delete_skill(name)
+        console.print("[green]Deleted[/green]" if ok else f"[red]Not found:[/red] {name}")
+        if not ok:
+            raise typer.Exit(1)
+        return
+    if act == "improve":
+        if not content:
+            console.print("[red]Provide improvement text[/red]")
+            raise typer.Exit(1)
+        ok = sm.improve_skill(name, content, reason="cli improve")
+        if not ok:
+            console.print(f"[red]Not found:[/red] {name}")
+            raise typer.Exit(1)
+        console.print(f"[green]Improved[/green] {name}")
+        return
+    if act == "deps":
+        deps = [d.strip() for d in (content or "").split(",") if d.strip()]
+        ok = sm.set_dependencies(name, deps)
+        if not ok:
+            console.print(f"[red]Not found:[/red] {name}")
+            raise typer.Exit(1)
+        console.print_json(data={"name": name, "depends_on": deps})
+        return
+    if act in {"test", "validate"}:
+        console.print_json(data=sm.validate_skill(name))
+        return
+    console.print(f"[red]Unknown action: {action}[/red]")
+    raise typer.Exit(1)
 
 
 @app.command()
@@ -1261,6 +1352,193 @@ def surface_feedback_cmd(
 
     entry = write_feedback(message, surface=surface)
     console.print_json(data={"written": entry, "recent": recent_feedback(5)})
+
+
+@app.command("compare")
+def compare_cmd(
+    prompt: str = typer.Argument(..., help="Prompt to run on multiple models"),
+    models: Optional[str] = typer.Option(
+        None, "--models", help="Comma-separated model names"
+    ),
+    mock: bool = typer.Option(True, "--mock/--live", help="Mock vs live APIs"),
+    top: int = typer.Option(4, "--top", help="How many routed models if --models omitted"),
+):
+    """Compare models on the same prompt (winner by success+latency)"""
+    from superai.core.model_compare import compare_models
+
+    model_list = [m.strip() for m in models.split(",")] if models else None
+    data = compare_models(prompt, models=model_list, use_mock=mock, top_n=top)
+    console.print_json(data=data)
+
+
+@app.command("benchmark")
+def benchmark_cmd(
+    mock: bool = typer.Option(True, "--mock/--live"),
+    models: Optional[str] = typer.Option(None, "--models"),
+):
+    """Run a small multi-prompt benchmark suite across models"""
+    from superai.core.model_compare import benchmark_models
+
+    model_list = [m.strip() for m in models.split(",")] if models else None
+    console.print_json(data=benchmark_models(models=model_list, use_mock=mock))
+
+
+@app.command("pin-model")
+def pin_model_cmd(
+    name: str = typer.Argument(..., help="Logical model name"),
+    model_id: Optional[str] = typer.Option(None, "--model-id"),
+    provider: Optional[str] = typer.Option(None, "--provider"),
+    note: str = typer.Option("", "--note"),
+    unpin: bool = typer.Option(False, "--unpin"),
+    list_all: bool = typer.Option(False, "--list"),
+):
+    """Pin/unpin concrete model_id for a registry name"""
+    from superai.core.model_pinning import ModelPinStore
+
+    store = ModelPinStore()
+    if list_all:
+        console.print_json(data=store.list_pins())
+        return
+    if unpin:
+        ok = store.unpin(name)
+        console.print("[green]Unpinned[/green]" if ok else "[yellow]Not pinned[/yellow]")
+        return
+    console.print_json(data=store.pin(name, model_id=model_id, provider=provider, note=note))
+
+
+@app.command("blacklist")
+def blacklist_cmd(
+    action: str = typer.Argument("list", help="list | block | unblock"),
+    name: Optional[str] = typer.Argument(None, help="Model name"),
+    reason: str = typer.Option("", "--reason"),
+    hours: Optional[float] = typer.Option(None, "--hours"),
+):
+    """Model blacklist management (auto-threshold after repeated failures)"""
+    from superai.core.model_blacklist import ModelBlacklist
+
+    bl = ModelBlacklist()
+    if action == "list":
+        console.print_json(data=bl.list_blocked())
+        return
+    if action == "block":
+        if not name:
+            raise typer.Exit(1)
+        bl.block_model(name, reason=reason, hours=hours)
+        console.print(f"[green]Blocked[/green] {name}")
+        return
+    if action == "unblock":
+        if not name:
+            raise typer.Exit(1)
+        bl.unblock_model(name)
+        console.print(f"[green]Unblocked[/green] {name}")
+        return
+    console.print(f"[red]Unknown action {action}[/red]")
+    raise typer.Exit(1)
+
+
+@app.command("memory-chat")
+def memory_chat_cmd(
+    query: str = typer.Argument(..., help="Memory question"),
+    conversation: Optional[str] = typer.Option(
+        None, "--conversation", "-c", help="Continue conversation id"
+    ),
+    new: bool = typer.Option(False, "--new", help="Force new conversation"),
+):
+    """Multi-turn conversational memory search"""
+    from superai.core.memory_chat import MemoryConversation
+
+    mc = MemoryConversation()
+    if new or not conversation:
+        cid = mc.start()
+    else:
+        cid = conversation
+    result = mc.ask(cid, query)
+    console.print_json(data=result)
+
+
+@app.command("notion")
+def notion_cmd(
+    action: str = typer.Argument("status", help="status | write | search"),
+    title_or_query: Optional[str] = typer.Argument(None),
+    content: Optional[str] = typer.Argument(None),
+):
+    """Notion integration (dry-run without NOTION_API_KEY)"""
+    from superai.core.notion_stub import NotionClient
+
+    client = NotionClient()
+    if action == "status":
+        console.print_json(data=client.capabilities())
+        return
+    if action == "write":
+        if not title_or_query:
+            raise typer.Exit(1)
+        console.print_json(
+            data=client.write_page(title_or_query, content or "")
+        )
+        return
+    if action == "search":
+        console.print_json(data=client.search(title_or_query or ""))
+        return
+    raise typer.Exit(1)
+
+
+@app.command("hitl")
+def hitl_cmd(
+    action: str = typer.Argument(
+        "list", help="list | clarify | answer | veto"
+    ),
+    task_id: Optional[str] = typer.Argument(None),
+    text: Optional[str] = typer.Argument(None, help="Question / answer / reason"),
+):
+    """Human-in-the-loop: clarification requests and veto"""
+    from superai.core.hitl import HITLStore
+
+    store = HITLStore()
+    if action == "list":
+        console.print_json(data=store.list_all())
+        return
+    if action == "clarify":
+        if not task_id or not text:
+            console.print("[red]Need task_id and question[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=store.request_clarification(task_id, text))
+        return
+    if action == "answer":
+        if not task_id or not text:
+            console.print("[red]Need clarification id and answer[/red]")
+            raise typer.Exit(1)
+        r = store.answer_clarification(task_id, text)
+        if not r:
+            raise typer.Exit(1)
+        console.print_json(data=r)
+        return
+    if action == "veto":
+        if not task_id:
+            raise typer.Exit(1)
+        console.print_json(data=store.veto(task_id, reason=text or ""))
+        return
+    raise typer.Exit(1)
+
+
+@app.command("runs")
+def runs_cmd(
+    action: str = typer.Argument("list", help="list | show | clear"),
+    task_id: Optional[str] = typer.Argument(None),
+):
+    """List step-cache / resume run checkpoints"""
+    from superai.core.step_cache import StepResultCache
+
+    cache = StepResultCache()
+    if action == "list":
+        console.print_json(data=cache.list_runs())
+        return
+    if action == "show" and task_id:
+        console.print_json(data=cache.get_run(task_id) or {})
+        return
+    if action == "clear" and task_id:
+        console.print_json(data={"cleared": cache.clear_run(task_id)})
+        return
+    console.print_json(data={"entries": len(cache._data.get("entries") or {})})
 
 
 @app.command()

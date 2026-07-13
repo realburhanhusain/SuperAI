@@ -18,6 +18,7 @@ class LoadBalancingStrategy(str, Enum):
     ROUND_ROBIN = "round_robin"
     LATENCY_BASED = "latency_based"
     COST_BASED = "cost_based"
+    PARALLEL_VOTING = "parallel_voting"
 
 
 def parse_strategy(value: Optional[str]) -> LoadBalancingStrategy:
@@ -131,6 +132,16 @@ class LoadBalancer:
         if self.strategy == LoadBalancingStrategy.COST_BASED:
             return sorted(usable, key=lambda c: c.cost_per_1k if c.cost_per_1k > 0 else 999.0)
 
+        if self.strategy == LoadBalancingStrategy.PARALLEL_VOTING:
+            # Prefer healthy low-latency candidates; execute_with_fallback fans out
+            def vote_key(c: ProviderCandidate) -> float:
+                health = self.provider_health(c.provider)
+                hist = self.latency_history.get(c.provider) or []
+                lat = sum(hist) / len(hist) if hist else float(c.latency_tier)
+                return -(health) + lat * 0.01
+
+            return sorted(usable, key=vote_key)
+
         # SMART_FALLBACK: primary first, then by health * inverse cost
         def smart_key(c: ProviderCandidate) -> float:
             health = self.provider_health(c.provider)
@@ -138,6 +149,78 @@ class LoadBalancer:
             return -(health * 0.7 + min(cost_factor, 10) * 0.03)
 
         return sorted(usable, key=smart_key)
+
+    def execute_parallel_vote(
+        self,
+        candidates: List[ProviderCandidate],
+        call_fn: Callable[[str], Any],
+        max_voters: int = 3,
+    ) -> Any:
+        """
+        Call up to max_voters providers; pick first success or majority-ish best.
+        Used when strategy is PARALLEL_VOTING.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        ordered = self.order_providers(candidates)[: max(1, max_voters)]
+        if not ordered:
+            raise RuntimeError("No candidates for parallel voting")
+
+        results: List[Dict[str, Any]] = []
+        with ThreadPoolExecutor(max_workers=min(4, len(ordered))) as pool:
+            futs = {
+                pool.submit(self._safe_call, cand.provider, call_fn): cand
+                for cand in ordered
+            }
+            for fut in as_completed(futs):
+                cand = futs[fut]
+                row = fut.result()
+                row["provider"] = cand.provider
+                results.append(row)
+
+        successes = [r for r in results if r.get("ok")]
+        self.call_log.append(
+            {
+                "strategy": "parallel_voting",
+                "voters": len(ordered),
+                "successes": len(successes),
+            }
+        )
+        if successes:
+            # Prefer fastest success
+            successes.sort(key=lambda r: r.get("latency") or 999.0)
+            best = successes[0]
+            result = best.get("result")
+            if isinstance(result, dict):
+                result = {
+                    **result,
+                    "parallel_vote": True,
+                    "voters": [r.get("provider") for r in results],
+                    "provider_attempted": best.get("provider"),
+                }
+            return result
+        errors = "; ".join(str(r.get("error")) for r in results if r.get("error"))
+        raise RuntimeError(f"Parallel voting failed: {errors or 'no success'}")
+
+    def _safe_call(
+        self, provider: str, call_fn: Callable[[str], Any]
+    ) -> Dict[str, Any]:
+        cb = self.get_circuit_breaker(provider)
+        if not cb.can_try():
+            return {"ok": False, "error": "circuit open", "latency": 0.0}
+        try:
+            start = time.time()
+            result = call_fn(provider)
+            duration = time.time() - start
+            if isinstance(result, dict) and result.get("status") == "error":
+                raise RuntimeError(result.get("response") or "provider error")
+            cb.record_success()
+            hist = self.latency_history.setdefault(provider, [])
+            hist.append(duration)
+            return {"ok": True, "result": result, "latency": duration}
+        except Exception as e:  # noqa: BLE001
+            cb.record_failure()
+            return {"ok": False, "error": str(e), "latency": 0.0}
 
     def execute_with_fallback(
         self,
@@ -159,6 +242,9 @@ class LoadBalancer:
                 candidates.append(p)
             else:
                 candidates.append(ProviderCandidate(provider=str(p), model_name=model_name))
+
+        if self.strategy == LoadBalancingStrategy.PARALLEL_VOTING and len(candidates) > 1:
+            return self.execute_parallel_vote(candidates, call_fn)
 
         ordered = self.order_providers(candidates)
         last_exception: Optional[BaseException] = None

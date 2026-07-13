@@ -62,6 +62,17 @@ Creates `~/.superai/` (config, logs, history, memory, skills, backups).
 | `superai emit-event name --payload '{}'` | n8n/Zapier/Make webhook |
 | `superai ecosystem` | Integration capabilities |
 | `superai surface-feedback "note"` | Cross-surface feedback |
+| `superai compare "prompt" [--models a,b] [--mock]` | Multi-model comparison |
+| `superai benchmark [--mock]` | Small benchmark suite |
+| `superai plan "…" --export json\|md -o file` | Plan export |
+| `superai skill create\|delete\|improve\|deps\|test NAME` | Skill CRUD / deps / validate |
+| `superai backup --scope memory,skills` | Selective backup |
+| `superai pin-model NAME --model-id …` | Model version pin |
+| `superai blacklist list\|block\|unblock` | Model blacklist |
+| `superai memory-chat "question" [-c id]` | Multi-turn memory search |
+| `superai notion status\|write\|search` | Notion stub/API |
+| `superai hitl list\|clarify\|answer\|veto` | Human-in-the-loop |
+| `superai runs list` | Step-cache / run checkpoints |
 | `superai data-ask "…" --chart-html` | NL data + interactive Vega HTML |
 | `superai provider-health` | Health + quota windows |
 | `superai learnings` / `reflect` / `conflicts` / `evolve <topic>` | Learning |

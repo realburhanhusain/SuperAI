@@ -1,8 +1,9 @@
 # SuperAI_v1 — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **60 passed**  
-**Checkpoints:** `docs/checkpoints/`
+**Tests:** **72 passed**  
+**Checkpoints:** `docs/checkpoints/`  
+**Doc gaps:** `docs/DOC_GAP_ANALYSIS.md`
 
 ## Phase completion
 

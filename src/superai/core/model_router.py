@@ -165,10 +165,30 @@ class ModelRouter:
 
     def rank_models(self, task: str) -> List[Tuple[ModelInfo, Dict[str, float]]]:
         task_type = self.classify_task(task)
+        # Apply pins then filter blacklist
+        try:
+            from .model_pinning import ModelPinStore
+
+            ModelPinStore().apply_to_registry(self.registry)
+        except Exception:  # noqa: BLE001
+            pass
+        blocked = None
+        try:
+            from .model_blacklist import ModelBlacklist
+
+            blocked = ModelBlacklist()
+        except Exception:  # noqa: BLE001
+            blocked = None
+
         ranked: List[Tuple[ModelInfo, Dict[str, float]]] = []
         for name in self.registry.list_all_models():
             model = self.registry.get_model(name)
             if not model:
+                continue
+            if blocked and (
+                blocked.is_model_blocked(name)
+                or blocked.is_provider_blocked(model.provider)
+            ):
                 continue
             _, parts = self.score_model(model, task_type)
             ranked.append((model, parts))

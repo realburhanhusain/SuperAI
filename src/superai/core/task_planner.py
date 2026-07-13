@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -119,16 +119,55 @@ class TaskPlanner:
 
     def print_plan(self, steps: List[ExecutionStep]):
         """Pretty print the execution plan."""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("EXECUTION PLAN")
-        print("="*60)
-        
+        print("=" * 60)
+
         for step in steps:
             deps = f" (depends on: {step.depends_on})" if step.depends_on else ""
             parallel = " [PARALLEL]" if step.can_run_parallel else ""
-            
+
             print(f"\nStep {step.step_id}: {step.description}")
             print(f"  → Recommended Model: {step.recommended_model}")
             print(f"  → Complexity: {step.estimated_complexity}{parallel}{deps}")
-        
-        print("\n" + "="*60 + "\n")
+
+        print("\n" + "=" * 60 + "\n")
+
+    def export_plan(
+        self, task: str, steps: Optional[List[ExecutionStep]] = None
+    ) -> Dict[str, Any]:
+        steps = steps or self.create_plan(task)
+        return {
+            "task": task,
+            "steps": [
+                {
+                    "step_id": s.step_id,
+                    "description": s.description,
+                    "depends_on": list(s.depends_on or []),
+                    "recommended_model": s.recommended_model,
+                    "estimated_complexity": s.estimated_complexity,
+                    "can_run_parallel": s.can_run_parallel,
+                }
+                for s in steps
+            ],
+        }
+
+    def export_plan_markdown(
+        self, task: str, steps: Optional[List[ExecutionStep]] = None
+    ) -> str:
+        data = self.export_plan(task, steps)
+        lines = [f"# Execution plan", f"", f"**Task:** {task}", ""]
+        for s in data["steps"]:
+            deps = (
+                f" (depends on {', '.join(map(str, s['depends_on']))})"
+                if s["depends_on"]
+                else ""
+            )
+            par = " `[parallel]`" if s["can_run_parallel"] else ""
+            lines.append(
+                f"## Step {s['step_id']}{par}{deps}\n\n"
+                f"{s['description']}\n\n"
+                f"- Model: `{s['recommended_model']}`\n"
+                f"- Complexity: {s['estimated_complexity']}\n"
+            )
+        return "\n".join(lines)

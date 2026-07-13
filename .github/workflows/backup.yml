@@ -1,0 +1,40 @@
+name: Backup reminder / dry validation
+
+# Encrypted SuperAI home lives on the developer machine; this workflow
+# validates backup code paths in CI and documents the host backup cadence.
+on:
+  schedule:
+    - cron: "0 6 * * 0" # weekly Sunday 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  backup-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Local encrypted backup self-test
+        env:
+          HOME: ${{ runner.temp }}/home
+        run: |
+          mkdir -p "$HOME/.superai/skills" "$HOME/.superai/history"
+          echo '{"mock_mode": true}' > "$HOME/.superai/config.json"
+          echo "skill body for backup test" > "$HOME/.superai/skills/demo.md"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          from superai.core.backup_manager import BackupManager
+          home = Path(os.environ["HOME"]) / ".superai"
+          bm = BackupManager(superai_home=str(home), backup_dir=str(home / "backups"))
+          path = bm.create_backup(force_full=True, scopes=["config", "skills"])
+          assert path, "backup path empty"
+          status = bm.get_backup_status()
+          assert status.get("key_present") or bm.key_file.exists()
+          print("OK", path)
+          PY

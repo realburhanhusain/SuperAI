@@ -39,6 +39,7 @@ class Config:
         "use_bandit": True,
         "bandit_epsilon": 0.1,
         "bandit_blend": 0.25,
+        "use_step_cache": True,
     }
 
     def __init__(self, config_path: Optional[str] = None):
@@ -104,6 +105,7 @@ class Config:
             "SUPERAI_USE_BANDIT": ("use_bandit", _as_bool),
             "SUPERAI_BANDIT_EPSILON": ("bandit_epsilon", float),
             "SUPERAI_BANDIT_BLEND": ("bandit_blend", float),
+            "SUPERAI_USE_STEP_CACHE": ("use_step_cache", _as_bool),
         }
         for env_key, (cfg_key, caster) in env_map.items():
             raw = os.getenv(env_key)

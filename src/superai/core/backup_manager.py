@@ -21,6 +21,32 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
+BACKUP_SCOPES: Dict[str, List[str]] = {
+    "config": ["config.json", "config"],
+    "history": ["history", "learning_history.json"],
+    "memory": ["memory"],
+    "skills": ["skills"],
+    "logs": ["logs"],
+    "plugins": ["plugins"],
+    "full": [
+        "config.json",
+        "learning_history.json",
+        "history",
+        "memory",
+        "skills",
+        "config",
+        "logs",
+        "plugins",
+        "bandit_state.json",
+        "provider_health.json",
+        "model_pins.json",
+        "model_blacklist.json",
+        "step_cache.json",
+        "preferences.json",
+    ],
+}
+
+
 def default_backup_sources(home: Optional[Path] = None) -> List[Path]:
     """Paths that should be backed up (files and/or directories)."""
     root = home or (Path.home() / ".superai")
@@ -33,6 +59,36 @@ def default_backup_sources(home: Optional[Path] = None) -> List[Path]:
         root / "config",
         root / "logs",
     ]
+
+
+def sources_for_scopes(
+    scopes: Optional[List[str]] = None,
+    home: Optional[Path] = None,
+) -> List[Path]:
+    """
+    Selective backup: scopes like memory,skills,config or full.
+    """
+    root = home or (Path.home() / ".superai")
+    if not scopes:
+        return default_backup_sources(root)
+    names: List[str] = []
+    for s in scopes:
+        key = (s or "").strip().lower()
+        if not key:
+            continue
+        if key == "full" or key == "all":
+            names = list(BACKUP_SCOPES["full"])
+            break
+        names.extend(BACKUP_SCOPES.get(key, [key]))
+    # unique preserve order
+    seen = set()
+    paths: List[Path] = []
+    for n in names:
+        if n in seen:
+            continue
+        seen.add(n)
+        paths.append(root / n)
+    return paths or default_backup_sources(root)
 
 
 class BackupManager:
@@ -142,9 +198,13 @@ class BackupManager:
         incremental: bool = True,
         force_full: bool = False,
         quiet: bool = False,
+        scopes: Optional[List[str]] = None,
     ) -> str:
         if source_dirs is None:
-            sources = default_backup_sources(self.superai_home)
+            if scopes:
+                sources = sources_for_scopes(scopes, self.superai_home)
+            else:
+                sources = default_backup_sources(self.superai_home)
         else:
             sources = [Path(p) for p in source_dirs]
 

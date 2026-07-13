@@ -192,3 +192,62 @@ class ModelRegistry:
             self.models_path = Path(models_path)
         self._load_models()
         return len(self.models)
+
+    def register_model(
+        self,
+        name: str,
+        provider: str,
+        model_id: str,
+        base_url: Optional[str] = None,
+        api_key_env: Optional[str] = None,
+        **kwargs: Any,
+    ) -> ModelInfo:
+        """Register or overwrite a model (incl. dual CLI-as-model entries)."""
+        info = ModelInfo(
+            name=name,
+            provider=provider,
+            model_id=model_id,
+            base_url=base_url,
+            api_key_env=api_key_env,
+            context_window=int(kwargs.get("context_window", 128000)),
+            is_latest=bool(kwargs.get("is_latest", False)),
+            supports_tools=bool(kwargs.get("supports_tools", True)),
+            strengths=str(kwargs.get("strengths", "")),
+            cost_per_1k_tokens=float(kwargs.get("cost_per_1k_tokens", 0.0)),
+            latency_tier=int(kwargs.get("latency_tier", 2)),
+            extra=dict(kwargs.get("extra") or {}),
+        )
+        self.models[name] = info
+        return info
+
+    def register_external_clis_as_models(self) -> List[str]:
+        """
+        Dual registration: external AI CLIs appear as synthetic models (G7).
+        """
+        try:
+            from .external_cli import ExternalCLIRegistry
+        except Exception:  # noqa: BLE001
+            return []
+        reg = ExternalCLIRegistry()
+        added: List[str] = []
+        for d in reg.discover():
+            name = f"cli:{d['name']}"
+            self.register_model(
+                name=name,
+                provider="external_cli",
+                model_id=d["name"],
+                base_url=None,
+                api_key_env=None,
+                strengths="external CLI worker",
+                cost_per_1k_tokens=0.0,
+                latency_tier=3,
+                is_latest=bool(d.get("available")),
+                extra={
+                    "external_cli": True,
+                    "available": d.get("available"),
+                    "path": d.get("path"),
+                    "modifies_files": d.get("modifies_files"),
+                },
+            )
+            added.append(name)
+        return added

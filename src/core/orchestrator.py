@@ -145,6 +145,21 @@ class SuperAIOrchestrator:
                     "steps": resumed_completed,
                 }
 
+        # S4 budget pre-check
+        try:
+            from .budget import BudgetGuard
+
+            bg = BudgetGuard()
+            bg.configure(
+                daily_usd=float(self.config.get("budget_daily_usd") or 5),
+                run_usd=float(self.config.get("budget_run_usd") or 1),
+            )
+            bg.check_can_spend(estimated_usd=0.01)
+        except RuntimeError:
+            raise
+        except Exception:  # noqa: BLE001
+            bg = None  # type: ignore
+
         task_type = self.model_router.classify_task(task)
         result: Dict[str, Any] = {
             "task_id": task_id,
@@ -186,7 +201,11 @@ class SuperAIOrchestrator:
                         )
             logger.info("Starting task %s: %s", task_id, task)
 
-            plan_steps = self.task_planner.create_plan(task)
+            # S3: prefer LLM planner when live
+            use_llm_plan = bool(self.config.get("prefer_llm_planner", True)) and (
+                not self.config.use_mock
+            )
+            plan_steps = self.task_planner.create_plan(task, use_llm=use_llm_plan or None)
             # Skip already-completed steps on resume
             if resumed_completed:
                 done_ids = {
@@ -307,6 +326,14 @@ class SuperAIOrchestrator:
 
                 try:
                     prompt_parts = [step.description]
+                    # N14 constitution
+                    if self.config.get("use_constitution", True):
+                        try:
+                            from .constitution import format_for_prompt
+
+                            prompt_parts.append(format_for_prompt())
+                        except Exception:  # noqa: BLE001
+                            pass
                     if skill_prompt_block:
                         prompt_parts.append(f"\n{skill_prompt_block}")
                     if relevant_context.get("relevant_learnings"):
@@ -553,6 +580,31 @@ class SuperAIOrchestrator:
                     result["metadata"]["bandit_reward"] = reward
             except Exception as e:  # noqa: BLE001
                 logger.debug("Bandit update failed: %s", e)
+
+            # S4 record budget spend
+            try:
+                from .budget import BudgetGuard
+
+                BudgetGuard().record(usd=total_cost, tokens=total_tokens)
+            except Exception:  # noqa: BLE001
+                pass
+
+            # S8 audit
+            try:
+                from .audit_log import AuditLog
+
+                AuditLog().record(
+                    "run_task",
+                    {
+                        "task_id": task_id,
+                        "success": overall_success,
+                        "model": selected_model,
+                        "cost": total_cost,
+                    },
+                    outcome="ok" if overall_success else "fail",
+                )
+            except Exception:  # noqa: BLE001
+                pass
 
             # Phase 4: record skill outcomes + auto-create after enough successes
             try:

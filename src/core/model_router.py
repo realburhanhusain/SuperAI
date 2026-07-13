@@ -217,6 +217,25 @@ class ModelRouter:
             if model:
                 return model
 
+        # S5: soft preference from failover_chain (first available non-blocked)
+        chain_pref = None
+        try:
+            from .config import Config
+            from .model_blacklist import ModelBlacklist
+
+            bl = ModelBlacklist()
+            chain = Config().get("failover_chain") or []
+            for name in chain:
+                m = self.registry.get_model(str(name))
+                if not m:
+                    continue
+                if bl.is_model_blocked(m.name) or bl.is_provider_blocked(m.provider):
+                    continue
+                chain_pref = m
+                break
+        except Exception:  # noqa: BLE001
+            chain_pref = None
+
         if not self._history_stats:
             try:
                 self.refresh_history_stats()
@@ -225,7 +244,13 @@ class ModelRouter:
 
         ranked = self.rank_models(task)
         if not ranked:
-            return None
+            return chain_pref
+
+        # Prefer chain model if it appears in top ranked
+        if chain_pref:
+            for m, _parts in ranked[:8]:
+                if m.name == chain_pref.name:
+                    return m
 
         # Blend score with bandit means; epsilon explore among top-K
         if self.use_bandit and self.bandit and len(ranked) > 1:

@@ -35,8 +35,11 @@ class TaskHistory:
         record = {**record, "task_id": task_id}
         path = self.history_dir / f"{task_id}.json"
         try:
+            from .secrets import redact_obj
+
+            safe = redact_obj(record)
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(record, f, indent=2, default=str)
+                json.dump(safe, f, indent=2, default=str)
         except OSError as e:
             raise HistoryError(f"Failed to write history: {e}") from e
         return path

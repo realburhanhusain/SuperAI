@@ -263,6 +263,36 @@ class PluginRegistry:
                 results.append(p)
         return results
 
+    def load_plugin(self, plugin_id: str) -> Dict[str, Any]:
+        """
+        S10: Import plugin entry module if declared (importlib).
+        Manifest field: entry = 'package.module' or 'package.module:callable'
+        """
+        import importlib
+
+        p = self.get(plugin_id)
+        if not p:
+            raise KeyError(f"Unknown plugin: {plugin_id}")
+        if not p.get("enabled"):
+            raise ValueError(f"Plugin disabled: {plugin_id}")
+        entry = p.get("entry")
+        if not entry:
+            return {"ok": False, "error": "No entry module declared", "id": plugin_id}
+        mod_name, _, attr = str(entry).partition(":")
+        try:
+            mod = importlib.import_module(mod_name)
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": f"import failed: {e}", "entry": entry}
+        obj = getattr(mod, attr, None) if attr else mod
+        return {
+            "ok": True,
+            "id": plugin_id,
+            "entry": entry,
+            "module": getattr(mod, "__name__", str(mod)),
+            "callable": callable(obj),
+            "object_type": type(obj).__name__,
+        }
+
     def marketplace_summary(self) -> Dict[str, Any]:
         plugins = self.list_plugins(include_available=True)
         by_cat: Dict[str, int] = {}

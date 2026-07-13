@@ -140,6 +140,34 @@ class BackupManager:
         )
         return key
 
+    def export_key(self, dest: str | Path) -> Path:
+        """S9: copy encryption key to a secure path chosen by user."""
+        dest_p = Path(dest).expanduser()
+        dest_p.parent.mkdir(parents=True, exist_ok=True)
+        dest_p.write_bytes(self.encryption_key)
+        try:
+            os.chmod(dest_p, 0o600)
+        except OSError:
+            pass
+        return dest_p
+
+    def import_key(self, src: str | Path) -> Path:
+        """S9: import encryption key from backup path (overwrites current)."""
+        src_p = Path(src).expanduser()
+        if not src_p.is_file():
+            raise FileNotFoundError(f"Key file not found: {src}")
+        data = src_p.read_bytes()
+        if len(data) < 16:
+            raise ValueError("Key file too short")
+        self.key_file.parent.mkdir(parents=True, exist_ok=True)
+        self.key_file.write_bytes(data)
+        try:
+            os.chmod(self.key_file, 0o600)
+        except OSError:
+            pass
+        self.encryption_key = data
+        return self.key_file
+
     def _derive_key(self, salt: bytes) -> bytes:
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),

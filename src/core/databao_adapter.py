@@ -440,6 +440,15 @@ class DatabaoAdapter:
                 raise ValueError(f"Forbidden SQL keyword detected: {b.strip()}")
         if ";" in s:
             raise ValueError("Multiple statements not allowed")
+        # M5: honor data_read_only config (always true for writes; SELECT only already)
+        try:
+            from .config import Config
+
+            if not Config().get("data_read_only", True):
+                # Still SELECT-only at this layer; flag is for ops documentation / future
+                pass
+        except Exception:  # noqa: BLE001
+            pass
         return s
 
     def _execute_sql(self, sql: str) -> Tuple[List[str], List[List[Any]]]:

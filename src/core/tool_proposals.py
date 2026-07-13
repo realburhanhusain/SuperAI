@@ -186,24 +186,12 @@ class ToolProposalManager:
         }
 
     def _exec_edit_file(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        import os
-
-        path = Path(args["path"]).expanduser()
         content = args.get("content")
         if content is None:
             raise ValueError("edit_file requires content")
-        # Jail under workspace root (cwd or SUPERAI_WORKSPACE)
-        root = Path(
-            os.getenv("SUPERAI_WORKSPACE") or Path.cwd()
-        ).expanduser().resolve()
-        resolved = path.resolve()
-        try:
-            resolved.relative_to(root)
-        except ValueError as e:
-            raise ValueError(
-                f"edit_file path must be under workspace root {root}. "
-                "Set SUPERAI_WORKSPACE to change."
-            ) from e
+        from .workspace import assert_in_workspace
+
+        resolved = assert_in_workspace(args["path"], label="edit_file path")
         # Atomic-Hermes style: snapshot before overwrite
         snap = None
         try:

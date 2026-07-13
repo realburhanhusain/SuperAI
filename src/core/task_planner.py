@@ -321,3 +321,20 @@ class TaskPlanner:
                 f"- Role: {role}\n"
             )
         return "\n".join(lines)
+
+    def export_plan_mermaid(
+        self, task: str, steps: Optional[List[ExecutionStep]] = None
+    ) -> str:
+        """N7: Mermaid flowchart of plan dependencies."""
+        steps = steps or self.create_plan(task)
+        lines = ["```mermaid", "flowchart TD", f'  T["{task[:60].replace(chr(34), "")}"]']
+        for s in steps:
+            sid = f"S{s.step_id}"
+            label = s.description[:40].replace('"', "'")
+            lines.append(f'  {sid}["{s.step_id}: {label}"]')
+            if not s.depends_on:
+                lines.append(f"  T --> {sid}")
+            for d in s.depends_on or []:
+                lines.append(f"  S{d} --> {sid}")
+        lines.append("```")
+        return "\n".join(lines)

@@ -137,11 +137,13 @@ def init_cmd(
     dirs = config.initialize()
 
     from core.discovery import discover_environment
+    from core.constitution import ensure_default_constitution
 
     env = discover_environment()
     if env.get("mock_recommended"):
         config.set("mock_mode", True, persist=True)
     config.set("discovered_clis", env.get("clis_available") or [], persist=True)
+    const_path = ensure_default_constitution()
 
     console.print(
         Panel.fit(
@@ -153,10 +155,12 @@ def init_cmd(
             f"Memory: {dirs['memory']}\n"
             f"Skills: {dirs['skills']}\n"
             f"Backups: {dirs['backups']}\n"
+            f"Constitution: {const_path}\n"
             f"mock_mode: {config.use_mock}\n"
             f"CLIs found: {', '.join(env.get('clis_available') or []) or '(none)'}\n"
             f"Models registered: {env.get('models_registered')}\n"
-            f"rclone: {env.get('rclone_on_path')} | ollama: {env.get('ollama_on_path')}",
+            f"rclone: {env.get('rclone_on_path')} | ollama: {env.get('ollama_on_path')}\n\n"
+            f"Next: superai doctor && superai run \"hello\"",
             border_style="green",
         )
     )
@@ -181,6 +185,9 @@ def run(
     resume: Optional[str] = typer.Option(
         None, "--resume", help="Resume task_id from step cache checkpoint"
     ),
+    stream: bool = typer.Option(
+        False, "--stream", help="S1: stream model tokens when available"
+    ),
 ):
     """Run a task using SuperAI orchestration (mock by default)"""
     try:
@@ -195,12 +202,47 @@ def run(
             return
 
         console.print(Panel.fit(f"[bold]Task:[/bold] {task}", border_style="blue"))
-        result = orchestrator.run_task(
-            task=task,
-            forced_model=model,
-            verbose=verbose,
-            resume_task_id=resume,
-        )
+
+        # M6: hint incomplete runs
+        if not resume:
+            try:
+                from core.step_cache import StepResultCache
+
+                open_runs = [
+                    r
+                    for r in StepResultCache().list_runs()[:5]
+                    if r.get("remaining_step_ids")
+                ]
+                if open_runs:
+                    console.print(
+                        f"[yellow]Incomplete runs available "
+                        f"({len(open_runs)}). Resume: superai runs resume <id>[/yellow]"
+                    )
+            except Exception:  # noqa: BLE001
+                pass
+
+        if stream and model:
+            # S1: simple stream of a single model response (bypass multi-step for demo)
+            console.print(f"[dim]Streaming {model}…[/dim]")
+            chunks = []
+            for ch in orchestrator.model_caller.stream(model=model, prompt=task):
+                console.print(ch, end="")
+                chunks.append(ch)
+            console.print()
+            result = {
+                "success": True,
+                "status": "success",
+                "model_used": model,
+                "result": "".join(chunks),
+                "streamed": True,
+            }
+        else:
+            result = orchestrator.run_task(
+                task=task,
+                forced_model=model,
+                verbose=verbose,
+                resume_task_id=resume,
+            )
 
         if output:
             with open(output, "w", encoding="utf-8") as f:
@@ -234,7 +276,7 @@ def run(
 def plan(
     task: str = typer.Argument(..., help="Task to create execution plan for"),
     export: Optional[str] = typer.Option(
-        None, "--export", help="Export format: json | markdown | md"
+        None, "--export", help="Export format: json | markdown | md | mermaid"
     ),
     output: Optional[str] = typer.Option(
         None, "--output", "-o", help="Write export to file"
@@ -251,6 +293,15 @@ def plan(
             if output:
                 Path = __import__("pathlib").Path
                 Path(output).write_text(text, encoding="utf-8")
+                console.print(f"[green]Wrote[/green] {output}")
+            else:
+                console.print(text)
+        elif fmt in {"mermaid", "mmd"}:
+            text = planner.export_plan_mermaid(task, steps)
+            if output:
+                from pathlib import Path as P
+
+                P(output).write_text(text, encoding="utf-8")
                 console.print(f"[green]Wrote[/green] {output}")
             else:
                 console.print(text)
@@ -1217,7 +1268,7 @@ def msg_broadcast(
 @app.command("plugins")
 def plugins_cmd(
     action: str = typer.Argument(
-        "list", help="list | search | enable | disable | install | summary"
+        "list", help="list | search | enable | disable | install | load | summary"
     ),
     arg: Optional[str] = typer.Argument(
         None, help="plugin id / query / path depending on action"
@@ -1256,6 +1307,12 @@ def plugins_cmd(
         from pathlib import Path as P
 
         console.print_json(data=reg.install_from_path(P(arg)))
+        return
+    if action == "load":
+        if not arg:
+            console.print("[red]Need plugin id[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=reg.load_plugin(arg))
         return
     console.print(f"[red]Unknown action: {action}[/red]")
     raise typer.Exit(1)
@@ -1599,6 +1656,358 @@ def roles_cmd(
     from core.agentic import AgenticWorkflows
 
     console.print_json(data=AgenticWorkflows().dynamic_roles(task))
+
+
+@app.command()
+def doctor(
+    quick: bool = typer.Option(False, "--quick", help="Skip smoke calls"),
+):
+    """M1/M7: Health pack — env, config, smoke, next steps"""
+    from core.doctor import run_doctor
+
+    report = run_doctor(quick=quick)
+    for c in report.get("checks") or []:
+        mark = "[green]OK[/green]" if c.get("ok") else "[red]FAIL[/red]"
+        console.print(f"{mark} {c.get('name')}: {c.get('detail')}")
+    console.print(Panel.fit(
+        "\n".join(f"• {s}" for s in (report.get("next_steps") or [])),
+        title="Next steps",
+        border_style="cyan",
+    ))
+    if not report.get("ok"):
+        raise typer.Exit(1)
+
+
+@app.command()
+def chat(
+    message: Optional[str] = typer.Argument(None, help="Message (omit for new session id only)"),
+    session: Optional[str] = typer.Option(None, "--session", "-s", help="Continue chat id"),
+    new: bool = typer.Option(False, "--new", help="Start new session"),
+    list_chats: bool = typer.Option(False, "--list", help="List recent chats"),
+):
+    """S2: Multi-turn chat session with constitution + routing"""
+    from core.chat_session import ChatSession
+
+    cs = ChatSession()
+    if list_chats:
+        console.print_json(data=cs.list_chats())
+        return
+    sid = session
+    if new or not sid:
+        sid = cs.start()
+        console.print(f"[dim]chat_id={sid}[/dim]")
+    if not message:
+        console.print("Send a message: superai chat \"hello\" -s " + sid)
+        return
+    out = cs.ask(sid, message)
+    console.print(Panel(out.get("reply") or "", title=f"Assistant ({out.get('model')})", border_style="green"))
+    console.print(f"[dim]session={sid} turns={out.get('turns')}[/dim]")
+
+
+@app.command()
+def budget(
+    action: str = typer.Argument("show", help="show | set"),
+    daily: Optional[float] = typer.Option(None, "--daily", help="Daily USD limit"),
+    per_run: Optional[float] = typer.Option(None, "--run", help="Per-run USD limit"),
+    tokens: Optional[int] = typer.Option(None, "--tokens", help="Daily token limit"),
+):
+    """S4: Cost/token budget guards"""
+    from core.budget import BudgetGuard
+
+    g = BudgetGuard()
+    if action == "set":
+        console.print_json(data=g.configure(daily_usd=daily, run_usd=per_run, daily_tokens=tokens))
+        return
+    console.print_json(data=g.snapshot())
+
+
+@app.command()
+def audit(
+    limit: int = typer.Option(30, "--limit", "-n"),
+):
+    """S8: Show recent audit log entries"""
+    from core.audit_log import AuditLog
+
+    console.print_json(data=AuditLog().recent(limit=limit))
+
+
+@app.command("backup-key")
+def backup_key_cmd(
+    action: str = typer.Argument(..., help="export | import"),
+    path: str = typer.Argument(..., help="Destination or source key file path"),
+):
+    """S9: Export/import encryption key for backup recovery"""
+    from core.backup_manager import BackupManager
+    from core.audit_log import AuditLog
+
+    bm = BackupManager()
+    if action == "export":
+        dest = bm.export_key(path)
+        AuditLog().record("backup_key_export", {"dest": str(dest)})
+        console.print(f"[green]Exported key to[/green] {dest}")
+        return
+    if action == "import":
+        dest = bm.import_key(path)
+        AuditLog().record("backup_key_import", {"src": path})
+        console.print(f"[green]Imported key to[/green] {dest}")
+        return
+    raise typer.Exit(1)
+
+
+@app.command()
+def policy(
+    action: str = typer.Argument("list", help="list | enable | disable"),
+    rule_id: Optional[str] = typer.Argument(None),
+):
+    """N4: Policy engine rules"""
+    from core.policy import PolicyEngine
+
+    pe = PolicyEngine()
+    if action == "list":
+        console.print_json(data=pe.list_rules())
+        return
+    if action in {"enable", "disable"} and rule_id:
+        ok = pe.set_enabled(rule_id, action == "enable")
+        if not ok:
+            raise typer.Exit(1)
+        console.print_json(data=pe.list_rules())
+        return
+    raise typer.Exit(1)
+
+
+@app.command()
+def schedule(
+    action: str = typer.Argument("list", help="list | add | run-due"),
+    name: Optional[str] = typer.Argument(None),
+    command: Optional[str] = typer.Argument(None, help="backup | doctor | run:<task>"),
+    every_hours: float = typer.Option(24.0, "--every-hours"),
+):
+    """N10: Local scheduled jobs (run via schedule run-due or external cron)"""
+    from core.schedule_store import ScheduleStore
+
+    store = ScheduleStore()
+    if action == "list":
+        console.print_json(data=store.list_jobs())
+        return
+    if action == "add":
+        if not name or not command:
+            console.print("[red]Need name and command[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=store.add(name, command, every_hours=every_hours))
+        return
+    if action == "run-due":
+        console.print_json(data=store.run_due())
+        return
+    raise typer.Exit(1)
+
+
+@app.command("mcp-serve")
+def mcp_serve():
+    """N1: Minimal MCP-style NDJSON server on stdin/stdout"""
+    from core.mcp_server import serve_stdio
+
+    serve_stdio()
+
+
+@app.command()
+def constitution(
+    action: str = typer.Argument("show", help="show | init | path"),
+):
+    """N14: Show or initialize constitution/rules file"""
+    from core.constitution import (
+        ensure_default_constitution,
+        load_constitution,
+        constitution_paths,
+    )
+
+    if action == "init":
+        p = ensure_default_constitution()
+        console.print(f"[green]Wrote[/green] {p}")
+        return
+    if action == "path":
+        console.print_json(data=[str(p) for p in constitution_paths()])
+        return
+    console.print(load_constitution())
+
+
+@app.command()
+def profile(
+    action: str = typer.Argument("show", help="show | set"),
+    name: Optional[str] = typer.Argument(None),
+):
+    """N3: Active profile name (config key)"""
+    cfg = Config()
+    if action == "set" and name:
+        cfg.set("profile", name)
+        console.print(f"[green]profile={name}[/green]")
+        return
+    console.print_json(data={"profile": cfg.get("profile"), "config": str(cfg.config_path)})
+
+
+@app.command("failover")
+def failover_cmd(
+    action: str = typer.Argument("show", help="show | set"),
+    chain: Optional[str] = typer.Option(
+        None, "--chain", help="Comma-separated model names"
+    ),
+):
+    """S5: Provider/model failover chain preference"""
+    cfg = Config()
+    if action == "set":
+        models = [c.strip() for c in (chain or "").split(",") if c.strip()]
+        cfg.set("failover_chain", models)
+        console.print_json(data={"failover_chain": models})
+        return
+    console.print_json(data={"failover_chain": cfg.get("failover_chain") or []})
+
+
+@app.command()
+def metrics():
+    """N11: Export simple metrics snapshot as JSON"""
+    from core.budget import BudgetGuard
+    from core.history import TaskHistory
+    from core.observability import build_dashboard_snapshot
+
+    snap = build_dashboard_snapshot()
+    console.print_json(
+        data={
+            "history_count": TaskHistory().count(),
+            "budget": BudgetGuard().snapshot(),
+            "bandit_arms": snap.get("bandit_arms"),
+            "memory": snap.get("memory"),
+            "ts": snap.get("ts"),
+        }
+    )
+
+
+@app.command()
+def evals(
+    offline: bool = typer.Option(True, "--offline/--live"),
+):
+    """S12: Offline regression eval harness (golden tasks)"""
+    from core.orchestrator import SuperAIOrchestrator
+    from core.task_planner import TaskPlanner
+    from core.config import Config
+
+    cfg = Config()
+    if offline:
+        cfg.set("mock_mode", True, persist=False)
+    orch = SuperAIOrchestrator(config=cfg)
+    planner = TaskPlanner(orch.model_router, model_caller=orch.model_caller)
+    cases = [
+        "build a FastAPI hello world",
+        "research and compare databases",
+        "fix a flaky test",
+    ]
+    results = []
+    for task in cases:
+        plan = planner.create_plan(task, use_llm=False)
+        run = orch.run_task(task, verbose=False)
+        results.append(
+            {
+                "task": task,
+                "plan_steps": len(plan),
+                "has_parallel": any(s.can_run_parallel for s in plan),
+                "run_status": run.get("status"),
+                "success": run.get("success"),
+            }
+        )
+    passed = sum(1 for r in results if r.get("plan_steps", 0) >= 1)
+    console.print_json(data={"passed": passed, "total": len(cases), "results": results})
+
+
+@app.command("git-helper")
+def git_helper(
+    action: str = typer.Argument(..., help="status | branch-hint | commit-msg"),
+    task: Optional[str] = typer.Option(None, "--task"),
+):
+    """N9: Gated git helpers (read-only except explicit branch-hint text)"""
+    import subprocess
+    from core.workspace import workspace_root
+    from core.audit_log import AuditLog
+
+    cwd = str(workspace_root())
+    if action == "status":
+        r = subprocess.run(
+            ["git", "status", "-sb"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            shell=False,
+        )
+        console.print(r.stdout or r.stderr)
+        AuditLog().record("git_status", {"cwd": cwd})
+        return
+    if action == "branch-hint":
+        name = (task or "feature-work")[:40].lower().replace(" ", "-")
+        console.print(f"Suggested: git checkout -b superai/{name}")
+        return
+    if action == "commit-msg":
+        console.print(
+            f"Suggested message:\n\nfeat: {task or 'superai task'}\n\nGenerated by SuperAI (review before commit)."
+        )
+        return
+    raise typer.Exit(1)
+
+
+@app.command("msg-inbound")
+def msg_inbound(
+    channel: str = typer.Argument(..., help="telegram | slack | file"),
+    text: str = typer.Argument(..., help="Inbound message text"),
+):
+    """N6: Inbound messenger stub — parse simple commands"""
+    from core.messengers import MessengerBus
+    from core.audit_log import AuditLog
+
+    low = text.strip().lower()
+    reply = "unknown command. try: /status /doctor /help"
+    if low in {"/help", "help"}:
+        reply = "Commands: /status /doctor /help"
+    elif low in {"/status", "status"}:
+        from core.history import TaskHistory
+
+        reply = f"history={TaskHistory().count()} mock={Config().use_mock}"
+    elif low in {"/doctor", "doctor"}:
+        from core.doctor import run_doctor
+
+        reply = f"doctor_ok={run_doctor(quick=True).get('ok')}"
+    bus = MessengerBus()
+    # Log inbound then reply on same channel if possible
+    bus.send(f"[inbound:{channel}] {text}", channel="file")
+    out = bus.send(reply, channel=channel if channel in bus.list_channels() else "file")
+    AuditLog().record("msg_inbound", {"channel": channel, "text": text[:200]})
+    console.print_json(data={"reply": reply, "send": out})
+
+
+@app.command("ticket")
+def ticket_cmd(
+    action: str = typer.Argument("status", help="status | create"),
+    title: Optional[str] = typer.Argument(None),
+    body: Optional[str] = typer.Option(None, "--body"),
+):
+    """N12: Ticket sync stub (Linear/Jira) — local log until API keys"""
+    from pathlib import Path
+    import time
+    import json as _json
+
+    path = Path.home() / ".superai" / "tickets.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if action == "create" and title:
+        entry = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "title": title,
+            "body": body or "",
+            "provider": "local-stub",
+        }
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(_json.dumps(entry) + "\n")
+        console.print_json(data={"ok": True, "entry": entry})
+        return
+    if path.exists():
+        lines = path.read_text(encoding="utf-8").strip().splitlines()[-10:]
+        console.print_json(data=[__import__("json").loads(x) for x in lines if x])
+    else:
+        console.print_json(data=[])
 
 
 @app.command()

@@ -1,19 +1,38 @@
-# TASKBOARD — SuperAI_v1
+﻿# Checkpoint: msn-backlog-implemented
+
+- **When:** 2026-07-14 01:53:59 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Git HEAD:** dd630fb
+- **Git status:** ## master...origin/master [ahead 12]
+- **Pytest:** skipped
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI_v1
 
 **Backlog:** `docs/FEATURE_BACKLOG.md`  
 **Security:** `docs/SECURITY_REVIEW.md`  
-**Layout:** `src/cli` (import `scli`) · `src/core` (import `core`)
+**Layout:** `src/cli` (import `scli`) Â· `src/core` (import `core`)
 
-**Legend:** `[x]` done · `[~]` partial · `[ ]` pending · `[!]` external smoke
+**Legend:** `[x]` done Â· `[~]` partial Â· `[ ]` pending Â· `[!]` external smoke
 
 ---
 
-## Tracks A–J (prior)
+## Tracks Aâ€“J (prior)
 
 | Track | Status |
 |-------|--------|
-| A–J foundations | `[x]` |
-| Future Plan G1–G12 | `[x]` |
+| Aâ€“J foundations | `[x]` |
+| Future Plan G1â€“G12 | `[x]` |
 | Thin-layer depth finish | `[x]` |
 | Security hardening pass | `[x]` |
 | Package restructure src/cli + src/core | `[x]` |
@@ -90,5 +109,7 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Wired M/S/N backlog; implemented doctor, chat, budget, audit, policy, schedule, MCP, constitution, … |
-| **Verify** | `pytest -q` → **93 passed** |
+| **What** | Wired M/S/N backlog; implemented doctor, chat, budget, audit, policy, schedule, MCP, constitution, â€¦ |
+| **Verify** | `pytest -q` â†’ **93 passed** |
+
+```

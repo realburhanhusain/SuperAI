@@ -40,6 +40,21 @@ class Config:
         "bandit_epsilon": 0.1,
         "bandit_blend": 0.25,
         "use_step_cache": True,
+        # Failover chain (S5): ordered model names
+        "failover_chain": [],
+        # Budget defaults (S4)
+        "budget_daily_usd": 5.0,
+        "budget_run_usd": 1.0,
+        # Databao read-only enforcement (M5)
+        "data_read_only": True,
+        # Inject constitution into runs (N14)
+        "use_constitution": True,
+        # Active profile name (N3)
+        "profile": "default",
+        # Prefer LLM planner when not mock (S3)
+        "prefer_llm_planner": True,
+        # Docker sandbox flag (N15) — informational / future hook
+        "prefer_container_sandbox": False,
     }
 
     def __init__(self, config_path: Optional[str] = None):
@@ -48,6 +63,7 @@ class Config:
         self.config: Dict[str, Any] = self.DEFAULT_CONFIG.copy()
         self._ensure_home()
         self._load_config()
+        self._load_project_config()  # S7: .superai/config.json in cwd
         self._apply_env_overrides()
 
     def _ensure_home(self) -> None:
@@ -106,11 +122,30 @@ class Config:
             "SUPERAI_BANDIT_EPSILON": ("bandit_epsilon", float),
             "SUPERAI_BANDIT_BLEND": ("bandit_blend", float),
             "SUPERAI_USE_STEP_CACHE": ("use_step_cache", _as_bool),
+            "SUPERAI_DATA_READ_ONLY": ("data_read_only", _as_bool),
+            "SUPERAI_USE_CONSTITUTION": ("use_constitution", _as_bool),
+            "SUPERAI_PROFILE": ("profile", str),
+            "SUPERAI_PREFER_LLM_PLANNER": ("prefer_llm_planner", _as_bool),
+            "SUPERAI_BUDGET_DAILY_USD": ("budget_daily_usd", float),
+            "SUPERAI_BUDGET_RUN_USD": ("budget_run_usd", float),
         }
         for env_key, (cfg_key, caster) in env_map.items():
             raw = os.getenv(env_key)
             if raw is not None and raw != "":
                 self.config[cfg_key] = caster(raw)
+
+    def _load_project_config(self) -> None:
+        """S7: merge project-local .superai/config.json from cwd if present."""
+        proj = Path.cwd() / ".superai" / "config.json"
+        if not proj.is_file():
+            return
+        try:
+            data = json.loads(proj.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                self.config.update(data)
+                self.config["_project_config"] = str(proj)
+        except (OSError, json.JSONDecodeError):
+            pass
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.config.get(key, default)

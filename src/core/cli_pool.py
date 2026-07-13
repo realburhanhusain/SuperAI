@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .external_cli import ExternalCLITool
-from .mcp_context import MCPContextPack
 
 
 @dataclass
@@ -242,13 +241,18 @@ class ParallelCLIManager:
                 started_at = job.started_at
 
             try:
-                ctx_id = None
-                if with_context:
-                    pack = MCPContextPack().build(
-                        task=prompt, auto_memory=True, auto_skills=True
-                    )
-                    prompt = MCPContextPack().wrap_cli_prompt(pack, prompt)
-                    ctx_id = pack.get("id")
+                from .central_memory import inject_context, write_back
+
+                # Always-on Memory Palace unless with_context=False
+                orig_prompt = prompt
+                ctx = inject_context(
+                    orig_prompt,
+                    prompt=orig_prompt,
+                    use_memory=with_context,
+                    metadata={"workflow_id": wid, "cli": cli_name, "job_id": jid},
+                )
+                prompt = ctx.get("prompt") or prompt
+                ctx_id = ctx.get("context_id")
 
                 tool = ExternalCLITool(
                     auto_approve=auto_approve or dry_run,
@@ -286,6 +290,28 @@ class ParallelCLIManager:
                     status = "failed"
                     error = env.error or env.stderr or f"exit {env.exit_code}"
 
+                try:
+                    write_back(
+                        task=orig_prompt[:500],
+                        source="cli_pool",
+                        model_or_cli=f"cli:{cli_name}",
+                        success=status == "done",
+                        latency=duration,
+                        output=stdout_tail,
+                        error=error,
+                        context_id=ctx_id,
+                        task_type="coding",
+                        tags=["cli_pool", cli_name, wid],
+                        metadata={
+                            "job_id": jid,
+                            "workflow_id": wid,
+                            "dry_run": force_dry,
+                        },
+                        use_memory=with_context,
+                    )
+                except Exception:
+                    pass
+
                 with self._lock:
                     job = self.jobs[jid]
                     job.context_id = ctx_id
@@ -322,7 +348,7 @@ class ParallelCLIManager:
 
         done = [j for j in results if j.status == "done"]
         failed = [j for j in results if j.status == "failed"]
-        return {
+        out = {
             "ok": len(failed) == 0,
             "workflow_id": wid,
             "workflow_label": workflow_label,
@@ -332,7 +358,27 @@ class ParallelCLIManager:
             "failed": len(failed),
             "jobs": [j.to_dict() for j in results],
             "dashboard": self.snapshot_for_dashboard(),
+            "central_memory": with_context,
         }
+        try:
+            from .central_memory import write_back_workflow
+
+            task_hint = str(
+                (work[0].get("prompt") or work[0].get("task") or workflow_label)
+            )[:400]
+            out["memory_write"] = write_back_workflow(
+                task=task_hint,
+                source="cli_pool",
+                workflow_id=wid,
+                succeeded=len(done),
+                failed=len(failed),
+                total=len(results),
+                jobs=out["jobs"],
+                use_memory=with_context,
+            )
+        except Exception:
+            pass
+        return out
 
     def run_agentic_parallel(
         self,
@@ -377,11 +423,11 @@ class ParallelCLIManager:
             max_workers=max_workers,
             auto_approve=auto_approve,
             dry_run=dry_run,
-            with_context=True,
+            with_context=True,  # central Memory Palace for all workers
             workflow_label="agentic-parallel",
         )
 
-        # Supervisor merge of successful outputs
+        # Supervisor merge of successful outputs (+ Memory Palace preface)
         parts = []
         for j in result.get("jobs") or []:
             if j.get("status") == "done":
@@ -391,6 +437,7 @@ class ParallelCLIManager:
         merged = None
         if parts:
             try:
+                from .central_memory import memory_preface_for_llm, write_back_workflow
                 from .model_caller import ModelCaller
                 from .model_registry import ModelRegistry
 
@@ -398,17 +445,32 @@ class ParallelCLIManager:
                 names = [n for n in reg.list_all_models() if not str(n).startswith("cli:")]
                 model = names[0] if names else "gpt-4o"
                 blob = "\n\n".join(parts)[:12000]
+                mem = memory_preface_for_llm(task)
+                merge_prompt = (
+                    f"Supervisor merge of parallel CLI workers for task:\n{task}\n\n"
+                    f"{blob}\n\nProduce one coherent plan/result."
+                )
+                if mem:
+                    merge_prompt = f"{mem}\n\n{merge_prompt}"
                 merged = ModelCaller(use_mock=True, registry=reg).call(
                     model=model,
-                    prompt=(
-                        f"Supervisor merge of parallel CLI workers for task:\n{task}\n\n"
-                        f"{blob}\n\nProduce one coherent plan/result."
-                    ),
+                    prompt=merge_prompt,
                 )
                 result["synthesis"] = {
                     "model": model,
                     "text": merged.get("response"),
+                    "memory_injected": bool(mem),
                 }
+                write_back_workflow(
+                    task=task,
+                    source="cli_pool_agentic",
+                    workflow_id=str(result.get("workflow_id") or ""),
+                    succeeded=int(result.get("succeeded") or 0),
+                    failed=int(result.get("failed") or 0),
+                    total=int(result.get("total") or 0),
+                    synthesis=str(merged.get("response") or "")[:2000],
+                    jobs=result.get("jobs") or [],
+                )
             except Exception as e:  # noqa: BLE001
                 result["synthesis"] = {"error": str(e), "parts": len(parts)}
         else:

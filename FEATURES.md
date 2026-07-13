@@ -1,6 +1,6 @@
 # SuperAI — Features (aligned with code)
 
-**Repo:** SuperAI_v1 · **Board:** `TASKBOARD.md` · **Tests:** 133 passed  
+**Repo:** SuperAI_v1 · **Board:** `TASKBOARD.md` · **Tests:** 141 passed  
 **Packages:** `core` · `scli` (folder `src/cli`)
 
 ## Core
@@ -11,6 +11,7 @@
 | Mock-first + multi-provider ModelCaller | **Implemented** |
 | Scoring router + bandit + failover chain + A/B | **Implemented** |
 | Memory Palace (Chroma / FAISS / in-memory) | **Implemented** |
+| **Central Memory Palace for all SuperAI-mediated AIs** | **Implemented** |
 | Learning, skills, preferences, constitution | **Implemented** |
 | Encrypted backup + key export + rclone hooks | **Implemented** |
 | Council / hierarchy / agentic roles | **Implemented** |
@@ -49,6 +50,20 @@ Run several shell terminals at once; every session is visible in one place.
 | Web | `/terminals` page · `/api/terminals` JSON |
 | CLI | `term-parallel` · `term-jobs list\|snapshot\|clear` |
 | Safety | Dry-run default; argv only (`shell=False`); workspace jail for cwd; block shell meta unless `SUPERAI_ALLOW_SHELL_META=1` |
+
+## Central Memory Palace (all SuperAI-mediated AIs)
+
+One shared store (`MemoryPalace` at `~/.superai/memory`) for every AI SuperAI runs:
+
+| Path | Inject memory | Write-back outcomes |
+|------|---------------|---------------------|
+| Orchestrator (`run`) | Yes | Yes |
+| External CLI (`cli-run`) | **Default on** (`--no-context` to skip) | **Default on** (`--no-memory` to skip) |
+| Multi-CLI (`cli-parallel`) | Yes | Per-job + workflow summary |
+| Multi-terminal (`term-parallel`) | N/A (shell) | Workflow summary |
+| Council / agentic debate | Yes | Yes |
+
+Opt-out: `central_memory=false` · `SUPERAI_CENTRAL_MEMORY=0` · `SUPERAI_CENTRAL_MEMORY_WRITE=0`
 
 ## Host tools (not bundled)
 

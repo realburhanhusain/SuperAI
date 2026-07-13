@@ -58,6 +58,9 @@ class Config:
         "compliance_mode": False,
         "lang": "en",
         "telemetry_opt_in": False,
+        # Central Memory Palace for all SuperAI-mediated AIs (inject + write-back)
+        "central_memory": True,
+        "central_memory_write_back": True,
     }
 
     def __init__(self, config_path: Optional[str] = None):

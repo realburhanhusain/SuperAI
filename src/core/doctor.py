@@ -90,6 +90,25 @@ def run_doctor(quick: bool = False) -> Dict[str, Any]:
     except Exception as e:  # noqa: BLE001
         add("host_tools", False, str(e), "warn")
 
+    # Central Memory Palace (shared across SuperAI-mediated AIs)
+    central_mem = None
+    try:
+        from .central_memory import status as central_memory_status
+
+        central_mem = central_memory_status()
+        add(
+            "central_memory",
+            bool(central_mem.get("enabled")),
+            (
+                f"enabled={central_mem.get('enabled')} "
+                f"write_back={central_mem.get('write_back')} "
+                f"count={(central_mem.get('stats') or {}).get('count')}"
+            ),
+            level="warn" if not central_mem.get("enabled") else "ok",
+        )
+    except Exception as e:  # noqa: BLE001
+        add("central_memory", False, str(e), "warn")
+
     # Backup key
     key = home / ".backup_key"
     add("backup_key", key.exists(), str(key) if key.exists() else "not generated yet")
@@ -169,6 +188,7 @@ def run_doctor(quick: bool = False) -> Dict[str, Any]:
         }
         if host_tools_report
         else None,
+        "central_memory": central_mem,
     }
     return summary
 

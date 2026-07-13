@@ -33,6 +33,8 @@ superai run "hello" --format json
 | `dashboard` / `web` → `/cli-pool` · `/terminals` | Single dashboard for CLI + terminal workers |
 | `host-tools check\|install\|matrix [--profile core\|agentic\|cloud\|full]` | Host CLI checklist + optional install (not bundled) |
 | `scripts/bootstrap.ps1` / `bootstrap.sh` | pip install SuperAI + host-tools dry-run/live |
+| `cli-run` … `--context/--no-context` · `--memory/--no-memory` | Central Memory Palace inject + write-back (default on) |
+| Config `central_memory` / env `SUPERAI_CENTRAL_MEMORY` | Master switch for shared Memory Palace |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |
 | `run … --stream -m model` | Stream single-model output |

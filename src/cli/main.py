@@ -1322,39 +1322,53 @@ def cli_run(
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show command only"),
     with_context: bool = typer.Option(
-        False, "--context", help="Wrap prompt with MCP-style context pack"
+        True,
+        "--context/--no-context",
+        help="Inject central Memory Palace context (default: on)",
+    ),
+    use_memory: bool = typer.Option(
+        True,
+        "--memory/--no-memory",
+        help="Write result back to central Memory Palace (default: on)",
     ),
 ):
-    """Run an external AI CLI with approval gate (config: require_human_approval)"""
+    """Run an external AI CLI with central Memory Palace (inject + write-back)."""
+    from core.central_memory import inject_context, write_back
     from core.external_cli import ExternalCLITool
-    from core.learning_engine import LearningEngine
-    from core.memory_palace import MemoryPalace
 
     cfg = Config()
+    orig_prompt = prompt
+    ctx_id = None
     if with_context:
-        from core.mcp_context import MCPContextPack
-
-        pack = MCPContextPack().build(task=prompt)
-        prompt = MCPContextPack().wrap_cli_prompt(pack, prompt)
-        console.print(f"[dim]Context pack {pack.get('id')} attached[/dim]")
+        ctx = inject_context(orig_prompt, prompt=orig_prompt, use_memory=True)
+        prompt = ctx.get("prompt") or prompt
+        ctx_id = ctx.get("context_id")
+        if ctx_id:
+            console.print(
+                f"[dim]Memory Palace context {ctx_id} "
+                f"(memories={ctx.get('memory_count', 0)})[/dim]"
+            )
     # If require_human_approval is False, auto-approve file-modifying CLIs
     auto = not cfg.require_human_approval
     tool = ExternalCLITool(dry_run=dry_run, auto_approve=auto)
     result = tool.run(name, prompt, approve=True if auto else approve)
     data = result.to_dict()
-    # Log delegation to memory palace
+    # Always write back into central Memory Palace (unless --no-memory)
     try:
-        le = LearningEngine(MemoryPalace())
-        le.learn_from_task(
-            task_description=f"external_cli:{name} {prompt[:200]}",
-            task_type="coding" if result.modifies_files else "general",
-            model_used=f"cli:{name}",
+        mem = write_back(
+            task=orig_prompt,
+            source="cli_run",
+            model_or_cli=f"cli:{name}",
             success=result.ok,
             latency=result.duration_sec,
-            steps_completed=1 if result.ok else 0,
-            steps_failed=0 if result.ok else 1,
-            error_message=result.error,
+            output=result.stdout or "",
+            error=result.error or result.stderr,
+            context_id=ctx_id,
+            task_type="coding" if result.modifies_files else "general",
+            tags=["cli_run", name],
+            use_memory=use_memory,
         )
+        data["memory_write"] = mem
     except Exception:  # noqa: BLE001
         pass
 

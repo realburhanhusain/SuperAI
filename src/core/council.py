@@ -62,6 +62,15 @@ class Council:
         # Document context injection (Future Plan council depth)
         doc_block = self._load_documents(documents, document_paths)
 
+        # Central Memory Palace shared across all council members
+        mem_block = ""
+        try:
+            from .central_memory import memory_preface_for_llm
+
+            mem_block = memory_preface_for_llm(topic)
+        except Exception:
+            mem_block = ""
+
         # Stage 0: simple vs complex classification
         stage0 = self._classify_complexity(topic)
 
@@ -74,6 +83,8 @@ class Council:
                 '"confidence":0.0-1.0,"reasons":["..."],"summary":"..."}\n\n'
                 f"Topic: {topic}\n"
             )
+            if mem_block:
+                prompt = f"{mem_block}\n\n{prompt}"
             if doc_block:
                 prompt += f"\nReference documents:\n{doc_block[:6000]}\n"
             raw = self.caller.call(model=m, prompt=prompt)
@@ -109,17 +120,36 @@ class Council:
             members=members,
         )
 
-        return {
+        result = {
             "topic": topic,
             "voting_mode": mode,
             "members": members,
             "stage0": stage0,
             "documents_injected": bool(doc_block),
+            "memory_injected": bool(mem_block),
             "proposals": proposals,
             "critiques": critiques,
             "decision": decision,
             "message": f"Council finished via {mode} voting.",
         }
+        # Write council outcome into central Memory Palace
+        try:
+            from .central_memory import write_back
+
+            summary = str((decision or {}).get("summary") or decision or "")[:2000]
+            result["memory_write"] = write_back(
+                task=topic,
+                source="council",
+                model_or_cli=f"council:{mode}",
+                success=True,
+                output=summary or str(proposals)[:1500],
+                task_type="reasoning",
+                tags=["council", mode],
+                metadata={"voting_mode": mode, "members": members},
+            )
+        except Exception:
+            pass
+        return result
 
     def _classify_complexity(self, topic: str) -> Dict[str, Any]:
         t = (topic or "").lower()

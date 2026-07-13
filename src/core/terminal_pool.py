@@ -471,7 +471,7 @@ class ParallelTerminalManager:
 
         done = [s for s in results if s.status == "done"]
         failed = [s for s in results if s.status == "failed"]
-        return {
+        out = {
             "ok": len(failed) == 0,
             "workflow_id": wid,
             "workflow_label": workflow_label,
@@ -482,6 +482,38 @@ class ParallelTerminalManager:
             "sessions": [s.to_dict() for s in results],
             "dashboard": self.snapshot_for_dashboard(),
         }
+        # Write terminal workflow outcomes into central Memory Palace
+        try:
+            from .central_memory import write_back_workflow
+
+            task_hint = workflow_label
+            if work:
+                cmd0 = work[0].get("command") or work[0].get("title") or ""
+                if isinstance(cmd0, list):
+                    cmd0 = " ".join(cmd0)
+                task_hint = str(cmd0)[:400] or workflow_label
+            out["memory_write"] = write_back_workflow(
+                task=task_hint,
+                source="terminal_pool",
+                workflow_id=wid,
+                succeeded=len(done),
+                failed=len(failed),
+                total=len(results),
+                jobs=[
+                    {
+                        "title": s.title,
+                        "role": s.role,
+                        "status": s.status,
+                        "stdout_tail": s.stdout_tail,
+                        "error": s.error,
+                        "cli": s.title,
+                    }
+                    for s in results
+                ],
+            )
+        except Exception:
+            pass
+        return out
 
     def run_agentic_parallel(
         self,
@@ -532,6 +564,7 @@ class ParallelTerminalManager:
 
         if parts:
             try:
+                from .central_memory import memory_preface_for_llm, write_back_workflow
                 from .model_caller import ModelCaller
                 from .model_registry import ModelRegistry
 
@@ -541,17 +574,32 @@ class ParallelTerminalManager:
                 ]
                 model = names[0] if names else "gpt-4o"
                 blob = "\n\n".join(parts)[:12000]
+                mem = memory_preface_for_llm(task)
+                merge_prompt = (
+                    f"Supervisor merge of parallel terminal workers for task:\n{task}\n\n"
+                    f"{blob}\n\nProduce one coherent plan/result from terminal outputs."
+                )
+                if mem:
+                    merge_prompt = f"{mem}\n\n{merge_prompt}"
                 merged = ModelCaller(use_mock=True, registry=reg).call(
                     model=model,
-                    prompt=(
-                        f"Supervisor merge of parallel terminal workers for task:\n{task}\n\n"
-                        f"{blob}\n\nProduce one coherent plan/result from terminal outputs."
-                    ),
+                    prompt=merge_prompt,
                 )
                 result["synthesis"] = {
                     "model": model,
                     "text": merged.get("response"),
+                    "memory_injected": bool(mem),
                 }
+                write_back_workflow(
+                    task=task,
+                    source="terminal_pool_agentic",
+                    workflow_id=str(result.get("workflow_id") or ""),
+                    succeeded=int(result.get("succeeded") or 0),
+                    failed=int(result.get("failed") or 0),
+                    total=int(result.get("total") or 0),
+                    synthesis=str(merged.get("response") or "")[:2000],
+                    jobs=result.get("sessions") or [],
+                )
             except Exception as e:  # noqa: BLE001
                 result["synthesis"] = {"error": str(e), "parts": len(parts)}
         else:

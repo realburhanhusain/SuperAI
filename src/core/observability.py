@@ -168,6 +168,14 @@ def build_dashboard_snapshot(
     except Exception as e:  # noqa: BLE001
         snap["terminal_pool"] = {"error": str(e)}
 
+    # Central Memory Palace status (shared by all SuperAI-mediated AIs)
+    try:
+        from .central_memory import status as central_memory_status
+
+        snap["central_memory"] = central_memory_status()
+    except Exception as e:  # noqa: BLE001
+        snap["central_memory"] = {"error": str(e)}
+
     return snap
 
 

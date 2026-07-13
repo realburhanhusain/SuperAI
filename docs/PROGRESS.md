@@ -1,7 +1,7 @@
 # SuperAI_v1 — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **133 passed**  
+**Tests:** **141 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -30,6 +30,7 @@
 
 ### Latest highlights
 
+- **Central Memory Palace** for all SuperAI-mediated AIs (inject + write-back; `core/central_memory.py`)  
 - **Host tools checklist + optional auto-install** (`host-tools`, bootstrap scripts, `SUPERAI_AUTO_HOST_TOOLS`) — not bundled in package  
 - **Parallel multi-CLI + multi-terminal + single dashboard** for agentic workflows (`cli-parallel`, `term-parallel`, dashboard panels, web `/cli-pool` + `/terminals`)  
 - Wave-2 product features: approval TUI, keyring, diagnose, TDD loop, diff-edit, workspace index, PWA, VS Code extension, FAISS backend, Docker sandbox, GDPR forget, compliance mode, i18n, telemetry, …

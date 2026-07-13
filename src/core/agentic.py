@@ -34,12 +34,21 @@ class AgenticWorkflows:
         Each model proposes a stance; optional second round of critique.
         """
         models = models or self._default_models(2)
+        mem = ""
+        try:
+            from .central_memory import memory_preface_for_llm
+
+            mem = memory_preface_for_llm(topic)
+        except Exception:
+            mem = ""
         proposals = []
         for m in models:
             prompt = (
                 f"You are debating the topic: {topic}\n"
                 f"Give a concise position with 3 bullet reasons."
             )
+            if mem:
+                prompt = f"{mem}\n\n{prompt}"
             resp = self.caller.call(model=m, prompt=prompt)
             proposals.append(
                 {
@@ -59,6 +68,8 @@ class AgenticWorkflows:
                     f"Opponent said:\n{other['text']}\n"
                     f"Critique constructively and refine your stance."
                 )
+                if mem:
+                    prompt = f"{mem}\n\n{prompt}"
                 resp = self.caller.call(model=p["model"], prompt=prompt)
                 critiques.append(
                     {
@@ -68,12 +79,31 @@ class AgenticWorkflows:
                     }
                 )
 
-        return {
+        result = {
             "topic": topic,
             "proposals": proposals,
             "critiques": critiques,
+            "memory_injected": bool(mem),
             "message": f"Debate completed with {len(models)} model(s).",
         }
+        try:
+            from .central_memory import write_back
+
+            blob = "\n".join(
+                f"{p.get('model')}: {(p.get('text') or '')[:400]}" for p in proposals
+            )
+            result["memory_write"] = write_back(
+                task=topic,
+                source="agentic_debate",
+                model_or_cli="debate",
+                success=True,
+                output=blob,
+                task_type="reasoning",
+                tags=["debate", "agentic"],
+            )
+        except Exception:
+            pass
+        return result
 
     def critique_and_extend(
         self,

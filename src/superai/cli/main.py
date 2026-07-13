@@ -130,11 +130,19 @@ def init_cmd(
         help="Skip prompts (also set SUPERAI_NON_INTERACTIVE=1)",
     ),
 ):
-    """Initialize SuperAI home directory and default configuration"""
+    """Initialize SuperAI home directory, config, and discover environment"""
     config = Config()
     if non_interactive:
         config.set("non_interactive", True, persist=True)
     dirs = config.initialize()
+
+    from superai.core.discovery import discover_environment
+
+    env = discover_environment()
+    if env.get("mock_recommended"):
+        config.set("mock_mode", True, persist=True)
+    config.set("discovered_clis", env.get("clis_available") or [], persist=True)
+
     console.print(
         Panel.fit(
             "[bold green]SuperAI initialized successfully![/bold green]\n\n"
@@ -145,7 +153,10 @@ def init_cmd(
             f"Memory: {dirs['memory']}\n"
             f"Skills: {dirs['skills']}\n"
             f"Backups: {dirs['backups']}\n"
-            f"mock_mode: {config.use_mock}",
+            f"mock_mode: {config.use_mock}\n"
+            f"CLIs found: {', '.join(env.get('clis_available') or []) or '(none)'}\n"
+            f"Models registered: {env.get('models_registered')}\n"
+            f"rclone: {env.get('rclone_on_path')} | ollama: {env.get('ollama_on_path')}",
             border_style="green",
         )
     )
@@ -658,6 +669,180 @@ def skill_rollback(name: str = typer.Argument(..., help="Skill name to rollback 
     else:
         console.print(f"[yellow]Nothing to rollback or skill missing:[/yellow] {name}")
         raise typer.Exit(code=1)
+
+
+@app.command()
+def discover():
+    """Discover installed AI CLIs, API keys, and environment"""
+    from superai.core.discovery import discover_environment
+
+    env = discover_environment()
+    table = Table(title="External CLIs")
+    table.add_column("Name")
+    table.add_column("Available")
+    table.add_column("Path")
+    table.add_column("Modifies files")
+    for c in env.get("clis") or []:
+        table.add_row(
+            str(c.get("name")),
+            str(c.get("available")),
+            str(c.get("path") or ""),
+            str(c.get("modifies_files")),
+        )
+    console.print(table)
+    console.print(
+        Panel.fit(
+            f"Models registered: {env.get('models_registered')} ({env.get('model_source')})\n"
+            f"API keys: {env.get('api_keys_present')}\n"
+            f"ollama: {env.get('ollama_on_path')} | rclone: {env.get('rclone_on_path')}\n"
+            f"mock_recommended: {env.get('mock_recommended')}",
+            title="Environment",
+            border_style="cyan",
+        )
+    )
+
+
+@app.command("cli-run")
+def cli_run(
+    name: str = typer.Argument(..., help="External CLI name from discover"),
+    prompt: str = typer.Argument(..., help="Prompt/task for the CLI"),
+    approve: bool = typer.Option(
+        False, "--approve", help="Approve file-modifying actions"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show command only"),
+):
+    """Run an external AI CLI with approval gate (H1–H5)"""
+    from superai.core.external_cli import ExternalCLITool
+    from superai.core.learning_engine import LearningEngine
+    from superai.core.memory_palace import MemoryPalace
+
+    tool = ExternalCLITool(dry_run=dry_run, auto_approve=False)
+    result = tool.run(name, prompt, approve=approve)
+    data = result.to_dict()
+    # Log delegation to memory palace
+    try:
+        le = LearningEngine(MemoryPalace())
+        le.learn_from_task(
+            task_description=f"external_cli:{name} {prompt[:200]}",
+            task_type="coding" if result.modifies_files else "general",
+            model_used=f"cli:{name}",
+            success=result.ok,
+            latency=result.duration_sec,
+            steps_completed=1 if result.ok else 0,
+            steps_failed=0 if result.ok else 1,
+            error_message=result.error,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+    if result.ok:
+        console.print(Panel(result.stdout or "(no stdout)", title=f"{name} OK", border_style="green"))
+    else:
+        console.print(f"[red]Failed:[/red] {result.error or result.stderr}")
+        console.print_json(data=data)
+        raise typer.Exit(code=1)
+
+
+@app.command("propose")
+def propose(
+    action: str = typer.Argument(..., help="edit_file | run_shell | web_search"),
+    payload: str = typer.Argument(..., help="JSON object of args"),
+    rationale: str = typer.Option("", "--why", help="Rationale"),
+):
+    """Create a tool proposal requiring approval before execute"""
+    import json as _json
+
+    from superai.core.tool_proposals import ToolProposalManager
+
+    args = _json.loads(payload)
+    mgr = ToolProposalManager()
+    p = mgr.propose(action=action, args=args, rationale=rationale)
+    console.print(f"[green]Proposed[/green] id={p.id} action={p.action} status={p.status}")
+
+
+@app.command("proposal")
+def proposal_cmd(
+    proposal_id: str = typer.Argument(..., help="Proposal id"),
+    action: str = typer.Option(
+        "show", "--action", help="show | approve | reject | execute"
+    ),
+):
+    """Manage a tool proposal"""
+    from superai.core.tool_proposals import ToolProposalManager
+
+    mgr = ToolProposalManager()
+    if action == "show":
+        p = mgr._get(proposal_id)
+        console.print_json(data=p.to_dict())
+        return
+    if action == "approve":
+        p = mgr.approve(proposal_id)
+    elif action == "reject":
+        p = mgr.reject(proposal_id)
+    elif action == "execute":
+        p = mgr.execute(proposal_id)
+    else:
+        console.print(f"[red]Unknown action {action}[/red]")
+        raise typer.Exit(code=1)
+    console.print_json(data=p.to_dict())
+
+
+@app.command("proposals")
+def proposals_list(
+    status: Optional[str] = typer.Option(None, "--status", help="Filter by status"),
+):
+    """List tool proposals"""
+    from superai.core.tool_proposals import ToolProposalManager
+
+    mgr = ToolProposalManager()
+    items = mgr.list(status=status)
+    table = Table(title="Tool proposals")
+    table.add_column("ID")
+    table.add_column("Action")
+    table.add_column("Status")
+    table.add_column("Rationale")
+    for p in items[:50]:
+        table.add_row(p.id, p.action, p.status, (p.rationale or "")[:40])
+    console.print(table)
+
+
+@app.command()
+def debate(
+    topic: str = typer.Argument(..., help="Debate topic"),
+    models: Optional[str] = typer.Option(
+        None, "--models", help="Comma-separated model names"
+    ),
+    rounds: int = typer.Option(1, "--rounds", min=1, max=2),
+):
+    """Run a multi-model debate / critique pattern (I2)"""
+    from superai.core.agentic import AgenticWorkflows
+
+    wf = AgenticWorkflows()
+    model_list = [m.strip() for m in models.split(",")] if models else None
+    result = wf.debate(topic, models=model_list, rounds=rounds)
+    for p in result.get("proposals") or []:
+        console.print(Panel(str(p.get("text")), title=f"Debater {p.get('model')}", border_style="blue"))
+    for c in result.get("critiques") or []:
+        console.print(Panel(str(c.get("text")), title=f"Critique {c.get('model')}", border_style="yellow"))
+
+
+@app.command()
+def wings(
+    list_all: bool = typer.Option(False, "--list", help="List wings and rooms"),
+    memory_id: Optional[str] = typer.Option(None, "--memory-id"),
+    wing: Optional[str] = typer.Option(None, "--wing"),
+    room: Optional[str] = typer.Option(None, "--room"),
+    note: str = typer.Option("", "--note"),
+):
+    """Memory wings & rooms organization (I4)"""
+    from superai.core.wings import WingsManager
+
+    wm = WingsManager()
+    if list_all or not (memory_id and wing and room):
+        console.print_json(data=wm.list_wings())
+        return
+    entry = wm.assign(memory_id, wing, room, note=note)
+    console.print(f"[green]Assigned[/green] {entry}")
 
 
 @app.command("list-models")

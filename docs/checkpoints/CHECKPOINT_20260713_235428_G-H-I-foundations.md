@@ -1,10 +1,29 @@
-# TASKBOARD — SuperAI_v1
+﻿# Checkpoint: G-H-I-foundations
+
+- **When:** 2026-07-13 23:54:29 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Git HEAD:** eaabae4
+- **Git status:** ## master...origin/master [ahead 2]
+- **Pytest:** skipped
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI_v1
 
 **Resume:** this file + latest `docs/checkpoints/` + `docs/PROGRESS.md`  
-**No daily resume task** — work continues in-session until external blockers only.  
+**No daily resume task** â€” work continues in-session until external blockers only.  
 **Scope:** plan items are **required** (never optional).
 
-**Legend:** `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (external)
+**Legend:** `[ ]` pending Â· `[~]` in progress Â· `[x]` done Â· `[!]` blocked (external)
 
 ---
 
@@ -12,7 +31,7 @@
 
 | Track | Status |
 |-------|--------|
-| A–F | `[x]` done |
+| Aâ€“F | `[x]` done |
 | G | `[x]` done (Pages workflow present; enable in GitHub repo settings if needed) |
 | H | `[x]` foundation done (deeper polish continues in ops) |
 | I | `[x]` foundation done (ecosystem connectors deepen over time) |
@@ -21,7 +40,7 @@ Operational blockers (not code gaps): live multi-key smoke, rclone remote prove,
 
 ---
 
-## Track G — Phase 6 `[x]`
+## Track G â€” Phase 6 `[x]`
 
 - [x] G1 Progress bars on multi-step runs
 - [x] G2 Suggested fixes on errors
@@ -31,7 +50,7 @@ Operational blockers (not code gaps): live multi-key smoke, rclone remote prove,
 - [x] G6 docs/index + pages workflow (enable Pages in GitHub)
 - [x] G7 CONTRIBUTING updated for SuperAI_v1 + checkpoints
 
-## Track H — Phase 7 foundation `[x]`
+## Track H â€” Phase 7 foundation `[x]`
 
 - [x] H1 ExternalCLITool abstraction
 - [x] H2 CLI registry (claude, aider, cursor, grok, gemini, codex)
@@ -42,7 +61,7 @@ Operational blockers (not code gaps): live multi-key smoke, rclone remote prove,
 - [x] H7 Dashboard module retained; web dashboard still thin (FastAPI later enhancement)
 - [x] H8 Tool proposal system (propose/approve/execute)
 
-## Track I — Phase 8 foundation `[x]`
+## Track I â€” Phase 8 foundation `[x]`
 
 - [x] I1 CLI discovery + structured context for external tools
 - [x] I2 Debate / critique-extend agentic workflows
@@ -77,3 +96,5 @@ Operational blockers (not code gaps): live multi-key smoke, rclone remote prove,
 | **What** | Deleted daily resume task; finished G docs; implemented H/I foundations; tests green |
 | **Next** | Only external: live keys smoke, rclone remote, GitHub Pages toggle; optional deeper web UI |
 | **Verify** | `pytest -q` |
+
+```

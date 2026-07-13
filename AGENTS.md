@@ -16,10 +16,11 @@ There is also a thinner sibling at `...\github\SuperAI` (plans + skeleton). **Pr
 2. Read **`docs/PROGRESS.md`** for phase % snapshot.
 3. Do **not** restart packaging or re-do completed tracks unless tests fail.
 4. Pick the highest-priority incomplete item (`[ ]` or `[~]`).
-5. Work autonomously through the plan; **do not stop for approval** between planned items unless blocked (`[!]`).
-6. After each item (or ~30–45 min): update TASKBOARD Last session, then run:
+5. Work autonomously through the plan; **do not stop for approval** between planned items unless blocked externally (`[!]` — keys, network, cloud credentials, GitHub admin).
+6. There is **no daily resume task**; continue in-session until blocked or plan complete.
+7. After each item (or ~30–45 min): update TASKBOARD Last session, then run:
    `powershell -File scripts/checkpoint.ps1 -Label "<item-id>"`
-7. See **`docs/CHECKPOINT_PROTOCOL.md`**.
+8. See **`docs/CHECKPOINT_PROTOCOL.md`**.
 
 ## Scope (non-negotiable)
 

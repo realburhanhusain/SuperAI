@@ -37,7 +37,24 @@ You can contribute in many ways:
 
 ---
 
-## Development Setup
+## Development Setup (SuperAI_v1)
+
+```powershell
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+pip install -e ".[dev]"
+pytest -q
+```
+
+**Always resume from `TASKBOARD.md`** (and latest `docs/checkpoints/`).  
+Scope is defined by `implementation_plan_detailed.md` — unfinished items are **pending**, not optional.
+
+```powershell
+# After a meaningful change:
+powershell -File scripts\checkpoint.ps1 -Label "my-change"
+```
+
+## Development Setup (generic)
+
 
 ### 1. Fork and Clone the Repository
 

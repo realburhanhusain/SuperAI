@@ -1,81 +1,85 @@
-# SuperAI - Detailed Features
+# SuperAI — Features (aligned with code)
 
-This document provides an in-depth overview of all major features in SuperAI.
+**Repo:** SuperAI_v1 · **Truth board:** `TASKBOARD.md` · **Progress:** `docs/PROGRESS.md`  
+Features below mark **Implemented** vs **In progress / planned (required, not optional)**.
 
-## 1. Multi-Model Orchestration
+## 1. Multi-model orchestration
 
-- **Supervisor-Worker Pattern**: A central supervisor decomposes complex tasks and delegates subtasks to specialized workers.
-- **Model-Agnostic Design**: Any LLM from any provider (or local model) can act as the supervisor or worker.
-- **Recursive Task Decomposition**: The supervisor can break down tasks into smaller subtasks recursively.
-- **Parallel Execution**: Supports delegating multiple subtasks simultaneously for efficiency.
-- **Structured JSON Communication**: All inter-agent communication uses well-defined JSON schemas for reliability.
+| Feature | Status |
+|---------|--------|
+| Supervisor-style multi-step task plans | **Implemented** (`TaskPlanner` + `SuperAIOrchestrator`) |
+| Sequential step execution with context handoff | **Implemented** |
+| Structured run results (JSON) + history | **Implemented** |
+| Mock mode without API keys | **Implemented** |
+| Parallel multi-worker execution | **Planned** (Track H) |
+| Recursive hierarchical delegation | **Planned** (Track I) |
 
-## 2. Intelligent Model Routing & Load Balancing
+## 2. Routing & resilience
 
-- **Task Classification**: Automatically classifies tasks (coding, reasoning, research, summarization, etc.).
-- **Multiple Routing Strategies**:
-  - Smart Fallback (default)
-  - Latency-based
-  - Round Robin
-  - Cost-based
-  - Parallel Voting (extensible)
-- **Circuit Breaker Pattern**: Automatically detects and isolates failing or slow providers.
-- **Retry with Exponential Backoff**: Handles transient failures gracefully.
-- **Human Override Priority**: Manual model selection by the user always takes precedence.
-- **Learned Performance Routing**: Uses historical outcomes from the LearningEngine to improve future routing decisions.
+| Feature | Status |
+|---------|--------|
+| Task classification (coding/reasoning/research/…) | **Implemented** |
+| Scoring router (task match, history, cost, latency, health) | **Implemented** |
+| Strategies: smart_fallback, round_robin, latency_based, cost_based | **Implemented** |
+| Circuit breaker + retry/backoff | **Implemented** |
+| Provider health + quota windows (persisted) | **Implemented** |
+| Human override (`--model`, set-supervisor) | **Implemented** |
+| Streaming foundation | **Implemented** |
+| Live multi-provider smoke harness | **Implemented** (keys/Ollama required on host) |
+| Contextual bandit / RL routing | **Planned** (Track H) |
 
-## 3. Comprehensive Model & CLI Discovery
+## 3. Models & discovery
 
-- **Dynamic Discovery**: Automatically detects installed AI CLIs on the system (Claude Code, Aider, Cursor, Grok CLI, Gemini CLI, Continue, LM Studio, etc.).
-- **Broad Provider Support**: Supports 17+ providers including xAI, Anthropic, OpenAI, Google, DeepSeek, Qwen, Mistral, Meta, NVIDIA, Groq, Together AI, Fireworks, Perplexity, and more.
-- **Latest + Historical Models**: Maintains both cutting-edge and still-useful older models.
-- **Multi-Vendor Deduplication**: Intelligently handles models available from multiple providers.
-- **Web-based Auto-Refresh**: `list-models --refresh` fetches the latest available models.
-- **Model Version Pinning**: Allows pinning specific model versions for reproducibility.
+| Feature | Status |
+|---------|--------|
+| Model registry from `config/models.json` | **Implemented** |
+| `list-models --refresh` (+ `SUPERAI_MODELS_URL`) | **Implemented** |
+| Broad provider call paths (OpenAI-compat, Anthropic, Google, Ollama, …) | **Implemented** |
+| External AI CLI discovery (Claude Code, Aider, …) | **In progress** (Track H) |
 
-## 4. Self-Learning & Memory System
+## 4. Self-learning & memory
 
-- **Memory Palace (ChromaDB)**: Persistent semantic memory with vector search and rich metadata tagging.
-- **LearningEngine**: Automatically extracts patterns and insights from every task outcome.
-- **Skills System** (inspired by OpenClaw & Hermes-Agent):
-  - Markdown-based, human-readable skills
-  - Autonomous creation of new skills from successful experiences
-  - Self-improvement of existing skills over time
-- **Context Injection**: The supervisor receives relevant skills, memory, and learned patterns automatically.
+| Feature | Status |
+|---------|--------|
+| Memory Palace (ChromaDB + offline fallback) | **Implemented** |
+| Local embeddings (hash / sentence-transformers / EmbeddingGemma path) | **Implemented** |
+| Named collections facade (learnings, skills, tasks, reflections) | **Implemented** |
+| Learn from outcomes; conflicts; distill; decay | **Implemented** |
+| Mid-task memory injection | **Implemented** |
+| Human feedback CLI | **Implemented** |
+| Knowledge evolution CLI (`evolve`) | **Implemented** |
+| Wings & rooms + provenance | **Planned** (Track I) |
 
-## 5. Secure & Automated Backup System
+## 5. Skills
 
-- **Fully Automated**: Creates backups automatically on clean application exit.
-- **Encryption**: Uses AES-256-GCM for strong authenticated encryption.
-- **Compression**: Zstandard (zstd) for excellent speed + compression ratio with low resource usage.
-- **Incremental**: Only changed files are processed.
-- **Cloud Sync**: Automatically syncs encrypted backups to cloud storage via `rclone`.
-- **Broad Cloud Support**: AWS S3, Google Cloud Storage, Azure Blob Storage, Google Drive, Dropbox, and 40+ other backends.
-- **Backup Verification**: Built-in commands to check backup integrity.
-- **Non-interactive Mode**: Fully scriptable via environment variables.
+| Feature | Status |
+|---------|--------|
+| Markdown skills + index | **Implemented** |
+| Inject relevant skills into prompts | **Implemented** |
+| Auto-create from repeated success (sandbox) | **Implemented** |
+| Promote / rollback / success_rate | **Implemented** |
 
-## 6. CLI & User Experience
+## 6. Backup & security
 
-- Rich, discoverable command-line interface
-- Commands for initialization, discovery, model management, routing strategy, and backup operations
-- Terminal dashboard with live status
-- Web dashboard support (FastAPI-based)
-- Non-interactive/scriptable mode for automation and CI/CD
+| Feature | Status |
+|---------|--------|
+| AES-256-GCM + zstd encrypted backups | **Implemented** |
+| Incremental + retention | **Implemented** |
+| Verify + restore local | **Implemented** |
+| Auto-backup on clean exit | **Implemented** |
+| rclone cloud push/pull/restore | **Implemented** (rclone must be configured) |
 
-## 7. Resilience & Observability
+## 7. CLI & UX
 
-- Circuit Breaker + Retry logic across all model providers
-- Latency tracking and performance monitoring
-- Structured logging
-- Feedback loop from outcomes back into the LearningEngine and routing decisions
+| Feature | Status |
+|---------|--------|
+| Typer CLI + Rich output | **Implemented** |
+| Progress bars on multi-step runs | **Implemented** |
+| Suggested fixes on common errors | **Implemented** |
+| Shell completion | **Implemented** (`--install-completion`) |
+| Terminal dashboard module | **Partial** (exists; deeper live wiring Track H) |
+| Web dashboard | **Planned** (Track H) |
 
-## 8. Extensibility
+## 8. Advanced / ecosystem (required later tracks)
 
-- Easy to add new model providers and external CLIs
-- Pluggable load balancing strategies
-- Foundation prepared for reinforcement learning-based routing improvements
-- Clean modular architecture for future extensions
-
----
-
-**SuperAI** is designed to be a production-ready, self-improving multi-model AI platform that combines the best ideas from tools like Claude Code, Aider, OpenClaw, Hermes-Agent, and Mempalace into one cohesive system.
+External CLI delegation, tool proposals + human approval, dual dashboards, RL routing, MCP-deep context, agentic debate patterns, n8n/cloud/Notion integrations, advanced first-run discovery — see **Tracks H–I** on `TASKBOARD.md`.

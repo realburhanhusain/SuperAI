@@ -1,0 +1,49 @@
+name: Docs
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "FEATURES.md"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Stage docs site
+        run: |
+          mkdir -p _site
+          cp -r docs/* _site/ || true
+          cp README.md FEATURES.md QUICK_REFERENCE.md TASKBOARD.md _site/ 2>/dev/null || true
+          # simple index if missing
+          test -f _site/index.md || echo "# SuperAI" > _site/index.md
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

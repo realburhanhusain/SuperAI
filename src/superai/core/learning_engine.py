@@ -114,6 +114,18 @@ class LearningEngine:
                 "human_feedback": human_feedback,
             }
         )
+        # Track I: wings & rooms assignment (best-effort)
+        try:
+            from .wings import WingsManager
+
+            wm = WingsManager()
+            mapping = wm.classify_task_type(task_type)
+            room = mapping["room"]
+            if not success and mapping["wing"] == "learning":
+                room = "failures"
+            wm.assign(memory_id, mapping["wing"], room)
+        except Exception:
+            pass
         return memory_id
 
     def get_learnings_summary(self, task_type: Optional[str] = None) -> Dict[str, Any]:

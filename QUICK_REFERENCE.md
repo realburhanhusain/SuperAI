@@ -76,7 +76,10 @@ superai run "hello" --format json
 | Command | Purpose |
 |---------|---------|
 | `council` / `delegate` / `roles` / `debate` | Multi-model |
-| `mcp-serve` / `langgraph-export` | Interop |
+| `mcp-serve` | Local MCP server (stdio) — other AIs share Memory Palace |
+| `mcp-config [--write]` | Client config for Claude Desktop / Cursor / etc. |
+| `web` → `POST /mcp` · `/api/mcp/tools` | HTTP MCP + tool listing |
+| `langgraph-export` | Interop |
 | `browse URL` / `notebook` / `git-helper` | Tools |
 | `plugins` / `plugin-catalog` / `skill-perms` | Plugins |
 | `schedule` / `metrics` / `evals` / `benchmark --report` | Ops |

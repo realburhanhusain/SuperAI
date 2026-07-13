@@ -279,13 +279,17 @@ class MemoryPalace:
                     n_results=max(fetch_n, 1),
                 )
             except Exception:
-                return []
+                results = {}
 
             memories: List[Dict] = []
-            ids = (results.get("ids") or [[]])[0]
-            docs = (results.get("documents") or [[]])[0]
-            metas = (results.get("metadatas") or [[]])[0]
-            dists = (results.get("distances") or [[None] * len(ids)])[0]
+            ids = (results.get("ids") or [[]])[0] if results else []
+            docs = (results.get("documents") or [[]])[0] if results else []
+            metas = (results.get("metadatas") or [[]])[0] if results else []
+            dists = (
+                (results.get("distances") or [[None] * len(ids)])[0]
+                if results
+                else []
+            )
 
             wanted = {t.lower() for t in tags} if tags else None
 
@@ -313,30 +317,75 @@ class MemoryPalace:
                 )
                 if len(memories) >= top_k:
                     break
-            return memories
+            if memories:
+                return memories
+            # Fall through to keyword scan when vector query returns empty
+            # (common with hash embeddings / mismatched EF collections)
 
-        # In-memory keyword fallback
-        results = []
-        query_lower = query.lower()
+        # Keyword fallback (in-memory list + full store scan)
+        return self._keyword_search(
+            query,
+            top_k=top_k,
+            tags=tags,
+            include_deprecated=include_deprecated,
+        )
+
+    def _keyword_search(
+        self,
+        query: str,
+        top_k: int = 5,
+        tags: Optional[List[str]] = None,
+        include_deprecated: bool = False,
+    ) -> List[Dict]:
+        """Token/substring search over get_all_memories + in-RAM list."""
+        results: List[Dict] = []
+        query_lower = (query or "").lower().strip()
+        tokens = [t for t in re.split(r"\W+", query_lower) if len(t) > 2]
         wanted = {t.lower() for t in tags} if tags else None
-        for mem in self.memories:
+
+        pool: List[Dict[str, Any]] = list(self.memories or [])
+        try:
+            for m in self.get_all_memories() or []:
+                pool.append(m)
+        except Exception:
+            pass
+
+        seen: set[str] = set()
+        for mem in pool:
+            mid = str(mem.get("id") or "")
+            if mid and mid in seen:
+                continue
+            if mid:
+                seen.add(mid)
             meta = mem.get("metadata") or {}
-            if not include_deprecated and meta.get("deprecated"):
+            if not include_deprecated and meta.get("deprecated") in (
+                True,
+                "True",
+                "true",
+                1,
+            ):
                 continue
-            if query_lower not in (mem.get("content") or "").lower():
-                continue
+            content = mem.get("content") or ""
+            content_l = content.lower()
+            if query_lower and query_lower not in content_l:
+                if tokens and not any(t in content_l for t in tokens):
+                    continue
             if wanted and not wanted.intersection(_parse_tags(meta, mem)):
                 continue
             results.append(
                 {
-                    "id": mem["id"],
-                    "content": mem["content"],
+                    "id": mem.get("id"),
+                    "content": content,
                     "metadata": meta,
-                    "importance": mem.get("importance", meta.get("importance", 0.5)),
+                    "importance": mem.get(
+                        "importance", meta.get("importance", 0.5)
+                    ),
                     "tags": mem.get("tags", []),
                 }
             )
-        return results[:top_k]
+            if len(results) >= top_k:
+                break
+        return results
 
     def cluster_memories(
         self,

@@ -92,7 +92,7 @@ def create_app() -> Any:
 <h1>SuperAI Memory Query</h1>
 <p>Shared surface for terminal + web (Mempalace-inspired).
  <a href="/dashboard">Dashboard</a> · <a href="/cli-pool">CLI Pool</a> ·
- <a href="/terminals">Terminals</a> ·
+ <a href="/terminals">Terminals</a> · <a href="/mcp">MCP</a> ·
  <a href="/charts">Charts</a> · <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
@@ -320,6 +320,70 @@ setInterval(load, 8000);
         from core.ecosystem import EcosystemHub
 
         return EcosystemHub().capabilities()
+
+    @app.post("/mcp")
+    async def mcp_http(request: Request) -> Any:
+        """
+        Local MCP over HTTP (JSON-RPC).
+        Other AIs / automation can POST initialize | tools/list | tools/call.
+        Auth: SUPERAI_WEB_TOKEN if set (Bearer / x-superai-token).
+        """
+        _check_auth(request)
+        from core.mcp_server import handle_request
+
+        try:
+            body = await request.json()
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"invalid JSON: {e}") from e
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="JSON object required")
+        return handle_request(body)
+
+    @app.get("/api/mcp/tools")
+    def api_mcp_tools() -> Dict[str, Any]:
+        from core.mcp_server import list_tools, client_config_snippet
+
+        return {
+            "tools": list_tools(),
+            "stdio": "superai mcp-serve",
+            "http": "POST /mcp",
+            "client_config": client_config_snippet(),
+        }
+
+    @app.get("/mcp", response_class=HTMLResponse)
+    def mcp_page() -> str:
+        return """<!doctype html>
+<html><head><meta charset="utf-8"><title>SuperAI MCP</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:900px;margin:1.5rem auto;padding:0 1rem}
+ code,pre{background:#f4f6f8;padding:.2rem .4rem;border-radius:4px}
+ pre{padding:1rem;overflow:auto}
+ li{margin:.35rem 0}
+</style></head>
+<body>
+<h1>SuperAI local MCP</h1>
+<p><a href="/">Home</a> · Other AIs connect here to share <b>central Memory Palace</b>
+ and run CLIs through SuperAI.</p>
+<h2>stdio (Claude Desktop / Cursor)</h2>
+<pre>superai mcp-config
+superai mcp-serve</pre>
+<p>Merge <code>mcpServers.superai</code> from <code>superai mcp-config</code> into the client.</p>
+<h2>HTTP</h2>
+<pre>POST /mcp  (JSON-RPC: initialize | tools/list | tools/call)
+GET  /api/mcp/tools</pre>
+<ul id="tools"><li>Loading…</li></ul>
+<script>
+fetch('/api/mcp/tools').then(r=>r.json()).then(j=>{
+  const ul=document.getElementById('tools');
+  ul.innerHTML='';
+  (j.tools||[]).forEach(t=>{
+    const li=document.createElement('li');
+    li.innerHTML='<code>'+t.name+'</code> — '+(t.description||'');
+    ul.appendChild(li);
+  });
+});
+</script>
+</body></html>"""
 
     @app.get("/api/cli-pool")
     def api_cli_pool(

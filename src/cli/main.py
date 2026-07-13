@@ -2285,11 +2285,60 @@ def schedule(
 
 
 @app.command("mcp-serve")
-def mcp_serve():
-    """N1: Minimal MCP-style NDJSON server on stdin/stdout"""
+def mcp_serve(
+    transport: str = typer.Option(
+        "stdio",
+        "--transport",
+        "-t",
+        help="stdio (default, for Claude/Cursor) | note: HTTP is via superai web /mcp",
+    ),
+):
+    """
+    SuperAI local MCP server — other AIs/CLIs connect here to use central Memory Palace
+    and SuperAI-mediated tools (memory search/store, cli-run, orchestrate).
+
+    Claude Desktop / Cursor: superai mcp-config
+    Then point their MCP settings at `superai mcp-serve`.
+    """
+    if transport not in {"stdio", "http"}:
+        console.print("[red]transport must be stdio (or use superai web for HTTP /mcp)[/red]")
+        raise typer.Exit(1)
+    if transport == "http":
+        console.print(
+            "[yellow]HTTP MCP is served by:[/yellow] superai web  →  POST /mcp\n"
+            "For stdio clients (Claude, Cursor), use default: superai mcp-serve"
+        )
+        raise typer.Exit(0)
     from core.mcp_server import serve_stdio
 
     serve_stdio()
+
+
+@app.command("mcp-config")
+def mcp_config_cmd(
+    write: bool = typer.Option(
+        False, "--write", help=f"Write to ~/.superai/mcp_client_config.json"
+    ),
+    cwd: Optional[str] = typer.Option(
+        None, "--cwd", help="Working directory for the MCP server process"
+    ),
+    transport: str = typer.Option("stdio", "--transport", help="stdio | http"),
+):
+    """Print / write MCP client config so Claude, Cursor, etc. can use SuperAI memory."""
+    from core.mcp_server import client_config_snippet, write_client_config, list_tools
+
+    if write:
+        path = write_client_config(cwd=cwd)
+        console.print(f"[green]Wrote[/green] {path}")
+    data = client_config_snippet(cwd=cwd, transport=transport)
+    console.print_json(data=data)
+    console.print(
+        f"[dim]Tools ({len(list_tools())}): "
+        f"{', '.join(t['name'] for t in list_tools())}[/dim]"
+    )
+    console.print(
+        "[dim]Merge mcpServers.superai into Claude Desktop / Cursor MCP settings.[/dim]"
+    )
 
 
 @app.command()

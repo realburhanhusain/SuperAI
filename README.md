@@ -30,6 +30,14 @@ superai onboard
 superai doctor
 ```
 
+**Local MCP** (other AIs share SuperAI Memory Palace):
+
+```powershell
+superai mcp-config --write    # ~/.superai/mcp_client_config.json for Claude/Cursor
+superai mcp-serve             # stdio MCP server
+# HTTP: superai web  →  POST /mcp  ·  GET /api/mcp/tools
+```
+
 **Host tools** (git, gh, aws, claude, gemini, …) are **not** bundled in the SuperAI package. They are detected on PATH and can be installed via winget/brew/apt/pip/npm:
 
 ```powershell

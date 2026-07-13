@@ -21,6 +21,7 @@
 | Tool proposals + diff-first edits + workspace jail | **Implemented** |
 | Doctor, chat, budget, audit, policy, schedule | **Implemented** |
 | MCP server, PWA, VS Code extension scaffold | **Implemented** |
+| **Local MCP server for external AIs (shared Memory Palace)** | **Implemented** |
 | Compliance mode, GDPR forget/TTL, i18n, telemetry | **Implemented** |
 | TDD loop, PR review, notebook runner, browser tool | **Implemented** |
 | Live multi-provider E2E | **Deferred smoke** |
@@ -50,6 +51,19 @@ Run several shell terminals at once; every session is visible in one place.
 | Web | `/terminals` page · `/api/terminals` JSON |
 | CLI | `term-parallel` · `term-jobs list\|snapshot\|clear` |
 | Safety | Dry-run default; argv only (`shell=False`); workspace jail for cwd; block shell meta unless `SUPERAI_ALLOW_SHELL_META=1` |
+
+## Local MCP server (other AIs share SuperAI memory)
+
+SuperAI runs its **own local MCP server**. Claude Code, Cursor, Codex, Gemini CLI, Grok, etc. connect as MCP clients and use the **same central Memory Palace**.
+
+| Piece | Detail |
+|-------|--------|
+| Stdio | `superai mcp-serve` |
+| Client config | `superai mcp-config` / `--write` → `~/.superai/mcp_client_config.json` |
+| HTTP | `superai web` → `POST /mcp` · `GET /api/mcp/tools` · page `/mcp` |
+| Memory tools | `superai_memory_search` · `store` · `context` · `learn` · `central_memory_status` |
+| CLI tools | `superai_cli_discover` · `cli_run` · `cli_parallel` (through SuperAI → write-back) |
+| Orchestration | `superai_run` · `superai_status` · `superai_host_tools` |
 
 ## Central Memory Palace (all SuperAI-mediated AIs)
 

@@ -49,8 +49,8 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Central Memory Palace for all SuperAI-mediated AIs |
-| **Verify** | `pytest -q` · `superai doctor` (central_memory check) |
+| **What** | Local MCP server — external AIs share central Memory Palace |
+| **Verify** | `pytest -q` · `superai mcp-config` · `superai mcp-serve` |
 
 ### Multi-CLI parallel (new)
 

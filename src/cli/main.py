@@ -970,6 +970,148 @@ def cli_jobs_cmd(
     )
 
 
+@app.command("term-parallel")
+def term_parallel(
+    task: str = typer.Argument(
+        ..., help="Task label for agentic multi-terminal fan-out"
+    ),
+    commands: Optional[str] = typer.Option(
+        None,
+        "--commands",
+        "-c",
+        help="Semicolon-separated commands (raw mode). Example: 'python -V;python -c print(1)'",
+    ),
+    workers: int = typer.Option(4, "--workers", "-w", help="Max parallel terminals"),
+    dry_run: bool = typer.Option(
+        True, "--dry-run/--live", help="Dry-run by default; --live executes"
+    ),
+    approve: bool = typer.Option(
+        False, "--approve", help="Approve live terminal execution"
+    ),
+    agentic: bool = typer.Option(
+        True,
+        "--agentic/--raw",
+        help="Agentic roles + supervisor merge (default) or raw command fan-out",
+    ),
+    cwd: Optional[str] = typer.Option(
+        None, "--cwd", help="Working directory (must be under workspace)"
+    ),
+):
+    """
+    Run multiple shell terminals in parallel; track all on one dashboard.
+
+    Watch live: superai dashboard  |  superai web → /terminals
+    """
+    from core.terminal_pool import ParallelTerminalManager
+    from core.audit_log import AuditLog
+
+    mgr = ParallelTerminalManager()
+    if agentic and not commands:
+        result = mgr.run_agentic_parallel(
+            task,
+            max_workers=workers,
+            dry_run=dry_run,
+            auto_approve=approve or dry_run,
+            cwd=cwd,
+        )
+    else:
+        # Parse semicolon-separated commands into work items
+        if commands:
+            parts = [p.strip() for p in commands.split(";") if p.strip()]
+        else:
+            parts = []
+        if not parts:
+            # Raw mode without commands: still use default agentic terminals as raw
+            work = mgr._default_agentic_terminals(task)
+            for w in work:
+                w["role"] = "worker"
+        else:
+            work = [
+                {
+                    "title": f"term-{i + 1}",
+                    "role": "worker",
+                    "command": p,
+                }
+                for i, p in enumerate(parts)
+            ]
+        result = mgr.run_parallel(
+            work,
+            max_workers=workers,
+            dry_run=dry_run,
+            auto_approve=approve or dry_run,
+            workflow_label="raw-terminals" if commands else "agentic-as-raw",
+            cwd=cwd,
+        )
+
+    AuditLog().record(
+        "term_parallel",
+        {
+            "workflow_id": result.get("workflow_id"),
+            "total": result.get("total"),
+            "succeeded": result.get("succeeded"),
+            "dry_run": dry_run,
+        },
+    )
+    table = Table(title=f"Parallel terminals — {result.get('workflow_id')}")
+    table.add_column("Title")
+    table.add_column("Role")
+    table.add_column("Status")
+    table.add_column("Sec")
+    table.add_column("Command")
+    table.add_column("Output")
+    for s in result.get("sessions") or []:
+        cmd = s.get("command") or []
+        cmd_s = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+        table.add_row(
+            str(s.get("title")),
+            str(s.get("role")),
+            str(s.get("status")),
+            str(s.get("duration_sec")),
+            cmd_s[:40],
+            str(s.get("stdout_tail") or s.get("error") or "")[:50].replace("\n", " "),
+        )
+    console.print(table)
+    if result.get("synthesis"):
+        console.print(
+            Panel(
+                str(
+                    (result.get("synthesis") or {}).get("text")
+                    or result.get("synthesis")
+                )[:2000],
+                title="Supervisor synthesis",
+                border_style="cyan",
+            )
+        )
+    console.print(
+        f"[dim]Dashboard: superai dashboard · web /terminals · "
+        f"ok={result.get('succeeded')}/{result.get('total')}[/dim]"
+    )
+    if not result.get("ok") and not dry_run:
+        raise typer.Exit(1)
+
+
+@app.command("term-jobs")
+def term_jobs_cmd(
+    action: str = typer.Argument("list", help="list | snapshot | clear"),
+    workflow_id: Optional[str] = typer.Option(None, "--workflow", "-w"),
+    status: Optional[str] = typer.Option(None, "--status"),
+):
+    """List / snapshot / clear parallel terminal session registry (dashboard feed)"""
+    from core.terminal_pool import ParallelTerminalManager
+
+    mgr = ParallelTerminalManager()
+    if action == "snapshot":
+        console.print_json(data=mgr.snapshot_for_dashboard())
+        return
+    if action == "clear":
+        n = mgr.clear_finished()
+        console.print(f"[green]Cleared {n} finished terminal sessions[/green]")
+        return
+    console.print_json(
+        data=mgr.list_sessions(status=status, workflow_id=workflow_id, limit=50)
+    )
+
+
 @app.command("cli-run")
 def cli_run(
     name: str = typer.Argument(..., help="External CLI name from discover"),

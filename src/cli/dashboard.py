@@ -165,9 +165,13 @@ class SuperAIDashboard:
             main_layout = layout
 
         main_layout.split_column(
-            Layout(name="cli_pool", ratio=2),
+            Layout(name="workers", ratio=3),
             Layout(name="top", ratio=2),
             Layout(name="bottom", ratio=1),
+        )
+        main_layout["workers"].split_row(
+            Layout(name="cli_pool", ratio=1),
+            Layout(name="term_pool", ratio=1),
         )
         main_layout["top"].split_row(
             Layout(name="delegations", ratio=2),
@@ -178,7 +182,8 @@ class SuperAIDashboard:
             Layout(name="memory", ratio=1),
         )
 
-        main_layout["cli_pool"].update(self._cli_pool_panel())
+        main_layout["workers"]["cli_pool"].update(self._cli_pool_panel())
+        main_layout["workers"]["term_pool"].update(self._terminal_pool_panel())
         main_layout["top"]["delegations"].update(self._delegations_panel())
         main_layout["top"]["strengths"].update(self._cli_strengths_panel())
         main_layout["bottom"]["logs"].update(self._logs_panel())
@@ -243,6 +248,66 @@ class SuperAIDashboard:
             f"fail={totals.get('failed', 0)}"
         )
         return Panel(table, title=title, border_style="bright_blue")
+
+    def _terminal_pool_panel(self) -> Panel:
+        """Single view of all parallel shell terminals (agentic multi-terminal)."""
+        table = Table(title="Parallel terminals (agentic)", expand=True)
+        table.add_column("Term", style="cyan", max_width=12)
+        table.add_column("Title", style="magenta", max_width=12)
+        table.add_column("Role")
+        table.add_column("Status", style="green")
+        table.add_column("Sec", justify="right")
+        table.add_column("Cmd", max_width=18)
+        table.add_column("Output", max_width=28)
+
+        pool = (self._snapshot or {}).get("terminal_pool") or {}
+        sessions = []
+        sessions.extend(pool.get("running") or [])
+        sessions.extend(pool.get("queued") or [])
+        sessions.extend(pool.get("recent_done") or [])
+        seen = set()
+        ordered = []
+        for s in sessions:
+            sid = s.get("id")
+            if sid in seen:
+                continue
+            seen.add(sid)
+            ordered.append(s)
+
+        if not ordered:
+            table.add_row("—", "—", "—", "idle", "0", "—", "No terminal sessions")
+        else:
+            for s in ordered[:12]:
+                status = str(s.get("status") or "")
+                style = {
+                    "running": "bold yellow",
+                    "queued": "dim",
+                    "done": "green",
+                    "failed": "red",
+                }.get(status, "")
+                cmd = s.get("command") or []
+                cmd_s = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+                out = (s.get("stdout_tail") or s.get("error") or "")[:28].replace(
+                    "\n", " "
+                )
+                table.add_row(
+                    str(s.get("id") or "")[:12],
+                    str(s.get("title") or "")[:12],
+                    str(s.get("role") or "worker")[:10],
+                    f"[{style}]{status}[/{style}]" if style else status,
+                    f"{float(s.get('duration_sec') or 0):.1f}",
+                    cmd_s[:18],
+                    out,
+                )
+
+        totals = pool.get("totals") or {}
+        title = (
+            f"Terminals  run={totals.get('running', 0)}  "
+            f"q={totals.get('queued', 0)}  "
+            f"ok={totals.get('done', 0)}  "
+            f"fail={totals.get('failed', 0)}"
+        )
+        return Panel(table, title=title, border_style="bright_cyan")
 
     def _delegations_panel(self) -> Panel:
         table = Table(title="Recent tasks", expand=True)

@@ -49,7 +49,7 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Parallel multi-CLI pool + unified agentic dashboard |
+| **What** | Parallel multi-terminal + multi-CLI agentic dashboard |
 | **Verify** | `pytest -q` |
 
 ### Multi-CLI parallel (new)
@@ -60,4 +60,14 @@
 - `[x]` Web `/cli-pool` + `/api/cli-pool`  
 - `[x]` Agentic fan-out + supervisor synthesis  
 - `[x]` Windows-safe concurrent `cli_jobs.json` save (lock + unique tmp + retry)  
-- `[x]` Tests: `tests/test_cli_pool.py` (3) · full suite **117 passed**
+- `[x]` Tests: `tests/test_cli_pool.py`
+
+### Multi-terminal parallel (new)
+
+- `[x]` `ParallelTerminalManager` — concurrent shell sessions + registry  
+- `[x]` `term-parallel` / `term-jobs` commands  
+- `[x]` Dashboard panel (side-by-side with CLI pool)  
+- `[x]` Web `/terminals` + `/api/terminals`  
+- `[x]` Agentic role terminals + supervisor synthesis  
+- `[x]` Safety: dry-run default, argv-only, workspace jail, meta-shell block  
+- `[x]` Tests: `tests/test_terminal_pool.py`

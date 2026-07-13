@@ -1,7 +1,7 @@
 # SuperAI_v1 — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **117 passed**  
+**Tests:** **123 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -30,5 +30,5 @@
 
 ### Latest highlights
 
-- **Parallel multi-CLI + single dashboard** for agentic workflows (`cli-parallel`, dashboard panel, web `/cli-pool`); Windows-safe concurrent job registry  
+- **Parallel multi-CLI + multi-terminal + single dashboard** for agentic workflows (`cli-parallel`, `term-parallel`, dashboard panels, web `/cli-pool` + `/terminals`)  
 - Wave-2 product features: approval TUI, keyring, diagnose, TDD loop, diff-edit, workspace index, PWA, VS Code extension, FAISS backend, Docker sandbox, GDPR forget, compliance mode, i18n, telemetry, …

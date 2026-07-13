@@ -160,6 +160,14 @@ def build_dashboard_snapshot(
     except Exception as e:  # noqa: BLE001
         snap["cli_pool"] = {"error": str(e)}
 
+    # Parallel multi-terminal sessions (agentic shell workers)
+    try:
+        from .terminal_pool import ParallelTerminalManager
+
+        snap["terminal_pool"] = ParallelTerminalManager().snapshot_for_dashboard()
+    except Exception as e:  # noqa: BLE001
+        snap["terminal_pool"] = {"error": str(e)}
+
     return snap
 
 

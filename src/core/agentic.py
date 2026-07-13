@@ -126,6 +126,30 @@ class AgenticWorkflows:
             auto_approve=auto_approve,
         )
 
+    def parallel_terminal_workflow(
+        self,
+        task: str,
+        terminals: Optional[List[Dict[str, Any]]] = None,
+        max_workers: int = 4,
+        dry_run: bool = True,
+        auto_approve: bool = False,
+        cwd: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Fan-out shell terminals in parallel for agentic workflows.
+        Live status: `superai dashboard` and web `/api/terminals`.
+        """
+        from .terminal_pool import ParallelTerminalManager
+
+        return ParallelTerminalManager().run_agentic_parallel(
+            task,
+            terminals=terminals,
+            max_workers=max_workers,
+            dry_run=dry_run,
+            auto_approve=auto_approve,
+            cwd=cwd,
+        )
+
     def dynamic_roles(
         self,
         task: str,

@@ -92,6 +92,7 @@ def create_app() -> Any:
 <h1>SuperAI Memory Query</h1>
 <p>Shared surface for terminal + web (Mempalace-inspired).
  <a href="/dashboard">Dashboard</a> · <a href="/cli-pool">CLI Pool</a> ·
+ <a href="/terminals">Terminals</a> ·
  <a href="/charts">Charts</a> · <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
@@ -348,7 +349,7 @@ setInterval(load, 8000);
 </style></head>
 <body>
 <h1>Parallel CLI workers</h1>
-<p id="meta">Loading… · <a href="/">Home</a> · <a href="/dashboard">Dashboard</a></p>
+<p id="meta">Loading… · <a href="/">Home</a> · <a href="/dashboard">Dashboard</a> · <a href="/terminals">Terminals</a></p>
 <table>
  <thead><tr>
   <th>Job</th><th>CLI</th><th>Role</th><th>Status</th><th>Sec</th>
@@ -378,6 +379,76 @@ async function load(){
   });
   if(!jobs.length){
     tb.innerHTML='<tr><td colspan="7">No CLI jobs. Run: superai cli-parallel "task" --dry-run</td></tr>';
+  }
+}
+load();
+setInterval(load, 2000);
+</script>
+</body></html>"""
+
+    @app.get("/api/terminals")
+    def api_terminals(
+        workflow_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """All parallel terminal sessions for agentic multi-terminal dashboard."""
+        from core.terminal_pool import ParallelTerminalManager
+
+        mgr = ParallelTerminalManager()
+        return {
+            "snapshot": mgr.snapshot_for_dashboard(),
+            "sessions": mgr.list_sessions(
+                status=status, workflow_id=workflow_id, limit=80
+            ),
+        }
+
+    @app.get("/terminals", response_class=HTMLResponse)
+    def terminals_page() -> str:
+        return """<!doctype html>
+<html><head><meta charset="utf-8"><title>SuperAI Terminals</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:1200px;margin:1.5rem auto;padding:0 1rem}
+ table{border-collapse:collapse;width:100%;font-size:.9rem}
+ th,td{border:1px solid #ddd;padding:.4rem .5rem;text-align:left;vertical-align:top}
+ th{background:#e8f4fc}
+ .running{background:#fff8e1}.done{background:#e8f5e9}.failed{background:#ffebee}
+ #meta{opacity:.7;margin-bottom:1rem}
+ code{font-size:.8rem;word-break:break-all}
+</style></head>
+<body>
+<h1>Parallel terminals</h1>
+<p id="meta">Loading… · <a href="/">Home</a> · <a href="/dashboard">Dashboard</a> · <a href="/cli-pool">CLI pool</a></p>
+<table>
+ <thead><tr>
+  <th>Session</th><th>Title</th><th>Role</th><th>Status</th><th>Sec</th>
+  <th>Workflow</th><th>Command</th><th>Output</th>
+ </tr></thead>
+ <tbody id="rows"></tbody>
+</table>
+<script>
+async function load(){
+  const r=await fetch('/api/terminals');
+  const j=await r.json();
+  const s=j.snapshot||{};
+  const t=s.totals||{};
+  document.getElementById('meta').textContent=
+    `running=${t.running||0} queued=${t.queued||0} done=${t.done||0} failed=${t.failed||0} · auto-refresh 2s`;
+  const sessions=j.sessions||[];
+  const tb=document.getElementById('rows');
+  tb.innerHTML='';
+  sessions.forEach(sess=>{
+    const tr=document.createElement('tr');
+    tr.className=sess.status||'';
+    const out=(sess.stdout_tail||sess.error||'').slice(0,100).replace(/</g,'&lt;');
+    const cmd=(sess.command||[]).join(' ').slice(0,80).replace(/</g,'&lt;');
+    tr.innerHTML=`<td>${sess.id||''}</td><td>${sess.title||''}</td><td>${sess.role||''}</td>
+      <td>${sess.status||''}</td><td>${sess.duration_sec||0}</td>
+      <td>${sess.workflow_id||''}</td><td><code>${cmd}</code></td>
+      <td><code>${out}</code></td>`;
+    tb.appendChild(tr);
+  });
+  if(!sessions.length){
+    tb.innerHTML='<tr><td colspan="8">No terminals. Run: superai term-parallel "task" --dry-run</td></tr>';
   }
 }
 load();

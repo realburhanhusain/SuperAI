@@ -4,19 +4,20 @@
 flowchart TB
     subgraph User["User interfaces"]
         CLI[superai CLI Typer+Rich]
-        Dash[Terminal dashboard module]
-        Web[Web dashboard planned H]
+        Dash[Terminal dashboard]
+        Web[FastAPI web memory/charts/dashboard]
     end
 
     subgraph Core["Core"]
         Orch[SuperAIOrchestrator]
-        Plan[TaskPlanner]
+        Plan[TaskPlanner parallel-aware]
         Hist[TaskHistory]
+        TR[TaskResult Pydantic]
         Cfg[Config + Logger]
     end
 
     subgraph Routing["Routing & resilience"]
-        Router[ModelRouter scoring]
+        Router[ModelRouter scoring + bandit]
         LB[LoadBalancer + CircuitBreaker]
         Health[ProviderHealthStore]
         Reg[ModelRegistry]
@@ -26,8 +27,19 @@ flowchart TB
     subgraph Intel["Intelligence"]
         Learn[LearningEngine]
         Mem[MemoryPalace + embeddings]
-        Coll[MemoryCollections]
         Skills[SkillsManager]
+        Pref[UserPreferenceModel]
+        Council[Council + Agentic]
+        Hier[HierarchicalDelegator]
+    end
+
+    subgraph Ext["External & ecosystem"]
+        ExtCLI[ExternalCLITool]
+        MCP[MCPContextPack]
+        Msg[MessengerBus]
+        Eco[EcosystemHub]
+        Data[DatabaoAdapter + Vega]
+        Plug[PluginRegistry]
     end
 
     subgraph Backup["Backup"]
@@ -35,56 +47,48 @@ flowchart TB
         Rclone[rclone push/pull]
     end
 
-    subgraph Providers["Providers"]
-        APIs[Cloud APIs]
-        Ollama[Ollama local]
-        ExtCLI[External CLIs H]
-    end
-
     CLI --> Orch
-    Dash -.-> Orch
-    Web -.-> Orch
+    Dash --> Orch
+    Web --> Mem
+    Web --> Dash
     Orch --> Plan
     Orch --> Hist
-    Orch --> Cfg
+    Orch --> TR
     Orch --> Router
     Orch --> Caller
     Orch --> Learn
     Orch --> Skills
+    Orch --> Pref
     Router --> Reg
     Router --> Health
     Caller --> LB
-    Caller --> Health
-    LB --> APIs
-    LB --> Ollama
-    LB --> ExtCLI
     Learn --> Mem
-    Learn --> Coll
-    Skills --> Mem
+    ExtCLI --> MCP
     Orch --> BM
     BM --> Rclone
+    CLI --> Msg
+    CLI --> Eco
+    CLI --> Data
+    CLI --> Council
+    CLI --> Hier
 ```
 
 ## Package layout
 
 ```
 src/superai/
-  cli/main.py           # Typer commands
-  cli/dashboard.py      # Terminal dashboard (Rich)
+  cli/main.py, dashboard.py
+  web_app.py
   core/
-    orchestrator.py
-    task_planner.py
-    config.py, logger.py, history.py, errors.py
-    model_registry.py, model_router.py, model_caller.py
-    load_balancer.py, provider_health.py, provider_smoke.py
-    model_refresh.py, routing_stats.py
-    memory_palace.py, embeddings.py, memory_collections.py
-    learning_engine.py, skills.py
-    backup_manager.py
-    external_cli.py     # External CLI delegation (H)
-    tool_proposals.py   # Tool proposal / approval (H)
-    wings.py            # Memory wings & rooms (I)
-    discovery.py        # First-run / CLI discovery (I)
+    orchestrator.py, task_planner.py, task_result.py
+    model_*.py, load_balancer.py, bandit_router.py
+    memory_*.py, embeddings.py, learning_engine.py, skills.py
+    backup_manager.py, preferences.py, time_travel.py
+    external_cli.py, mcp_context.py, tool_proposals.py
+    messengers.py, ecosystem.py, observability.py
+    council.py, agentic.py, hierarchy.py
+    databao_adapter.py, vega_charts.py, plugin_registry.py
+    discovery.py, wings.py, config.py, history.py, errors.py
 ```
 
 ## Runtime data (`~/.superai/`)
@@ -98,16 +102,24 @@ src/superai/
 | `backups/` | Encrypted archives |
 | `.backup_key` | AES key (protect) |
 | `provider_health.json` | Health + quotas |
+| `bandit_state.json` | Bandit arms |
+| `contexts/` | MCP context packs |
+| `plugins/` | Local plugin manifests |
+| `charts/` | Generated Vega HTML |
+| `feedback.jsonl` | Cross-surface feedback |
+| `messenger_log.jsonl` | Messenger bus log |
 
-## Execution path (happy path)
+## Execution path
 
 1. CLI `run` → `SuperAIOrchestrator.run_task`
-2. Classify task → plan steps → inject skills + past learnings
-3. Per step: `ModelRouter.select_model` → `ModelCaller.call` (LB + health)
-4. Aggregate result → history + `learn_from_task` → optional skill auto-create
-5. On process exit (if enabled): quiet incremental backup
+2. Classify → plan steps (parallel edges allowed)
+3. Topological batches: serial or ThreadPool for `can_run_parallel`
+4. Per step: router (+bandit) → caller → LB/health
+5. Aggregate → history + learn + preferences + bandit reward
+6. Optional atexit incremental backup
 
 ## References
 
-- Plans: `implementation_plan_detailed.md`, `implementation_plan_v2.md`
 - Board: `TASKBOARD.md`
+- Progress: `docs/PROGRESS.md`
+- Plans: `implementation_plan_detailed.md`

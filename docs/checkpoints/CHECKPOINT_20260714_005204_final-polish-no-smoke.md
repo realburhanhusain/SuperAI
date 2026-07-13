@@ -1,11 +1,30 @@
-# TASKBOARD — SuperAI_v1
+﻿# Checkpoint: final-polish-no-smoke
+
+- **When:** 2026-07-14 00:52:05 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Git HEAD:** 4936cb3
+- **Git status:** ## master...origin/master [ahead 7]
+- **Pytest:** skipped
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI_v1
 
 **No approval pauses** except external blockers.  
 **Deferred last activity:** live smoke (API keys, bots, rclone, Pages).  
-**Checkpoints:** `scripts/checkpoint.ps1` · `docs/checkpoints/`  
+**Checkpoints:** `scripts/checkpoint.ps1` Â· `docs/checkpoints/`  
 **Progress:** `docs/PROGRESS.md`
 
-**Legend:** `[x]` done · `[!]` deferred external smoke
+**Legend:** `[x]` done Â· `[!]` deferred external smoke
 
 ---
 
@@ -13,7 +32,7 @@
 
 | Track | Status |
 |-------|--------|
-| A–F | `[x]` |
+| Aâ€“F | `[x]` |
 | G | `[x]` |
 | H | `[x]` |
 | I | `[x]` |
@@ -53,4 +72,6 @@ Everything else on the implementation plan is **done in code**.
 | **When** | 2026-07-14 |
 | **What** | Parallel steps, TaskResult, MCP context, dual dashboard, ecosystem, full docs align |
 | **Next** | **Deferred smoke only** (user-requested last activity) |
-| **Verify** | `pytest -q` → **60 passed** |
+| **Verify** | `pytest -q` â†’ **60 passed** |
+
+```

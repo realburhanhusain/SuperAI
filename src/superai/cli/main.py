@@ -710,6 +710,9 @@ def cli_run(
         False, "--approve", help="Approve file-modifying actions this run"
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show command only"),
+    with_context: bool = typer.Option(
+        False, "--context", help="Wrap prompt with MCP-style context pack"
+    ),
 ):
     """Run an external AI CLI with approval gate (config: require_human_approval)"""
     from superai.core.external_cli import ExternalCLITool
@@ -717,6 +720,12 @@ def cli_run(
     from superai.core.memory_palace import MemoryPalace
 
     cfg = Config()
+    if with_context:
+        from superai.core.mcp_context import MCPContextPack
+
+        pack = MCPContextPack().build(task=prompt)
+        prompt = MCPContextPack().wrap_cli_prompt(pack, prompt)
+        console.print(f"[dim]Context pack {pack.get('id')} attached[/dim]")
     # If require_human_approval is False, auto-approve file-modifying CLIs
     auto = not cfg.require_human_approval
     tool = ExternalCLITool(dry_run=dry_run, auto_approve=auto)
@@ -1167,6 +1176,91 @@ def bandit_cmd(
             "path": str(b.path),
         }
     )
+
+
+@app.command("dashboard")
+def dashboard_cmd(
+    once: bool = typer.Option(False, "--once", help="Print one snapshot and exit"),
+    refresh: float = typer.Option(3.0, "--refresh", help="Refresh interval seconds"),
+):
+    """Live terminal dashboard (shared snapshot with web UI)"""
+    from superai.cli.dashboard import SuperAIDashboard
+
+    SuperAIDashboard().run_terminal_dashboard(refresh_sec=refresh, once=once)
+
+
+@app.command("context-pack")
+def context_pack_cmd(
+    task: str = typer.Argument(..., help="Task / goal for the context pack"),
+    save: bool = typer.Option(True, "--save/--no-save"),
+    show_prompt: bool = typer.Option(False, "--prompt", help="Print prompt text form"),
+):
+    """Build MCP-style context pack for external CLI handoff"""
+    from superai.core.mcp_context import MCPContextPack
+
+    mcp = MCPContextPack()
+    pack = mcp.build(task=task)
+    path = None
+    if save:
+        path = mcp.save(pack)
+    console.print_json(data=pack)
+    if path:
+        console.print(f"[green]Saved[/green] {path}")
+    if show_prompt:
+        console.print(Panel(mcp.format_for_prompt(pack), title="Prompt form"))
+
+
+@app.command("search-web")
+def search_web_cmd(
+    query: str = typer.Argument(..., help="Search query"),
+    provider: str = typer.Option("auto", "--provider", help="auto|tavily|brave|stub"),
+):
+    """Web search via Tavily/Brave keys or offline stub"""
+    from superai.core.ecosystem import EcosystemHub
+
+    console.print_json(data=EcosystemHub().search(query, provider=provider))
+
+
+@app.command("emit-event")
+def emit_event_cmd(
+    event: str = typer.Argument(..., help="Event name for n8n/Zapier/Make"),
+    payload: Optional[str] = typer.Option(
+        None, "--payload", help="JSON payload string"
+    ),
+):
+    """Emit ecosystem webhook event (n8n / Zapier / Make)"""
+    from superai.core.ecosystem import EcosystemHub
+
+    body = {}
+    if payload:
+        try:
+            body = json.loads(payload)
+        except json.JSONDecodeError:
+            body = {"text": payload}
+    result = EcosystemHub().emit_event(event, body)
+    console.print_json(data=result)
+    if not result.get("ok"):
+        raise typer.Exit(1)
+
+
+@app.command("ecosystem")
+def ecosystem_cmd():
+    """Show ecosystem integration capabilities"""
+    from superai.core.ecosystem import EcosystemHub
+
+    console.print_json(data=EcosystemHub().capabilities())
+
+
+@app.command("surface-feedback")
+def surface_feedback_cmd(
+    message: str = typer.Argument(..., help="Feedback visible on all surfaces"),
+    surface: str = typer.Option("cli", "--surface"),
+):
+    """Post cross-surface feedback (CLI ↔ web dashboard)"""
+    from superai.core.observability import write_feedback, recent_feedback
+
+    entry = write_feedback(message, surface=surface)
+    console.print_json(data={"written": entry, "recent": recent_feedback(5)})
 
 
 @app.command()

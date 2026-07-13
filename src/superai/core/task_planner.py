@@ -1,5 +1,8 @@
-from typing import List, Dict, Any
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Any, List
+
 
 @dataclass
 class ExecutionStep:
@@ -10,77 +13,109 @@ class ExecutionStep:
     estimated_complexity: str
     can_run_parallel: bool = False
 
+
 class TaskPlanner:
     """Generates execution plans for complex tasks."""
 
-    def __init__(self, model_router):
+    def __init__(self, model_router: Any):
         self.model_router = model_router
 
     def create_plan(self, task: str) -> List[ExecutionStep]:
         """Create a structured execution plan for a task."""
-        # This is a simplified version. In a full implementation,
-        # this would use an LLM to break down the task intelligently.
-        
-        steps = []
-        
-        # Simple heuristic-based planning for now
-        if any(keyword in task.lower() for keyword in ["build", "create", "implement", "develop"]):
-            steps = [
+        low = (task or "").lower()
+
+        # Multi-concern tasks: independent research/doc arms can parallelize
+        if any(k in low for k in ("build", "create", "implement", "develop")):
+            return [
                 ExecutionStep(
                     step_id=1,
                     description="Analyze requirements and design high-level architecture",
                     depends_on=[],
-                    recommended_model="claude-fable-5",
+                    recommended_model="auto",
                     estimated_complexity="High",
-                    can_run_parallel=False
+                    can_run_parallel=False,
                 ),
                 ExecutionStep(
                     step_id=2,
                     description="Design data models and database schema",
                     depends_on=[1],
-                    recommended_model="deepseek-v4-pro",
+                    recommended_model="auto",
                     estimated_complexity="Medium",
-                    can_run_parallel=False
+                    can_run_parallel=False,
                 ),
                 ExecutionStep(
                     step_id=3,
                     description="Implement core business logic",
                     depends_on=[2],
-                    recommended_model="deepseek-v4-pro",
+                    recommended_model="auto",
                     estimated_complexity="High",
-                    can_run_parallel=False
+                    can_run_parallel=False,
                 ),
+                # After core impl, tests + docs are independent → parallel
                 ExecutionStep(
                     step_id=4,
-                    description="Add error handling, validation, and security",
+                    description="Write unit tests for core logic",
                     depends_on=[3],
-                    recommended_model="claude-fable-5",
+                    recommended_model="auto",
                     estimated_complexity="Medium",
-                    can_run_parallel=False
+                    can_run_parallel=True,
                 ),
                 ExecutionStep(
                     step_id=5,
-                    description="Write tests and documentation",
-                    depends_on=[3, 4],
-                    recommended_model="grok-4.5",
+                    description="Write documentation and usage examples",
+                    depends_on=[3],
+                    recommended_model="auto",
                     estimated_complexity="Medium",
-                    can_run_parallel=True
-                )
+                    can_run_parallel=True,
+                ),
+                ExecutionStep(
+                    step_id=6,
+                    description="Add error handling, validation, and security review",
+                    depends_on=[4, 5],
+                    recommended_model="auto",
+                    estimated_complexity="Medium",
+                    can_run_parallel=False,
+                ),
             ]
-        else:
-            # Simple single-step plan
-            steps = [
+
+        if any(k in low for k in ("research", "compare", "analyze and", "survey")):
+            return [
                 ExecutionStep(
                     step_id=1,
-                    description=task,
+                    description=f"Gather background for: {task}",
                     depends_on=[],
                     recommended_model="auto",
                     estimated_complexity="Medium",
-                    can_run_parallel=False
-                )
+                    can_run_parallel=True,
+                ),
+                ExecutionStep(
+                    step_id=2,
+                    description=f"Collect counterpoints / alternatives for: {task}",
+                    depends_on=[],
+                    recommended_model="auto",
+                    estimated_complexity="Medium",
+                    can_run_parallel=True,
+                ),
+                ExecutionStep(
+                    step_id=3,
+                    description="Synthesize findings into a recommendation",
+                    depends_on=[1, 2],
+                    recommended_model="auto",
+                    estimated_complexity="High",
+                    can_run_parallel=False,
+                ),
             ]
-        
-        return steps
+
+        return [
+            ExecutionStep(
+                step_id=1,
+                description=task,
+                depends_on=[],
+                recommended_model="auto",
+                estimated_complexity="Medium",
+                can_run_parallel=False,
+            )
+        ]
 
     def print_plan(self, steps: List[ExecutionStep]):
         """Pretty print the execution plan."""

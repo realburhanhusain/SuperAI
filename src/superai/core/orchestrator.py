@@ -8,8 +8,9 @@ Stabilized wiring: registry → router → caller, structured results, history, 
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -27,7 +28,8 @@ from .model_router import ModelRouter
 from .preferences import UserPreferenceModel
 from .provider_health import ProviderHealthStore
 from .skills import SkillsManager
-from .task_planner import TaskPlanner
+from .task_planner import ExecutionStep, TaskPlanner
+from .task_result import TaskResult
 
 console = Console()
 logger = get_logger("superai.orchestrator")
@@ -272,28 +274,13 @@ class SuperAIOrchestrator:
                     "estimated_cost_usd": cost if step_status == "success" else 0.0,
                 }
 
-            # G1: progress UI for multi-step runs (skip heavy bar in verbose mode)
-            if not verbose and len(plan_steps) > 1:
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TextColumn("{task.completed}/{task.total}"),
-                    TimeElapsedColumn(),
-                    console=console,
-                    transient=True,
-                ) as progress:
-                    task_prog = progress.add_task("Executing steps", total=len(plan_steps))
-                    for step in plan_steps:
-                        progress.update(
-                            task_prog,
-                            description=f"Step {step.step_id}: {step.description[:40]}",
-                        )
-                        step_records.append(_run_one_step(step))
-                        progress.advance(task_prog)
-            else:
-                for step in plan_steps:
-                    step_records.append(_run_one_step(step))
+            # Execute plan respecting depends_on; parallel when can_run_parallel
+            step_records, parallel_meta = self._execute_plan_steps(
+                plan_steps,
+                _run_one_step,
+                verbose=verbose,
+            )
+            result["metadata"]["execution"] = parallel_meta
 
             # Synthesize final answer only if we have successful material
             success_steps = [s for s in step_records if s["status"] == "success"]
@@ -461,7 +448,147 @@ class SuperAIOrchestrator:
             except Exception as e:  # noqa: BLE001
                 logger.warning("Failed to persist history: %s", e)
 
+        # Typed validation (keeps dict return for history/CLI compatibility)
+        try:
+            result["_typed"] = TaskResult.from_dict(result).to_dict()
+            # Drop internal helper key noise — callers still get plain dict
+            typed = result.pop("_typed", None)
+            if typed:
+                result.setdefault("metadata", {})["task_result_validated"] = True
+        except Exception as e:  # noqa: BLE001
+            logger.debug("TaskResult validation skipped: %s", e)
+
         return result
+
+    def _execute_plan_steps(
+        self,
+        plan_steps: List[ExecutionStep],
+        run_one,
+        verbose: bool = False,
+    ) -> tuple:
+        """
+        Topological execution: ready steps with can_run_parallel run concurrently.
+        Returns (step_records sorted by step_id, meta).
+        """
+        by_id: Dict[int, ExecutionStep] = {s.step_id: s for s in plan_steps}
+        completed: Set[int] = set()
+        records_by_id: Dict[int, Dict[str, Any]] = {}
+        batches = 0
+        parallel_runs = 0
+
+        def deps_met(step: ExecutionStep) -> bool:
+            return all(d in completed for d in (step.depends_on or []))
+
+        remaining = set(by_id.keys())
+
+        use_progress = not verbose and len(plan_steps) > 1
+        progress_ctx = None
+        task_prog = None
+        if use_progress:
+            progress_ctx = Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TextColumn("{task.completed}/{task.total}"),
+                TimeElapsedColumn(),
+                console=console,
+                transient=True,
+            )
+            progress_ctx.__enter__()
+            task_prog = progress_ctx.add_task("Executing steps", total=len(plan_steps))
+
+        try:
+            while remaining:
+                ready = [
+                    by_id[sid]
+                    for sid in sorted(remaining)
+                    if deps_met(by_id[sid])
+                ]
+                if not ready:
+                    # Deadlock / bad deps — run remaining sequentially
+                    ready = [by_id[sid] for sid in sorted(remaining)]
+
+                # Split: parallel-eligible vs serial
+                parallelizable = [
+                    s for s in ready if s.can_run_parallel and len(ready) > 1
+                ]
+                serial = [s for s in ready if s not in parallelizable]
+
+                batches += 1
+                batch: List[ExecutionStep] = []
+                if len(parallelizable) >= 2:
+                    batch = parallelizable
+                    # also run one serial after if any? keep simple: run parallel set first
+                elif ready:
+                    # single-step batch (serial)
+                    batch = [ready[0]]
+                    serial = ready[1:]
+
+                if len(batch) > 1 and all(s.can_run_parallel for s in batch):
+                    if verbose:
+                        console.print(
+                            f"[dim]→ Parallel batch: steps "
+                            f"{[s.step_id for s in batch]}[/dim]"
+                        )
+                    parallel_runs += len(batch)
+                    with ThreadPoolExecutor(max_workers=min(4, len(batch))) as pool:
+                        futs = {pool.submit(run_one, s): s for s in batch}
+                        for fut in as_completed(futs):
+                            step = futs[fut]
+                            rec = fut.result()
+                            records_by_id[step.step_id] = rec
+                            completed.add(step.step_id)
+                            remaining.discard(step.step_id)
+                            if task_prog is not None and progress_ctx is not None:
+                                progress_ctx.update(
+                                    task_prog,
+                                    description=f"Step {step.step_id}: {step.description[:40]}",
+                                )
+                                progress_ctx.advance(task_prog)
+                else:
+                    for step in batch:
+                        if verbose:
+                            pass  # _run_one_step already prints
+                        if task_prog is not None and progress_ctx is not None:
+                            progress_ctx.update(
+                                task_prog,
+                                description=f"Step {step.step_id}: {step.description[:40]}",
+                            )
+                        rec = run_one(step)
+                        records_by_id[step.step_id] = rec
+                        completed.add(step.step_id)
+                        remaining.discard(step.step_id)
+                        if task_prog is not None and progress_ctx is not None:
+                            progress_ctx.advance(task_prog)
+
+                # Run leftover serial ready steps that weren't in batch
+                for step in serial:
+                    if step.step_id not in remaining:
+                        continue
+                    if not deps_met(step):
+                        continue
+                    if task_prog is not None and progress_ctx is not None:
+                        progress_ctx.update(
+                            task_prog,
+                            description=f"Step {step.step_id}: {step.description[:40]}",
+                        )
+                    rec = run_one(step)
+                    records_by_id[step.step_id] = rec
+                    completed.add(step.step_id)
+                    remaining.discard(step.step_id)
+                    if task_prog is not None and progress_ctx is not None:
+                        progress_ctx.advance(task_prog)
+        finally:
+            if progress_ctx is not None:
+                progress_ctx.__exit__(None, None, None)
+
+        ordered = [records_by_id[sid] for sid in sorted(records_by_id.keys())]
+        meta = {
+            "batches": batches,
+            "parallel_step_runs": parallel_runs,
+            "total_steps": len(plan_steps),
+        }
+        return ordered, meta
 
     def _maybe_auto_create_skills(
         self, task_type: str, min_success_count: int = 3

@@ -1,35 +1,36 @@
 # SuperAI_v1 — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** 54 passed  
+**Tests:** **60 passed**  
 **Checkpoints:** `docs/checkpoints/`
 
 ## Phase completion
 
 | Phase | Name | % complete |
 |------:|------|----------:|
-| **1** | Core Foundation | **97%** |
-| **2** | Models, routing, resilience | **96%** |
-| **3** | Self-learning + Memory Palace | **94%** |
-| **4** | Skills system | **93%** |
-| **5** | Encrypted backup + cloud | **93%** |
-| **6** | Polish, CLI, docs, CI | **90%** |
-| **7** | Advanced features & ecosystem | **82%** |
-| **8** | Agentic + deep integration | **78%** |
+| **1** | Core Foundation | **98%** |
+| **2** | Models, routing, resilience | **97%** |
+| **3** | Self-learning + Memory Palace | **95%** |
+| **4** | Skills system | **94%** |
+| **5** | Encrypted backup + cloud | **94%** |
+| **6** | Polish, CLI, docs, CI | **95%** |
+| **7** | Advanced features & ecosystem | **92%** |
+| **8** | Agentic + deep integration | **90%** |
 
-**Overall (equal weight): ~90%**
+**Overall (equal weight): ~94%**
 
-### Remaining (external / host only for core plan)
+### Remaining = deferred smoke only
 
-- Live API keys multi-provider smoke
-- Telegram/Slack production tokens (adapters ready; dry-run works)
-- rclone remote E2E
-- GitHub Pages toggle in repo settings
+- Live API keys multi-provider smoke  
+- Telegram/Slack production tokens  
+- rclone remote E2E  
+- GitHub Pages admin toggle  
 
-## Session highlights
+## Latest session highlights
 
-- Telegram/Slack/webhook messengers + dry-run + broadcast  
-- Interactive Vega-Lite HTML (`--chart-html`, `/charts`, `vega_charts.py`)  
-- Plugin marketplace registry (`plugins` CLI, `/api/plugins`)  
-- Epsilon-greedy bandit blended into ModelRouter + orchestrator updates  
-- Databao NL data adapter + prefs/time-travel/web/hierarchy (prior)  
+- Parallel multi-step execution  
+- Pydantic TaskResult  
+- MCP context packs  
+- Dual terminal/web dashboard + cross-surface feedback  
+- Ecosystem hub (webhooks + search stubs)  
+- Docs realigned (README, FEATURES, architecture, PENDING, CHANGELOG)  

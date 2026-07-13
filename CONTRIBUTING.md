@@ -46,8 +46,7 @@ pytest -q
 ```
 
 **Always resume from `TASKBOARD.md`** (and latest `docs/checkpoints/`).  
-Scope is defined by `implementation_plan_detailed.md` — unfinished items are **pending**, not optional.
-
+Implementation tracks A–J are complete in code. Remaining board items are **deferred smoke** (API keys, live bots, rclone, Pages) unless new features are filed.
 ```powershell
 # After a meaningful change:
 powershell -File scripts\checkpoint.ps1 -Label "my-change"

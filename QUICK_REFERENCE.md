@@ -48,9 +48,21 @@ Creates `~/.superai/` (config, logs, history, memory, skills, backups).
 | `superai config set data_dsn "sqlite:///..."` | Data source DSN |
 | `superai pref show` | Learned + explicit preferences |
 | `superai tt-snapshot PATH` / `tt-list` / `tt-restore` | File time-travel |
-| `superai msg-send "hi" -c file` | Messenger bus |
-| `superai web --port 8787` | Web memory UI (needs `.[web]`) |
+| `superai msg-send "hi" -c file\|telegram\|slack` | Messenger bus |
+| `superai msg-broadcast "hi"` | Multi-channel send |
+| `superai web --port 8787` | Web memory/charts/dashboard (`.[web]`) |
+| `superai dashboard [--once]` | Live terminal dashboard |
 | `superai delegate "Build X"` | Hierarchical multi-step delegation |
+| `superai debate "topic"` | Multi-model debate |
+| `superai plugins list\|search\|summary` | Plugin marketplace |
+| `superai bandit status\|reset` | Contextual bandit state |
+| `superai context-pack "task"` | MCP-style context for external CLIs |
+| `superai cli-run <cli> "…" --context` | External CLI + context pack |
+| `superai search-web "query"` | Web search (Tavily/Brave/stub) |
+| `superai emit-event name --payload '{}'` | n8n/Zapier/Make webhook |
+| `superai ecosystem` | Integration capabilities |
+| `superai surface-feedback "note"` | Cross-surface feedback |
+| `superai data-ask "…" --chart-html` | NL data + interactive Vega HTML |
 | `superai provider-health` | Health + quota windows |
 | `superai learnings` / `reflect` / `conflicts` / `evolve <topic>` | Learning |
 | `superai feedback <task_id> "..."` | Human feedback |
@@ -82,6 +94,11 @@ Creates `~/.superai/` (config, logs, history, memory, skills, backups).
 | `SUPERAI_EMBEDDING_MODEL` | HF/ST model id (`auto` default) |
 | `SUPERAI_EMBEDDING_HASH` | `1` = offline hash embeddings |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GOOGLE_API_KEY`, … | live providers |
+| `SUPERAI_USE_BANDIT` / `SUPERAI_BANDIT_BLEND` | bandit routing |
+| `SUPERAI_TELEGRAM_*` / `SUPERAI_SLACK_*` / `SUPERAI_WEBHOOK_URL` | messengers |
+| `SUPERAI_MESSENGER_DRY_RUN` / `SUPERAI_ECOSYSTEM_DRY_RUN` | offline adapters |
+| `SUPERAI_N8N_WEBHOOK_URL` (or ZAPIER/MAKE) | automation webhooks |
+| `TAVILY_API_KEY` / `BRAVE_API_KEY` | live web search |
 
 ## Strategies
 

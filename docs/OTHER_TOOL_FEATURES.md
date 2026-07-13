@@ -1,9 +1,9 @@
 # Other tool features — tracked checklist
 
 **Source:** `OtherToolFeatures.txt` · **Updated:** 2026-07-14  
-**Policy:** inspire or reuse code. Required scope, sequenced.
+**Policy:** inspire or reuse code. Required scope complete in code; live tokens deferred.
 
-**Legend:** `[ ]` pending · `[~]` in progress · `[x]` done
+**Legend:** `[x]` done · `[!]` external deferred smoke
 
 ---
 
@@ -11,69 +11,52 @@
 
 - [x] SuperAI supervisor layer
 - [x] Modular registries / adapters
-- [x] Plugin marketplace registry (`plugin_registry.py`, `plugins` CLI)
+- [x] Plugin marketplace registry
 
 ---
 
 ## 1. LLM Council
-https://github.com/Mohamadreza-Shahmohamadi/LLM_Council_ApplimentAI_Enhanced
-
 - [x] Council + debate / critique
 - [x] Voting: majority | supervisor | weighted
-- [x] Stage classification (router)
-- [x] Structured JSON envelopes
 - [x] Hierarchical delegate command
 
 ---
 
 ## 2. OpenClaw
-https://github.com/openclaw/openclaw
-
 - [x] Local-first defaults
 - [x] Tool propose → approve → execute
 - [x] `require_human_approval` config
-- [x] User preference / modeling (`preferences.py`, `pref` CLI)
-- [x] Self-improve via learning + skills + preference signals
+- [x] User preference / modeling
+- [x] Self-improve via learning + skills + preferences
 - [x] Local privacy store `~/.superai/`
 
 ---
 
 ## 3. Hermes / Atomic-Hermes
-https://github.com/NousResearch/hermes-agent  
-https://github.com/AtomicBot-ai/atomic-hermes
-
 - [x] Agentic debate / critique-extend
-- [x] Hierarchical delegation (`delegate`)
-- [x] Multi-round deliberation
+- [x] Hierarchical delegation
 - [x] Skills reusable components
-- [x] File time-travel snapshots (`tt-snapshot` / `tt-list` / `tt-restore`)
-- [x] Multi-messenger bus (`msg-send` / `msg-channels` / `msg-broadcast`)
-- [x] Telegram + Slack adapters (env tokens; `SUPERAI_MESSENGER_DRY_RUN=1` for offline)
-- [!] Live bot tokens for production E2E (host)
+- [x] File time-travel snapshots
+- [x] Multi-messenger bus (Telegram/Slack/webhook)
+- [!] Live bot tokens for production E2E (deferred smoke)
 
 ---
 
 ## 4. Mempalace
-https://github.com/MemPalace/mempalace
-
 - [x] Wings & rooms
-- [x] Semantic memory + embeddings path
-- [x] Provenance / versioning
-- [x] Decay / distill / conflicts
-- [x] Terminal + **web** memory query UI (`superai web`, `/api/memory/search`)
+- [x] Semantic memory + embeddings
+- [x] Terminal + web memory UI + dual dashboard
 
 ---
 
 ## 5. Databao-Agent
-https://github.com/realburhanhusain/databao-agent
-
 - [x] NL → tables + chart specs
-- [x] SQLAlchemy / demo SQLite + optional databao package
+- [x] SQLAlchemy / demo SQLite
 - [x] Conversational threads
-- [x] Interactive Vega-Lite HTML (`--chart-html`, `/charts`, `vega_charts.py`)
+- [x] Interactive Vega-Lite HTML
 
 ---
 
 ## Secondary CLIs
 
-Claude, Aider, Cursor, Grok, Gemini, Codex, Continue, Cline, Roo — **registered** for discovery/`cli-run`.
+Claude, Aider, Cursor, Grok, Gemini, Codex, Continue, Cline, Roo — registered; MCP context packs available via `context-pack` / `cli-run --context`.

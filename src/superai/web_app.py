@@ -61,7 +61,8 @@ def create_app() -> Any:
 </style></head>
 <body>
 <h1>SuperAI Memory Query</h1>
-<p>Shared surface for terminal + web (Mempalace-inspired).</p>
+<p>Shared surface for terminal + web (Mempalace-inspired).
+ <a href="/dashboard">Dashboard</a> · <a href="/charts">Charts</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
 <button onclick="go()">Search</button>
@@ -217,6 +218,76 @@ async function render(){
 
         b = EpsilonGreedyBandit()
         return {"epsilon": b.epsilon, "arms": b.state, "path": str(b.path)}
+
+    @app.get("/api/dashboard")
+    def api_dashboard() -> Dict[str, Any]:
+        from superai.core.observability import (
+            build_dashboard_snapshot,
+            recent_feedback,
+        )
+
+        snap = build_dashboard_snapshot()
+        snap["feedback"] = recent_feedback(10)
+        return snap
+
+    class FeedbackBody(BaseModel):
+        message: str
+        surface: str = "web"
+        task_id: Optional[str] = None
+
+    @app.post("/api/feedback")
+    def api_feedback(body: FeedbackBody) -> Dict[str, Any]:
+        from superai.core.observability import write_feedback, recent_feedback
+
+        entry = write_feedback(body.message, surface=body.surface, task_id=body.task_id)
+        return {"ok": True, "entry": entry, "recent": recent_feedback(5)}
+
+    @app.get("/dashboard", response_class=HTMLResponse)
+    def dashboard_page() -> str:
+        return """<!doctype html>
+<html><head><meta charset="utf-8"><title>SuperAI Dashboard</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:1000px;margin:1.5rem auto;padding:0 1rem}
+ .grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+ .card{border:1px solid #ddd;border-radius:10px;padding:.75rem;background:#fafbfc}
+ pre{white-space:pre-wrap;font-size:.85rem;max-height:280px;overflow:auto}
+ h1{font-size:1.3rem}
+</style></head>
+<body>
+<h1>SuperAI Dashboard</h1>
+<p><a href="/">Memory</a> · <a href="/charts">Charts</a> ·
+<button onclick="load()">Refresh</button></p>
+<div class="grid">
+ <div class="card"><h3>Snapshot</h3><pre id="snap">…</pre></div>
+ <div class="card"><h3>Feedback</h3>
+  <input id="fb" size="40" placeholder="Cross-surface feedback"/>
+  <button onclick="sendFb()">Send</button>
+  <pre id="fblist"></pre>
+ </div>
+</div>
+<script>
+async function load(){
+  const r=await fetch('/api/dashboard');
+  const j=await r.json();
+  document.getElementById('snap').textContent=JSON.stringify(j,null,2);
+  document.getElementById('fblist').textContent=JSON.stringify(j.feedback||[],null,2);
+}
+async function sendFb(){
+  const message=document.getElementById('fb').value;
+  await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({message,surface:'web'})});
+  load();
+}
+load();
+setInterval(load, 8000);
+</script>
+</body></html>"""
+
+    @app.get("/api/ecosystem")
+    def api_ecosystem() -> Dict[str, Any]:
+        from superai.core.ecosystem import EcosystemHub
+
+        return EcosystemHub().capabilities()
 
     return app
 

@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from superai.core.agentic import AgenticWorkflows
-from superai.core.discovery import discover_environment
-from superai.core.external_cli import ExternalCLIRegistry, ExternalCLITool
-from superai.core.tool_proposals import ToolProposalManager
-from superai.core.wings import WingsManager
+from core.agentic import AgenticWorkflows
+from core.discovery import discover_environment
+from core.external_cli import ExternalCLIRegistry, ExternalCLITool
+from core.tool_proposals import ToolProposalManager
+from core.wings import WingsManager
 
 
 def test_discover_environment():

@@ -4,7 +4,7 @@ Minimal FastAPI web surface for SuperAI (memory query + status).
 Run:
   pip install -e ".[web]"
   superai web
-  # or: uvicorn superai.web_app:app --reload --port 8787
+  # or: uvicorn scli.web_app:app --reload --port 8787
 """
 
 from __future__ import annotations
@@ -91,11 +91,11 @@ async function status(){
 
     @app.get("/api/status")
     def api_status() -> Dict[str, Any]:
-        from superai import __version__
-        from superai.core.config import Config
-        from superai.core.history import TaskHistory
-        from superai.core.memory_palace import MemoryPalace
-        from superai.core.preferences import UserPreferenceModel
+        from core import __version__
+        from core.config import Config
+        from core.history import TaskHistory
+        from core.memory_palace import MemoryPalace
+        from core.preferences import UserPreferenceModel
 
         cfg = Config()
         mp = MemoryPalace()
@@ -113,7 +113,7 @@ async function status(){
         top_k: int = Query(8, ge=1, le=50),
         tags: Optional[str] = None,
     ) -> Dict[str, Any]:
-        from superai.core.memory_palace import MemoryPalace
+        from core.memory_palace import MemoryPalace
 
         tag_list = [t.strip() for t in tags.split(",")] if tags else None
         mp = MemoryPalace()
@@ -126,13 +126,13 @@ async function status(){
 
     @app.get("/api/preferences")
     def get_prefs() -> Dict[str, Any]:
-        from superai.core.preferences import UserPreferenceModel
+        from core.preferences import UserPreferenceModel
 
         return UserPreferenceModel().profile_summary()
 
     @app.post("/api/preferences")
     def set_pref(body: PreferenceBody) -> Dict[str, Any]:
-        from superai.core.preferences import UserPreferenceModel
+        from core.preferences import UserPreferenceModel
 
         pm = UserPreferenceModel()
         pm.set(body.key, body.value)
@@ -140,14 +140,14 @@ async function status(){
 
     @app.get("/api/wings")
     def wings() -> Dict[str, Any]:
-        from superai.core.wings import WingsManager
+        from core.wings import WingsManager
 
         return WingsManager().list_wings()
 
     @app.get("/api/learnings/summary")
     def learnings_summary() -> Dict[str, Any]:
-        from superai.core.learning_engine import LearningEngine
-        from superai.core.memory_palace import MemoryPalace
+        from core.learning_engine import LearningEngine
+        from core.memory_palace import MemoryPalace
 
         return LearningEngine(MemoryPalace()).get_learnings_summary()
 
@@ -187,7 +187,7 @@ async function render(){
     @app.post("/api/charts/render", response_class=HTMLResponse)
     async def render_chart(request: Request) -> str:
         """Accept raw JSON body: {spec: {...}, title?: str}."""
-        from superai.core.vega_charts import render_vega_html
+        from core.vega_charts import render_vega_html
 
         try:
             payload = await request.json()
@@ -206,7 +206,7 @@ async function render(){
 
     @app.get("/api/plugins")
     def list_plugins(q: Optional[str] = None) -> Dict[str, Any]:
-        from superai.core.plugin_registry import PluginRegistry
+        from core.plugin_registry import PluginRegistry
 
         reg = PluginRegistry()
         plugins = reg.search(q) if q else reg.list_plugins()
@@ -214,14 +214,14 @@ async function render(){
 
     @app.get("/api/bandit")
     def bandit_state() -> Dict[str, Any]:
-        from superai.core.bandit_router import EpsilonGreedyBandit
+        from core.bandit_router import EpsilonGreedyBandit
 
         b = EpsilonGreedyBandit()
         return {"epsilon": b.epsilon, "arms": b.state, "path": str(b.path)}
 
     @app.get("/api/dashboard")
     def api_dashboard() -> Dict[str, Any]:
-        from superai.core.observability import (
+        from core.observability import (
             build_dashboard_snapshot,
             recent_feedback,
         )
@@ -237,7 +237,7 @@ async function render(){
 
     @app.post("/api/feedback")
     def api_feedback(body: FeedbackBody) -> Dict[str, Any]:
-        from superai.core.observability import write_feedback, recent_feedback
+        from core.observability import write_feedback, recent_feedback
 
         entry = write_feedback(body.message, surface=body.surface, task_id=body.task_id)
         return {"ok": True, "entry": entry, "recent": recent_feedback(5)}
@@ -285,14 +285,14 @@ setInterval(load, 8000);
 
     @app.get("/api/ecosystem")
     def api_ecosystem() -> Dict[str, Any]:
-        from superai.core.ecosystem import EcosystemHub
+        from core.ecosystem import EcosystemHub
 
         return EcosystemHub().capabilities()
 
     return app
 
 
-# ASGI entry for uvicorn superai.web_app:app
+# ASGI entry for uvicorn scli.web_app:app
 if HAS_FASTAPI:
     app = create_app()
 else:

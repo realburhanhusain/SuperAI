@@ -37,11 +37,15 @@ dev = [
 ]
 
 [project.scripts]
-superai = "superai.cli.main:app"
+superai = "scli.main:app"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = ["core", "scli"]
+
+[tool.setuptools.package-dir]
+"core" = "src/core"
+"scli" = "src/cli"

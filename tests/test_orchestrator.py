@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from superai.core.config import Config
-from superai.core.errors import UserInputError
-from superai.core.history import TaskHistory
-from superai.core.orchestrator import SuperAIOrchestrator
+from core.config import Config
+from core.errors import UserInputError
+from core.history import TaskHistory
+from core.orchestrator import SuperAIOrchestrator
 
 
 @pytest.fixture

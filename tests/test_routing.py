@@ -4,16 +4,16 @@ from pathlib import Path
 
 import pytest
 
-from superai.core.load_balancer import (
+from core.load_balancer import (
     LoadBalancer,
     LoadBalancingStrategy,
     ProviderCandidate,
     parse_strategy,
 )
-from superai.core.model_registry import ModelRegistry
-from superai.core.model_router import ModelRouter
-from superai.core.routing_stats import compute_model_stats, summarize_routing
-from superai.core.history import TaskHistory
+from core.model_registry import ModelRegistry
+from core.model_router import ModelRouter
+from core.routing_stats import compute_model_stats, summarize_routing
+from core.history import TaskHistory
 
 
 def test_parse_strategy():

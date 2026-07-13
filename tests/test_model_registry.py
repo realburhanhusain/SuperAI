@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from superai.core.model_registry import ModelRegistry
+from core.model_registry import ModelRegistry
 
 
 def test_load_from_models_json(tmp_path: Path):

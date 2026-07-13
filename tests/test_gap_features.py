@@ -2,18 +2,18 @@
 
 from pathlib import Path
 
-from superai.core.backup_manager import sources_for_scopes
-from superai.core.hitl import HITLStore
-from superai.core.load_balancer import LoadBalancingStrategy, parse_strategy
-from superai.core.memory_chat import MemoryConversation
-from superai.core.model_blacklist import ModelBlacklist
-from superai.core.model_compare import benchmark_models, compare_models
-from superai.core.model_pinning import ModelPinStore
-from superai.core.model_registry import ModelRegistry
-from superai.core.notion_stub import NotionClient
-from superai.core.skills import SkillsManager
-from superai.core.step_cache import StepResultCache
-from superai.core.task_planner import TaskPlanner
+from core.backup_manager import sources_for_scopes
+from core.hitl import HITLStore
+from core.load_balancer import LoadBalancingStrategy, parse_strategy
+from core.memory_chat import MemoryConversation
+from core.model_blacklist import ModelBlacklist
+from core.model_compare import benchmark_models, compare_models
+from core.model_pinning import ModelPinStore
+from core.model_registry import ModelRegistry
+from core.notion_stub import NotionClient
+from core.skills import SkillsManager
+from core.step_cache import StepResultCache
+from core.task_planner import TaskPlanner
 
 
 class _R:

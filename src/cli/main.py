@@ -1,7 +1,7 @@
 """
 SuperAI CLI (Phase 1 + stabilized higher-phase commands)
 
-Entry point: superai = "superai.cli.main:app"
+Entry point: superai = "scli.main:app"
 """
 
 from __future__ import annotations
@@ -16,13 +16,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from superai import __version__
-from superai.core.config import Config
-from superai.core.errors import SuperAIError
-from superai.core.history import TaskHistory
-from superai.core.logger import get_logger
-from superai.core.orchestrator import SuperAIOrchestrator
-from superai.core.task_planner import TaskPlanner
+from core import __version__
+from core.config import Config
+from core.errors import SuperAIError
+from core.history import TaskHistory
+from core.logger import get_logger
+from core.orchestrator import SuperAIOrchestrator
+from core.task_planner import TaskPlanner
 
 app = typer.Typer(
     name="superai",
@@ -50,7 +50,7 @@ def _register_auto_backup_if_enabled() -> None:
         def _on_exit() -> None:
             try:
                 # Skip no-op noise if nothing changed
-                from superai.core.backup_manager import BackupManager
+                from core.backup_manager import BackupManager
 
                 bm = BackupManager()
                 path = bm.create_backup(incremental=True, quiet=True)
@@ -136,7 +136,7 @@ def init_cmd(
         config.set("non_interactive", True, persist=True)
     dirs = config.initialize()
 
-    from superai.core.discovery import discover_environment
+    from core.discovery import discover_environment
 
     env = discover_environment()
     if env.get("mock_recommended"):
@@ -274,7 +274,7 @@ def status():
     emb = "n/a"
     mem_count = "n/a"
     try:
-        from superai.core.memory_palace import MemoryPalace
+        from core.memory_palace import MemoryPalace
 
         mp = MemoryPalace()
         st = mp.get_memory_stats()
@@ -385,8 +385,8 @@ def reflect(
     ),
 ):
     """Trigger reflection on recent learnings"""
-    from superai.core.learning_engine import LearningEngine
-    from superai.core.memory_palace import MemoryPalace
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
 
     memory = MemoryPalace()
     engine = LearningEngine(memory)
@@ -432,8 +432,8 @@ def learnings(
     limit: int = typer.Option(8, "--limit", "-n", help="Max semantic results"),
 ):
     """View or search what the system has learned"""
-    from superai.core.learning_engine import LearningEngine
-    from superai.core.memory_palace import MemoryPalace
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
 
     memory = MemoryPalace()
     engine = LearningEngine(memory)
@@ -481,8 +481,8 @@ def conflicts(
     ),
 ):
     """Show detected conflicting learnings"""
-    from superai.core.learning_engine import LearningEngine
-    from superai.core.memory_palace import MemoryPalace
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
 
     memory = MemoryPalace()
     engine = LearningEngine(memory)
@@ -532,7 +532,7 @@ def backup(
     ),
 ):
     """Create an encrypted incremental backup of SuperAI home data"""
-    from superai.core.backup_manager import BackupManager
+    from core.backup_manager import BackupManager
 
     bm = BackupManager()
     if not bm.key_file.exists():
@@ -570,7 +570,7 @@ def backup(
 @app.command("backup-status")
 def backup_status():
     """Show backup system status"""
-    from superai.core.backup_manager import BackupManager
+    from core.backup_manager import BackupManager
 
     bm = BackupManager()
     status_data = bm.get_backup_status()
@@ -588,7 +588,7 @@ def backup_verify(
     ),
 ):
     """Verify integrity of a backup (decrypt + list members)"""
-    from superai.core.backup_manager import BackupManager
+    from core.backup_manager import BackupManager
 
     bm = BackupManager()
     result = bm.verify_backup(path)
@@ -628,7 +628,7 @@ def restore(
     ),
 ):
     """Restore files from an encrypted backup (local path or --cloud pull)"""
-    from superai.core.backup_manager import BackupManager
+    from core.backup_manager import BackupManager
 
     bm = BackupManager()
     if cloud:
@@ -662,7 +662,7 @@ def restore(
 @app.command("list-skills")
 def list_skills():
     """List skills in the SuperAI skill library"""
-    from superai.core.skills import SkillsManager
+    from core.skills import SkillsManager
 
     sm = SkillsManager()
     skills = sm.list_skills()
@@ -691,7 +691,7 @@ def list_skills():
 @app.command("skill-promote")
 def skill_promote(name: str = typer.Argument(..., help="Skill name to promote from sandbox")):
     """Promote a sandboxed skill to active (injectable)"""
-    from superai.core.skills import SkillsManager
+    from core.skills import SkillsManager
 
     sm = SkillsManager()
     if sm.promote_skill(name):
@@ -704,7 +704,7 @@ def skill_promote(name: str = typer.Argument(..., help="Skill name to promote fr
 @app.command("skill-rollback")
 def skill_rollback(name: str = typer.Argument(..., help="Skill name to rollback last improvement")):
     """Rollback last improvement section on a skill"""
-    from superai.core.skills import SkillsManager
+    from core.skills import SkillsManager
 
     sm = SkillsManager()
     if sm.rollback_skill(name):
@@ -727,7 +727,7 @@ def skill_cmd(
     description: str = typer.Option("", "--description", "-d"),
 ):
     """Skill CRUD: create / delete / improve / deps / test"""
-    from superai.core.skills import SkillsManager
+    from core.skills import SkillsManager
 
     sm = SkillsManager()
     act = action.lower()
@@ -775,7 +775,7 @@ def skill_cmd(
 @app.command()
 def discover():
     """Discover installed AI CLIs, API keys, and environment"""
-    from superai.core.discovery import discover_environment
+    from core.discovery import discover_environment
 
     env = discover_environment()
     table = Table(title="External CLIs")
@@ -816,13 +816,13 @@ def cli_run(
     ),
 ):
     """Run an external AI CLI with approval gate (config: require_human_approval)"""
-    from superai.core.external_cli import ExternalCLITool
-    from superai.core.learning_engine import LearningEngine
-    from superai.core.memory_palace import MemoryPalace
+    from core.external_cli import ExternalCLITool
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
 
     cfg = Config()
     if with_context:
-        from superai.core.mcp_context import MCPContextPack
+        from core.mcp_context import MCPContextPack
 
         pack = MCPContextPack().build(task=prompt)
         prompt = MCPContextPack().wrap_cli_prompt(pack, prompt)
@@ -865,7 +865,7 @@ def propose(
     """Create a tool proposal requiring approval before execute"""
     import json as _json
 
-    from superai.core.tool_proposals import ToolProposalManager
+    from core.tool_proposals import ToolProposalManager
 
     args = _json.loads(payload)
     mgr = ToolProposalManager()
@@ -881,7 +881,7 @@ def proposal_cmd(
     ),
 ):
     """Manage a tool proposal"""
-    from superai.core.tool_proposals import ToolProposalManager
+    from core.tool_proposals import ToolProposalManager
 
     mgr = ToolProposalManager()
     if action == "show":
@@ -905,7 +905,7 @@ def proposals_list(
     status: Optional[str] = typer.Option(None, "--status", help="Filter by status"),
 ):
     """List tool proposals"""
-    from superai.core.tool_proposals import ToolProposalManager
+    from core.tool_proposals import ToolProposalManager
 
     mgr = ToolProposalManager()
     items = mgr.list(status=status)
@@ -928,7 +928,7 @@ def debate(
     rounds: int = typer.Option(1, "--rounds", min=1, max=2),
 ):
     """Run a multi-model debate / critique pattern (I2)"""
-    from superai.core.agentic import AgenticWorkflows
+    from core.agentic import AgenticWorkflows
 
     wf = AgenticWorkflows()
     model_list = [m.strip() for m in models.split(",")] if models else None
@@ -960,7 +960,7 @@ def council(
     ),
 ):
     """Multi-model council with selectable voting (LLM Council inspired)"""
-    from superai.core.council import Council, VOTING_MODES
+    from core.council import Council, VOTING_MODES
 
     cfg = Config()
     mode = voting or cfg.council_voting_mode
@@ -1010,9 +1010,9 @@ def data_ask(
     mock: bool = typer.Option(False, "--mock", help="Force mock/heuristic backend"),
 ):
     """Ask natural-language questions over SQL data (Databao-inspired)"""
-    from superai.core.databao_adapter import DatabaoAdapter
-    from superai.core.learning_engine import LearningEngine
-    from superai.core.memory_palace import MemoryPalace
+    from core.databao_adapter import DatabaoAdapter
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
     from rich.table import Table as RichTable
 
     cfg = Config()
@@ -1060,7 +1060,7 @@ def data_ask(
     if show_chart and answer.chart:
         console.print_json(data=answer.chart)
     if chart_html and answer.chart:
-        from superai.core.vega_charts import write_chart_html
+        from core.vega_charts import write_chart_html
 
         path = write_chart_html(answer.chart, title=question[:80])
         console.print(f"[green]Interactive chart:[/green] {path}")
@@ -1073,7 +1073,7 @@ def data_schema(
     dsn: Optional[str] = typer.Option(None, "--dsn", help="SQLAlchemy DSN"),
 ):
     """Show registered/demo data schema summary"""
-    from superai.core.databao_adapter import DatabaoAdapter
+    from core.databao_adapter import DatabaoAdapter
 
     cfg = Config()
     adapter = DatabaoAdapter(
@@ -1091,7 +1091,7 @@ def pref_cmd(
     value: Optional[str] = typer.Argument(None, help="Value for set"),
 ):
     """User preferences / learned profile"""
-    from superai.core.preferences import UserPreferenceModel
+    from core.preferences import UserPreferenceModel
 
     pm = UserPreferenceModel()
     if action == "show":
@@ -1129,7 +1129,7 @@ def tt_snapshot(
     note: str = typer.Option("", "--note"),
 ):
     """Snapshot a file for time-travel restore"""
-    from superai.core.time_travel import FileTimeTravel
+    from core.time_travel import FileTimeTravel
 
     info = FileTimeTravel().snapshot(path, note=note)
     console.print_json(data=info)
@@ -1138,7 +1138,7 @@ def tt_snapshot(
 @app.command("tt-list")
 def tt_list(path: str = typer.Argument(..., help="File path")):
     """List time-travel versions for a file"""
-    from superai.core.time_travel import FileTimeTravel
+    from core.time_travel import FileTimeTravel
 
     versions = FileTimeTravel().list_versions(path)
     if not versions:
@@ -1165,7 +1165,7 @@ def tt_restore(
     version: int = typer.Argument(..., help="Version number"),
 ):
     """Restore a file from a time-travel snapshot"""
-    from superai.core.time_travel import FileTimeTravel
+    from core.time_travel import FileTimeTravel
 
     try:
         info = FileTimeTravel().restore(path, version)
@@ -1181,7 +1181,7 @@ def msg_send(
     channel: str = typer.Option("cli", "--channel", "-c"),
 ):
     """Send via messenger bus (cli/file/webhook/telegram/slack)"""
-    from superai.core.messengers import MessengerBus
+    from core.messengers import MessengerBus
 
     result = MessengerBus().send(message, channel=channel)
     console.print_json(data=result)
@@ -1192,7 +1192,7 @@ def msg_send(
 @app.command("msg-channels")
 def msg_channels():
     """List messenger channels and configuration status"""
-    from superai.core.messengers import MessengerBus
+    from core.messengers import MessengerBus
 
     console.print_json(data=MessengerBus().list_channels())
 
@@ -1205,7 +1205,7 @@ def msg_broadcast(
     ),
 ):
     """Broadcast a message to multiple messenger channels"""
-    from superai.core.messengers import MessengerBus
+    from core.messengers import MessengerBus
 
     ch_list = [c.strip() for c in channels.split(",")] if channels else None
     result = MessengerBus().broadcast(message, channels=ch_list)
@@ -1225,7 +1225,7 @@ def plugins_cmd(
     category: Optional[str] = typer.Option(None, "--category", "-c"),
 ):
     """Plugin marketplace registry (list/search/enable/install)"""
-    from superai.core.plugin_registry import PluginRegistry
+    from core.plugin_registry import PluginRegistry
 
     reg = PluginRegistry()
     if action == "list":
@@ -1266,7 +1266,7 @@ def bandit_cmd(
     action: str = typer.Argument("status", help="status | reset"),
 ):
     """Show or reset contextual bandit routing state"""
-    from superai.core.bandit_router import EpsilonGreedyBandit
+    from core.bandit_router import EpsilonGreedyBandit
 
     b = EpsilonGreedyBandit()
     if action == "reset":
@@ -1289,7 +1289,7 @@ def dashboard_cmd(
     refresh: float = typer.Option(3.0, "--refresh", help="Refresh interval seconds"),
 ):
     """Live terminal dashboard (shared snapshot with web UI)"""
-    from superai.cli.dashboard import SuperAIDashboard
+    from scli.dashboard import SuperAIDashboard
 
     SuperAIDashboard().run_terminal_dashboard(refresh_sec=refresh, once=once)
 
@@ -1301,7 +1301,7 @@ def context_pack_cmd(
     show_prompt: bool = typer.Option(False, "--prompt", help="Print prompt text form"),
 ):
     """Build MCP-style context pack for external CLI handoff"""
-    from superai.core.mcp_context import MCPContextPack
+    from core.mcp_context import MCPContextPack
 
     mcp = MCPContextPack()
     pack = mcp.build(task=task)
@@ -1321,7 +1321,7 @@ def search_web_cmd(
     provider: str = typer.Option("auto", "--provider", help="auto|tavily|brave|stub"),
 ):
     """Web search via Tavily/Brave keys or offline stub"""
-    from superai.core.ecosystem import EcosystemHub
+    from core.ecosystem import EcosystemHub
 
     console.print_json(data=EcosystemHub().search(query, provider=provider))
 
@@ -1334,7 +1334,7 @@ def emit_event_cmd(
     ),
 ):
     """Emit ecosystem webhook event (n8n / Zapier / Make)"""
-    from superai.core.ecosystem import EcosystemHub
+    from core.ecosystem import EcosystemHub
 
     body = {}
     if payload:
@@ -1351,7 +1351,7 @@ def emit_event_cmd(
 @app.command("ecosystem")
 def ecosystem_cmd():
     """Show ecosystem integration capabilities"""
-    from superai.core.ecosystem import EcosystemHub
+    from core.ecosystem import EcosystemHub
 
     console.print_json(data=EcosystemHub().capabilities())
 
@@ -1362,7 +1362,7 @@ def surface_feedback_cmd(
     surface: str = typer.Option("cli", "--surface"),
 ):
     """Post cross-surface feedback (CLI ↔ web dashboard)"""
-    from superai.core.observability import write_feedback, recent_feedback
+    from core.observability import write_feedback, recent_feedback
 
     entry = write_feedback(message, surface=surface)
     console.print_json(data={"written": entry, "recent": recent_feedback(5)})
@@ -1378,7 +1378,7 @@ def compare_cmd(
     top: int = typer.Option(4, "--top", help="How many routed models if --models omitted"),
 ):
     """Compare models on the same prompt (winner by success+latency)"""
-    from superai.core.model_compare import compare_models
+    from core.model_compare import compare_models
 
     model_list = [m.strip() for m in models.split(",")] if models else None
     data = compare_models(prompt, models=model_list, use_mock=mock, top_n=top)
@@ -1391,7 +1391,7 @@ def benchmark_cmd(
     models: Optional[str] = typer.Option(None, "--models"),
 ):
     """Run a small multi-prompt benchmark suite across models"""
-    from superai.core.model_compare import benchmark_models
+    from core.model_compare import benchmark_models
 
     model_list = [m.strip() for m in models.split(",")] if models else None
     console.print_json(data=benchmark_models(models=model_list, use_mock=mock))
@@ -1407,7 +1407,7 @@ def pin_model_cmd(
     list_all: bool = typer.Option(False, "--list"),
 ):
     """Pin/unpin concrete model_id for a registry name"""
-    from superai.core.model_pinning import ModelPinStore
+    from core.model_pinning import ModelPinStore
 
     store = ModelPinStore()
     if list_all:
@@ -1428,7 +1428,7 @@ def blacklist_cmd(
     hours: Optional[float] = typer.Option(None, "--hours"),
 ):
     """Model blacklist management (auto-threshold after repeated failures)"""
-    from superai.core.model_blacklist import ModelBlacklist
+    from core.model_blacklist import ModelBlacklist
 
     bl = ModelBlacklist()
     if action == "list":
@@ -1459,7 +1459,7 @@ def memory_chat_cmd(
     new: bool = typer.Option(False, "--new", help="Force new conversation"),
 ):
     """Multi-turn conversational memory search"""
-    from superai.core.memory_chat import MemoryConversation
+    from core.memory_chat import MemoryConversation
 
     mc = MemoryConversation()
     if new or not conversation:
@@ -1477,7 +1477,7 @@ def notion_cmd(
     content: Optional[str] = typer.Argument(None),
 ):
     """Notion integration (dry-run without NOTION_API_KEY)"""
-    from superai.core.notion_stub import NotionClient
+    from core.notion_stub import NotionClient
 
     client = NotionClient()
     if action == "status":
@@ -1505,7 +1505,7 @@ def hitl_cmd(
     text: Optional[str] = typer.Argument(None, help="Question / answer / reason"),
 ):
     """Human-in-the-loop: clarification requests and veto"""
-    from superai.core.hitl import HITLStore
+    from core.hitl import HITLStore
 
     store = HITLStore()
     if action == "list":
@@ -1540,7 +1540,7 @@ def runs_cmd(
     task_id: Optional[str] = typer.Argument(None),
 ):
     """List step-cache / resume run checkpoints"""
-    from superai.core.step_cache import StepResultCache
+    from core.step_cache import StepResultCache
 
     cache = StepResultCache()
     if action == "list":
@@ -1571,7 +1571,7 @@ def patterns_cmd(
     min_support: int = typer.Option(2, "--min-support"),
 ):
     """Extract generalized patterns from learning history"""
-    from superai.core.pattern_extract import PatternExtractor
+    from core.pattern_extract import PatternExtractor
 
     pe = PatternExtractor()
     data = pe.extract(min_support=min_support)
@@ -1586,7 +1586,7 @@ def memory_clusters_cmd(
     limit: int = typer.Option(200, "--limit"),
 ):
     """Cluster memories by task type / tags"""
-    from superai.core.memory_palace import MemoryPalace
+    from core.memory_palace import MemoryPalace
 
     console.print_json(data=MemoryPalace().cluster_memories(limit=limit))
 
@@ -1596,7 +1596,7 @@ def roles_cmd(
     task: str = typer.Argument(..., help="Task for dynamic role cycle"),
 ):
     """Run supervisor→workers→critic dynamic role switching"""
-    from superai.core.agentic import AgenticWorkflows
+    from core.agentic import AgenticWorkflows
 
     console.print_json(data=AgenticWorkflows().dynamic_roles(task))
 
@@ -1609,7 +1609,7 @@ def web(
     """Start web memory/status UI (requires pip install -e \".[web]\")"""
     try:
         import uvicorn
-        from superai.web_app import create_app
+        from scli.web_app import create_app
     except ImportError as e:
         console.print(
             "[red]Web extras missing.[/red] Install: pip install -e \".[web]\""
@@ -1625,7 +1625,7 @@ def delegate(
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ):
     """Hierarchical delegation of a goal into subtasks"""
-    from superai.core.hierarchy import HierarchicalDelegator
+    from core.hierarchy import HierarchicalDelegator
 
     tree = HierarchicalDelegator().run(goal, verbose=verbose)
     console.print_json(data=_json_safe(tree))
@@ -1651,7 +1651,7 @@ def wings(
     note: str = typer.Option("", "--note"),
 ):
     """Memory wings & rooms organization (I4)"""
-    from superai.core.wings import WingsManager
+    from core.wings import WingsManager
 
     wm = WingsManager()
     if list_all or not (memory_id and wing and room):
@@ -1670,10 +1670,10 @@ def list_models(
     ),
 ):
     """List models known to the registry"""
-    from superai.core.model_registry import ModelRegistry
+    from core.model_registry import ModelRegistry
 
     if refresh:
-        from superai.core.model_refresh import refresh_models
+        from core.model_refresh import refresh_models
 
         try:
             models, meta = refresh_models(write_user_copy=True)
@@ -1713,7 +1713,7 @@ def smoke_providers(
     ),
 ):
     """Live multi-provider smoke test (skips providers without credentials)"""
-    from superai.core.provider_smoke import run_provider_smoke
+    from core.provider_smoke import run_provider_smoke
 
     summary = run_provider_smoke(use_mock=mock)
     console.print(
@@ -1746,7 +1746,7 @@ def smoke_providers(
 @app.command("provider-health")
 def provider_health_cmd():
     """Show persisted provider health and quota windows"""
-    from superai.core.provider_health import ProviderHealthStore
+    from core.provider_health import ProviderHealthStore
 
     store = ProviderHealthStore()
     snap = store.snapshot()
@@ -1781,8 +1781,8 @@ def evolve(
     limit: int = typer.Option(20, "--limit", "-n", help="Max timeline entries"),
 ):
     """Show how learnings about a topic evolved over time (F3.5)"""
-    from superai.core.learning_engine import LearningEngine
-    from superai.core.memory_palace import MemoryPalace
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
 
     engine = LearningEngine(MemoryPalace())
     result = engine.track_knowledge_evolution(topic, limit=limit)
@@ -1822,9 +1822,9 @@ def feedback(
     ),
 ):
     """Record human feedback for a past task (high-importance learning)"""
-    from superai.core.history import TaskHistory
-    from superai.core.learning_engine import LearningEngine
-    from superai.core.memory_palace import MemoryPalace
+    from core.history import TaskHistory
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
 
     rec = TaskHistory().get(task_id)
     desc = (rec or {}).get("task") or f"task {task_id}"
@@ -1856,7 +1856,7 @@ def set_supervisor(model: str = typer.Argument(..., help="Default supervisor mod
 @app.command("set-strategy")
 def set_strategy(strategy: str = typer.Argument(..., help="Load balancing strategy")):
     """Persist strategy: smart_fallback | round_robin | latency_based | cost_based"""
-    from superai.core.load_balancer import parse_strategy
+    from core.load_balancer import parse_strategy
 
     parsed = parse_strategy(strategy)
     cfg = Config()
@@ -1872,10 +1872,10 @@ def routing_stats(
     ),
 ):
     """Show model routing statistics from history; use --explain for score breakdown"""
-    from superai.core.load_balancer import LoadBalancer, parse_strategy
-    from superai.core.model_registry import ModelRegistry
-    from superai.core.model_router import ModelRouter
-    from superai.core.routing_stats import summarize_routing
+    from core.load_balancer import LoadBalancer, parse_strategy
+    from core.model_registry import ModelRegistry
+    from core.model_router import ModelRouter
+    from core.routing_stats import summarize_routing
 
     cfg = Config()
     summary = summarize_routing(limit=limit)

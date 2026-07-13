@@ -2,10 +2,10 @@
 
 from pathlib import Path
 
-from superai.core.config import Config
-from superai.core.hierarchy import HierarchicalDelegator
-from superai.core.history import TaskHistory
-from superai.core.orchestrator import SuperAIOrchestrator
+from core.config import Config
+from core.hierarchy import HierarchicalDelegator
+from core.history import TaskHistory
+from core.orchestrator import SuperAIOrchestrator
 
 
 def test_hierarchical_delegate(tmp_path: Path, monkeypatch):

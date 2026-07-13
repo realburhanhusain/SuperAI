@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from superai.core.history import TaskHistory
+from core.history import TaskHistory
 
 
 def test_save_and_list(tmp_path: Path):

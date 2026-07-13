@@ -1,7 +1,7 @@
 """
 SuperAI Dynamic Dashboard — terminal (Rich) + shared snapshot with web.
 
-Both surfaces use `superai.core.observability.build_dashboard_snapshot`.
+Both surfaces use `core.observability.build_dashboard_snapshot`.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class SuperAIDashboard:
 
     def refresh_from_system(self) -> Dict[str, Any]:
         """Pull shared observability snapshot into local panels."""
-        from superai.core.observability import (
+        from core.observability import (
             build_dashboard_snapshot,
             recent_feedback,
         )

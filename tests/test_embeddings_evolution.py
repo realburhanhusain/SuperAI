@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from superai.core.embeddings import (
+from core.embeddings import (
     HashEmbeddingFunction,
     create_embedding_function,
     describe_embedding,
 )
-from superai.core.learning_engine import LearningEngine
-from superai.core.memory_palace import MemoryPalace
+from core.learning_engine import LearningEngine
+from core.memory_palace import MemoryPalace
 
 
 def test_hash_embedding_deterministic():

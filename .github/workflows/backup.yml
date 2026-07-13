@@ -29,7 +29,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import os
-          from superai.core.backup_manager import BackupManager
+          from core.backup_manager import BackupManager
           home = Path(os.environ["HOME"]) / ".superai"
           bm = BackupManager(superai_home=str(home), backup_dir=str(home / "backups"))
           path = bm.create_backup(force_full=True, scopes=["config", "skills"])

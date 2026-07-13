@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from superai.core.backup_manager import BackupManager
-from superai.core.skills import SkillsManager
+from core.backup_manager import BackupManager
+from core.skills import SkillsManager
 
 
 def test_skill_create_relevance_and_prompt(tmp_path: Path):

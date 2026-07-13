@@ -39,6 +39,16 @@ This repository (`SuperAI_v1`) is the **canonical code tree**.
 | Parallel multi-step plan execution | **Done** |
 | Live multi-provider / rclone / Pages E2E | **Deferred smoke** |
 
+## Layout
+
+```
+src/
+  cli/    # CLI + web UI (Python import name: scli)
+  core/   # domain logic (Python import name: core)
+```
+
+Console entry point remains: `superai` → `scli.main:app`.
+
 ## Installation
 
 ```powershell

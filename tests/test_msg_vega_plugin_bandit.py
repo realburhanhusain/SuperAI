@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from superai.core.bandit_router import EpsilonGreedyBandit
-from superai.core.messengers import MessengerBus
-from superai.core.model_registry import ModelRegistry
-from superai.core.model_router import ModelRouter
-from superai.core.load_balancer import LoadBalancer
-from superai.core.plugin_registry import PluginRegistry
-from superai.core.vega_charts import chart_from_table, render_vega_html, write_chart_html
+from core.bandit_router import EpsilonGreedyBandit
+from core.messengers import MessengerBus
+from core.model_registry import ModelRegistry
+from core.model_router import ModelRouter
+from core.load_balancer import LoadBalancer
+from core.plugin_registry import PluginRegistry
+from core.vega_charts import chart_from_table, render_vega_html, write_chart_html
 
 
 def test_telegram_slack_dry_run(tmp_path: Path, monkeypatch):
@@ -117,7 +117,7 @@ def test_web_charts_and_plugins(tmp_path: Path, monkeypatch):
     pytest.importorskip("fastapi")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     from fastapi.testclient import TestClient
-    from superai.web_app import create_app
+    from scli.web_app import create_app
 
     client = TestClient(create_app())
     r = client.get("/charts")

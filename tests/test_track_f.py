@@ -4,16 +4,16 @@ from pathlib import Path
 
 import pytest
 
-from superai.core.config import Config
-from superai.core.history import TaskHistory
-from superai.core.load_balancer import LoadBalancer
-from superai.core.model_caller import ModelCaller
-from superai.core.model_refresh import merge_catalogs, refresh_models
-from superai.core.model_registry import ModelRegistry
-from superai.core.model_router import ModelRouter
-from superai.core.orchestrator import SuperAIOrchestrator
-from superai.core.provider_health import ProviderHealthStore
-from superai.core.provider_smoke import available_smoke_targets, run_provider_smoke
+from core.config import Config
+from core.history import TaskHistory
+from core.load_balancer import LoadBalancer
+from core.model_caller import ModelCaller
+from core.model_refresh import merge_catalogs, refresh_models
+from core.model_registry import ModelRegistry
+from core.model_router import ModelRouter
+from core.orchestrator import SuperAIOrchestrator
+from core.provider_health import ProviderHealthStore
+from core.provider_smoke import available_smoke_targets, run_provider_smoke
 
 
 def test_provider_health_persist(tmp_path: Path):
@@ -47,7 +47,7 @@ def test_merge_and_refresh_models(tmp_path: Path, monkeypatch):
     user_cfg = tmp_path / "config"
     user_cfg.mkdir()
     monkeypatch.setattr(
-        "superai.core.model_refresh.user_models_path",
+        "core.model_refresh.user_models_path",
         lambda: user_cfg / "models.json",
     )
     # Ensure project catalog is used

@@ -2,17 +2,17 @@
 
 from pathlib import Path
 
-from superai.core.agentic import AgenticWorkflows
-from superai.core.council import Council
-from superai.core.hierarchy import HierarchicalDelegator
-from superai.core.hitl import HITLStore
-from superai.core.memory_palace import MemoryPalace
-from superai.core.model_caller import ModelCaller
-from superai.core.model_registry import ModelRegistry
-from superai.core.pattern_extract import PatternExtractor
-from superai.core.step_cache import StepResultCache
-from superai.core.task_planner import TaskPlanner
-from superai.core.tool_proposals import ToolProposalManager
+from core.agentic import AgenticWorkflows
+from core.council import Council
+from core.hierarchy import HierarchicalDelegator
+from core.hitl import HITLStore
+from core.memory_palace import MemoryPalace
+from core.model_caller import ModelCaller
+from core.model_registry import ModelRegistry
+from core.pattern_extract import PatternExtractor
+from core.step_cache import StepResultCache
+from core.task_planner import TaskPlanner
+from core.tool_proposals import ToolProposalManager
 
 
 def test_planner_heuristic_roles():
@@ -27,7 +27,7 @@ def test_hierarchy_decompose_and_run(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "true")
-    from superai.core.config import Config
+    from core.config import Config
 
     cfg = Config(config_path=str(tmp_path / "c.json"))
     cfg.set("mock_mode", True)
@@ -104,13 +104,13 @@ def test_pattern_extract(tmp_path: Path):
 
 
 def test_web_search_proposal_wired():
-    from superai.core.tool_proposals import ToolProposalManager
+    from core.tool_proposals import ToolProposalManager
 
     # Use whatever class name exists
     mgr = ToolProposalManager() if "ToolProposalManager" in dir() else None
     # Directly call private method via instance if available
     if mgr is None:
-        import superai.core.tool_proposals as tp
+        import core.tool_proposals as tp
 
         # find executor class
         for name in dir(tp):
@@ -135,8 +135,8 @@ def test_resume_checkpoint(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "true")
-    from superai.core.config import Config
-    from superai.core.orchestrator import SuperAIOrchestrator
+    from core.config import Config
+    from core.orchestrator import SuperAIOrchestrator
 
     cfg = Config(config_path=str(tmp_path / "cfg.json"))
     cfg.set("mock_mode", True)

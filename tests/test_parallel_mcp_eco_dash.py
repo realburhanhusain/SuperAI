@@ -2,15 +2,15 @@
 
 from pathlib import Path
 
-from superai.core.ecosystem import EcosystemHub
-from superai.core.mcp_context import MCPContextPack
-from superai.core.observability import (
+from core.ecosystem import EcosystemHub
+from core.mcp_context import MCPContextPack
+from core.observability import (
     build_dashboard_snapshot,
     recent_feedback,
     write_feedback,
 )
-from superai.core.task_planner import TaskPlanner
-from superai.core.task_result import StepResult, TaskResult
+from core.task_planner import TaskPlanner
+from core.task_result import StepResult, TaskResult
 
 
 class _DummyRouter:
@@ -116,8 +116,8 @@ def test_orchestrator_parallel_meta(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "true")
-    from superai.core.config import Config
-    from superai.core.orchestrator import SuperAIOrchestrator
+    from core.config import Config
+    from core.orchestrator import SuperAIOrchestrator
 
     cfg = Config(config_path=str(tmp_path / "cfg.json"))
     cfg.set("mock_mode", True)

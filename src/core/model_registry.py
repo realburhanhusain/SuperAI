@@ -34,12 +34,12 @@ class ModelInfo:
 
 def _project_models_json() -> Optional[Path]:
     """Locate models.json: user override first, then project, then cwd."""
-    # src/superai/core/model_registry.py → repo root is parents[3]
+    # src/core/model_registry.py → repo root is parents[2]
     here = Path(__file__).resolve()
     candidates = [
         Path.home() / ".superai" / "config" / "models.json",  # refresh writes here
-        here.parents[3] / "config" / "models.json",
-        here.parents[2] / "config" / "models.json",
+        here.parents[2] / "config" / "models.json",  # repo root
+        here.parents[1] / "config" / "models.json",  # src/
         Path.cwd() / "config" / "models.json",
     ]
     for path in candidates:

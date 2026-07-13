@@ -76,20 +76,20 @@ flowchart TB
 ## Package layout
 
 ```
-src/superai/
-  cli/main.py, dashboard.py
-  web_app.py
-  core/
+src/
+  cli/                 # directory name (import package: scli)
+    main.py            # Typer app — entry: superai = "scli.main:app"
+    dashboard.py
+    web_app.py
+  core/                # import package: core
     orchestrator.py, task_planner.py, task_result.py
     model_*.py, load_balancer.py, bandit_router.py
     memory_*.py, embeddings.py, learning_engine.py, skills.py
-    backup_manager.py, preferences.py, time_travel.py
-    external_cli.py, mcp_context.py, tool_proposals.py
-    messengers.py, ecosystem.py, observability.py
-    council.py, agentic.py, hierarchy.py
-    databao_adapter.py, vega_charts.py, plugin_registry.py
-    discovery.py, wings.py, config.py, history.py, errors.py
+    …
 ```
+
+Imports: `from core.…` and `from scli.…`  
+(Note: the CLI package is imported as `scli` because a third-party `cli.py` on some systems shadows the name `cli`.)
 
 ## Runtime data (`~/.superai/`)
 

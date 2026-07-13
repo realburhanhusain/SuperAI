@@ -53,7 +53,7 @@ src/superai/
   core/                # config, logger, orchestrator, models, memory, ...
 ```
 
-Entry point: `superai = "superai.cli.main:app"`
+Entry point: `superai = "cli.main:app"` (packages under `src/cli`, `src/core`)
 
 ## Rules
 

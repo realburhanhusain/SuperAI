@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from superai.core.messengers import MessengerBus
-from superai.core.preferences import UserPreferenceModel
-from superai.core.time_travel import FileTimeTravel
+from core.messengers import MessengerBus
+from core.preferences import UserPreferenceModel
+from core.time_travel import FileTimeTravel
 
 
 def test_preferences_learn_and_infer(tmp_path: Path):
@@ -49,14 +49,14 @@ def test_web_app_memory_search(tmp_path: Path, monkeypatch):
     pytest.importorskip("fastapi")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     # seed a memory
-    from superai.core.memory_palace import MemoryPalace
+    from core.memory_palace import MemoryPalace
 
     monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
     mp = MemoryPalace(persist_directory=str(tmp_path / "mem"))
     mp.store("fastapi routing knowledge", tags=["learning"], metadata={"success": True})
 
     from fastapi.testclient import TestClient
-    from superai.web_app import create_app
+    from scli.web_app import create_app
 
     client = TestClient(create_app())
     r = client.get("/api/status")

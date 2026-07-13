@@ -2,10 +2,10 @@
 
 from pathlib import Path
 
-from superai.core.config import Config
-from superai.core.council import Council, parse_vote_mode
-from superai.core.model_caller import ModelCaller
-from superai.core.model_registry import ModelRegistry
+from core.config import Config
+from core.council import Council, parse_vote_mode
+from core.model_caller import ModelCaller
+from core.model_registry import ModelRegistry
 
 
 def test_parse_vote_mode():

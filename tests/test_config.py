@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from superai.core.config import Config
+from core.config import Config
 
 
 def test_initialize_creates_dirs(tmp_path: Path, monkeypatch):

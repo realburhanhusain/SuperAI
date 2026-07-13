@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from superai.core.learning_engine import LearningEngine
-from superai.core.memory_palace import MemoryPalace
+from core.learning_engine import LearningEngine
+from core.memory_palace import MemoryPalace
 
 
 def test_learn_and_summary(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(
-        "superai.core.learning_engine.os.path.expanduser",
+        "core.learning_engine.os.path.expanduser",
         lambda p: str(tmp_path / "learning_history.json")
         if "learning_history" in p
         else p,

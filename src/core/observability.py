@@ -33,7 +33,7 @@ def build_dashboard_snapshot(
     }
 
     try:
-        from superai import __version__
+        from core import __version__
 
         snap["version"] = __version__
     except Exception:  # noqa: BLE001

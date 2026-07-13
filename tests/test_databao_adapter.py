@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from superai.core.databao_adapter import DatabaoAdapter
+from core.databao_adapter import DatabaoAdapter
 
 
 def test_demo_sqlite_german_customers(tmp_path: Path):

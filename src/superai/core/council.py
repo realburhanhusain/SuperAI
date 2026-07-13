@@ -52,10 +52,18 @@ class Council:
         voting_mode: Optional[str] = None,
         supervisor_model: Optional[str] = None,
         with_critique: bool = False,
+        documents: Optional[List[str]] = None,
+        document_paths: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         mode = parse_vote_mode(voting_mode or self.voting_mode)
         supervisor = supervisor_model or self.supervisor_model
         members = models or self._default_models(3)
+
+        # Document context injection (Future Plan council depth)
+        doc_block = self._load_documents(documents, document_paths)
+
+        # Stage 0: simple vs complex classification
+        stage0 = self._classify_complexity(topic)
 
         # Stage 1: structured proposals
         proposals: List[Dict[str, Any]] = []
@@ -64,8 +72,10 @@ class Council:
                 "You are a council member. Respond with ONLY valid JSON:\n"
                 '{"stance":"short label","vote_key":"snake_case_key",'
                 '"confidence":0.0-1.0,"reasons":["..."],"summary":"..."}\n\n'
-                f"Topic: {topic}"
+                f"Topic: {topic}\n"
             )
+            if doc_block:
+                prompt += f"\nReference documents:\n{doc_block[:6000]}\n"
             raw = self.caller.call(model=m, prompt=prompt)
             parsed = self._parse_member_json(str(raw.get("response") or ""), m)
             parsed["model"] = m
@@ -103,11 +113,52 @@ class Council:
             "topic": topic,
             "voting_mode": mode,
             "members": members,
+            "stage0": stage0,
+            "documents_injected": bool(doc_block),
             "proposals": proposals,
             "critiques": critiques,
             "decision": decision,
             "message": f"Council finished via {mode} voting.",
         }
+
+    def _classify_complexity(self, topic: str) -> Dict[str, Any]:
+        t = (topic or "").lower()
+        complex_kw = (
+            "architect",
+            "trade-off",
+            "multi",
+            "system",
+            "compare",
+            "strategy",
+            "design",
+            "evaluate",
+        )
+        simple_kw = ("what is", "define", "hello", "one line", "yes or no")
+        if any(k in t for k in simple_kw) and not any(k in t for k in complex_kw):
+            return {"complexity": "simple", "reason": "short factual query"}
+        if any(k in t for k in complex_kw) or len(t.split()) > 20:
+            return {"complexity": "complex", "reason": "multi-factor / long topic"}
+        return {"complexity": "moderate", "reason": "default"}
+
+    @staticmethod
+    def _load_documents(
+        documents: Optional[List[str]],
+        document_paths: Optional[List[str]],
+    ) -> str:
+        parts: List[str] = []
+        for d in documents or []:
+            if d:
+                parts.append(str(d)[:4000])
+        if document_paths:
+            from pathlib import Path
+
+            for p in document_paths:
+                try:
+                    text = Path(p).read_text(encoding="utf-8", errors="replace")
+                    parts.append(f"[file:{p}]\n{text[:4000]}")
+                except OSError:
+                    parts.append(f"[file:{p}] (unreadable)")
+        return "\n\n---\n\n".join(parts)
 
     def _aggregate(
         self,

@@ -174,10 +174,16 @@ class ToolProposalManager:
         }
 
     def _exec_web_search_stub(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        # Real search providers plugged in Track I; keep structured stub
+        """Full search path via EcosystemHub (Tavily/Brave/stub)."""
         q = args.get("query", "")
-        return {
-            "query": q,
-            "results": [],
-            "message": "web_search executor placeholder — wire Tavily/Brave in Track I",
-        }
+        try:
+            from .ecosystem import EcosystemHub
+
+            return EcosystemHub().search(str(q), provider=str(args.get("provider") or "auto"))
+        except Exception as e:  # noqa: BLE001
+            return {
+                "query": q,
+                "results": [],
+                "ok": False,
+                "error": str(e),
+            }

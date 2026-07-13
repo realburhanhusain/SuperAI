@@ -1,18 +1,37 @@
-# TASKBOARD — SuperAI_v1
+﻿# Checkpoint: depth-finish-thin-layers
+
+- **When:** 2026-07-14 01:16:06 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+- **Git HEAD:** 6495fff
+- **Git status:** ## master...origin/master [ahead 9]
+- **Pytest:** skipped
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI_v1
 
 **Deferred last activity:** live smoke (API keys, bots, rclone, Pages).  
 **Gap tracker:** `docs/DOC_GAP_ANALYSIS.md` (Basic + Future Plan docs)
 
-**Legend:** `[x]` done · `[!]` deferred external smoke · `[~]` partial depth
+**Legend:** `[x]` done Â· `[!]` deferred external smoke Â· `[~]` partial depth
 
 ---
 
-## Tracks A–J
+## Tracks Aâ€“J
 
 | Track | Status |
 |-------|--------|
-| A–J | `[x]` |
-| Future Plan gap close (G1–G12) | `[x]` |
+| Aâ€“J | `[x]` |
+| Future Plan gap close (G1â€“G12) | `[x]` |
 | Thin-layer depth finish | `[x]` planner/hierarchy/cli-models/resume/HITL/memory/council/patterns |
 
 ---
@@ -27,7 +46,7 @@
 ## Remaining doc depth (optional / not blocking)
 
 - [~] HNSW/FAISS/quantization advanced knobs (G13)
-- [!] DuckDuckGo live search (G14 — not scraped by design)
+- [!] DuckDuckGo live search (G14 â€” not scraped by design)
 - [!] Full GitHub product API issues/PRs (G15)
 
 ---
@@ -53,7 +72,9 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Closed Future Plan gaps G1–G12 + workflows + DOC_GAP_ANALYSIS |
+| **What** | Closed Future Plan gaps G1â€“G12 + workflows + DOC_GAP_ANALYSIS |
 | **Next** | Deferred smoke only |
-| **Verify** | `pytest -q` → **81 passed** |
+| **Verify** | `pytest -q` â†’ **81 passed** |
 | **What** | Thin layers finished: planner LLM, hierarchy, cli models, resume, memory clusters, council docs, roles, patterns |
+
+```

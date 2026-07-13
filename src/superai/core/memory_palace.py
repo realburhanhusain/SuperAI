@@ -81,13 +81,24 @@ class MemoryPalace:
             self.client = chromadb.PersistentClient(path=self.persist_directory)
             safe = re.sub(r"[^a-zA-Z0-9_]+", "_", self.embedding_id)[:48] or "default"
             coll_name = f"superai_memories_{safe}"
+            # HNSW knobs via env (Future Plan advanced embedding)
+            hnsw_meta = {
+                "hnsw:space": os.getenv("SUPERAI_HNSW_SPACE", "cosine"),
+                "embedding": self.embedding_id[:200],
+            }
+            # Chroma accepts construction-time M / ef via metadata on some versions
+            for env_k, meta_k in (
+                ("SUPERAI_HNSW_M", "hnsw:M"),
+                ("SUPERAI_HNSW_EF_CONSTRUCTION", "hnsw:construction_ef"),
+                ("SUPERAI_HNSW_EF_SEARCH", "hnsw:search_ef"),
+            ):
+                raw = os.getenv(env_k)
+                if raw and raw.isdigit():
+                    hnsw_meta[meta_k] = int(raw)
             try:
                 self.collection = self.client.get_or_create_collection(
                     name=coll_name,
-                    metadata={
-                        "hnsw:space": "cosine",
-                        "embedding": self.embedding_id[:200],
-                    },
+                    metadata=hnsw_meta,
                     embedding_function=self.embedding_function,
                 )
             except Exception:
@@ -278,6 +289,48 @@ class MemoryPalace:
                 }
             )
         return results[:top_k]
+
+    def cluster_memories(
+        self,
+        limit: int = 200,
+        max_clusters: int = 8,
+    ) -> List[Dict[str, Any]]:
+        """
+        Lightweight keyword clustering of memories (no sklearn required).
+        Groups by dominant tag/task_type, falls back to content tokens.
+        """
+        mems = self.get_all_memories()[:limit]
+        buckets: Dict[str, List[Dict[str, Any]]] = {}
+        for m in mems:
+            meta = m.get("metadata") or {}
+            key = (
+                str(meta.get("task_type") or "")
+                or (str(meta.get("tags") or "").split(",")[0].strip())
+                or "general"
+            )
+            if not key:
+                key = "general"
+            buckets.setdefault(key, []).append(m)
+
+        clusters = []
+        for key, items in sorted(buckets.items(), key=lambda kv: -len(kv[1]))[
+            :max_clusters
+        ]:
+            sample = (items[0].get("content") or "")[:160]
+            clusters.append(
+                {
+                    "cluster": key,
+                    "size": len(items),
+                    "sample": sample,
+                    "ids": [i.get("id") for i in items[:10]],
+                    "avg_importance": round(
+                        sum(float(i.get("importance") or 0.5) for i in items)
+                        / max(1, len(items)),
+                        3,
+                    ),
+                }
+            )
+        return clusters
 
     def retrieve_by_tags(
         self,

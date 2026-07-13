@@ -7,11 +7,13 @@ Features mark **Implemented** vs **Deferred smoke** (host credentials / admin).
 
 | Feature | Status |
 |---------|--------|
-| Supervisor-style multi-step task plans | **Implemented** |
+| Supervisor-style multi-step task plans (LLM JSON + heuristic) | **Implemented** |
 | Sequential + **parallel** step execution (`depends_on` / `can_run_parallel`) | **Implemented** |
 | Structured run results (JSON) + Pydantic `TaskResult` | **Implemented** |
 | Mock mode without API keys | **Implemented** |
-| Recursive hierarchical delegation (`delegate`) | **Implemented** |
+| Recursive hierarchical delegation + synthesize | **Implemented** |
+| Dynamic role switching (supervisor/worker/critic) | **Implemented** |
+| Run resume from checkpoint (`--resume`) | **Implemented** |
 
 ## 2. Routing & resilience
 
@@ -19,7 +21,7 @@ Features mark **Implemented** vs **Deferred smoke** (host credentials / admin).
 |---------|--------|
 | Task classification | **Implemented** |
 | Scoring router (task, history, cost, latency, health) | **Implemented** |
-| Strategies: smart_fallback, round_robin, latency_based, cost_based | **Implemented** |
+| Strategies: smart_fallback, round_robin, latency_based, cost_based, parallel_voting | **Implemented** |
 | Circuit breaker + retry/backoff | **Implemented** |
 | Provider health + quota windows | **Implemented** |
 | Contextual bandit blend + reward updates | **Implemented** |

@@ -7,6 +7,7 @@ Stabilized wiring: registry → router → caller, structured results, history, 
 
 from __future__ import annotations
 
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -61,7 +62,9 @@ class SuperAIOrchestrator:
             load_balancer=self.load_balancer,
             health_store=self.health_store,
         )
-        self.task_planner = TaskPlanner(self.model_router)
+        self.task_planner = TaskPlanner(
+            self.model_router, model_caller=self.model_caller
+        )
         self.memory_palace = MemoryPalace()
         self.learning_engine = LearningEngine(self.memory_palace)
         self.skills_manager = SkillsManager()
@@ -89,6 +92,8 @@ class SuperAIOrchestrator:
         task: str,
         forced_model: Optional[str] = None,
         verbose: bool = False,
+        resume_task_id: Optional[str] = None,
+        pause_on_clarification: bool = True,
     ) -> Dict[str, Any]:
         """Execute a task using planning, routing, and (mock or real) model calls."""
         task = (task or "").strip()
@@ -98,9 +103,47 @@ class SuperAIOrchestrator:
                 hint='Provide a task, e.g. superai run "Create a FastAPI hello world"',
             )
 
-        task_id = self.history.new_task_id()
+        # Resume incomplete run
+        resumed_completed: List[Dict[str, Any]] = []
+        if resume_task_id:
+            ck = self.step_cache.get_run(resume_task_id)
+            if ck:
+                task = ck.get("task") or task
+                resumed_completed = list(ck.get("completed_steps") or [])
+                task_id = resume_task_id
+            else:
+                task_id = resume_task_id
+        else:
+            task_id = self.history.new_task_id()
+
         started_at = datetime.now(timezone.utc).isoformat()
         start_time = time.time()
+
+        # Block if vetoed
+        if self.hitl.is_vetoed(task_id):
+            return {
+                "task_id": task_id,
+                "task": task,
+                "success": False,
+                "status": "failed",
+                "message": "Task vetoed by human",
+                "error": "vetoed",
+                "steps": resumed_completed,
+            }
+
+        # Optional pause when open clarifications exist
+        if pause_on_clarification:
+            open_q = self.hitl.open_clarifications(task_id)
+            if open_q:
+                return {
+                    "task_id": task_id,
+                    "task": task,
+                    "success": False,
+                    "status": "waiting_human",
+                    "message": "Paused: open clarification requests",
+                    "clarifications": open_q,
+                    "steps": resumed_completed,
+                }
 
         task_type = self.model_router.classify_task(task)
         result: Dict[str, Any] = {
@@ -144,6 +187,15 @@ class SuperAIOrchestrator:
             logger.info("Starting task %s: %s", task_id, task)
 
             plan_steps = self.task_planner.create_plan(task)
+            # Skip already-completed steps on resume
+            if resumed_completed:
+                done_ids = {
+                    int(s.get("step"))
+                    for s in resumed_completed
+                    if s.get("step") is not None
+                }
+                plan_steps = [s for s in plan_steps if s.step_id not in done_ids]
+                step_records.extend(resumed_completed)
             if verbose:
                 self.task_planner.print_plan(plan_steps)
 
@@ -209,13 +261,18 @@ class SuperAIOrchestrator:
                         "estimated_cost_usd": 0.0,
                     }
 
+                # Dynamic role switching: supervisor/critic roles prefer configured models
+                role = getattr(step, "role", "worker") or "worker"
                 if forced_model:
                     selected_model = forced_model
                 else:
                     preferred = (
                         self.config.default_supervisor
-                        or self.preferences.preferred_model_for(task_type)
-                    )
+                        if role in {"supervisor", "critic"}
+                        else None
+                    ) or self.preferences.preferred_model_for(task_type)
+                    if role == "critic" and not preferred:
+                        preferred = self.config.default_supervisor
                     selected_model = self.model_router.select_model(
                         task_description=step.description,
                         preferred_model=preferred,
@@ -328,12 +385,61 @@ class SuperAIOrchestrator:
                 return rec
 
             # Execute plan respecting depends_on; parallel when can_run_parallel
-            step_records, parallel_meta = self._execute_plan_steps(
+            _records_lock = threading.Lock()
+
+            def _run_and_checkpoint(step):
+                if self.hitl.is_vetoed(task_id):
+                    rec = {
+                        "step": step.step_id,
+                        "description": step.description,
+                        "status": "failed",
+                        "error": "vetoed by human",
+                        "result": None,
+                        "model": None,
+                        "duration_ms": 0,
+                        "usage": {},
+                        "estimated_cost_usd": 0.0,
+                    }
+                else:
+                    rec = _run_one_step(step)
+                # Accumulate for resume checkpoints (thread-safe)
+                with _records_lock:
+                    step_records.append(rec)
+                    snapshot = list(step_records)
+                    done_ids = {
+                        int(d["step"])
+                        for d in snapshot
+                        if d.get("step") is not None
+                    }
+                    remaining = [
+                        s.step_id for s in plan_steps if s.step_id not in done_ids
+                    ]
+                try:
+                    self.step_cache.save_run_checkpoint(
+                        task_id,
+                        task,
+                        completed_steps=snapshot,
+                        remaining_step_ids=remaining,
+                        metadata={"task_type": task_type},
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+                return rec
+
+            _new_records, parallel_meta = self._execute_plan_steps(
                 plan_steps,
-                _run_one_step,
+                _run_and_checkpoint,
                 verbose=verbose,
             )
+            # step_records already accumulated (resume + new); re-order by step id
+            by_id = {
+                int(s["step"]): s
+                for s in step_records
+                if s.get("step") is not None
+            }
+            step_records = [by_id[k] for k in sorted(by_id.keys())]
             result["metadata"]["execution"] = parallel_meta
+            # Clear checkpoint on full success later
 
             # Synthesize final answer only if we have successful material
             success_steps = [s for s in step_records if s["status"] == "success"]
@@ -469,6 +575,19 @@ class SuperAIOrchestrator:
                             )
                 except Exception as e:  # noqa: BLE001
                     logger.debug("Auto skill creation failed: %s", e)
+                try:
+                    self.step_cache.clear_run(task_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                # Pattern extraction → optional skill suggestions
+                try:
+                    from .pattern_extract import PatternExtractor
+
+                    patterns = PatternExtractor().extract(min_support=3)
+                    if patterns.get("type_patterns"):
+                        result["metadata"]["patterns"] = patterns["type_patterns"][:5]
+                except Exception:  # noqa: BLE001
+                    pass
 
             logger.info(
                 "Task %s finished status=%s duration=%.2fs",

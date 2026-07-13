@@ -1,8 +1,8 @@
 """
-Advanced agentic patterns (Phase 8 / Track I) — foundational implementations.
+Advanced agentic patterns (Phase 8 / Track I).
 
 - Debate / critique / extend between roles
-- Dynamic role labels for models
+- Dynamic role switching (supervisor → workers → critic → final)
 """
 
 from __future__ import annotations
@@ -104,8 +104,75 @@ class AgenticWorkflows:
             "extended": extended.get("response"),
         }
 
+    def dynamic_roles(
+        self,
+        task: str,
+        supervisor: Optional[str] = None,
+        workers: Optional[List[str]] = None,
+        critic: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Dynamic role switching: assign supervisor / workers / critic, run a mini cycle.
+        Any model may play any role.
+        """
+        pool = self._default_models(4)
+        sup = supervisor or pool[0]
+        worker_list = workers or pool[1:3] or [pool[0]]
+        crit = critic or pool[-1]
+
+        plan = self.caller.call(
+            model=sup,
+            prompt=f"You are supervisor. Outline 3 steps for: {task}",
+        )
+        worker_outputs = []
+        for w in worker_list:
+            out = self.caller.call(
+                model=w,
+                prompt=(
+                    f"Supervisor plan:\n{plan.get('response')}\n\n"
+                    f"As worker, execute your part for: {task}"
+                ),
+            )
+            worker_outputs.append({"model": w, "role": "worker", "text": out.get("response")})
+
+        critique = self.caller.call(
+            model=crit,
+            prompt=(
+                f"Task: {task}\nPlan: {plan.get('response')}\n"
+                f"Worker outputs: {worker_outputs}\n"
+                "Critique and list risks."
+            ),
+        )
+        # Role switch: critic becomes temporary supervisor for final call
+        final = self.caller.call(
+            model=crit,
+            prompt=(
+                f"Now act as supervisor. Integrate critique and produce final answer.\n"
+                f"Task: {task}\nCritique: {critique.get('response')}\n"
+                f"Workers: {worker_outputs}"
+            ),
+        )
+        return {
+            "task": task,
+            "roles": {
+                "supervisor": sup,
+                "workers": worker_list,
+                "critic": crit,
+                "final_supervisor": crit,
+            },
+            "plan": plan.get("response"),
+            "worker_outputs": worker_outputs,
+            "critique": critique.get("response"),
+            "final": final.get("response"),
+            "message": "Dynamic role cycle complete (supervisor→workers→critic→final).",
+        }
+
     def _default_models(self, n: int) -> List[str]:
-        names = self.registry.list_all_models()
+        names = [
+            n
+            for n in self.registry.list_all_models()
+            if not str(n).startswith("cli:")
+        ]
         if not names:
             return ["gpt-4o"] * n
         return names[:n]

@@ -103,6 +103,15 @@ class ModelCaller:
         if not model:
             raise ValueError("ModelCaller.call requires a model name")
 
+        # Dual-registered external CLIs: cli:aider, cli:claude, …
+        if str(model).startswith("cli:") or (
+            self.registry
+            and self.registry.get_model(model)
+            and getattr(self.registry.get_model(model), "provider", None)
+            == "external_cli"
+        ):
+            return self._call_external_cli(model, prompt)
+
         info = self.registry.get_model(model) if self.registry else None
         primary = provider or (info.provider if info else self._resolve_provider(model))
 
@@ -287,6 +296,54 @@ class ModelCaller:
         self.health_store.record_success(
             provider, latency=time.time() - start, tokens=tokens
         )
+
+    def _call_external_cli(self, model: str, prompt: str) -> Dict[str, Any]:
+        """Invoke dual-registered external CLI as if it were a model."""
+        from .external_cli import ExternalCLITool
+        from .mcp_context import MCPContextPack
+
+        cli_name = model.split(":", 1)[-1] if ":" in model else model
+        info = self.registry.get_model(model) if self.registry else None
+        if info and info.model_id:
+            cli_name = info.model_id
+
+        # Attach MCP context automatically for external workers
+        pack = MCPContextPack().build(task=prompt, auto_memory=True, auto_skills=True)
+        wrapped = MCPContextPack().wrap_cli_prompt(pack, prompt)
+
+        tool = ExternalCLITool(
+            auto_approve=True,
+            dry_run=self.use_mock or not (info and (info.extra or {}).get("available")),
+        )
+        # Prefer dry-run when CLI not on PATH
+        try:
+            from .external_cli import ExternalCLIRegistry
+
+            avail = ExternalCLIRegistry().available()
+            if cli_name not in avail:
+                tool.dry_run = True
+        except Exception:  # noqa: BLE001
+            tool.dry_run = True
+
+        env = tool.run(cli_name, wrapped, approve=True)
+        text = env.stdout or env.stderr or env.error or ""
+        if tool.dry_run and not text:
+            text = (
+                f"[external_cli:{cli_name} dry-run] Would execute with context "
+                f"{pack.get('id')}. Prompt length={len(wrapped)}."
+            )
+        ok = env.ok or tool.dry_run
+        return {
+            "status": "success" if ok else "error",
+            "response": text or env.error,
+            "provider": "external_cli",
+            "model": model,
+            "mock": bool(tool.dry_run),
+            "usage": {"total_tokens": max(1, len(wrapped) // 4)},
+            "estimated_cost_usd": 0.0,
+            "external_cli": env.to_dict() if hasattr(env, "to_dict") else {},
+            "context_id": pack.get("id"),
+        }
 
     def _call_provider(
         self,

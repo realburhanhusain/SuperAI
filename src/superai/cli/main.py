@@ -9,7 +9,7 @@ from __future__ import annotations
 import atexit
 import json
 import traceback
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -178,19 +178,29 @@ def run(
     ),
     plan_only: bool = typer.Option(False, "--plan", help="Only show execution plan"),
     debug: bool = typer.Option(False, "--debug", help="Show full tracebacks"),
+    resume: Optional[str] = typer.Option(
+        None, "--resume", help="Resume task_id from step cache checkpoint"
+    ),
 ):
     """Run a task using SuperAI orchestration (mock by default)"""
     try:
         orchestrator = SuperAIOrchestrator()
 
         if plan_only:
-            planner = TaskPlanner(orchestrator.model_router)
+            planner = TaskPlanner(
+                orchestrator.model_router, model_caller=orchestrator.model_caller
+            )
             steps = planner.create_plan(task)
             planner.print_plan(steps)
             return
 
         console.print(Panel.fit(f"[bold]Task:[/bold] {task}", border_style="blue"))
-        result = orchestrator.run_task(task=task, forced_model=model, verbose=verbose)
+        result = orchestrator.run_task(
+            task=task,
+            forced_model=model,
+            verbose=verbose,
+            resume_task_id=resume,
+        )
 
         if output:
             with open(output, "w", encoding="utf-8") as f:
@@ -945,6 +955,9 @@ def council(
         None, "--supervisor", help="Supervisor model (for supervisor voting)"
     ),
     critique: bool = typer.Option(False, "--critique", help="Add critique refinement round"),
+    document: Optional[List[str]] = typer.Option(
+        None, "--document", "-d", help="Path to document to inject (repeatable)"
+    ),
 ):
     """Multi-model council with selectable voting (LLM Council inspired)"""
     from superai.core.council import Council, VOTING_MODES
@@ -963,6 +976,7 @@ def council(
         voting_mode=mode,
         supervisor_model=sup,
         with_critique=critique,
+        document_paths=document,
     )
     console.print(
         Panel.fit(
@@ -1522,7 +1536,7 @@ def hitl_cmd(
 
 @app.command("runs")
 def runs_cmd(
-    action: str = typer.Argument("list", help="list | show | clear"),
+    action: str = typer.Argument("list", help="list | show | clear | resume"),
     task_id: Optional[str] = typer.Argument(None),
 ):
     """List step-cache / resume run checkpoints"""
@@ -1538,7 +1552,53 @@ def runs_cmd(
     if action == "clear" and task_id:
         console.print_json(data={"cleared": cache.clear_run(task_id)})
         return
+    if action == "resume" and task_id:
+        orch = SuperAIOrchestrator()
+        ck = cache.get_run(task_id) or {}
+        result = orch.run_task(
+            task=ck.get("task") or "resumed task",
+            resume_task_id=task_id,
+            verbose=True,
+        )
+        console.print_json(data=result)
+        return
     console.print_json(data={"entries": len(cache._data.get("entries") or {})})
+
+
+@app.command("patterns")
+def patterns_cmd(
+    apply: bool = typer.Option(False, "--apply", help="Create skills from patterns"),
+    min_support: int = typer.Option(2, "--min-support"),
+):
+    """Extract generalized patterns from learning history"""
+    from superai.core.pattern_extract import PatternExtractor
+
+    pe = PatternExtractor()
+    data = pe.extract(min_support=min_support)
+    if apply:
+        created = pe.apply_to_skills(min_support=max(3, min_support))
+        data["skills_created"] = created
+    console.print_json(data=data)
+
+
+@app.command("memory-clusters")
+def memory_clusters_cmd(
+    limit: int = typer.Option(200, "--limit"),
+):
+    """Cluster memories by task type / tags"""
+    from superai.core.memory_palace import MemoryPalace
+
+    console.print_json(data=MemoryPalace().cluster_memories(limit=limit))
+
+
+@app.command("roles")
+def roles_cmd(
+    task: str = typer.Argument(..., help="Task for dynamic role cycle"),
+):
+    """Run supervisor→workers→critic dynamic role switching"""
+    from superai.core.agentic import AgenticWorkflows
+
+    console.print_json(data=AgenticWorkflows().dynamic_roles(task))
 
 
 @app.command()

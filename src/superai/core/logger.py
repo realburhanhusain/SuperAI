@@ -46,14 +46,29 @@ def get_logger(name: str = "superai", level: Optional[str] = None) -> logging.Lo
 
     log_dir = Path.home() / ".superai" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / f"superai_{datetime.now().strftime('%Y%m%d')}.log"
+    # Rotating file: 5 MB x 5 backups (plus daily name for readability)
+    from logging.handlers import RotatingFileHandler
 
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    log_file = log_dir / "superai.log"
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=5 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8",
+    )
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
     )
     logger.addHandler(file_handler)
+    # Also keep a dated snapshot log for the session day
+    daily = log_dir / f"superai_{datetime.now().strftime('%Y%m%d')}.log"
+    daily_handler = logging.FileHandler(daily, encoding="utf-8")
+    daily_handler.setLevel(logging.INFO)
+    daily_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
+    )
+    logger.addHandler(daily_handler)
 
     _LOGGERS[name] = logger
     return logger

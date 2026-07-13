@@ -91,8 +91,8 @@ def create_app() -> Any:
 <body>
 <h1>SuperAI Memory Query</h1>
 <p>Shared surface for terminal + web (Mempalace-inspired).
- <a href="/dashboard">Dashboard</a> · <a href="/charts">Charts</a> ·
- <a href="/pwa/">PWA</a></p>
+ <a href="/dashboard">Dashboard</a> · <a href="/cli-pool">CLI Pool</a> ·
+ <a href="/charts">Charts</a> · <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
 <button onclick="go()">Search</button>
@@ -319,6 +319,71 @@ setInterval(load, 8000);
         from core.ecosystem import EcosystemHub
 
         return EcosystemHub().capabilities()
+
+    @app.get("/api/cli-pool")
+    def api_cli_pool(
+        workflow_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """All parallel CLI workers for agentic multi-CLI dashboard."""
+        from core.cli_pool import ParallelCLIManager
+
+        mgr = ParallelCLIManager()
+        return {
+            "snapshot": mgr.snapshot_for_dashboard(),
+            "jobs": mgr.list_jobs(status=status, workflow_id=workflow_id, limit=80),
+        }
+
+    @app.get("/cli-pool", response_class=HTMLResponse)
+    def cli_pool_page() -> str:
+        return """<!doctype html>
+<html><head><meta charset="utf-8"><title>SuperAI CLI Pool</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:1100px;margin:1.5rem auto;padding:0 1rem}
+ table{border-collapse:collapse;width:100%;font-size:.9rem}
+ th,td{border:1px solid #ddd;padding:.4rem .5rem;text-align:left}
+ th{background:#f0f4f8}
+ .running{background:#fff8e1}.done{background:#e8f5e9}.failed{background:#ffebee}
+ #meta{opacity:.7;margin-bottom:1rem}
+</style></head>
+<body>
+<h1>Parallel CLI workers</h1>
+<p id="meta">Loading… · <a href="/">Home</a> · <a href="/dashboard">Dashboard</a></p>
+<table>
+ <thead><tr>
+  <th>Job</th><th>CLI</th><th>Role</th><th>Status</th><th>Sec</th>
+  <th>Workflow</th><th>Output</th>
+ </tr></thead>
+ <tbody id="rows"></tbody>
+</table>
+<script>
+async function load(){
+  const r=await fetch('/api/cli-pool');
+  const j=await r.json();
+  const s=j.snapshot||{};
+  const t=s.totals||{};
+  document.getElementById('meta').textContent=
+    `running=${t.running||0} queued=${t.queued||0} done=${t.done||0} failed=${t.failed||0} · auto-refresh 2s`;
+  const jobs=j.jobs||[];
+  const tb=document.getElementById('rows');
+  tb.innerHTML='';
+  jobs.forEach(job=>{
+    const tr=document.createElement('tr');
+    tr.className=job.status||'';
+    const out=(job.stdout_tail||job.error||'').slice(0,80).replace(/</g,'&lt;');
+    tr.innerHTML=`<td>${job.id||''}</td><td>${job.cli||''}</td><td>${job.role||''}</td>
+      <td>${job.status||''}</td><td>${job.duration_sec||0}</td>
+      <td>${job.workflow_id||''}</td><td><code>${out}</code></td>`;
+    tb.appendChild(tr);
+  });
+  if(!jobs.length){
+    tb.innerHTML='<tr><td colspan="7">No CLI jobs. Run: superai cli-parallel "task" --dry-run</td></tr>';
+  }
+}
+load();
+setInterval(load, 2000);
+</script>
+</body></html>"""
 
     # S22: WebSocket live dashboard events (broadcast simple snapshots)
     try:

@@ -854,6 +854,122 @@ def discover():
     )
 
 
+@app.command("cli-parallel")
+def cli_parallel(
+    task: str = typer.Argument(..., help="Task for all CLIs / agentic fan-out"),
+    clis: Optional[str] = typer.Option(
+        None,
+        "--clis",
+        help="Comma-separated CLI names (default: discovered or claude,aider,cursor,gemini)",
+    ),
+    workers: int = typer.Option(4, "--workers", "-w", help="Max parallel workers"),
+    dry_run: bool = typer.Option(
+        True, "--dry-run/--live", help="Dry-run by default (safe); --live executes"
+    ),
+    approve: bool = typer.Option(
+        False, "--approve", help="Approve file-modifying CLIs for live runs"
+    ),
+    agentic: bool = typer.Option(
+        True,
+        "--agentic/--raw",
+        help="Agentic roles + supervisor merge (default) or raw same-prompt fan-out",
+    ),
+):
+    """
+    Run multiple external CLIs in parallel; track all on one dashboard.
+
+    Watch live: superai dashboard  |  superai web → /cli-pool
+    """
+    from core.cli_pool import ParallelCLIManager
+    from core.audit_log import AuditLog
+
+    mgr = ParallelCLIManager()
+    cli_list = [c.strip() for c in clis.split(",")] if clis else None
+    if agentic:
+        result = mgr.run_agentic_parallel(
+            task,
+            clis=cli_list,
+            max_workers=workers,
+            dry_run=dry_run,
+            auto_approve=approve or dry_run,
+        )
+    else:
+        work = [
+            {"cli": c, "prompt": task, "role": "worker"}
+            for c in (cli_list or ["claude", "aider", "cursor"])
+        ]
+        result = mgr.run_parallel(
+            work,
+            max_workers=workers,
+            dry_run=dry_run,
+            auto_approve=approve or dry_run,
+            workflow_label="raw-parallel",
+        )
+    AuditLog().record(
+        "cli_parallel",
+        {
+            "workflow_id": result.get("workflow_id"),
+            "total": result.get("total"),
+            "succeeded": result.get("succeeded"),
+            "dry_run": dry_run,
+        },
+    )
+    # Compact table
+    table = Table(title=f"Parallel CLI — {result.get('workflow_id')}")
+    table.add_column("CLI")
+    table.add_column("Role")
+    table.add_column("Status")
+    table.add_column("Sec")
+    table.add_column("Output")
+    for j in result.get("jobs") or []:
+        table.add_row(
+            str(j.get("cli")),
+            str(j.get("role")),
+            str(j.get("status")),
+            str(j.get("duration_sec")),
+            str(j.get("stdout_tail") or j.get("error") or "")[:60].replace("\n", " "),
+        )
+    console.print(table)
+    if result.get("synthesis"):
+        console.print(
+            Panel(
+                str((result.get("synthesis") or {}).get("text") or result.get("synthesis"))[
+                    :2000
+                ],
+                title="Supervisor synthesis",
+                border_style="green",
+            )
+        )
+    console.print(
+        f"[dim]Dashboard: superai dashboard · web /cli-pool · "
+        f"ok={result.get('succeeded')}/{result.get('total')}[/dim]"
+    )
+    if not result.get("ok") and not dry_run:
+        raise typer.Exit(1)
+
+
+@app.command("cli-jobs")
+def cli_jobs_cmd(
+    action: str = typer.Argument("list", help="list | snapshot | clear"),
+    workflow_id: Optional[str] = typer.Option(None, "--workflow", "-w"),
+    status: Optional[str] = typer.Option(None, "--status"),
+):
+    """List / snapshot / clear parallel CLI job registry (dashboard feed)"""
+    from core.cli_pool import ParallelCLIManager
+
+    mgr = ParallelCLIManager()
+    if action == "snapshot":
+        console.print_json(data=mgr.snapshot_for_dashboard())
+        return
+    if action == "clear":
+        n = mgr.clear_finished()
+        console.print(f"[green]Cleared {n} finished jobs[/green]")
+        return
+    console.print_json(
+        data=mgr.list_jobs(status=status, workflow_id=workflow_id, limit=50)
+    )
+
+
 @app.command("cli-run")
 def cli_run(
     name: str = typer.Argument(..., help="External CLI name from discover"),

@@ -104,6 +104,28 @@ class AgenticWorkflows:
             "extended": extended.get("response"),
         }
 
+    def parallel_cli_workflow(
+        self,
+        task: str,
+        clis: Optional[List[str]] = None,
+        max_workers: int = 4,
+        dry_run: bool = True,
+        auto_approve: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Fan-out the same task to multiple external CLIs in parallel.
+        Live status is visible on `superai dashboard` and web `/api/cli-pool`.
+        """
+        from .cli_pool import ParallelCLIManager
+
+        return ParallelCLIManager().run_agentic_parallel(
+            task,
+            clis=clis,
+            max_workers=max_workers,
+            dry_run=dry_run,
+            auto_approve=auto_approve,
+        )
+
     def dynamic_roles(
         self,
         task: str,

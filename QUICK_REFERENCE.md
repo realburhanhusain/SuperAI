@@ -26,6 +26,9 @@ superai run "hello" --format json
 
 | Command | Purpose |
 |---------|---------|
+| `cli-parallel "task" [--clis a,b] [--dry-run\|--live]` | Multi-CLI parallel agentic workers |
+| `cli-jobs list\|snapshot\|clear` | Parallel CLI job registry |
+| `dashboard` / `web` → `/cli-pool` | Single dashboard for all CLI workers |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |
 | `run … --stream -m model` | Stream single-model output |

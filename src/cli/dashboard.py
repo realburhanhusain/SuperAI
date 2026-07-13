@@ -165,6 +165,7 @@ class SuperAIDashboard:
             main_layout = layout
 
         main_layout.split_column(
+            Layout(name="cli_pool", ratio=2),
             Layout(name="top", ratio=2),
             Layout(name="bottom", ratio=1),
         )
@@ -177,11 +178,71 @@ class SuperAIDashboard:
             Layout(name="memory", ratio=1),
         )
 
+        main_layout["cli_pool"].update(self._cli_pool_panel())
         main_layout["top"]["delegations"].update(self._delegations_panel())
         main_layout["top"]["strengths"].update(self._cli_strengths_panel())
         main_layout["bottom"]["logs"].update(self._logs_panel())
         main_layout["bottom"]["memory"].update(self._memory_panel())
         return layout
+
+    def _cli_pool_panel(self) -> Panel:
+        """Single view of all parallel CLI workers (agentic multi-CLI)."""
+        table = Table(title="Parallel CLI workers (agentic)", expand=True)
+        table.add_column("Job", style="cyan", max_width=12)
+        table.add_column("CLI", style="magenta")
+        table.add_column("Role")
+        table.add_column("Status", style="green")
+        table.add_column("Sec", justify="right")
+        table.add_column("Workflow", max_width=14)
+        table.add_column("Output", max_width=36)
+
+        pool = (self._snapshot or {}).get("cli_pool") or {}
+        jobs = []
+        jobs.extend(pool.get("running") or [])
+        jobs.extend(pool.get("queued") or [])
+        jobs.extend(pool.get("recent_done") or [])
+        # de-dupe by id, prefer running first
+        seen = set()
+        ordered = []
+        for j in jobs:
+            jid = j.get("id")
+            if jid in seen:
+                continue
+            seen.add(jid)
+            ordered.append(j)
+
+        if not ordered:
+            table.add_row("—", "—", "—", "idle", "0", "—", "No CLI jobs yet")
+        else:
+            for j in ordered[:12]:
+                status = str(j.get("status") or "")
+                style = {
+                    "running": "bold yellow",
+                    "queued": "dim",
+                    "done": "green",
+                    "failed": "red",
+                }.get(status, "")
+                out = (j.get("stdout_tail") or j.get("error") or "")[:36].replace(
+                    "\n", " "
+                )
+                table.add_row(
+                    str(j.get("id") or "")[:12],
+                    str(j.get("cli") or "")[:14],
+                    str(j.get("role") or "worker")[:10],
+                    f"[{style}]{status}[/{style}]" if style else status,
+                    f"{float(j.get('duration_sec') or 0):.1f}",
+                    str(j.get("workflow_id") or "")[:14],
+                    out,
+                )
+
+        totals = pool.get("totals") or {}
+        title = (
+            f"CLI pool  run={totals.get('running', 0)}  "
+            f"q={totals.get('queued', 0)}  "
+            f"ok={totals.get('done', 0)}  "
+            f"fail={totals.get('failed', 0)}"
+        )
+        return Panel(table, title=title, border_style="bright_blue")
 
     def _delegations_panel(self) -> Panel:
         table = Table(title="Recent tasks", expand=True)

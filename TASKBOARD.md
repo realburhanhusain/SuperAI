@@ -49,5 +49,15 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Implemented wave-2 features M9–N30; docs updated |
-| **Verify** | `pytest -q` → **114+ passed** |
+| **What** | Parallel multi-CLI pool + unified agentic dashboard |
+| **Verify** | `pytest -q` |
+
+### Multi-CLI parallel (new)
+
+- `[x]` `ParallelCLIManager` — concurrent external CLIs + job registry  
+- `[x]` `cli-parallel` / `cli-jobs` commands  
+- `[x]` Terminal dashboard panel for all CLI workers  
+- `[x]` Web `/cli-pool` + `/api/cli-pool`  
+- `[x]` Agentic fan-out + supervisor synthesis  
+- `[x]` Windows-safe concurrent `cli_jobs.json` save (lock + unique tmp + retry)  
+- `[x]` Tests: `tests/test_cli_pool.py` (3) · full suite **117 passed**

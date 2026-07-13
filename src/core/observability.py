@@ -152,6 +152,14 @@ def build_dashboard_snapshot(
     except Exception:  # noqa: BLE001
         pass
 
+    # Parallel multi-CLI agentic workers (live job registry)
+    try:
+        from .cli_pool import ParallelCLIManager
+
+        snap["cli_pool"] = ParallelCLIManager().snapshot_for_dashboard()
+    except Exception as e:  # noqa: BLE001
+        snap["cli_pool"] = {"error": str(e)}
+
     return snap
 
 

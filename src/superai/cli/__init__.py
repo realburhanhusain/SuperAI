@@ -1,0 +1,1 @@
+"""SuperAI CLI package."""

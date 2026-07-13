@@ -1,17 +1,37 @@
 [project]
 name = "superai"
 version = "0.1.0"
-description = "SuperAI - Full-featured multi-model AI super app with supervisor-worker orchestration, self-learning Memory Palace (ChromaDB), external CLI delegation, and personal assistant capabilities."
-requires-python = ">=3.11"
+description = "SuperAI - Intelligent Multi-Model AI Orchestration Platform"
+requires-python = ">=3.10"
 dependencies = [
-    "pydantic>=2.0",
-    "typer[all]>=0.9",
+    "typer>=0.12",
     "rich>=13.0",
+    "pydantic>=2.0",
     "chromadb>=0.5.0",
+    "cryptography>=42.0",
+    "zstandard>=0.22",
+]
+
+[project.optional-dependencies]
+providers = [
+    "openai>=1.0",
+    "anthropic>=0.30",
+    "google-generativeai>=0.7",
+    "requests>=2.31",
+]
+embeddings = [
+    "sentence-transformers>=3.0",
+]
+dev = [
+    "pytest>=8.0",
 ]
 
 [project.scripts]
-superai = "src.run_prototype:main"
+superai = "superai.cli.main:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -5,6 +5,16 @@
     "base_url": "https://api.x.ai/v1",
     "model_id": "grok-3",
     "api_key_env": "XAI_API_KEY",
+    "context_window": 131072,
+    "cost_per_1k_tokens": 0.003,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.75,
+      "reasoning": 0.85,
+      "research": 0.8,
+      "general": 0.85,
+      "creative": 0.9
+    },
     "strengths": "Excellent at critique, creative problem solving, tool use, and clear reasoning."
   },
   {
@@ -13,6 +23,16 @@
     "base_url": "https://api.x.ai/v1",
     "model_id": "grok-2-latest",
     "api_key_env": "XAI_API_KEY",
+    "context_window": 131072,
+    "cost_per_1k_tokens": 0.002,
+    "latency_tier": 1,
+    "task_strengths": {
+      "coding": 0.65,
+      "reasoning": 0.7,
+      "research": 0.75,
+      "general": 0.75,
+      "creative": 0.8
+    },
     "strengths": "Fast, real-time knowledge, good reasoning."
   },
   {
@@ -21,6 +41,16 @@
     "base_url": "https://api.anthropic.com/v1",
     "model_id": "claude-3-5-sonnet-20241022",
     "api_key_env": "ANTHROPIC_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.006,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.95,
+      "reasoning": 0.9,
+      "research": 0.8,
+      "general": 0.9,
+      "creative": 0.85
+    },
     "strengths": "Best-in-class coding quality, careful planning, and following detailed instructions."
   },
   {
@@ -29,6 +59,16 @@
     "base_url": "https://api.anthropic.com/v1",
     "model_id": "claude-3-opus-20240229",
     "api_key_env": "ANTHROPIC_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.03,
+    "latency_tier": 4,
+    "task_strengths": {
+      "coding": 0.9,
+      "reasoning": 0.98,
+      "research": 0.9,
+      "general": 0.95,
+      "creative": 0.9
+    },
     "strengths": "Highest intelligence, complex reasoning, long context."
   },
   {
@@ -37,6 +77,16 @@
     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
     "model_id": "gemini-2.5-pro",
     "api_key_env": "GOOGLE_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0025,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.8,
+      "reasoning": 0.85,
+      "research": 0.95,
+      "general": 0.85,
+      "creative": 0.8
+    },
     "strengths": "Very fast synthesis, large context window, good at merging multiple inputs."
   },
   {
@@ -45,6 +95,16 @@
     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
     "model_id": "gemini-2.0-flash",
     "api_key_env": "GOOGLE_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0003,
+    "latency_tier": 1,
+    "task_strengths": {
+      "coding": 0.7,
+      "reasoning": 0.7,
+      "research": 0.75,
+      "general": 0.8,
+      "creative": 0.75
+    },
     "strengths": "Fast and cost-effective with good reasoning."
   },
   {
@@ -53,6 +113,16 @@
     "base_url": "https://api.openai.com/v1",
     "model_id": "gpt-4o",
     "api_key_env": "OPENAI_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.005,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.88,
+      "reasoning": 0.88,
+      "research": 0.85,
+      "general": 0.92,
+      "creative": 0.85
+    },
     "strengths": "Strong general capabilities, excellent tool use."
   },
   {
@@ -61,6 +131,16 @@
     "base_url": "https://api.openai.com/v1",
     "model_id": "o3-mini",
     "api_key_env": "OPENAI_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.002,
+    "latency_tier": 3,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.95,
+      "research": 0.75,
+      "general": 0.8,
+      "creative": 0.7
+    },
     "strengths": "Fast reasoning model from OpenAI."
   },
   {
@@ -69,6 +149,16 @@
     "base_url": "https://api.deepseek.com/v1",
     "model_id": "deepseek-coder",
     "api_key_env": "DEEPSEEK_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0005,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.93,
+      "reasoning": 0.75,
+      "research": 0.6,
+      "general": 0.7,
+      "creative": 0.6
+    },
     "strengths": "Strong coding and reasoning, cost-effective for complex tasks."
   },
   {
@@ -77,22 +167,52 @@
     "base_url": "https://api.deepseek.com/v1",
     "model_id": "deepseek-reasoner",
     "api_key_env": "DEEPSEEK_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.001,
+    "latency_tier": 3,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.96,
+      "research": 0.7,
+      "general": 0.75,
+      "creative": 0.65
+    },
     "strengths": "Strong reasoning model."
   },
   {
     "name": "qwen2.5-coder",
     "provider": "qwen",
-    "base_url": "https://dashscope.aliyun.com/compatible-mode/v1",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "model_id": "qwen2.5-coder-32b-instruct",
     "api_key_env": "DASHSCOPE_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0008,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.9,
+      "reasoning": 0.7,
+      "research": 0.65,
+      "general": 0.7,
+      "creative": 0.65
+    },
     "strengths": "Excellent coding capabilities, strong in Chinese and English."
   },
   {
     "name": "qwen2.5-72b",
     "provider": "qwen",
-    "base_url": "https://dashscope.aliyun.com/compatible-mode/v1",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "model_id": "qwen2.5-72b-instruct",
     "api_key_env": "DASHSCOPE_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.001,
+    "latency_tier": 3,
+    "task_strengths": {
+      "coding": 0.8,
+      "reasoning": 0.85,
+      "research": 0.8,
+      "general": 0.85,
+      "creative": 0.8
+    },
     "strengths": "Powerful general model from Alibaba."
   },
   {
@@ -101,6 +221,16 @@
     "base_url": "https://open.bigmodel.cn/api/paas/v4/",
     "model_id": "glm-4",
     "api_key_env": "ZHIPU_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.001,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.75,
+      "reasoning": 0.85,
+      "research": 0.75,
+      "general": 0.8,
+      "creative": 0.75
+    },
     "strengths": "Strong reasoning and long context from Zhipu AI."
   },
   {
@@ -109,6 +239,16 @@
     "base_url": "https://api.moonshot.cn/v1",
     "model_id": "moonshot-v1-8k",
     "api_key_env": "MOONSHOT_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0015,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.7,
+      "reasoning": 0.75,
+      "research": 0.85,
+      "general": 0.8,
+      "creative": 0.75
+    },
     "strengths": "Excellent long context and summarization."
   },
   {
@@ -117,6 +257,16 @@
     "base_url": "https://api.mistral.ai/v1",
     "model_id": "mistral-large-latest",
     "api_key_env": "MISTRAL_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.004,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.8,
+      "general": 0.85,
+      "creative": 0.8
+    },
     "strengths": "Strong European model with good coding performance."
   },
   {
@@ -125,6 +275,16 @@
     "base_url": "https://api.together.xyz/v1",
     "model_id": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
     "api_key_env": "TOGETHER_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.003,
+    "latency_tier": 3,
+    "task_strengths": {
+      "coding": 0.8,
+      "reasoning": 0.85,
+      "research": 0.8,
+      "general": 0.85,
+      "creative": 0.8
+    },
     "strengths": "Very large open model via Together AI."
   },
   {
@@ -133,6 +293,16 @@
     "base_url": "https://api.groq.com/openai/v1",
     "model_id": "llama-3.3-70b-versatile",
     "api_key_env": "GROQ_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0006,
+    "latency_tier": 1,
+    "task_strengths": {
+      "coding": 0.8,
+      "reasoning": 0.8,
+      "research": 0.75,
+      "general": 0.85,
+      "creative": 0.8
+    },
     "strengths": "Very fast inference via Groq."
   },
   {
@@ -141,6 +311,16 @@
     "base_url": "https://integrate.api.nvidia.com/v1",
     "model_id": "nvidia/llama-3.1-nemotron-70b-instruct",
     "api_key_env": "NVIDIA_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0008,
+    "latency_tier": 2,
+    "task_strengths": {
+      "coding": 0.8,
+      "reasoning": 0.85,
+      "research": 0.75,
+      "general": 0.8,
+      "creative": 0.75
+    },
     "strengths": "NVIDIA optimized models via NIM."
   }
 ]

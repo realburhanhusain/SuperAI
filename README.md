@@ -1,89 +1,100 @@
-# SuperAI
+# SuperAI (v1 codebase)
 
-**SuperAI** — An intelligent, self-improving multi-model AI super app that orchestrates any LLM and AI CLI with smart routing, autonomous learning, encrypted backups, and production-grade resilience.
+**SuperAI** is a multi-model AI orchestration platform under active development.  
+This repository (`SuperAI_v1`) is the **canonical code tree**.
 
-## ✨ Key Features
+> **Honest status (2026-07-13):** Tracks A–E done (Phase 1 foundation + core of Phases 2–5 in mock/local mode).  
+> Remaining plan features (live multi-provider, cloud backup, Phase 6–8) are **required** and sequenced as Tracks F–I — **not optional**.  
+> Always resume from **[TASKBOARD.md](TASKBOARD.md)**.
 
-See [FEATURES.md](FEATURES.md) for the complete detailed feature list.
+## Docs for implementers
 
-**Highlights:**
-- Intelligent multi-model routing with multiple strategies + Circuit Breaker
-- Self-learning system with automatic skill creation & improvement
-- Persistent semantic memory (ChromaDB)
-- Dynamic discovery of 20+ AI CLIs and models across 17+ providers
-- Fully automated encrypted incremental backups with cloud sync
-- Human override always takes priority
+| Document | Purpose |
+|----------|---------|
+| [TASKBOARD.md](TASKBOARD.md) | **What is done / pending** (resume here) |
+| [AGENTS.md](AGENTS.md) | Agent rules & environment |
+| [implementation_plan_detailed.md](implementation_plan_detailed.md) | Full phase plan + DoD |
+| [implementation_plan_v2.md](implementation_plan_v2.md) | Consolidated blueprint |
+| [codes.md](codes.md) | Reusable code snippets |
+| [docs/STABILIZATION_STATUS.md](docs/STABILIZATION_STATUS.md) | Stabilization notes |
 
-## 🏗️ Architecture
+## Features (current vs planned)
 
-![SuperAI Architecture](docs/architecture.png)
+| Area | Status |
+|------|--------|
+| CLI (`init`, `run`, `history`, `config`, `status`) | Working (mock) |
+| Config + logging + task history | Working |
+| Orchestrator multi-step plans | Working (mock model calls) |
+| Model registry (`config/models.json`) | Working |
+| Intelligent routing + circuit breaker | Partial (Phase 2) |
+| Memory Palace / LearningEngine | Partial (Phase 3) |
+| Skills system | Draft (Phase 4) |
+| Encrypted backup | Draft (Phase 5) |
+| External CLI discovery | Required — pending Track H |
+| Cloud backup (rclone) | Required — pending Track F5 |
+| Phase 6 polish / CI / docs | Required — pending Track G |
+| Phase 7–8 advanced features | Required — pending Tracks H–I |
 
-> Full architecture details and explanation: [docs/architecture.md](docs/architecture.md)
+## Installation
 
-## 🚀 Installation
-
-```bash
-git clone https://github.com/realburhanhusain/superai.git
-cd superai
-
-pip install -e .
+```powershell
+cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
+pip install -e ".[dev]"
 ```
 
-## ▶️ Quick Start
+Requires Python 3.10+.
 
-```bash
-# First time setup (recommended)
-superai init
+## Phase 1 quick verify (Windows)
 
-# List available models
+```powershell
+superai version
+superai init --non-interactive
+superai config show
 superai list-models
-
-# Set your preferred supervisor model
-superai set-supervisor grok-4.5
-
-# Check backup status
-superai backup-status
+superai run "Create a FastAPI hello world" -v --format json
+superai history --limit 5
+superai status
+pytest -q
 ```
 
-## 📦 Core CLI Commands
+Expected: mock run returns `"success": true` and a `task_id`; history lists the run.
 
-| Command                        | Description |
-|--------------------------------|-------------|
-| `superai init`                 | Initialize SuperAI + optional encrypted backup setup |
-| `superai discover`             | Discover installed AI CLIs and models |
-| `superai list-models [--refresh]` | List all known models (with optional web refresh) |
-| `superai set-supervisor <model>` | Set default supervisor model |
-| `superai set-strategy <strategy>` | Change load balancing strategy |
-| `superai backup-status`        | View backup statistics |
-| `superai backup-verify`        | Verify integrity of latest backup |
+## Common commands
 
-> See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for the full command list.
+| Command | Description |
+|---------|-------------|
+| `superai init` | Create `~/.superai/` layout + default config |
+| `superai run "<task>"` | Run orchestrated task (mock by default) |
+| `superai run ... --format json` | Structured JSON result |
+| `superai plan "<task>"` | Show plan only |
+| `superai history` | Recent runs |
+| `superai config show\|get\|set` | Configuration |
+| `superai list-models [--refresh]` | Registry models |
+| `superai set-supervisor <model>` | Persist default supervisor |
+| `superai backup` / `backup-status` | Backup draft commands |
 
-## 🛡️ Backup & Security
+## Configuration
 
-SuperAI automatically creates **encrypted and compressed** local backups on clean exit.
+- File: `~/.superai/config.json`
+- Env overrides: `SUPERAI_MOCK_MODE`, `SUPERAI_LOG_LEVEL`, `SUPERAI_DEFAULT_SUPERVISOR`, `SUPERAI_NON_INTERACTIVE`
+- Models: `config/models.json` in this repo (loaded by `ModelRegistry`)
 
-- Backups are stored in `./backups/`
-- Encryption key is saved in `config/.backup_key` (back this up!)
-- Optional cloud sync via `rclone` (supports S3, GCS, Azure, Google Drive, Dropbox, etc.)
+Default **`mock_mode: true`** — no API keys required for local smoke tests.  
+Set keys (`XAI_API_KEY`, `OPENAI_API_KEY`, …) and `mock_mode: false` for live calls (Phase 2 maturity).
 
-## 🧠 Architecture Highlights
+## Architecture (target)
 
-- `ModelRegistry` — Curated list of latest + historical models across vendors
-- `ModelRouter` + `LoadBalancer` — Intelligent routing with multiple strategies and resilience
-- `LearningEngine` — Self-improvement through outcome feedback
-- `SecureBackupManager` — Encrypted incremental backups with cloud support
+See [docs/architecture.md](docs/architecture.md). Runtime path today:
 
-## 📄 License
+```
+CLI → SuperAIOrchestrator → TaskPlanner → ModelRouter → ModelCaller (mock/live)
+                         ↘ History / MemoryPalace learn hook
+```
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+## License
 
-## 🤝 Contributing
+MIT — see [LICENSE](LICENSE).
 
-Contributions are welcome! Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+## Contributing
 
-Feel free to open issues or submit pull requests.
-
----
-
-**Built with ❤️ using Grok** — July 2026
+Read [AGENTS.md](AGENTS.md) and pick the next open item on [TASKBOARD.md](TASKBOARD.md).

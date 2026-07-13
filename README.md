@@ -1,125 +1,63 @@
-# SuperAI (v1 codebase)
+# SuperAI (v1)
 
-**SuperAI** is a multi-model AI orchestration platform.  
-This repository (`SuperAI_v1`) is the **canonical code tree**.
+**SuperAI** is a multi-model AI orchestration platform: plan → route → execute → learn, with safety rails.
 
-> **Status (2026-07-14):** Tracks A–J **implemented** in code (mock-first).  
-> Remaining work is **external host smoke** only (API keys, live bots, rclone remote, GitHub Pages toggle) — deferred as the last activity.  
-> Always resume from **[TASKBOARD.md](TASKBOARD.md)**.
+**Canonical tree:** this repo (`SuperAI_v1`).  
+**Resume:** [TASKBOARD.md](TASKBOARD.md) · **Backlog:** [docs/FEATURE_BACKLOG.md](docs/FEATURE_BACKLOG.md)
 
-## Docs for implementers
-
-| Document | Purpose |
-|----------|---------|
-| [TASKBOARD.md](TASKBOARD.md) | **What is done / pending** (resume here) |
-| [AGENTS.md](AGENTS.md) | Agent rules & environment |
-| [FEATURES.md](FEATURES.md) | Feature matrix vs code |
-| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Command cheat sheet |
-| [docs/architecture.md](docs/architecture.md) | Runtime architecture |
-| [docs/PROGRESS.md](docs/PROGRESS.md) | Phase % complete |
-| [docs/OTHER_TOOL_FEATURES.md](docs/OTHER_TOOL_FEATURES.md) | Other-tools checklist |
-| [CHANGELOG.md](CHANGELOG.md) | Release notes |
-| [implementation_plan_detailed.md](implementation_plan_detailed.md) | Full phase plan + DoD |
-
-## Features (summary)
-
-| Area | Status |
-|------|--------|
-| CLI orchestration (`run`, plan, history, config) | **Done** (mock default) |
-| Scoring router + load balancer + circuit breaker | **Done** |
-| Bandit-blended routing | **Done** |
-| Memory Palace + learning + skills + backup | **Done** |
-| Council / hierarchy / agentic debate | **Done** |
-| External CLI delegation + MCP context packs | **Done** |
-| Messengers (Telegram/Slack/webhook) | **Done** (tokens for live) |
-| Databao NL data + interactive Vega charts | **Done** |
-| Plugin marketplace registry | **Done** |
-| Terminal + web dual dashboard | **Done** |
-| Ecosystem webhooks / search stubs | **Done** |
-| Parallel multi-step plan execution | **Done** |
-| Live multi-provider / rclone / Pages E2E | **Deferred smoke** |
+> **Status (2026-07-14):** Feature backlog (M/S/N waves 1–2) **implemented in code**.  
+> Remaining: **host smoke** only (API keys, live bots, rclone, GitHub Pages).  
+> **Tests:** `pytest -q` → **114 passed**.
 
 ## Layout
 
 ```
 src/
-  cli/    # CLI + web UI (Python import name: scli)
-  core/   # domain logic (Python import name: core)
+  cli/     # Typer CLI + web/PWA  (import: scli)
+  core/    # domain logic         (import: core)
+extensions/vscode-superai/   # VS Code extension scaffold
 ```
 
-Console entry point remains: `superai` → `scli.main:app`.
+Entry point: `superai` → `scli.main:app`
 
-## Installation
+## Install
 
 ```powershell
 cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
 pip install -e ".[dev]"
-# Optional:
-# pip install -e ".[web]"         # FastAPI UI
-# pip install -e ".[embeddings]"  # sentence-transformers
-# pip install -e ".[data]"        # SQLAlchemy / databao-agent
+# Optional: pip install -e ".[web]" ".[embeddings]" ".[vector]" ".[data]"
+superai onboard
+superai doctor
 ```
 
-Requires Python 3.10+.
-
-## Quick verify (no API keys)
+## Quick start
 
 ```powershell
-superai version
-superai init --non-interactive
 superai run "Create a FastAPI hello world" -v --format json
-superai status
-pytest -q
+superai chat "explain the last task" --new
+superai tdd "add a unit test for X"
+superai web   # http://127.0.0.1:8787  and  /pwa/
 ```
 
-Shell completion:
+## Docs
 
-```powershell
-superai --install-completion
-```
+| Doc | Purpose |
+|-----|---------|
+| [TASKBOARD.md](TASKBOARD.md) | Live status |
+| [FEATURES.md](FEATURES.md) | Feature matrix |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Commands |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Phase % |
+| [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | Security |
+| [docs/architecture.md](docs/architecture.md) | Architecture |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
+| [AGENTS.md](AGENTS.md) | Agent rules |
 
-## Common commands
+## Feature summary
 
-| Command | Description |
-|---------|-------------|
-| `superai run "<task>"` | Orchestrated multi-step run |
-| `superai plan "<task>"` | Show plan only |
-| `superai council` / `delegate` / `debate` | Multi-model / hierarchical |
-| `superai data-ask` / `--chart-html` | NL data analytics + Vega HTML |
-| `superai web` / `dashboard` | Web UI / live terminal dashboard |
-| `superai msg-send` / `plugins` / `bandit` | Messengers, plugins, bandit |
-| `superai context-pack` / `cli-run --context` | MCP-style external handoff |
-| `superai search-web` / `emit-event` / `ecosystem` | Ecosystem integrations |
-| `superai backup` / `restore` | Encrypted backup (+ rclone when configured) |
+Orchestration, multi-provider routing, bandit/A/B, memory (Chroma/FAISS), skills, encrypted backup, council/hierarchy, tool proposals, doctor/chat/TDD/diff-edit, compliance, GDPR forget, MCP, PWA, VS Code extension, and more — see FEATURES.md.
 
-See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for the full list.
-
-## Configuration
-
-- File: `~/.superai/config.json`
-- Env: `SUPERAI_MOCK_MODE`, `SUPERAI_LOG_LEVEL`, `SUPERAI_USE_BANDIT`, messenger/token vars, provider `*_API_KEY`
-- Models: `config/models.json`
-
-Default **`mock_mode: true`** — no API keys required.
-
-## Architecture
-
-```
-CLI / Web / Dashboard
-        ↓
-SuperAIOrchestrator → TaskPlanner (parallel-aware)
-        ↓
-ModelRouter (+ bandit) → ModelCaller → LoadBalancer
-        ↓
-History · MemoryPalace · Skills · Preferences · Backup
-```
-
-Details: [docs/architecture.md](docs/architecture.md).
+**Deferred (host):** live multi-provider E2E, live Telegram/Slack, rclone remote, Pages enable.
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md](AGENTS.md), and pick the next open item on [TASKBOARD.md](TASKBOARD.md).

@@ -68,9 +68,15 @@ class ChatSession:
         chosen = model or router.select_model(user_message) or "gpt-4o"
         caller = ModelCaller(use_mock=mock, registry=reg)
 
-        # Build transcript prompt
+        # S15: trim context window
+        try:
+            from .context_manager import trim_messages
+
+            msgs = trim_messages(data["messages"], max_tokens=6000)
+        except Exception:
+            msgs = data["messages"][-12:]
         lines = []
-        for m in data["messages"][-12:]:
+        for m in msgs:
             lines.append(f"{m['role'].upper()}: {m['content']}")
         prompt = "\n".join(lines) + "\nASSISTANT:"
         result = caller.call(model=chosen, prompt=prompt)

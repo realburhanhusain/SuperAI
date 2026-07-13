@@ -1,128 +1,91 @@
 # SuperAI Quick Reference
 
-**Repo:** `SuperAI_v1` · **Resume:** `TASKBOARD.md` · **Progress:** `docs/PROGRESS.md` · **Checkpoints:** `scripts/checkpoint.ps1`
+**Repo:** `SuperAI_v1` · **Board:** `TASKBOARD.md` · **Progress:** `docs/PROGRESS.md`  
+**Packages:** `core` · `scli` · **Tests:** `pytest -q` (114+)
 
 ## Install
 
 ```powershell
 cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI_v1
 pip install -e ".[dev]"
-# Optional richer embeddings:
-# pip install -e ".[embeddings]"
-```
-
-Shell completion (G3):
-
-```powershell
+# Optional: .[web] .[embeddings] .[vector] .[data]
 superai --install-completion
-# restart shell
 ```
 
-## First-time setup
+## First-time
 
 ```powershell
 superai init --non-interactive
+# or
+superai onboard
+superai doctor
+superai run "hello" --format json
 ```
 
-Creates `~/.superai/` (config, logs, history, memory, skills, backups).
+## Everyday
 
-## Core commands
+| Command | Purpose |
+|---------|---------|
+| `run "<task>"` | Orchestrated multi-step run |
+| `run … --resume ID` | Resume checkpoint |
+| `run … --stream -m model` | Stream single-model output |
+| `chat "msg" [--new\|-s ID]` | Multi-turn chat |
+| `tdd "implement X"` | Code + test loop |
+| `plan "…" --export mermaid\|json\|md` | Plan export |
+| `doctor` / `diagnose` / `update` | Health, diagnostics zip, version |
+| `forecast "task"` | Cost estimate |
+| `diff-edit PATH CONTENT` | Diff-first file edit |
+| `workspace-index [-q query]` | Code map |
+| `secrets set\|get\|list\|inject` | Secure secrets |
+| `budget show\|set` | Spend limits |
+| `compliance enable` | Local-only strict mode |
+| `feedback ID "…"` | Feedback → learning + bandit |
+| `pr-review [--ref HEAD~1]` | Council review of git diff |
+| `web` | Memory UI + `/pwa/` + `/ws/dashboard` |
 
-| Command | Description |
-|---------|-------------|
-| `superai version` / `status` | Version and system status |
-| `superai run "<task>" [-v] [-m model] [--format json]` | Orchestrated run (mock by default) |
-| `superai plan "<task>"` | Plan only |
-| `superai history` | Recent task runs |
-| `superai config show\|get\|set` | Configuration |
-| `superai list-models [--refresh]` | Model registry |
-| `superai set-supervisor <model>` | Default supervisor |
-| `superai set-strategy <strategy>` | smart_fallback \| round_robin \| latency_based \| cost_based |
-| `superai routing-stats [--explain "..."]` | Routing aggregates |
-| `superai smoke-providers [--mock]` | Provider smoke tests |
-| `superai council "<topic>" --voting majority\|supervisor\|weighted` | Multi-model council |
-| `superai config set require_human_approval true\|false` | File-modifying CLI/tool gate |
-| `superai config set council_voting_mode majority` | Default council vote mode |
-| `superai data-ask "list German customers"` | NL data Q&A (Databao-inspired) |
-| `superai data-schema` | Show data schema / capabilities |
-| `superai config set data_dsn "sqlite:///..."` | Data source DSN |
-| `superai pref show` | Learned + explicit preferences |
-| `superai tt-snapshot PATH` / `tt-list` / `tt-restore` | File time-travel |
-| `superai msg-send "hi" -c file\|telegram\|slack` | Messenger bus |
-| `superai msg-broadcast "hi"` | Multi-channel send |
-| `superai web --port 8787` | Web memory/charts/dashboard (`.[web]`) |
-| `superai dashboard [--once]` | Live terminal dashboard |
-| `superai delegate "Build X"` | Hierarchical multi-step delegation |
-| `superai debate "topic"` | Multi-model debate |
-| `superai plugins list\|search\|summary` | Plugin marketplace |
-| `superai bandit status\|reset` | Contextual bandit state |
-| `superai context-pack "task"` | MCP-style context for external CLIs |
-| `superai cli-run <cli> "…" --context` | External CLI + context pack |
-| `superai search-web "query"` | Web search (Tavily/Brave/stub) |
-| `superai emit-event name --payload '{}'` | n8n/Zapier/Make webhook |
-| `superai ecosystem` | Integration capabilities |
-| `superai surface-feedback "note"` | Cross-surface feedback |
-| `superai compare "prompt" [--models a,b] [--mock]` | Multi-model comparison |
-| `superai benchmark [--mock]` | Small benchmark suite |
-| `superai plan "…" --export json\|md -o file` | Plan export |
-| `superai skill create\|delete\|improve\|deps\|test NAME` | Skill CRUD / deps / validate |
-| `superai backup --scope memory,skills` | Selective backup |
-| `superai pin-model NAME --model-id …` | Model version pin |
-| `superai blacklist list\|block\|unblock` | Model blacklist |
-| `superai memory-chat "question" [-c id]` | Multi-turn memory search |
-| `superai notion status\|write\|search` | Notion stub/API |
-| `superai hitl list\|clarify\|answer\|veto` | Human-in-the-loop |
-| `superai runs list` | Step-cache / run checkpoints |
-| `superai data-ask "…" --chart-html` | NL data + interactive Vega HTML |
-| `superai provider-health` | Health + quota windows |
-| `superai learnings` / `reflect` / `conflicts` / `evolve <topic>` | Learning |
-| `superai feedback <task_id> "..."` | Human feedback |
-| `superai list-skills` / `skill-promote` / `skill-rollback` | Skills |
-| `superai backup [--full] [--cloud] [--keep N]` | Encrypted backup |
-| `superai backup-status` / `backup-verify` | Backup ops |
-| `superai restore <path>` or `restore --cloud` | Restore local or pull+restore |
+## Memory & data
 
-## Paths
+| Command | Purpose |
+|---------|---------|
+| `memory-chat` / `memory-clusters` / `memory-forget` / `memory-ttl` | Memory ops |
+| `memory-sync export\|import -p` | Encrypted team sync pack |
+| `data-ask` / `data-schema` | NL SQL analytics |
+| `learnings` / `reflect` / `conflicts` / `evolve` | Learning |
 
-| Item | Location |
-|------|----------|
-| Config | `~/.superai/config.json` |
-| History | `~/.superai/history/` |
-| Memory | `~/.superai/memory/` |
-| Skills | `~/.superai/skills/` |
-| Backups | `~/.superai/backups/` |
-| Encryption key | `~/.superai/.backup_key` (**back up securely**) |
-| Provider health | `~/.superai/provider_health.json` |
+## Ops & safety
 
-## Environment
+| Command | Purpose |
+|---------|---------|
+| `audit` / `policy` / `constitution` | Audit + rules |
+| `backup` / `backup-key` / `restore` | Encrypted backup |
+| `rate-queue` / `ab-route` / `failover` | Resilience |
+| `profile-bundle export\|import` | Move profile |
+| `telemetry enable\|disable` / `lang en` | Telemetry + i18n |
+
+## Advanced
+
+| Command | Purpose |
+|---------|---------|
+| `council` / `delegate` / `roles` / `debate` | Multi-model |
+| `mcp-serve` / `langgraph-export` | Interop |
+| `browse URL` / `notebook` / `git-helper` | Tools |
+| `plugins` / `plugin-catalog` / `skill-perms` | Plugins |
+| `schedule` / `metrics` / `evals` / `benchmark --report` | Ops |
+| `speak` / `listen` / `ticket` / `msg-inbound` | Extra surfaces |
+
+## Env (selected)
 
 | Variable | Purpose |
 |----------|---------|
 | `SUPERAI_MOCK_MODE` | true/false |
-| `SUPERAI_LOG_LEVEL` | INFO/DEBUG/... |
-| `SUPERAI_NON_INTERACTIVE` | skip prompts |
-| `SUPERAI_MODELS_URL` | remote models JSON for `--refresh` |
-| `SUPERAI_EMBEDDING_MODEL` | HF/ST model id (`auto` default) |
-| `SUPERAI_EMBEDDING_HASH` | `1` = offline hash embeddings |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `GOOGLE_API_KEY`, … | live providers |
-| `SUPERAI_USE_BANDIT` / `SUPERAI_BANDIT_BLEND` | bandit routing |
-| `SUPERAI_TELEGRAM_*` / `SUPERAI_SLACK_*` / `SUPERAI_WEBHOOK_URL` | messengers |
-| `SUPERAI_MESSENGER_DRY_RUN` / `SUPERAI_ECOSYSTEM_DRY_RUN` | offline adapters |
-| `SUPERAI_N8N_WEBHOOK_URL` (or ZAPIER/MAKE) | automation webhooks |
-| `TAVILY_API_KEY` / `BRAVE_API_KEY` | live web search |
+| `SUPERAI_WORKSPACE` | Path jail root |
+| `SUPERAI_WEB_TOKEN` | Web API auth |
+| `SUPERAI_MEMORY_BACKEND` | `faiss` for vector store |
+| `SUPERAI_CONTAINER_SANDBOX` | Docker tool shell |
+| `SUPERAI_LANG` | en/es/fr/de |
+| `SUPERAI_VERSION_URL` | Update check JSON |
+| `*_API_KEY` | Live providers |
 
-## Strategies
+## Paths
 
-`smart_fallback` (default), `round_robin`, `latency_based`, `cost_based`
-
-## Checkpoint after work
-
-```powershell
-powershell -File scripts\checkpoint.ps1 -Label "G1-progress"
-```
-
-## Tests
-
-```powershell
-pytest -q
-```
+`~/.superai/` — config, history, memory, skills, backups, audit, chats, diagnostics

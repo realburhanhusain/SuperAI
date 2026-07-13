@@ -2273,6 +2273,27 @@ def feedback(
         task_type=task_type,
         model_used=str(model),
     )
+    # S20: feed thumbs into bandit + preferences
+    try:
+        from core.bandit_router import EpsilonGreedyBandit
+
+        reward = 0.9 if success else 0.1
+        if success is None:
+            reward = 0.5
+        EpsilonGreedyBandit().update(str(model), reward)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from core.preferences import UserPreferenceModel
+
+        UserPreferenceModel().observe_task(
+            task_type=str(task_type),
+            model=str(model),
+            success=bool(success) if success is not None else False,
+            duration=float((rec or {}).get("duration") or 1.0),
+        )
+    except Exception:  # noqa: BLE001
+        pass
     console.print(f"[green]Feedback stored[/green] memory_id={mid} task_id={task_id}")
 
 
@@ -2369,3 +2390,413 @@ def routing_stats(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def secrets(
+    action: str = typer.Argument("list", help="list | set | get | delete | inject"),
+    name: Optional[str] = typer.Argument(None),
+    value: Optional[str] = typer.Argument(None),
+):
+    """M10: Secure secret store (keyring or locked file)"""
+    from core.keyring_store import SecretStore
+
+    store = SecretStore()
+    if action == "list":
+        console.print_json(data=store.list_names())
+        return
+    if action == "set" and name and value:
+        console.print_json(data=store.set(name, value))
+        return
+    if action == "get" and name:
+        v = store.get(name)
+        console.print("(set)" if v else "(missing)")
+        return
+    if action == "delete" and name:
+        console.print_json(data={"deleted": store.delete(name)})
+        return
+    if action == "inject":
+        n = store.inject_env()
+        console.print(f"[green]Injected {n} secrets into env[/green]")
+        return
+    raise typer.Exit(1)
+
+
+@app.command()
+def update():
+    """M11: Check for SuperAI updates"""
+    from core.version_check import check_update
+
+    console.print_json(data=check_update())
+
+
+@app.command()
+def diagnose(
+    output: Optional[str] = typer.Option(None, "--output", "-o"),
+):
+    """M12: Build redacted diagnostics zip"""
+    from core.diagnostics import build_diagnostics_bundle
+    from pathlib import Path as P
+
+    path = build_diagnostics_bundle(P(output) if output else None)
+    console.print(f"[green]Diagnostics bundle:[/green] {path}")
+
+
+@app.command("rate-queue")
+def rate_queue_cmd(
+    action: str = typer.Argument("list", help="list | clear"),
+    item_id: Optional[str] = typer.Argument(None),
+):
+    """M13: Rate-limit queue status"""
+    from core.rate_queue import RateLimitQueue
+
+    q = RateLimitQueue()
+    if action == "list":
+        console.print_json(data=q.list_items())
+        return
+    if action == "clear" and item_id:
+        console.print_json(data={"removed": q.remove(item_id)})
+        return
+    if action == "clear":
+        q.data["items"] = []
+        q.save()
+        console.print("[green]Queue cleared[/green]")
+        return
+    raise typer.Exit(1)
+
+
+@app.command("diff-edit")
+def diff_edit_cmd(
+    path: str = typer.Argument(..., help="File path under workspace"),
+    content: str = typer.Argument(..., help="New file content"),
+    yes: bool = typer.Option(False, "--yes", help="Skip approval prompt"),
+):
+    """S13: Diff-first file edit with approval"""
+    from core.diff_edit import apply_edit_with_diff
+
+    console.print_json(data=apply_edit_with_diff(path, content, auto_approve=yes, show=True))
+
+
+@app.command()
+def tdd(
+    task: str = typer.Argument(..., help="Coding task"),
+    rounds: int = typer.Option(2, "--rounds"),
+):
+    """S14: Test-driven loop — run task then tests, retry on failure"""
+    from core.tdd_loop import tdd_cycle
+
+    console.print_json(data=tdd_cycle(task, max_rounds=rounds))
+
+
+@app.command("workspace-index")
+def workspace_index_cmd(
+    query: Optional[str] = typer.Option(None, "--query", "-q"),
+):
+    """S19: Build or search workspace code map"""
+    from core.workspace_index import build_index, search_index
+
+    idx = build_index()
+    if query:
+        console.print_json(data=search_index(query, idx))
+        return
+    console.print_json(
+        data={"root": idx["root"], "file_count": idx["file_count"], "symbols": len(idx.get("symbols") or [])}
+    )
+
+
+@app.command("profile-bundle")
+def profile_bundle_cmd(
+    action: str = typer.Argument(..., help="export | import"),
+    path: str = typer.Argument(..., help="Zip path"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+):
+    """S21: Export/import profile bundle (config, skills, constitution)"""
+    from core.profile_bundle import export_profile, import_profile
+    from pathlib import Path as P
+
+    if action == "export":
+        console.print(f"[green]{export_profile(P(path))}[/green]")
+        return
+    if action == "import":
+        console.print_json(data=import_profile(P(path), dry_run=dry_run))
+        return
+    raise typer.Exit(1)
+
+
+@app.command()
+def onboard(
+    non_interactive: bool = typer.Option(True, "--non-interactive/--interactive"),
+):
+    """N28: First-run onboarding wizard"""
+    from core.onboarding import run_onboarding
+
+    console.print_json(data=run_onboarding(non_interactive=non_interactive))
+
+
+@app.command()
+def compliance(
+    action: str = typer.Argument("status", help="status | enable"),
+):
+    """N22: Compliance mode (local-only, strict approval)"""
+    from core.compliance import compliance_status, enable_compliance_mode
+
+    if action == "enable":
+        console.print_json(data=enable_compliance_mode())
+        return
+    console.print_json(data=compliance_status())
+
+
+@app.command()
+def forecast(
+    task: str = typer.Argument(..., help="Task to estimate"),
+):
+    """N20: Pre-run cost forecast"""
+    from core.cost_forecast import forecast_task_cost
+
+    console.print_json(data=forecast_task_cost(task))
+
+
+@app.command("ab-route")
+def ab_route_cmd(
+    action: str = typer.Argument("stats", help="create | stats | pick"),
+    name: Optional[str] = typer.Option(None, "--name"),
+    model_a: Optional[str] = typer.Option(None, "--a"),
+    model_b: Optional[str] = typer.Option(None, "--b"),
+    pct: float = typer.Option(10.0, "--pct"),
+    task_type: str = typer.Option("coding", "--type"),
+):
+    """N21: A/B routing experiments"""
+    from core.ab_routing import ABRouter
+
+    ab = ABRouter()
+    if action == "create" and name and model_a and model_b:
+        console.print_json(data=ab.create(name, model_a, model_b, traffic_b_pct=pct, task_type=task_type))
+        return
+    if action == "pick":
+        console.print_json(data={"model": ab.pick(task_type)})
+        return
+    console.print_json(data=ab.stats())
+
+
+@app.command("memory-forget")
+def memory_forget_cmd(
+    query: str = typer.Argument(..., help="Query or phrase to forget"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+):
+    """N27: Forget memories matching query (GDPR-style)"""
+    from core.memory_gdpr import forget_query
+
+    console.print_json(data=forget_query(query, dry_run=dry_run))
+
+
+@app.command("memory-ttl")
+def memory_ttl_cmd(
+    days: float = typer.Option(90.0, "--days"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+):
+    """N27: Apply TTL decay/delete to old low-importance memories"""
+    from core.memory_gdpr import apply_ttl
+
+    console.print_json(data=apply_ttl(max_age_days=days, dry_run=dry_run))
+
+
+@app.command("memory-sync")
+def memory_sync_cmd(
+    action: str = typer.Argument(..., help="export | import"),
+    path: str = typer.Argument(...),
+    password: str = typer.Option(..., "--password", "-p", prompt=True, hide_input=True),
+):
+    """N19: Encrypted memory sync package"""
+    from core.memory_sync import export_encrypted_memory, import_encrypted_memory
+    from pathlib import Path as P
+
+    if action == "export":
+        console.print(f"[green]{export_encrypted_memory(password, P(path))}[/green]")
+        return
+    if action == "import":
+        console.print_json(data=import_encrypted_memory(password, P(path)))
+        return
+    raise typer.Exit(1)
+
+
+@app.command()
+def browse(
+    url: str = typer.Argument(..., help="https URL"),
+):
+    """N17: Fetch page text (Playwright if installed)"""
+    from core.browser_tool import fetch_page_text
+
+    console.print_json(data=fetch_page_text(url))
+
+
+@app.command()
+def speak(
+    text: str = typer.Argument(..., help="Text to speak"),
+):
+    """N18: Text-to-speech"""
+    from core.voice_io import speak as _speak
+
+    console.print_json(data=_speak(text))
+
+
+@app.command()
+def listen():
+    """N18: Speech-to-text (optional deps)"""
+    from core.voice_io import listen_once
+
+    console.print_json(data=listen_once())
+
+
+@app.command("langgraph-export")
+def langgraph_export_cmd(
+    task: str = typer.Argument(...),
+    output: Optional[str] = typer.Option(None, "--output", "-o"),
+):
+    """N16: Export plan as LangGraph-style JSON"""
+    from core.langgraph_export import plan_to_langgraph
+
+    data = plan_to_langgraph(task)
+    if output:
+        from pathlib import Path as P
+
+        P(output).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output}")
+    console.print_json(data=data)
+
+
+@app.command("pr-review")
+def pr_review_cmd(
+    ref: str = typer.Option("HEAD~1", "--ref", help="git diff base"),
+    mock: bool = typer.Option(True, "--mock/--live"),
+):
+    """N26: Council-style review of local git diff"""
+    from core.pr_review import review_local
+
+    console.print_json(data=review_local(ref=ref, use_mock=mock))
+
+
+@app.command("notebook")
+def notebook_cmd(
+    action: str = typer.Argument(..., help="list | run"),
+    path: str = typer.Argument(...),
+    index: int = typer.Option(0, "--index", "-i"),
+):
+    """N25: List or run Jupyter notebook cells"""
+    from core.notebook_runner import list_cells, run_notebook_cell
+
+    if action == "list":
+        console.print_json(data=list_cells(path))
+        return
+    if action == "run":
+        console.print_json(data=run_notebook_cell(path, index=index))
+        return
+    raise typer.Exit(1)
+
+
+@app.command("skill-perms")
+def skill_perms_cmd(
+    action: str = typer.Argument("list", help="list | set"),
+    skill: Optional[str] = typer.Argument(None),
+    tools: Optional[str] = typer.Option(None, "--tools", help="comma tools or *"),
+):
+    """N24: Fine-grained tool permissions per skill"""
+    from core.skill_permissions import SkillPermissions
+
+    sp = SkillPermissions()
+    if action == "list":
+        console.print_json(data=sp.list_all())
+        return
+    if action == "set" and skill and tools is not None:
+        sp.set_tools(skill, [t.strip() for t in tools.split(",") if t.strip()])
+        console.print_json(data=sp.list_all())
+        return
+    raise typer.Exit(1)
+
+
+@app.command("plugin-catalog")
+def plugin_catalog_cmd(
+    url: str = typer.Argument(..., help="Remote catalog JSON URL"),
+    install_id: Optional[str] = typer.Option(None, "--install", help="Install entry id"),
+):
+    """N23: Fetch remote plugin catalog; optional install with sha256"""
+    from core.plugin_catalog import fetch_catalog, install_from_catalog_entry
+
+    cat = fetch_catalog(url)
+    if install_id:
+        entries = cat.get("plugins") or cat.get("entries") or []
+        entry = next((e for e in entries if e.get("id") == install_id), None)
+        if not entry:
+            console.print("[red]id not found[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=install_from_catalog_entry(entry))
+        return
+    console.print_json(data=cat)
+
+
+@app.command()
+def telemetry(
+    action: str = typer.Argument("status", help="status | enable | disable"),
+):
+    """N29: Anonymous telemetry opt-in"""
+    from core.telemetry import Telemetry
+
+    t = Telemetry()
+    if action == "enable":
+        t.enable()
+    elif action == "disable":
+        t.disable()
+    console.print_json(data={"enabled": t.is_enabled()})
+
+
+@app.command()
+def lang(
+    code: Optional[str] = typer.Argument(None, help="en | es | fr | de"),
+):
+    """N30: Set CLI language (SUPERAI_LANG)"""
+    from core.i18n import t, get_lang, MESSAGES
+    import os
+
+    if code:
+        os.environ["SUPERAI_LANG"] = code
+        Config().set("lang", code)
+        console.print(f"[green]lang={code}[/green] {t('ready')}")
+        return
+    console.print_json(data={"lang": get_lang(), "available": list(MESSAGES.keys())})
+
+
+@app.command("validate-json")
+def validate_json_cmd(
+    text: str = typer.Argument(..., help="JSON or text containing JSON"),
+    keys: Optional[str] = typer.Option(None, "--keys", help="Required keys comma-list"),
+):
+    """S18: Validate structured JSON output"""
+    from core.output_validate import extract_json, validate_json_schema_simple
+
+    data = extract_json(text)
+    req = [k.strip() for k in keys.split(",")] if keys else None
+    console.print_json(data=validate_json_schema_simple(data, req))
+
+
+@app.command("merge-results")
+def merge_results_cmd(
+    task: str = typer.Argument(..., help="Parent goal"),
+    parts: str = typer.Argument(..., help="JSON list of partial result strings"),
+):
+    """S16: Merge parallel subtask results into one synthesis"""
+    from core.model_caller import ModelCaller
+    from core.model_registry import ModelRegistry
+
+    try:
+        items = json.loads(parts)
+    except json.JSONDecodeError:
+        items = [p.strip() for p in parts.split("||") if p.strip()]
+    blob = "\n\n".join(f"### Part {i+1}\n{x}" for i, x in enumerate(items))
+    reg = ModelRegistry()
+    names = [n for n in reg.list_all_models() if not str(n).startswith("cli:")]
+    model = names[0] if names else "gpt-4o"
+    r = ModelCaller(use_mock=Config().use_mock, registry=reg).call(
+        model=model,
+        prompt=f"Goal: {task}\n\nMerge these parallel results into one answer:\n{blob}",
+    )
+    console.print_json(data={"model": model, "merged": r.get("response")})
+

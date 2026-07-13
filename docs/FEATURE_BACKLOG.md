@@ -1,41 +1,65 @@
-# SuperAI feature backlog (M / S / N)
+# SuperAI feature backlog
 
-**Wired into:** `TASKBOARD.md`  
 **Updated:** 2026-07-14  
-**Status:** All implementable backlog items are **done** in code. Only external host smoke remains.
+**Layout:** `src/cli` → import `scli` · `src/core` → import `core`  
+**Tests:** 114 passed  
 
-## Must have (M) — all done
+All implementable backlog items below are **done in code**.  
+Host-only remaining: live API keys, live bots, rclone remote, GitHub Pages admin.
 
-| ID | Feature | Status |
-|----|---------|--------|
-| M1–M8 | doctor, secrets, jail, approval, RO data, resume, first-run, web auth | **done** |
+---
 
-## Should have (S) — all done
+## Original M/S/N (first wave) — done
 
-| ID | Feature | Status |
-|----|---------|--------|
-| S1–S12 | stream, chat, planner, budget, failover, tools, project config, audit, backup-key, plugins load, errors, evals | **done** |
+M1–M8 · S1–S12 · N1–N15 (see prior sections / TASKBOARD).
 
-## Nice to have (N) — all done in-repo
+---
 
-| ID | Feature | Status |
-|----|---------|--------|
-| N1 | MCP server | **done** |
-| N2 | VS Code extension scaffold | **done** `extensions/vscode-superai/` |
-| N3 | Profiles | **done** |
-| N4 | Policy | **done** |
-| N5 | FAISS / vector backend | **done** (`SUPERAI_MEMORY_BACKEND=faiss`, optional `faiss-cpu`) |
-| N6 | Messenger inbound | **done** |
-| N7 | Mermaid plan | **done** |
-| N8 | Benchmark markdown report | **done** (`benchmark --report`) |
-| N9 | Git helpers | **done** |
-| N10 | Schedule | **done** |
-| N11 | Metrics | **done** |
-| N12 | Ticket stub | **done** |
-| N13 | Mobile PWA | **done** (`superai web` → `/pwa/`) |
-| N14 | Constitution | **done** |
-| N15 | Container sandbox | **done** (Docker when enabled) |
+## Wave 2 — Must (M9–M13)
 
-## Not in backlog scope (host)
+| ID | Feature | Status | Entry |
+|----|---------|--------|-------|
+| M9 | Interactive mid-run approval TUI | **done** | `approval_tui` + ModelCaller |
+| M10 | OS keyring / secret store | **done** | `superai secrets` |
+| M11 | Version / update check | **done** | `superai update` |
+| M12 | Diagnostics zip | **done** | `superai diagnose` |
+| M13 | Rate-limit queue / retry | **done** | `superai rate-queue` + `RateLimitQueue` |
 
-Live API keys, live bots, rclone remote, GitHub Pages admin toggle.
+## Wave 2 — Should (S13–S22)
+
+| ID | Feature | Status | Entry |
+|----|---------|--------|-------|
+| S13 | Diff-first edits | **done** | `superai diff-edit` |
+| S14 | Test-driven loop | **done** | `superai tdd` |
+| S15 | Context window manager | **done** | chat uses `context_manager` |
+| S16 | Merge parallel results | **done** | `superai merge-results` |
+| S17 | Routing explain in history | **done** | `metadata.routing_explain` |
+| S18 | Structured JSON validation | **done** | `superai validate-json` |
+| S19 | Workspace code index | **done** | `superai workspace-index` |
+| S20 | Feedback → bandit/prefs | **done** | `feedback` wires bandit |
+| S21 | Profile export/import | **done** | `superai profile-bundle` |
+| S22 | WebSocket dashboard | **done** | `ws://…/ws/dashboard` |
+
+## Wave 2 — Nice (N16–N30)
+
+| ID | Feature | Status | Entry |
+|----|---------|--------|-------|
+| N16 | LangGraph export | **done** | `langgraph-export` |
+| N17 | Browser tool | **done** | `browse` (Playwright optional) |
+| N18 | Voice I/O | **done** | `speak` / `listen` |
+| N19 | Encrypted memory sync | **done** | `memory-sync` |
+| N20 | Cost forecast | **done** | `forecast` |
+| N21 | A/B routing | **done** | `ab-route` |
+| N22 | Compliance mode | **done** | `compliance enable` |
+| N23 | Remote plugin catalog | **done** | `plugin-catalog` |
+| N24 | Skill tool permissions | **done** | `skill-perms` |
+| N25 | Notebook runner | **done** | `notebook` |
+| N26 | PR review mode | **done** | `pr-review` |
+| N27 | Memory forget / TTL | **done** | `memory-forget` / `memory-ttl` |
+| N28 | Onboarding wizard | **done** | `onboard` |
+| N29 | Telemetry opt-in | **done** | `telemetry` |
+| N30 | CLI i18n | **done** | `lang` |
+
+## External (not code)
+
+- Live multi-provider / Telegram / Slack / rclone / Pages smoke

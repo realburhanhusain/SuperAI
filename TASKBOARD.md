@@ -2,48 +2,45 @@
 
 **Backlog:** `docs/FEATURE_BACKLOG.md`  
 **Security:** `docs/SECURITY_REVIEW.md`  
-**Layout:** `src/cli` (`scli`) · `src/core` (`core`)
+**Progress:** `docs/PROGRESS.md`  
+**Layout:** `src/cli` (`scli`) · `src/core` (`core`) · entry `superai = scli.main:app`
 
-**Legend:** `[x]` done · `[~]` partial · `[!]` external smoke only
-
----
-
-## Tracks A–J (prior) — `[x]`
+**Legend:** `[x]` done · `[!]` external host only
 
 ---
 
-## Must have (M1–M8) — all `[x]`
+## Prior tracks
 
-## Should have (S1–S12) — all `[x]`
-
-## Nice to have (N)
-
-| ID | Feature | Status |
-|----|---------|--------|
-| N1 | MCP server | `[x]` `mcp-serve` |
-| N2 | IDE extension | `[x]` `extensions/vscode-superai/` |
-| N3 | Profiles | `[x]` |
-| N4 | Policy | `[x]` |
-| N5 | FAISS / vector backend | `[x]` `SUPERAI_MEMORY_BACKEND=faiss` + `faiss_store.py` |
-| N6 | Messenger inbound | `[x]` |
-| N7 | Mermaid plan | `[x]` |
-| N8 | Benchmark MD report | `[x]` `benchmark --report out.md` |
-| N9 | Git helpers | `[x]` |
-| N10 | Schedule | `[x]` |
-| N11 | Metrics | `[x]` |
-| N12 | Tickets | `[x]` |
-| N13 | Mobile PWA | `[x]` `/pwa/` on web UI |
-| N14 | Constitution | `[x]` |
-| N15 | Container sandbox | `[x]` Docker sandbox when `prefer_container_sandbox` / env |
+| Track | Status |
+|-------|--------|
+| A–J foundations | `[x]` |
+| Future Plan G1–G12 | `[x]` |
+| Depth finish + security harden | `[x]` |
+| M1–M8 / S1–S12 / N1–N15 | `[x]` |
+| **Wave 2 M9–M13 / S13–S22 / N16–N30** | `[x]` |
 
 ---
 
-## External smoke (not code — host only)
+## Wave 2 commands (highlights)
 
-- [!] Live multi-provider keys E2E  
-- [!] Live Telegram/Slack tokens  
+| Command | ID |
+|---------|-----|
+| `secrets` / `update` / `diagnose` / `rate-queue` | M10–M13 |
+| `diff-edit` / `tdd` / `workspace-index` / `profile-bundle` | S13–S21 |
+| `forecast` / `ab-route` / `compliance` / `onboard` | N20–N28 |
+| `browse` / `speak` / `listen` / `pr-review` / `notebook` | N17–N26 |
+| `memory-forget` / `memory-ttl` / `memory-sync` | N19/N27 |
+| `langgraph-export` / `plugin-catalog` / `skill-perms` / `telemetry` / `lang` | N16+ |
+| `merge-results` / `validate-json` | S16/S18 |
+
+---
+
+## External smoke (LAST — not code)
+
+- [!] Live multi-provider keys  
+- [!] Live Telegram/Slack  
 - [!] rclone remote E2E  
-- [!] GitHub Pages enable in repo settings  
+- [!] GitHub Pages enable  
 
 ---
 
@@ -52,5 +49,5 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Finished remaining N2/N5/N8/N13/N15 backlog items |
-| **Verify** | `pytest -q` → **97 passed** |
+| **What** | Implemented wave-2 features M9–N30; docs updated |
+| **Verify** | `pytest -q` → **114+ passed** |

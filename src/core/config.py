@@ -55,6 +55,9 @@ class Config:
         "prefer_llm_planner": True,
         # Docker sandbox flag (N15) — informational / future hook
         "prefer_container_sandbox": False,
+        "compliance_mode": False,
+        "lang": "en",
+        "telemetry_opt_in": False,
     }
 
     def __init__(self, config_path: Optional[str] = None):

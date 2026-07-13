@@ -331,17 +331,30 @@ class ModelCaller:
         if info and (info.extra or {}).get("available") is False:
             dry = True
 
-        # Live file-modifying CLIs: dry-run unless approval explicitly disabled
+        # M9: interactive approval when TTY; else dry-run if approval required
+        approved = not require_approval
+        if require_approval and not dry:
+            try:
+                from .approval_tui import prompt_approval
+
+                approved = prompt_approval(
+                    f"External CLI `{cli_name}`",
+                    detail=wrapped[:1500],
+                    default=False,
+                )
+            except Exception:
+                approved = False
+            if not approved:
+                dry = True
+
         tool = ExternalCLITool(
-            auto_approve=not require_approval,
-            dry_run=dry or require_approval,  # safe default: dry-run when approval required
+            auto_approve=approved,
+            dry_run=dry,
         )
-        # When approval is required we dry-run from ModelCaller (no interactive prompt mid-task).
-        # Users must use `superai cli-run <name> --approve` for live file-modifying runs.
         env = tool.run(
             cli_name,
             wrapped,
-            approve=(not require_approval),
+            approve=approved,
         )
         text = env.stdout or env.stderr or env.error or ""
         if tool.dry_run and not text:

@@ -320,6 +320,32 @@ setInterval(load, 8000);
 
         return EcosystemHub().capabilities()
 
+    # S22: WebSocket live dashboard events (broadcast simple snapshots)
+    try:
+        from fastapi import WebSocket, WebSocketDisconnect
+
+        @app.websocket("/ws/dashboard")
+        async def ws_dashboard(websocket: WebSocket) -> None:
+            await websocket.accept()
+            import asyncio
+
+            try:
+                while True:
+                    from core.observability import build_dashboard_snapshot
+
+                    snap = build_dashboard_snapshot(history_limit=5, log_lines=5)
+                    await websocket.send_json(snap)
+                    await asyncio.sleep(3)
+            except WebSocketDisconnect:
+                return
+            except Exception:
+                try:
+                    await websocket.close()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     return app
 
 

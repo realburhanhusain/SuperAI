@@ -145,20 +145,36 @@ class SuperAIOrchestrator:
                     "steps": resumed_completed,
                 }
 
-        # S4 budget pre-check
+        # S4 budget pre-check + N20 forecast
+        forecast = None
         try:
             from .budget import BudgetGuard
+            from .cost_forecast import forecast_task_cost
 
+            forecast = forecast_task_cost(task, model=forced_model)
             bg = BudgetGuard()
             bg.configure(
                 daily_usd=float(self.config.get("budget_daily_usd") or 5),
                 run_usd=float(self.config.get("budget_run_usd") or 1),
             )
-            bg.check_can_spend(estimated_usd=0.01)
+            bg.check_can_spend(estimated_usd=float(forecast.get("estimated_usd") or 0.01))
         except RuntimeError:
             raise
         except Exception:  # noqa: BLE001
             bg = None  # type: ignore
+
+        # N21 A/B routing override
+        if not forced_model:
+            try:
+                from .ab_routing import ABRouter
+
+                ab = ABRouter().pick(
+                    self.model_router.classify_task(task)
+                )
+                if ab:
+                    forced_model = ab
+            except Exception:  # noqa: BLE001
+                pass
 
         task_type = self.model_router.classify_task(task)
         result: Dict[str, Any] = {
@@ -180,6 +196,7 @@ class SuperAIOrchestrator:
             "metadata": {
                 "task_type": task_type,
                 "strategy": self.load_balancer.strategy.value,
+                "cost_forecast": forecast,
             },
         }
 
@@ -527,7 +544,11 @@ class SuperAIOrchestrator:
                         "steps_succeeded": len(success_steps),
                         "steps_failed": len(failed_steps),
                         "routing_top": self.model_router.explain_selection(task, top_k=3),
+                        "routing_explain": self.model_router.explain_selection(
+                            task, top_k=5
+                        ),  # S17
                         "load_balancer": self.load_balancer.stats_snapshot(),
+                        "cost_forecast": forecast,
                     },
                 }
             )
@@ -602,6 +623,23 @@ class SuperAIOrchestrator:
                         "cost": total_cost,
                     },
                     outcome="ok" if overall_success else "fail",
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+            # N29 telemetry opt-in
+            try:
+                from .telemetry import Telemetry
+
+                Telemetry().event(
+                    "run_task",
+                    {
+                        "status": overall_status,
+                        "success": overall_success,
+                        "model": selected_model,
+                        "duration": duration,
+                        "task_type": task_type,
+                    },
                 )
             except Exception:  # noqa: BLE001
                 pass

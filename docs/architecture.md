@@ -91,6 +91,13 @@ src/
 Imports: `from core.…` and `from scli.…`  
 (Note: the CLI package is imported as `scli` because a third-party `cli.py` on some systems shadows the name `cli`.)
 
+## Wave-2 surfaces (2026-07-14)
+
+- Safety: `approval_tui`, `keyring_store`, `workspace`, `compliance`, `secrets`  
+- Product: `chat_session`, `tdd_loop`, `diff_edit`, `workspace_index`, `doctor`  
+- Interop: `mcp_server`, `langgraph_export`, PWA `/pwa/`, VS Code `extensions/vscode-superai`  
+- Memory: FAISS backend (`SUPERAI_MEMORY_BACKEND=faiss`), GDPR forget/TTL, encrypted sync  
+
 ## Runtime data (`~/.superai/`)
 
 | Path | Content |

@@ -204,21 +204,20 @@ class ToolProposalManager:
             raise ValueError("edit_file requires content")
         from .workspace import assert_in_workspace
 
-        resolved = assert_in_workspace(args["path"], label="edit_file path")
-        # Atomic-Hermes style: snapshot before overwrite
-        snap = None
-        try:
-            from .time_travel import FileTimeTravel
+        # S13: diff-first apply (auto-approved once proposal was approved)
+        from .diff_edit import apply_edit_with_diff
 
-            snap = FileTimeTravel().snapshot(resolved, note="pre-edit_file proposal")
-        except Exception:
-            pass
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        resolved.write_text(str(content), encoding="utf-8")
+        result = apply_edit_with_diff(
+            args["path"],
+            str(content),
+            auto_approve=True,
+            show=False,
+        )
         return {
-            "path": str(resolved),
+            "path": result.get("path"),
             "bytes": len(str(content).encode("utf-8")),
-            "time_travel_snapshot": snap,
+            "diff": (result.get("diff") or "")[:4000],
+            "changed": result.get("changed"),
         }
 
     def _exec_web_search_stub(self, args: Dict[str, Any]) -> Dict[str, Any]:

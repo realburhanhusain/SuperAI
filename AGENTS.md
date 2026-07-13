@@ -53,7 +53,9 @@ src/superai/
   core/                # config, logger, orchestrator, models, memory, ...
 ```
 
-Entry point: `superai = "cli.main:app"` (packages under `src/cli`, `src/core`)
+Entry point: `superai = "scli.main:app"` (folders `src/cli` + `src/core`; imports `scli` + `core`)
+
+Resume from `TASKBOARD.md`. Feature backlog: `docs/FEATURE_BACKLOG.md`. Security: `docs/SECURITY_REVIEW.md`.
 
 ## Rules
 

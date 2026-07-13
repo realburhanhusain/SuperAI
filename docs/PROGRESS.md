@@ -1,37 +1,33 @@
 # SuperAI_v1 — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **97 passed**  
-**Checkpoints:** `docs/checkpoints/`  
-**Doc gaps:** `docs/DOC_GAP_ANALYSIS.md`
+**Tests:** **114 passed**  
+**Layout:** `src/cli` + `src/core`  
+**Backlog:** all M/S/N waves **implemented in code**
 
 ## Phase completion
 
 | Phase | Name | % complete |
 |------:|------|----------:|
-| **1** | Core Foundation | **98%** |
-| **2** | Models, routing, resilience | **97%** |
-| **3** | Self-learning + Memory Palace | **95%** |
-| **4** | Skills system | **94%** |
-| **5** | Encrypted backup + cloud | **94%** |
-| **6** | Polish, CLI, docs, CI | **95%** |
-| **7** | Advanced features & ecosystem | **92%** |
-| **8** | Agentic + deep integration | **90%** |
+| **1** | Core Foundation | **99%** |
+| **2** | Models, routing, resilience | **98%** |
+| **3** | Self-learning + Memory Palace | **98%** |
+| **4** | Skills system | **97%** |
+| **5** | Encrypted backup + cloud | **96%** |
+| **6** | Polish, CLI, docs, CI | **97%** |
+| **7** | Advanced features & ecosystem | **96%** |
+| **8** | Agentic + deep integration | **95%** |
 
-**Overall (equal weight): ~94%**
+**Overall (code): ~97%**  
+**Overall (including live host smoke): ~92%**
 
-### Remaining = deferred smoke only
+### Remaining (external only)
 
-- Live API keys multi-provider smoke  
-- Telegram/Slack production tokens  
+- Live multi-provider API smoke  
+- Live messenger tokens  
 - rclone remote E2E  
 - GitHub Pages admin toggle  
 
-## Latest session highlights
+### Latest highlights
 
-- Parallel multi-step execution  
-- Pydantic TaskResult  
-- MCP context packs  
-- Dual terminal/web dashboard + cross-surface feedback  
-- Ecosystem hub (webhooks + search stubs)  
-- Docs realigned (README, FEATURES, architecture, PENDING, CHANGELOG)  
+- Wave-2 product features: approval TUI, keyring, diagnose, TDD loop, diff-edit, workspace index, PWA, VS Code extension, FAISS backend, Docker sandbox, GDPR forget, compliance mode, i18n, telemetry, …

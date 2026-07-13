@@ -1,19 +1,24 @@
 # SuperAI
 
-**SuperAI** is a full-featured, self-improving multi-model AI super app designed for intelligent orchestration, automation, and resilience.
-
-It combines the best ideas from multi-agent systems, self-learning agents, and personal AI assistants into one cohesive platform.
+**SuperAI** — An intelligent, self-improving multi-model AI super app that orchestrates any LLM and AI CLI with smart routing, autonomous learning, encrypted backups, and production-grade resilience.
 
 ## ✨ Key Features
 
-- **Intelligent Multi-Model Routing** — Automatically selects the best model for each task using strengths, history, and load balancing strategies.
-- **Self-Learning & Skill Evolution** — Automatically creates and improves skills based on outcomes.
-- **Persistent Semantic Memory** — Powered by ChromaDB with EmbeddingGemma support.
-- **External CLI Discovery** — Detects and integrates with 20+ AI CLIs (Claude Code, Aider, Grok CLI, Gemini CLI, Ollama, etc.).
-- **Advanced Load Balancing** — Multiple strategies (Smart Fallback, Latency-based, Round Robin, etc.) + Circuit Breaker + Retry with backoff.
-- **Encrypted & Incremental Backups** — Local encrypted backups (zstd + AES-256-GCM) with optional cloud sync.
-- **Human-in-the-Loop Priority** — Manual model selection always overrides automated decisions.
-- **Full CLI Tooling** — Easy commands for configuration, discovery, backup status, and more.
+See [FEATURES.md](FEATURES.md) for the complete detailed feature list.
+
+**Highlights:**
+- Intelligent multi-model routing with multiple strategies + Circuit Breaker
+- Self-learning system with automatic skill creation & improvement
+- Persistent semantic memory (ChromaDB)
+- Dynamic discovery of 20+ AI CLIs and models across 17+ providers
+- Fully automated encrypted incremental backups with cloud sync
+- Human override always takes priority
+
+## 🏗️ Architecture
+
+![SuperAI Architecture](docs/architecture.png)
+
+> Full architecture details and explanation: [docs/architecture.md](docs/architecture.md)
 
 ## 🚀 Installation
 
@@ -75,7 +80,9 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests.
+Contributions are welcome! Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+
+Feel free to open issues or submit pull requests.
 
 ---
 

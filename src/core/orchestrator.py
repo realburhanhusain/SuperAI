@@ -405,17 +405,46 @@ class SuperAIOrchestrator:
                     ),
                     result=result,
                 )
-                # Mid-task memory refresh after each successful step
-                if (
-                    rec.get("status") == "success"
-                    and bool(self.config.get("mid_task_memory_refresh", True))
-                ):
+                # Mid-task learning + adaptive context (LearningEngine)
+                if bool(self.config.get("mid_task_memory_refresh", True)):
+                    try:
+                        self.learning_engine.learn_from_step(
+                            task_description=task,
+                            step_id=int(step.step_id),
+                            step_description=str(step.description),
+                            task_type=task_type,
+                            model_used=str(rec.get("model") or "unknown"),
+                            success=rec.get("status") == "success",
+                            output=str(rec.get("result") or "")[:800],
+                            error=rec.get("error"),
+                            latency=float(rec.get("duration_ms") or 0) / 1000.0,
+                            task_id=task_id,
+                        )
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning("mid_task learn_from_step degraded: %s", e)
+                        self._degraded.append(
+                            {"feature": "mid_task_learn", "error": str(e)[:300]}
+                        )
+                        result.setdefault("metadata", {}).setdefault(
+                            "degraded", []
+                        ).append(
+                            {"feature": "mid_task_learn", "error": str(e)[:300]}
+                        )
+                    # Collect live step outputs for adaptive context
+                    with self._exec_lock:
+                        buf = run_state.setdefault("live_step_outputs", [])
+                        if rec.get("status") == "success" and rec.get("result"):
+                            buf.append(str(rec.get("result"))[:500])
+                        elif rec.get("error"):
+                            buf.append(f"FAILED: {rec.get('error')}"[:400])
                     self._refresh_enrichment(
                         task,
                         task_type,
                         run_state,
                         result,
-                        last_output=str(rec.get("result") or "")[:800],
+                        last_output=str(rec.get("result") or rec.get("error") or "")[
+                            :800
+                        ],
                         verbose=False,
                         reason=f"after_step_{step.step_id}",
                     )
@@ -873,19 +902,32 @@ class SuperAIOrchestrator:
         """Refresh Memory Palace learnings + skills (mid-task adaptation)."""
 
         def _mem():
-            query = task
-            if last_output:
-                query = f"{task}\nRecent step output: {last_output[:400]}"
-            # Prefer central_memory preface + learning engine
-            ctx = self.learning_engine.get_relevant_context_for_current_task(
-                task_description=query,
-                task_type=task_type,
-                limit=5,
-            )
+            live = list(run_state.get("live_step_outputs") or [])
+            if last_output and (
+                not live or live[-1] != last_output[:500]
+            ):
+                live = live + [last_output[:500]]
+            # Dynamic mid-task context from LearningEngine
+            if reason and reason != "initial":
+                ctx = self.learning_engine.refresh_context_mid_task(
+                    task,
+                    task_type=task_type,
+                    recent_step_outputs=live,
+                    limit=6,
+                )
+            else:
+                ctx = self.learning_engine.get_relevant_context_for_current_task(
+                    task_description=task,
+                    task_type=task_type,
+                    limit=5,
+                )
             try:
                 from .central_memory import memory_preface_for_llm
 
-                preface = memory_preface_for_llm(query, top_k=4)
+                preface = memory_preface_for_llm(
+                    task if not last_output else f"{task}\n{last_output[:200]}",
+                    top_k=4,
+                )
                 if preface:
                     ctx.setdefault("relevant_learnings", []).insert(
                         0, {"content": preface, "id": "central_preface"}
@@ -894,6 +936,7 @@ class SuperAIOrchestrator:
                 pass
             with self._exec_lock:
                 run_state["relevant_context"] = ctx
+                run_state["live_step_outputs"] = live[-12:]
             return ctx
 
         def _skills():

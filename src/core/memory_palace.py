@@ -129,6 +129,10 @@ class MemoryPalace:
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         importance: float = 0.7,
+        *,
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
+        auto_wings: bool = True,
     ) -> str:
         if tags is None:
             tags = []
@@ -146,6 +150,30 @@ class MemoryPalace:
             metadata["parent_id"] = str(metadata["parent_id"])
         metadata.setdefault("source", metadata.get("source") or "superai")
 
+        # Wings & Rooms — first-class metadata (core to palace, not only sidecar)
+        if auto_wings or wing or room:
+            try:
+                from .wings import WingsManager
+
+                wm = WingsManager()
+                if wing and room:
+                    loc = {"wing": wing, "room": room}
+                else:
+                    loc = wm.classify_from_metadata(metadata, content=content)
+                    if wing:
+                        loc["wing"] = wing
+                    if room:
+                        loc["room"] = room
+                metadata["wing"] = str(loc["wing"])
+                metadata["room"] = str(loc["room"])
+                # mirror tags for easy filter/browse
+                for extra in (f"wing:{loc['wing']}", f"room:{loc['room']}"):
+                    if extra not in tags:
+                        tags = list(tags) + [extra]
+            except Exception:
+                metadata.setdefault("wing", wing or "learning")
+                metadata.setdefault("room", room or "general")
+
         memory_id = f"{datetime.now().timestamp():.6f}-{uuid.uuid4().hex[:8]}"
 
         if self.use_faiss and self.faiss_store is not None:
@@ -157,9 +185,7 @@ class MemoryPalace:
                 tags=list(tags),
                 memory_id=memory_id,
             )
-            return memory_id
-
-        if self.use_chromadb:
+        elif self.use_chromadb:
             safe_meta = _safe_metadata(metadata, tags=tags)
             self.collection.add(
                 documents=[content],
@@ -177,6 +203,21 @@ class MemoryPalace:
                     "created_at": metadata["created_at"],
                 }
             )
+
+        # Sidecar assignment index (best-effort, never blocks store)
+        if metadata.get("wing") and metadata.get("room"):
+            try:
+                from .wings import WingsManager
+
+                WingsManager().assign(
+                    memory_id,
+                    str(metadata["wing"]),
+                    str(metadata["room"]),
+                    note="memory_palace.store",
+                )
+            except Exception:
+                pass
+
         return memory_id
 
     def store_version(
@@ -239,15 +280,34 @@ class MemoryPalace:
         n_results: Optional[int] = None,
         tags: Optional[List[str]] = None,
         include_deprecated: bool = False,
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
         **kwargs: Any,
     ) -> List[Dict]:
         if n_results is not None:
             top_k = n_results
         _ = kwargs
+        # Fetch extra when filtering by tags/wing/room
+        need_filter = bool(tags or wing or room)
+        fetch_k = top_k * 4 if need_filter else top_k
+
+        def _loc_ok(meta: Dict[str, Any], mem: Optional[Dict] = None) -> bool:
+            if wing and str(meta.get("wing") or "").lower() != str(wing).lower():
+                # also accept wing: tag
+                mem_tags = _parse_tags(meta, mem)
+                if f"wing:{wing}".lower() not in mem_tags:
+                    return False
+            if room and str(meta.get("room") or "").lower() != str(room).lower():
+                mem_tags = _parse_tags(meta, mem)
+                if f"room:{room}".lower() not in mem_tags:
+                    return False
+            return True
 
         if self.use_faiss and self.faiss_store is not None:
             emb = self.embedding_function([query])[0]
-            hits = self.faiss_store.search(emb, top_k=top_k * 3 if tags else top_k)
+            hits = self.faiss_store.search(
+                emb, top_k=fetch_k if need_filter else top_k
+            )
             out = []
             wanted = {t.lower() for t in tags} if tags else None
             for h in hits:
@@ -259,10 +319,14 @@ class MemoryPalace:
                     1,
                 ):
                     continue
+                if not _loc_ok(meta, h):
+                    continue
                 if wanted:
                     mem_tags = {str(t).lower() for t in (h.get("tags") or [])}
                     tag_str = str(meta.get("tags") or "")
-                    mem_tags |= {t.strip().lower() for t in tag_str.split(",") if t.strip()}
+                    mem_tags |= {
+                        t.strip().lower() for t in tag_str.split(",") if t.strip()
+                    }
                     if not wanted.intersection(mem_tags):
                         continue
                 out.append(h)
@@ -271,8 +335,7 @@ class MemoryPalace:
             return out
 
         if self.use_chromadb:
-            # Fetch extra then filter if tags requested
-            fetch_n = max(top_k * 3, top_k) if tags else top_k
+            fetch_n = max(fetch_k, top_k)
             try:
                 results = self.collection.query(
                     query_texts=[query],
@@ -295,7 +358,14 @@ class MemoryPalace:
 
             for i, memory_id in enumerate(ids):
                 metadata = dict(metas[i] or {})
-                if not include_deprecated and metadata.get("deprecated") in (True, "True", "true", 1):
+                if not include_deprecated and metadata.get("deprecated") in (
+                    True,
+                    "True",
+                    "true",
+                    1,
+                ):
+                    continue
+                if not _loc_ok(metadata):
                     continue
                 if wanted:
                     mem_tags = _parse_tags(metadata)
@@ -303,7 +373,9 @@ class MemoryPalace:
                         continue
                 try:
                     metadata["last_accessed"] = datetime.now().isoformat()
-                    self.collection.update(ids=[memory_id], metadatas=[_safe_metadata(metadata)])
+                    self.collection.update(
+                        ids=[memory_id], metadatas=[_safe_metadata(metadata)]
+                    )
                 except Exception:
                     pass
                 memories.append(
@@ -313,6 +385,8 @@ class MemoryPalace:
                         "metadata": metadata,
                         "importance": float(metadata.get("importance", 0.5)),
                         "distance": dists[i] if i < len(dists) else None,
+                        "wing": metadata.get("wing"),
+                        "room": metadata.get("room"),
                     }
                 )
                 if len(memories) >= top_k:
@@ -320,7 +394,6 @@ class MemoryPalace:
             if memories:
                 return memories
             # Fall through to keyword scan when vector query returns empty
-            # (common with hash embeddings / mismatched EF collections)
 
         # Keyword fallback (in-memory list + full store scan)
         return self._keyword_search(
@@ -328,6 +401,8 @@ class MemoryPalace:
             top_k=top_k,
             tags=tags,
             include_deprecated=include_deprecated,
+            wing=wing,
+            room=room,
         )
 
     def _keyword_search(
@@ -336,6 +411,8 @@ class MemoryPalace:
         top_k: int = 5,
         tags: Optional[List[str]] = None,
         include_deprecated: bool = False,
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
     ) -> List[Dict]:
         """Token/substring search over get_all_memories + in-RAM list."""
         results: List[Dict] = []
@@ -365,6 +442,10 @@ class MemoryPalace:
                 1,
             ):
                 continue
+            if wing and str(meta.get("wing") or "").lower() != str(wing).lower():
+                continue
+            if room and str(meta.get("room") or "").lower() != str(room).lower():
+                continue
             content = mem.get("content") or ""
             content_l = content.lower()
             if query_lower and query_lower not in content_l:
@@ -381,22 +462,118 @@ class MemoryPalace:
                         "importance", meta.get("importance", 0.5)
                     ),
                     "tags": mem.get("tags", []),
+                    "wing": meta.get("wing"),
+                    "room": meta.get("room"),
                 }
             )
             if len(results) >= top_k:
                 break
         return results
 
+    def query_by_location(
+        self,
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
+        limit: int = 50,
+        include_deprecated: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Browse palace by wing/room (no semantic query required)."""
+        out: List[Dict[str, Any]] = []
+        for mem in self.get_all_memories():
+            meta = mem.get("metadata") or {}
+            if not include_deprecated and meta.get("deprecated") in (
+                True,
+                "True",
+                "true",
+                1,
+            ):
+                continue
+            if wing and str(meta.get("wing") or "").lower() != str(wing).lower():
+                continue
+            if room and str(meta.get("room") or "").lower() != str(room).lower():
+                continue
+            out.append(
+                {
+                    **mem,
+                    "wing": meta.get("wing"),
+                    "room": meta.get("room"),
+                    "importance": float(
+                        mem.get("importance") or meta.get("importance") or 0.5
+                    ),
+                }
+            )
+            if len(out) >= limit:
+                break
+        return out
+
+    def palace_layout(self) -> Dict[str, Any]:
+        """Counts of memories by wing → room (from metadata)."""
+        by_wing: Dict[str, Dict[str, int]] = {}
+        total = 0
+        unassigned = 0
+        for mem in self.get_all_memories():
+            meta = mem.get("metadata") or {}
+            w = str(meta.get("wing") or "")
+            r = str(meta.get("room") or "")
+            if not w:
+                unassigned += 1
+                continue
+            total += 1
+            by_wing.setdefault(w, {})
+            by_wing[w][r or "general"] = by_wing[w].get(r or "general", 0) + 1
+        try:
+            from .wings import WingsManager
+
+            catalog = WingsManager().list_wings()
+        except Exception:
+            catalog = {}
+        return {
+            "total_located": total,
+            "unassigned": unassigned,
+            "by_wing": by_wing,
+            "catalog": catalog,
+        }
+
     def cluster_memories(
         self,
         limit: int = 200,
         max_clusters: int = 8,
+        *,
+        method: str = "auto",
     ) -> List[Dict[str, Any]]:
         """
-        Lightweight keyword clustering of memories (no sklearn required).
-        Groups by dominant tag/task_type, falls back to content tokens.
+        Cluster memories.
+
+        method:
+          - auto: embedding k-means if possible, else hierarchical tags, else flat tags
+          - embedding: numpy k-means on embeddings
+          - wing: group by wing/room
+          - tag: group by task_type/tag (legacy)
         """
         mems = self.get_all_memories()[:limit]
+        if not mems:
+            return []
+
+        method = (method or "auto").lower()
+        if method == "auto":
+            emb = self._cluster_by_embedding(mems, max_clusters=max_clusters)
+            if emb:
+                return emb
+            wing_c = self._cluster_by_wing_room(mems, max_clusters=max_clusters)
+            if wing_c:
+                return wing_c
+            return self._cluster_by_tag(mems, max_clusters=max_clusters)
+        if method == "embedding":
+            return self._cluster_by_embedding(mems, max_clusters=max_clusters) or self._cluster_by_tag(
+                mems, max_clusters=max_clusters
+            )
+        if method in {"wing", "wings", "room"}:
+            return self._cluster_by_wing_room(mems, max_clusters=max_clusters)
+        return self._cluster_by_tag(mems, max_clusters=max_clusters)
+
+    def _cluster_by_tag(
+        self, mems: List[Dict[str, Any]], max_clusters: int = 8
+    ) -> List[Dict[str, Any]]:
         buckets: Dict[str, List[Dict[str, Any]]] = {}
         for m in mems:
             meta = m.get("metadata") or {}
@@ -408,18 +585,122 @@ class MemoryPalace:
             if not key:
                 key = "general"
             buckets.setdefault(key, []).append(m)
+        return self._format_clusters(buckets, max_clusters, method="tag")
 
+    def _cluster_by_wing_room(
+        self, mems: List[Dict[str, Any]], max_clusters: int = 8
+    ) -> List[Dict[str, Any]]:
+        buckets: Dict[str, List[Dict[str, Any]]] = {}
+        for m in mems:
+            meta = m.get("metadata") or {}
+            w = str(meta.get("wing") or "unassigned")
+            r = str(meta.get("room") or "general")
+            key = f"{w}/{r}"
+            buckets.setdefault(key, []).append(m)
+        return self._format_clusters(buckets, max_clusters, method="wing")
+
+    def _cluster_by_embedding(
+        self, mems: List[Dict[str, Any]], max_clusters: int = 8
+    ) -> List[Dict[str, Any]]:
+        """Simple k-means over embeddings (numpy only; no sklearn required)."""
+        if len(mems) < 3:
+            return []
+        try:
+            import numpy as np
+        except ImportError:
+            return []
+
+        texts = [str(m.get("content") or "")[:2000] for m in mems]
+        try:
+            vectors = self.embedding_function(texts)
+        except Exception:
+            return []
+        if not vectors or len(vectors) != len(mems):
+            return []
+
+        X = np.asarray(vectors, dtype=float)
+        if X.ndim != 2 or X.shape[0] < 3:
+            return []
+        # Normalize
+        norms = np.linalg.norm(X, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        X = X / norms
+
+        k = max(2, min(max_clusters, X.shape[0] // 2, max_clusters))
+        # Init centers: spread indices
+        idx = np.linspace(0, X.shape[0] - 1, k, dtype=int)
+        centers = X[idx].copy()
+        labels = np.zeros(X.shape[0], dtype=int)
+        for _ in range(15):
+            # Assign
+            # cosine distance via dot (vectors normalized)
+            sims = X @ centers.T
+            labels = np.argmax(sims, axis=1)
+            new_centers = centers.copy()
+            for j in range(k):
+                members = X[labels == j]
+                if len(members) == 0:
+                    continue
+                c = members.mean(axis=0)
+                n = np.linalg.norm(c)
+                new_centers[j] = c / n if n else c
+            if np.allclose(new_centers, centers, atol=1e-4):
+                centers = new_centers
+                break
+            centers = new_centers
+
+        buckets: Dict[str, List[Dict[str, Any]]] = {}
+        for i, m in enumerate(mems):
+            key = f"emb-{int(labels[i])}"
+            buckets.setdefault(key, []).append(m)
+
+        clusters = self._format_clusters(buckets, max_clusters, method="embedding")
+        # Label clusters with dominant wing/room or task_type
+        for c in clusters:
+            items = [m for m in mems if m.get("id") in set(c.get("ids") or [])]
+            wings = [
+                str((m.get("metadata") or {}).get("wing") or "")
+                for m in items
+                if (m.get("metadata") or {}).get("wing")
+            ]
+            rooms = [
+                str((m.get("metadata") or {}).get("room") or "")
+                for m in items
+                if (m.get("metadata") or {}).get("room")
+            ]
+            if wings:
+                # most common
+                from collections import Counter
+
+                w = Counter(wings).most_common(1)[0][0]
+                r = Counter(rooms).most_common(1)[0][0] if rooms else "general"
+                c["label"] = f"{w}/{r}"
+                c["cluster"] = f"emb:{w}/{r}"
+            else:
+                c["label"] = c.get("cluster")
+        return clusters
+
+    def _format_clusters(
+        self,
+        buckets: Dict[str, List[Dict[str, Any]]],
+        max_clusters: int,
+        method: str,
+    ) -> List[Dict[str, Any]]:
         clusters = []
         for key, items in sorted(buckets.items(), key=lambda kv: -len(kv[1]))[
             :max_clusters
         ]:
             sample = (items[0].get("content") or "")[:160]
+            meta0 = items[0].get("metadata") or {}
             clusters.append(
                 {
                     "cluster": key,
+                    "method": method,
                     "size": len(items),
                     "sample": sample,
                     "ids": [i.get("id") for i in items[:10]],
+                    "wing": meta0.get("wing"),
+                    "room": meta0.get("room"),
                     "avg_importance": round(
                         sum(float(i.get("importance") or 0.5) for i in items)
                         / max(1, len(items)),

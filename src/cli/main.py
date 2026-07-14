@@ -2197,11 +2197,62 @@ def patterns_cmd(
 @app.command("memory-clusters")
 def memory_clusters_cmd(
     limit: int = typer.Option(200, "--limit"),
+    method: str = typer.Option(
+        "auto",
+        "--method",
+        "-m",
+        help="auto | embedding | wing | tag",
+    ),
+    max_clusters: int = typer.Option(8, "--max", help="Max clusters"),
 ):
-    """Cluster memories by task type / tags"""
+    """Cluster memories (embedding k-means / wing-room / tags)"""
     from core.memory_palace import MemoryPalace
 
-    console.print_json(data=MemoryPalace().cluster_memories(limit=limit))
+    console.print_json(
+        data=MemoryPalace().cluster_memories(
+            limit=limit, max_clusters=max_clusters, method=method
+        )
+    )
+
+
+@app.command("memory-palace")
+def memory_palace_cmd(
+    action: str = typer.Argument(
+        "layout",
+        help="layout | browse | search",
+    ),
+    wing: Optional[str] = typer.Option(None, "--wing", "-w"),
+    room: Optional[str] = typer.Option(None, "--room", "-r"),
+    query: Optional[str] = typer.Option(None, "--query", "-q"),
+    limit: int = typer.Option(20, "--limit", "-n"),
+):
+    """Browse Memory Palace by wings/rooms or semantic search with location filters"""
+    from core.memory_palace import MemoryPalace
+
+    mp = MemoryPalace()
+    if action == "layout":
+        console.print_json(data=mp.palace_layout())
+        return
+    if action == "browse":
+        console.print_json(
+            data={
+                "items": mp.query_by_location(wing=wing, room=room, limit=limit),
+                "wing": wing,
+                "room": room,
+            }
+        )
+        return
+    if action == "search":
+        if not query:
+            console.print("[red]Provide --query[/red]")
+            raise typer.Exit(1)
+        hits = mp.query_semantic(
+            query, top_k=limit, wing=wing, room=room
+        )
+        console.print_json(data={"query": query, "wing": wing, "room": room, "hits": hits})
+        return
+    console.print("[red]action: layout | browse | search[/red]")
+    raise typer.Exit(1)
 
 
 @app.command("roles")
@@ -2670,21 +2721,58 @@ def _json_safe(obj):
 
 @app.command()
 def wings(
-    list_all: bool = typer.Option(False, "--list", help="List wings and rooms"),
+    action: str = typer.Argument(
+        "list",
+        help="list | stats | browse | assign | rooms | sync",
+    ),
     memory_id: Optional[str] = typer.Option(None, "--memory-id"),
-    wing: Optional[str] = typer.Option(None, "--wing"),
-    room: Optional[str] = typer.Option(None, "--room"),
+    wing: Optional[str] = typer.Option(None, "--wing", "-w"),
+    room: Optional[str] = typer.Option(None, "--room", "-r"),
     note: str = typer.Option("", "--note"),
+    limit: int = typer.Option(40, "--limit", "-n"),
+    list_all: bool = typer.Option(False, "--list", help="Alias for list"),
 ):
-    """Memory wings & rooms organization (I4)"""
+    """Memory wings & rooms organization (I4) — palace navigation"""
     from core.wings import WingsManager
+    from core.memory_palace import MemoryPalace
 
     wm = WingsManager()
-    if list_all or not (memory_id and wing and room):
+    act = "list" if list_all else action
+    if act == "list":
         console.print_json(data=wm.list_wings())
         return
-    entry = wm.assign(memory_id, wing, room, note=note)
-    console.print(f"[green]Assigned[/green] {entry}")
+    if act == "stats":
+        console.print_json(data={"wings": wm.stats(), "palace": MemoryPalace().palace_layout()})
+        return
+    if act == "rooms":
+        if not wing:
+            console.print("[red]--wing required[/red]")
+            raise typer.Exit(1)
+        console.print_json(data={"wing": wing, "rooms": wm.list_rooms(wing)})
+        return
+    if act == "browse":
+        console.print_json(data=wm.browse(wing=wing, room=room, limit=limit))
+        return
+    if act == "sync":
+        n = wm.sync_assignments_from_memories(MemoryPalace().get_all_memories())
+        console.print(f"[green]Synced {n} assignments from memory metadata[/green]")
+        return
+    if act == "assign":
+        if not (memory_id and wing and room):
+            console.print("[red]Need --memory-id --wing --room[/red]")
+            raise typer.Exit(1)
+        entry = wm.assign(memory_id, wing, room, note=note)
+        # Mirror onto memory metadata when possible
+        try:
+            MemoryPalace().update_metadata(
+                memory_id, {"wing": wing, "room": room}
+            )
+        except Exception:
+            pass
+        console.print(f"[green]Assigned[/green] {entry}")
+        return
+    console.print("[red]action: list | stats | browse | assign | rooms | sync[/red]")
+    raise typer.Exit(1)
 
 
 @app.command("list-models")

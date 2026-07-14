@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **161 passed**  
+**Tests:** **167 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -30,6 +30,7 @@
 
 ### Latest highlights
 
+- **Memory Palace Wings/Rooms first-class + embedding clustering** — see `docs/MEMORY_PALACE_GAPS.md`  
 - **Orchestrator mid-task adaptation** (retry/failover/replan/quality/degraded flags) — see `docs/ORCHESTRATOR_GAPS.md`  
 - **Local MCP server** so other AIs/CLIs share SuperAI Memory Palace (`mcp-serve`, `mcp-config`, HTTP `/mcp`)  
 - **Central Memory Palace** for all SuperAI-mediated AIs (inject + write-back; `core/central_memory.py`)  

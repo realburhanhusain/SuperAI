@@ -62,8 +62,33 @@ TOOLS: List[Dict[str, Any]] = [
                 "type": "string",
                 "description": "Optional comma-separated tags filter",
             },
+            "wing": {
+                "type": "string",
+                "description": "Optional wing filter (technical, learning, agentic, …)",
+            },
+            "room": {
+                "type": "string",
+                "description": "Optional room filter within wing",
+            },
         },
         ["query"],
+    ),
+    _tool(
+        "superai_memory_palace",
+        "Browse Memory Palace layout or list memories by wing/room.",
+        {
+            "action": {
+                "type": "string",
+                "description": "layout | browse | clusters",
+            },
+            "wing": {"type": "string"},
+            "room": {"type": "string"},
+            "limit": {"type": "integer"},
+            "method": {
+                "type": "string",
+                "description": "For clusters: auto|embedding|wing|tag",
+            },
+        },
     ),
     _tool(
         "superai_memory_store",
@@ -335,14 +360,51 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
         tag_list = None
         if tags_raw:
             tag_list = [t.strip() for t in str(tags_raw).split(",") if t.strip()]
-        hits = MemoryPalace().query_semantic(query, top_k=top_k, tags=tag_list)
+        wing = args.get("wing")
+        room = args.get("room")
+        hits = MemoryPalace().query_semantic(
+            query,
+            top_k=top_k,
+            tags=tag_list,
+            wing=str(wing) if wing else None,
+            room=str(room) if room else None,
+        )
         return {
             "query": query,
+            "wing": wing,
+            "room": room,
             "count": len(hits) if isinstance(hits, list) else 0,
             "hits": hits,
             "store": "MemoryPalace",
             "note": "Shared central memory for all SuperAI-mediated AIs",
         }
+
+    if name == "superai_memory_palace":
+        from .memory_palace import MemoryPalace
+
+        mp = MemoryPalace()
+        action = str(args.get("action") or "layout").lower()
+        wing = args.get("wing")
+        room = args.get("room")
+        limit = int(args.get("limit") or 30)
+        if action == "layout":
+            return mp.palace_layout()
+        if action == "browse":
+            return {
+                "items": mp.query_by_location(
+                    wing=str(wing) if wing else None,
+                    room=str(room) if room else None,
+                    limit=limit,
+                )
+            }
+        if action == "clusters":
+            return {
+                "clusters": mp.cluster_memories(
+                    limit=max(limit, 50),
+                    method=str(args.get("method") or "auto"),
+                )
+            }
+        raise ValueError("action must be layout|browse|clusters")
 
     if name == "superai_memory_store":
         from .memory_palace import MemoryPalace

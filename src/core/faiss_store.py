@@ -44,6 +44,7 @@ class FaissMemoryStore:
         self.ids: List[str] = []
         self.vectors: List[List[float]] = []
         self._index = None
+        self._index_type = "none"
         self._load()
 
     def _load(self) -> None:
@@ -75,6 +76,13 @@ class FaissMemoryStore:
             except Exception:
                 pass
 
+    def _index_kind(self) -> str:
+        """flat (default) | hnsw — via SUPERAI_FAISS_INDEX=hnsw|flat"""
+        kind = (os.getenv("SUPERAI_FAISS_INDEX") or "flat").lower().strip()
+        if kind in {"hnsw", "hns"}:
+            return "hnsw"
+        return "flat"
+
     def _rebuild_faiss(self) -> None:
         if not HAS_FAISS or not self.vectors:
             self._index = None
@@ -82,9 +90,40 @@ class FaissMemoryStore:
         import numpy as np
 
         arr = np.array(self.vectors, dtype="float32")
-        index = faiss.IndexFlatIP(self.dim)
-        index.add(arr)
-        self._index = index
+        kind = self._index_kind()
+        if kind == "hnsw" and hasattr(faiss, "IndexHNSWFlat"):
+            # Inner-product metric for normalized vectors (cosine-like)
+            try:
+                m = int(os.getenv("SUPERAI_HNSW_M") or "32")
+            except ValueError:
+                m = 32
+            try:
+                ef_c = int(os.getenv("SUPERAI_HNSW_EF_CONSTRUCTION") or "200")
+            except ValueError:
+                ef_c = 200
+            try:
+                ef_s = int(os.getenv("SUPERAI_HNSW_EF_SEARCH") or "64")
+            except ValueError:
+                ef_s = 64
+            # METRIC_INNER_PRODUCT when available
+            metric = getattr(faiss, "METRIC_INNER_PRODUCT", 0)
+            try:
+                index = faiss.IndexHNSWFlat(self.dim, m, metric)
+            except TypeError:
+                index = faiss.IndexHNSWFlat(self.dim, m)
+            try:
+                index.hnsw.efConstruction = ef_c
+                index.hnsw.efSearch = ef_s
+            except Exception:
+                pass
+            index.add(arr)
+            self._index = index
+            self._index_type = "hnsw"
+        else:
+            index = faiss.IndexFlatIP(self.dim)
+            index.add(arr)
+            self._index = index
+            self._index_type = "flat"
 
     def add(
         self,
@@ -159,9 +198,18 @@ class FaissMemoryStore:
         return {
             "backend": "faiss" if HAS_FAISS else "brute-force",
             "faiss_installed": HAS_FAISS,
+            "index_type": getattr(self, "_index_type", "none"),
+            "index_kind_requested": self._index_kind(),
+            "hnsw_m": os.getenv("SUPERAI_HNSW_M"),
+            "hnsw_ef_construction": os.getenv("SUPERAI_HNSW_EF_CONSTRUCTION"),
+            "hnsw_ef_search": os.getenv("SUPERAI_HNSW_EF_SEARCH"),
             "count": len(self.ids),
             "dim": self.dim,
             "path": str(self.root),
+            "note": (
+                "Set SUPERAI_MEMORY_BACKEND=faiss and SUPERAI_FAISS_INDEX=hnsw "
+                "for HNSW; SUPERAI_HNSW_M / EF_* control graph quality."
+            ),
         }
 
 

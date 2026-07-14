@@ -97,23 +97,43 @@ class EcosystemHub:
         max_results: int = 5,
     ) -> Dict[str, Any]:
         """
-        Web search via Tavily / Brave if keys present; else offline stub.
+        Web search via Tavily / Brave if keys present; else DuckDuckGo Instant Answer
+        API (no HTML scrape); else offline stub.
         """
         provider = (provider or "auto").lower()
+        if provider in {"ddg", "duckduckgo"}:
+            provider = "duckduckgo"
         if provider == "auto":
             if _env("TAVILY_API_KEY"):
                 provider = "tavily"
             elif _env("BRAVE_API_KEY"):
                 provider = "brave"
             else:
-                provider = "stub"
+                # Prefer free Instant Answer API over pure stub
+                provider = "duckduckgo"
 
         if provider == "tavily" and _env("TAVILY_API_KEY") and not self.dry_run:
             return self._search_tavily(query, max_results)
         if provider == "brave" and _env("BRAVE_API_KEY") and not self.dry_run:
             return self._search_brave(query, max_results)
+        if provider == "duckduckgo" and not self.dry_run:
+            return self._search_duckduckgo(query, max_results)
+        if provider == "duckduckgo" and self.dry_run:
+            return {
+                "ok": True,
+                "provider": "duckduckgo",
+                "query": query,
+                "dry_run": True,
+                "results": [
+                    {
+                        "title": f"[dry-run] DuckDuckGo Instant Answer for: {query}",
+                        "url": "https://api.duckduckgo.com/",
+                        "snippet": "Would call Instant Answer API (no HTML scrape).",
+                    }
+                ][:max_results],
+            }
 
-        # Stub / dry-run results
+        # Stub when forced stub or APIs unavailable
         return {
             "ok": True,
             "provider": "stub",
@@ -123,13 +143,104 @@ class EcosystemHub:
                     "title": f"Stub result for: {query}",
                     "url": "https://example.com/search",
                     "snippet": (
-                        "Configure TAVILY_API_KEY or BRAVE_API_KEY for live search. "
-                        "DuckDuckGo HTML scraping is intentionally not bundled."
+                        "Configure TAVILY_API_KEY or BRAVE_API_KEY, or use "
+                        "provider=duckduckgo (Instant Answer API, no scrape)."
                     ),
                 }
             ][:max_results],
             "dry_run": self.dry_run or provider == "stub",
         }
+
+    def _search_duckduckgo(self, query: str, max_results: int) -> Dict[str, Any]:
+        """
+        DuckDuckGo Instant Answer API — official JSON endpoint, not HTML scraping.
+        https://api.duckduckgo.com/?q=...&format=json
+        """
+        q = urllib.parse.urlencode(
+            {
+                "q": query,
+                "format": "json",
+                "no_html": "1",
+                "skip_disambig": "1",
+            }
+        )
+        req = urllib.request.Request(
+            f"https://api.duckduckgo.com/?{q}",
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "SuperAI/0.1 (ecosystem-search; +https://github.com/realburhanhusain/SuperAI)",
+            },
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            results: List[Dict[str, Any]] = []
+            # Abstract
+            if data.get("AbstractText") or data.get("Heading"):
+                results.append(
+                    {
+                        "title": data.get("Heading") or "DuckDuckGo Abstract",
+                        "url": data.get("AbstractURL") or data.get("AbstractSource") or "",
+                        "snippet": data.get("AbstractText") or data.get("Abstract") or "",
+                    }
+                )
+            # Related topics (flat + nested)
+            def _walk(topics: List[Any]) -> None:
+                for t in topics or []:
+                    if len(results) >= max_results:
+                        return
+                    if not isinstance(t, dict):
+                        continue
+                    if t.get("Topics"):
+                        _walk(t.get("Topics") or [])
+                        continue
+                    text = t.get("Text") or ""
+                    url = t.get("FirstURL") or ""
+                    if text or url:
+                        results.append(
+                            {
+                                "title": (text.split(" - ")[0] if text else url)[:120],
+                                "url": url,
+                                "snippet": text,
+                            }
+                        )
+
+            _walk(data.get("RelatedTopics") or [])
+            # Answer field
+            if data.get("Answer") and len(results) < max_results:
+                results.append(
+                    {
+                        "title": "Answer",
+                        "url": data.get("AbstractURL") or "",
+                        "snippet": str(data.get("Answer")),
+                    }
+                )
+            if not results:
+                results.append(
+                    {
+                        "title": f"No Instant Answer for: {query}",
+                        "url": f"https://duckduckgo.com/?q={urllib.parse.quote(query)}",
+                        "snippet": (
+                            "Instant Answer API returned no abstract/topics. "
+                            "Try Tavily/Brave keys for full web search."
+                        ),
+                    }
+                )
+            return {
+                "ok": True,
+                "provider": "duckduckgo",
+                "query": query,
+                "results": results[:max_results],
+                "note": "Instant Answer API (no HTML scrape)",
+            }
+        except Exception as e:  # noqa: BLE001
+            return {
+                "ok": False,
+                "provider": "duckduckgo",
+                "error": str(e),
+                "query": query,
+            }
 
     def _search_tavily(self, query: str, max_results: int) -> Dict[str, Any]:
         key = _env("TAVILY_API_KEY")

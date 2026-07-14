@@ -43,6 +43,9 @@ superai run "hello" --format json
 | `memory-clusters --method auto\|embedding\|wing\|tag` | Memory clustering |
 | `wings list\|stats\|browse\|assign\|sync` | Wings & rooms navigation |
 | `web` → `/palace` | Interactive Memory Palace browser |
+| `search-web "q" --provider duckduckgo` | Instant Answer API (no scrape) |
+| `github status\|issues\|prs\|issue-create\|pr\|comment` | GitHub product API / gh CLI |
+| Env `SUPERAI_FAISS_INDEX=hnsw` | FAISS HNSW vector index (G13) |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |
 | `run … --stream -m model` | Stream single-model output |

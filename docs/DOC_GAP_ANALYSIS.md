@@ -26,10 +26,10 @@
 | G10 | Notion integration stub | **Implemented** (API when key set) |
 | G11 | Mid-task clarification request + human veto | **Implemented** (hooks) |
 | G12 | GitHub Actions release + backup workflows | **Implemented** |
-| G13 | HNSW/FAISS/quantization depth | **Partial** — config knobs only |
-| G14 | DuckDuckGo live search | Deferred (policy: not scrape) |
-| G15 | Full GitHub product API (issues/PRs) | Deferred external |
-| G16 | Live multi-provider / bots / rclone / Pages | Deferred smoke |
+| G13 | HNSW/FAISS/quantization depth | **Implemented** — `SUPERAI_FAISS_INDEX=hnsw` + M/ef env knobs + stats |
+| G14 | DuckDuckGo search (no HTML scrape) | **Implemented** — Instant Answer JSON API |
+| G15 | GitHub product API (issues/PRs) | **Implemented** — `core/github_api.py` + `superai github` (token/gh; dry-run OK) |
+| G16 | Live multi-provider / bots / rclone / Pages | **Deferred smoke** (host only — postponed) |
 
 ## Depth finish (thin → complete) — 2026-07-14
 

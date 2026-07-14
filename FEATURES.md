@@ -103,6 +103,14 @@ See `QUICK_REFERENCE.md` for the full list. Highlights:
 
 `host-tools` · `cli-parallel` · `cli-jobs` · `term-parallel` · `term-jobs` · `dashboard` · `doctor` · `run` · `chat` · `tdd` · `diff-edit` · `forecast` · `compliance` · `onboard` · `diagnose` · `secrets` · `workspace-index` · `pr-review` · `mcp-serve` · `web` (/pwa/, /cli-pool, /terminals) · `memory-forget` · `lang`
 
-## Deferred host
+## Deferred host (smoke — postponed)
 
 API keys · Telegram/Slack tokens · rclone remote · GitHub Pages enable
+
+## G13–G15 (code, no smoke required)
+
+| ID | Feature |
+|----|---------|
+| G13 | FAISS HNSW (`SUPERAI_FAISS_INDEX=hnsw`, `SUPERAI_HNSW_*`) |
+| G14 | DuckDuckGo Instant Answer (`search-web --provider duckduckgo`) |
+| G15 | GitHub issues/PRs (`superai github`, `GITHUB_TOKEN` or `gh`) |

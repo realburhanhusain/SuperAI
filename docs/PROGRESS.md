@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **169 passed**  
+**Tests:** **178 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -21,7 +21,7 @@
 **Overall (code): ~97%**  
 **Overall (including live host smoke): ~92%**
 
-### Remaining (external only)
+### Remaining (external smoke — postponed)
 
 - Live multi-provider API smoke  
 - Live messenger tokens  
@@ -30,6 +30,7 @@
 
 ### Latest highlights
 
+- **G13–G15 code closed** — FAISS HNSW, DuckDuckGo Instant Answer, GitHub issues/PRs API  
 - **Memory Palace P3** — cluster→room promote + palace browser (CLI/dashboard/web)  
 - **Memory Palace Wings/Rooms first-class + embedding clustering** — see `docs/MEMORY_PALACE_GAPS.md`  
 - **Orchestrator mid-task adaptation** (retry/failover/replan/quality/degraded flags) — see `docs/ORCHESTRATOR_GAPS.md`  

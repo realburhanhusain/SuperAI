@@ -1916,12 +1916,73 @@ def context_pack_cmd(
 @app.command("search-web")
 def search_web_cmd(
     query: str = typer.Argument(..., help="Search query"),
-    provider: str = typer.Option("auto", "--provider", help="auto|tavily|brave|stub"),
+    provider: str = typer.Option(
+        "auto",
+        "--provider",
+        help="auto|tavily|brave|duckduckgo|stub",
+    ),
 ):
-    """Web search via Tavily/Brave keys or offline stub"""
+    """Web search: Tavily/Brave keys, DuckDuckGo Instant Answer (no scrape), or stub"""
     from core.ecosystem import EcosystemHub
 
     console.print_json(data=EcosystemHub().search(query, provider=provider))
+
+
+@app.command("github")
+def github_cmd(
+    action: str = typer.Argument(
+        "status",
+        help="status | issues | prs | issue-create | pr | comment",
+    ),
+    repo: Optional[str] = typer.Option(
+        None, "--repo", "-R", help="owner/name (or SUPERAI_GITHUB_REPO)"
+    ),
+    state: str = typer.Option("open", "--state"),
+    limit: int = typer.Option(20, "--limit", "-n"),
+    number: Optional[int] = typer.Option(None, "--number", "-N"),
+    title: Optional[str] = typer.Option(None, "--title"),
+    body: Optional[str] = typer.Option(None, "--body"),
+    labels: Optional[str] = typer.Option(None, "--labels", help="comma labels"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Do not call API even if token present"
+    ),
+):
+    """GitHub issues/PRs (G15) — GITHUB_TOKEN or gh CLI; dry-run without either"""
+    from core.github_api import GitHubClient
+
+    client = GitHubClient(repo=repo, dry_run=dry_run)
+    if action == "status":
+        console.print_json(data=client.status())
+        return
+    if action == "issues":
+        console.print_json(data=client.list_issues(state=state, limit=limit))
+        return
+    if action == "prs":
+        console.print_json(data=client.list_prs(state=state, limit=limit))
+        return
+    if action == "issue-create":
+        if not title:
+            console.print("[red]--title required[/red]")
+            raise typer.Exit(1)
+        lbs = [x.strip() for x in (labels or "").split(",") if x.strip()] or None
+        console.print_json(
+            data=client.create_issue(title, body=body or "", labels=lbs)
+        )
+        return
+    if action == "pr":
+        if number is None:
+            console.print("[red]--number required[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=client.get_pr(number))
+        return
+    if action == "comment":
+        if number is None or not body:
+            console.print("[red]--number and --body required[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=client.comment_on_issue(number, body))
+        return
+    console.print("[red]action: status|issues|prs|issue-create|pr|comment[/red]")
+    raise typer.Exit(1)
 
 
 @app.command("emit-event")
@@ -3396,11 +3457,20 @@ def langgraph_export_cmd(
 def pr_review_cmd(
     ref: str = typer.Option("HEAD~1", "--ref", help="git diff base"),
     mock: bool = typer.Option(True, "--mock/--live"),
+    pr: Optional[int] = typer.Option(
+        None, "--pr", help="Also fetch GitHub PR metadata by number"
+    ),
+    repo: Optional[str] = typer.Option(None, "--repo", "-R"),
 ):
-    """N26: Council-style review of local git diff"""
+    """N26: Council-style review of local git diff (+ optional GitHub PR metadata)"""
     from core.pr_review import review_local
 
-    console.print_json(data=review_local(ref=ref, use_mock=mock))
+    out = review_local(ref=ref, use_mock=mock)
+    if pr is not None:
+        from core.github_api import GitHubClient
+
+        out["github_pr"] = GitHubClient(repo=repo).get_pr(pr)
+    console.print_json(data=out)
 
 
 @app.command("notebook")

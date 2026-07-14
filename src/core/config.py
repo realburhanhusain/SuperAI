@@ -68,6 +68,12 @@ class Config:
         "quality_gate": True,
         "mid_task_memory_refresh": True,
         "step_retry_backoff_sec": 0.05,
+        # Replan HITL (default off for CI/automation)
+        "replan_requires_approval": False,
+        # Critic: off | light | council
+        "critic_mode": "light",
+        # Max one council critique per run when critic_mode=council
+        "council_max_per_run": 1,
     }
 
     def __init__(self, config_path: Optional[str] = None):

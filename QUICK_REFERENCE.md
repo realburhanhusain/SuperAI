@@ -35,6 +35,10 @@ superai run "hello" --format json
 | `scripts/bootstrap.ps1` / `bootstrap.sh` | pip install SuperAI + host-tools dry-run/live |
 | `cli-run` … `--context/--no-context` · `--memory/--no-memory` | Central Memory Palace inject + write-back (default on) |
 | Config `central_memory` / env `SUPERAI_CENTRAL_MEMORY` | Master switch for shared Memory Palace |
+| `run "task" --critic off\|light\|council` | Critic mode (default light) |
+| `run "task" --replan-approval` | HITL must approve recovery replan |
+| `run "task" --with-clis claude,aider [--cli-live]` | After plan, multi-CLI fan-out (dry-run default) |
+| `hitl answer <id> approve\|reject` | Answer replan / clarifications |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |
 | `run … --stream -m model` | Stream single-model output |

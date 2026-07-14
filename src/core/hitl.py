@@ -32,12 +32,17 @@ class HITLStore:
         task_id: str,
         question: str,
         context: str = "",
+        *,
+        kind: str = "clarification",
+        payload: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         entry = {
             "id": f"cl-{int(time.time()*1000)}",
             "task_id": task_id,
             "question": question,
             "context": context,
+            "kind": kind,
+            "payload": payload or {},
             "status": "open",
             "answer": None,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -52,9 +57,72 @@ class HITLStore:
                 c["answer"] = answer
                 c["status"] = "answered"
                 c["answered_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                # Normalize replan decisions
+                if (c.get("kind") or "") == "replan_approval":
+                    c["decision"] = self._parse_yes_no(answer)
                 self.save()
                 return c
         return None
+
+    @staticmethod
+    def _parse_yes_no(answer: str) -> str:
+        a = (answer or "").strip().lower()
+        if a in {"y", "yes", "approve", "approved", "ok", "true", "1", "go", "accept"}:
+            return "approved"
+        if a in {"n", "no", "reject", "rejected", "deny", "false", "0", "cancel"}:
+            return "rejected"
+        # free text containing keywords
+        if "approv" in a or a.startswith("yes"):
+            return "approved"
+        if "reject" in a or a.startswith("no"):
+            return "rejected"
+        return "unknown"
+
+    def request_replan_approval(
+        self,
+        task_id: str,
+        steps_summary: List[Dict[str, Any]],
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        """Ask human to approve a recovery replan (opt-in orchestration)."""
+        lines = [
+            f"{i + 1}. {s.get('description') or s.get('step_id')}"
+            for i, s in enumerate(steps_summary[:12])
+        ]
+        question = (
+            "Approve SuperAI recovery replan? "
+            "Answer: approve | reject\n"
+            + ("\n".join(lines) if lines else "(empty plan)")
+        )
+        return self.request_clarification(
+            task_id,
+            question,
+            context=reason[:2000],
+            kind="replan_approval",
+            payload={"steps": steps_summary, "reason": reason},
+        )
+
+    def replan_decision(
+        self, task_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Latest replan_approval for task.
+        Returns None if none; else clarification dict with decision if answered.
+        """
+        items = [
+            c
+            for c in (self.data.get("clarifications") or [])
+            if c.get("task_id") == task_id
+            and (c.get("kind") or "") == "replan_approval"
+        ]
+        if not items:
+            return None
+        # most recent
+        items.sort(key=lambda c: c.get("ts") or "")
+        latest = items[-1]
+        if latest.get("status") == "answered" and not latest.get("decision"):
+            latest["decision"] = self._parse_yes_no(str(latest.get("answer") or ""))
+        return latest
 
     def veto(self, task_id: str, reason: str = "") -> Dict[str, Any]:
         entry = {

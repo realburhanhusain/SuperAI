@@ -38,8 +38,18 @@
 - `metadata.replans_used` — count of recovery plans  
 - `metadata.execution.dep_repairs` — dependency graph repairs  
 
-## Still out of scope (by design)
+## Follow-ups (now implemented)
 
-- Full multi-CLI fan-out inside `run_task` (use `cli-parallel` / MCP)  
-- Human-in-the-loop replan approval (HITL pause already exists separately)  
-- Heavy LLM critique loops beyond one quality rework  
+| Feature | How |
+|---------|-----|
+| HITL replan approval | `replan_requires_approval` / `--replan-approval` → `hitl answer <id> approve` → `--resume` |
+| Critic modes | `critic_mode`: `off` \| `light` \| `council` / `--critic` |
+| Multi-CLI from run | `run --with-clis claude,aider` (`--cli-live` / `--cli-approve`) |
+
+## Config additions
+
+| Key | Default |
+|-----|---------|
+| `replan_requires_approval` | `false` |
+| `critic_mode` | `light` |
+| `council_max_per_run` | `1` |

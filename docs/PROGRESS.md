@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **156 passed**  
+**Tests:** **161 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 

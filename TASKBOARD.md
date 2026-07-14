@@ -49,8 +49,8 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Orchestrator gap close — mid-task adaptation + degraded tracking |
-| **Verify** | `pytest tests/test_orchestrator.py -q` · `docs/ORCHESTRATOR_GAPS.md` |
+| **What** | HITL replan + critic modes + run --with-clis |
+| **Verify** | `pytest tests/test_orchestrator*.py -q` · `docs/ORCHESTRATOR_GAPS.md` |
 
 ### Multi-CLI parallel (new)
 

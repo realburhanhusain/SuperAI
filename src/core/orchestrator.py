@@ -131,6 +131,12 @@ class SuperAIOrchestrator:
         verbose: bool = False,
         resume_task_id: Optional[str] = None,
         pause_on_clarification: bool = True,
+        *,
+        with_clis: Optional[List[str]] = None,
+        cli_dry_run: bool = True,
+        cli_approve: bool = False,
+        critic_mode: Optional[str] = None,
+        replan_requires_approval: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Execute a task using planning, routing, adaptation, and model calls."""
         task = (task or "").strip()
@@ -142,6 +148,19 @@ class SuperAIOrchestrator:
 
         self._degraded = []
         self._adaptation_events = []
+        # Resolve overrides for this run
+        if critic_mode is not None:
+            self.config.config["critic_mode"] = str(critic_mode).lower()
+        if replan_requires_approval is not None:
+            self.config.config["replan_requires_approval"] = bool(
+                replan_requires_approval
+            )
+        run_state_extra = {
+            "council_used": 0,
+            "with_clis": list(with_clis or []),
+            "cli_dry_run": bool(cli_dry_run),
+            "cli_approve": bool(cli_approve),
+        }
 
         # Resume incomplete run
         resumed_completed: List[Dict[str, Any]] = []
@@ -171,7 +190,7 @@ class SuperAIOrchestrator:
                 "steps": resumed_completed,
             }
 
-        # Optional pause when open clarifications exist
+        # Optional pause when open clarifications exist (incl. replan approval)
         if pause_on_clarification:
             open_q = self.hitl.open_clarifications(task_id)
             if open_q:
@@ -184,6 +203,31 @@ class SuperAIOrchestrator:
                     "clarifications": open_q,
                     "steps": resumed_completed,
                 }
+
+        # If a replan was approved while paused, prefer recovery steps on resume
+        pending_replan_steps: Optional[List[ExecutionStep]] = None
+        replan_dec = self.hitl.replan_decision(task_id)
+        if (
+            replan_dec
+            and replan_dec.get("status") == "answered"
+            and replan_dec.get("decision") == "approved"
+            and not replan_dec.get("consumed")
+        ):
+            pending_replan_steps = self._steps_from_hitl_payload(
+                (replan_dec.get("payload") or {}).get("steps") or []
+            )
+            if pending_replan_steps:
+                self._event(
+                    "replan_resume_approved",
+                    clar_id=replan_dec.get("id"),
+                    steps=[s.step_id for s in pending_replan_steps],
+                )
+                # mark consumed so we don't loop forever
+                replan_dec["consumed"] = True
+                try:
+                    self.hitl.save()
+                except Exception:  # noqa: BLE001
+                    pass
 
         # S4 budget pre-check + N20 forecast
         forecast = None
@@ -261,6 +305,10 @@ class SuperAIOrchestrator:
             "selected_model": selected_model,
             "replans_used": 0,
             "budget_guard": budget_guard,
+            "council_used": 0,
+            "with_clis": run_state_extra.get("with_clis") or [],
+            "cli_dry_run": run_state_extra.get("cli_dry_run", True),
+            "cli_approve": run_state_extra.get("cli_approve", False),
         }
 
         try:
@@ -279,16 +327,26 @@ class SuperAIOrchestrator:
             use_llm_plan = bool(self.config.get("prefer_llm_planner", True)) and (
                 not self.config.use_mock
             )
-            plan_steps = self.task_planner.create_plan(
-                task, use_llm=use_llm_plan or None
-            )
+            if pending_replan_steps:
+                plan_steps = pending_replan_steps
+                run_state["replans_used"] = max(
+                    1, int(run_state.get("replans_used") or 0)
+                )
+            else:
+                plan_steps = self.task_planner.create_plan(
+                    task, use_llm=use_llm_plan or None
+                )
             if resumed_completed:
                 done_ids = {
                     int(s.get("step"))
                     for s in resumed_completed
                     if s.get("step") is not None
                 }
-                plan_steps = [s for s in plan_steps if s.step_id not in done_ids]
+                # On approved replan resume, keep completed history but run recovery steps
+                if not pending_replan_steps:
+                    plan_steps = [
+                        s for s in plan_steps if s.step_id not in done_ids
+                    ]
                 step_records.extend(resumed_completed)
             if verbose:
                 self.task_planner.print_plan(plan_steps)
@@ -403,7 +461,6 @@ class SuperAIOrchestrator:
                     and run_state["replans_used"] < max_replans
                     and bool(self.config.get("adapt_on_failure", True))
                 ):
-                    # Mark unrecovered failed steps; replan remaining work
                     new_steps = self._replan_after_failure(
                         task=task,
                         task_type=task_type,
@@ -415,14 +472,69 @@ class SuperAIOrchestrator:
                         verbose=verbose,
                     )
                     if new_steps:
+                        # Optional HITL approval before applying replan
+                        decision = self._maybe_await_replan_approval(
+                            task_id=task_id,
+                            task=task,
+                            new_steps=new_steps,
+                            failed_now=failed_now,
+                            step_records=step_records,
+                            result=result,
+                            verbose=verbose,
+                        )
+                        if decision == "waiting":
+                            # Persist partial progress and stop for human
+                            duration = time.time() - start_time
+                            result.update(
+                                {
+                                    "success": False,
+                                    "status": "waiting_human",
+                                    "message": (
+                                        "Paused: recovery replan awaits approval. "
+                                        "Answer with: superai hitl answer <id> approve|reject "
+                                        "then superai run --resume <task_id>"
+                                    ),
+                                    "model_used": run_state.get("selected_model")
+                                    or selected_model,
+                                    "steps": step_records,
+                                    "duration": round(duration, 3),
+                                    "finished_at": datetime.now(
+                                        timezone.utc
+                                    ).isoformat(),
+                                }
+                            )
+                            result["metadata"]["adaptation_events"] = list(
+                                self._adaptation_events
+                            )
+                            result["metadata"]["degraded"] = list(self._degraded)
+                            result["metadata"]["replans_used"] = run_state[
+                                "replans_used"
+                            ]
+                            try:
+                                self.history.save(result)
+                            except Exception:  # noqa: BLE001
+                                pass
+                            return result
+                        if decision == "rejected":
+                            self._event(
+                                "replan_rejected",
+                                attempt=run_state["replans_used"] + 1,
+                            )
+                            if verbose:
+                                console.print(
+                                    "[yellow]→ Recovery replan rejected by human[/yellow]"
+                                )
+                            break
+                        # approved or not required
                         run_state["replans_used"] += 1
                         self._event(
                             "replan",
                             attempt=run_state["replans_used"],
                             new_steps=[s.step_id for s in new_steps],
                             after_failures=[s.get("step") for s in failed_now],
+                            approved=decision == "approved"
+                            or decision == "auto",
                         )
-                        # Avoid re-running original failed steps; only new plan
                         plan_steps = new_steps
                         if verbose:
                             console.print(
@@ -456,6 +568,33 @@ class SuperAIOrchestrator:
                 final_output = step_records[0]["result"]
             else:
                 final_output = "No result generated."
+
+            # Optional multi-CLI fan-out (agentic) after main plan
+            cli_bundle = None
+            if run_state.get("with_clis"):
+                cli_bundle = self._run_with_clis(
+                    task=task,
+                    clis=list(run_state["with_clis"]),
+                    dry_run=bool(run_state.get("cli_dry_run", True)),
+                    approve=bool(run_state.get("cli_approve", False)),
+                    verbose=verbose,
+                )
+                result["metadata"]["cli_parallel"] = {
+                    "workflow_id": (cli_bundle or {}).get("workflow_id"),
+                    "succeeded": (cli_bundle or {}).get("succeeded"),
+                    "failed": (cli_bundle or {}).get("failed"),
+                    "dry_run": run_state.get("cli_dry_run"),
+                }
+                synth = ((cli_bundle or {}).get("synthesis") or {}).get("text")
+                if synth:
+                    final_output = (
+                        f"{final_output}\n\n--- Multi-CLI synthesis ---\n{synth}"
+                    )
+                    self._event(
+                        "with_clis",
+                        clis=run_state["with_clis"],
+                        workflow_id=(cli_bundle or {}).get("workflow_id"),
+                    )
 
             any_failed = bool(failed_steps)
             all_failed = bool(step_records) and len(failed_steps) == len(step_records)
@@ -971,7 +1110,13 @@ class SuperAIOrchestrator:
                         raise RuntimeError(status_err)
 
                     ok, reason = self._quality_ok(step_output)
-                    if not ok and adapt and attempt < attempts:
+                    critic = str(
+                        self.config.get("critic_mode") or "light"
+                    ).lower()
+                    if critic == "off":
+                        ok, reason = True, "critic_off"
+
+                    if not ok and adapt and critic in {"light", "council"}:
                         self._event(
                             "quality_retry",
                             step=step.step_id,
@@ -979,7 +1124,7 @@ class SuperAIOrchestrator:
                             reason=reason,
                             attempt=attempt,
                         )
-                        # One rework prompt
+                        # Light rework prompt
                         rework = (
                             f"Previous output failed quality gate ({reason}). "
                             f"Improve and complete:\n{step.description}\n\n"
@@ -997,7 +1142,39 @@ class SuperAIOrchestrator:
                                 call_result.get("estimated_cost_usd") or cost
                             )
 
-                    if not ok:
+                    # Council critic: high complexity or still failing quality
+                    complexity = (
+                        getattr(step, "estimated_complexity", "") or ""
+                    ).lower()
+                    need_council = critic == "council" and (
+                        complexity == "high"
+                        or not ok
+                        or "architect" in (step.description or "").lower()
+                    )
+                    max_c = int(self.config.get("council_max_per_run") or 1)
+                    if (
+                        need_council
+                        and adapt
+                        and int(run_state.get("council_used") or 0) < max_c
+                    ):
+                        improved, cmeta = self._council_critique_step(
+                            step=step,
+                            draft=str(step_output or ""),
+                            task=task,
+                        )
+                        run_state["council_used"] = int(
+                            run_state.get("council_used") or 0
+                        ) + 1
+                        if improved:
+                            step_output = improved
+                            ok, reason = self._quality_ok(step_output)
+                            self._event(
+                                "council_critic",
+                                step=step.step_id,
+                                **(cmeta or {}),
+                            )
+
+                    if critic != "off" and not ok:
                         raise RuntimeError(f"quality_gate:{reason}")
 
                     # Success
@@ -1172,6 +1349,202 @@ class SuperAIOrchestrator:
         # Light task framing
         prompt_parts.append(f"\n(Overall task: {task[:500]})")
         return "\n".join(prompt_parts)
+
+    def _maybe_await_replan_approval(
+        self,
+        task_id: str,
+        task: str,
+        new_steps: List[ExecutionStep],
+        failed_now: List[Dict[str, Any]],
+        step_records: List[Dict[str, Any]],
+        result: Dict[str, Any],
+        verbose: bool,
+    ) -> str:
+        """
+        Returns: auto | approved | rejected | waiting
+        """
+        require = bool(self.config.get("replan_requires_approval", False))
+        # Non-interactive without explicit approval requirement → auto
+        non_interactive = bool(
+            self.config.get("non_interactive")
+            or self.config.use_mock
+            and not require
+        )
+        if not require:
+            return "auto"
+
+        # Already decided?
+        latest = self.hitl.replan_decision(task_id)
+        if latest and latest.get("status") == "answered":
+            dec = latest.get("decision") or self.hitl._parse_yes_no(
+                str(latest.get("answer") or "")
+            )
+            if dec == "approved":
+                return "approved"
+            if dec == "rejected":
+                return "rejected"
+
+        if latest and latest.get("status") == "open":
+            result["clarifications"] = [latest]
+            result["metadata"]["pending_replan"] = [
+                {"step_id": s.step_id, "description": s.description}
+                for s in new_steps
+            ]
+            return "waiting"
+
+        # Create approval request
+        summary = [
+            {
+                "step_id": s.step_id,
+                "description": s.description,
+                "depends_on": list(s.depends_on or []),
+                "role": s.role,
+                "estimated_complexity": s.estimated_complexity,
+                "can_run_parallel": s.can_run_parallel,
+                "recommended_model": s.recommended_model,
+            }
+            for s in new_steps
+        ]
+        reason = (
+            f"Task: {task[:300]}\n"
+            f"Failures: "
+            + "; ".join(
+                f"step {f.get('step')}: {f.get('error')}" for f in failed_now[:5]
+            )
+        )
+        entry = self.hitl.request_replan_approval(
+            task_id, summary, reason=reason
+        )
+        result["clarifications"] = [entry]
+        result["metadata"]["pending_replan"] = summary
+        self._event(
+            "replan_awaiting_approval",
+            clar_id=entry.get("id"),
+            steps=[s.step_id for s in new_steps],
+        )
+        # Checkpoint so resume works
+        self._soft(
+            "checkpoint_replan_wait",
+            lambda: self.step_cache.save_run_checkpoint(
+                task_id,
+                task,
+                completed_steps=list(step_records),
+                remaining_step_ids=[s.step_id for s in new_steps],
+                metadata={
+                    "pending_replan": summary,
+                    "clar_id": entry.get("id"),
+                },
+            ),
+            result=result,
+        )
+        if verbose:
+            console.print(
+                f"[yellow]→ Replan needs approval "
+                f"(hitl id={entry.get('id')}): "
+                f"superai hitl answer {entry.get('id')} approve[/yellow]"
+            )
+        # non_interactive + require approval → wait (caller returns waiting_human)
+        _ = non_interactive
+        return "waiting"
+
+    def _steps_from_hitl_payload(
+        self, raw: List[Dict[str, Any]]
+    ) -> List[ExecutionStep]:
+        out: List[ExecutionStep] = []
+        for i, item in enumerate(raw or []):
+            if not isinstance(item, dict):
+                continue
+            try:
+                out.append(
+                    ExecutionStep(
+                        step_id=int(item.get("step_id") or (i + 1)),
+                        description=str(
+                            item.get("description") or f"recovery step {i + 1}"
+                        ),
+                        depends_on=[
+                            int(d) for d in (item.get("depends_on") or [])
+                        ],
+                        recommended_model=str(
+                            item.get("recommended_model") or "auto"
+                        ),
+                        estimated_complexity=str(
+                            item.get("estimated_complexity") or "Medium"
+                        ),
+                        can_run_parallel=bool(item.get("can_run_parallel")),
+                        role=str(item.get("role") or "worker"),
+                    )
+                )
+            except Exception:  # noqa: BLE001
+                continue
+        return out
+
+    def _council_critique_step(
+        self,
+        step: ExecutionStep,
+        draft: str,
+        task: str,
+    ) -> Tuple[Optional[str], Dict[str, Any]]:
+        """Optional multi-model council critique for a single step output."""
+        try:
+            from .council import Council
+
+            topic = (
+                f"Improve this step for overall task.\n"
+                f"Overall: {task[:400]}\n"
+                f"Step: {step.description}\n"
+                f"Draft:\n{draft[:3000]}\n"
+                "Vote on the best improved approach; summary should be the improved text."
+            )
+            out = Council(caller=self.model_caller, registry=self.model_registry).run(
+                topic,
+                with_critique=True,
+            )
+            decision = out.get("decision") or {}
+            # Prefer decision summary / winner text
+            text = (
+                decision.get("summary")
+                or decision.get("winner_summary")
+                or decision.get("rationale")
+            )
+            if not text and out.get("proposals"):
+                text = (out["proposals"][0] or {}).get("summary")
+            if text and len(str(text).strip()) >= 8:
+                return str(text), {
+                    "voting_mode": out.get("voting_mode"),
+                    "members": out.get("members"),
+                }
+            return None, {"note": "council produced no usable summary"}
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Council critic failed: %s", e)
+            self._degraded.append(
+                {"feature": "council_critic", "error": str(e)[:300]}
+            )
+            return None, {"error": str(e)[:200]}
+
+    def _run_with_clis(
+        self,
+        task: str,
+        clis: List[str],
+        *,
+        dry_run: bool = True,
+        approve: bool = False,
+        verbose: bool = False,
+    ) -> Dict[str, Any]:
+        """Fan-out external CLIs through ParallelCLIManager (shared Memory Palace)."""
+        from .cli_pool import ParallelCLIManager
+
+        if verbose:
+            console.print(
+                f"[cyan]→ Multi-CLI fan-out: {clis} "
+                f"(dry_run={dry_run})[/cyan]"
+            )
+        return ParallelCLIManager().run_agentic_parallel(
+            task,
+            clis=clis,
+            max_workers=max(1, min(4, len(clis))),
+            dry_run=dry_run,
+            auto_approve=approve or dry_run,
+        )
 
     def _replan_after_failure(
         self,

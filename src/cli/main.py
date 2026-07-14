@@ -214,6 +214,31 @@ def run(
     stream: bool = typer.Option(
         False, "--stream", help="S1: stream model tokens when available"
     ),
+    with_clis: Optional[str] = typer.Option(
+        None,
+        "--with-clis",
+        help="Comma-separated external CLIs after plan (e.g. claude,aider)",
+    ),
+    cli_live: bool = typer.Option(
+        False,
+        "--cli-live",
+        help="With --with-clis: execute CLIs live (default dry-run)",
+    ),
+    cli_approve: bool = typer.Option(
+        False,
+        "--cli-approve",
+        help="With --with-clis: approve file-modifying CLIs for live runs",
+    ),
+    critic: Optional[str] = typer.Option(
+        None,
+        "--critic",
+        help="Critic mode for this run: off | light | council (default: config)",
+    ),
+    replan_approval: Optional[bool] = typer.Option(
+        None,
+        "--replan-approval/--no-replan-approval",
+        help="Require HITL approval before recovery replan",
+    ),
 ):
     """Run a task using SuperAI orchestration (mock by default)"""
     try:
@@ -247,6 +272,12 @@ def run(
             except Exception:  # noqa: BLE001
                 pass
 
+        cli_list = (
+            [c.strip() for c in with_clis.split(",") if c.strip()]
+            if with_clis
+            else None
+        )
+
         if stream and model:
             # S1: simple stream of a single model response (bypass multi-step for demo)
             console.print(f"[dim]Streaming {model}…[/dim]")
@@ -268,6 +299,11 @@ def run(
                 forced_model=model,
                 verbose=verbose,
                 resume_task_id=resume,
+                with_clis=cli_list,
+                cli_dry_run=not cli_live,
+                cli_approve=cli_approve or (not cli_live),
+                critic_mode=critic,
+                replan_requires_approval=replan_approval,
             )
 
         if output:
@@ -275,24 +311,56 @@ def run(
                 json.dump(result, f, indent=2, default=str)
             console.print(f"[green]Result saved to {output}[/green]")
 
+        if result.get("status") == "waiting_human":
+            clars = result.get("clarifications") or []
+            cid = (clars[0] or {}).get("id") if clars else None
+            console.print(
+                Panel(
+                    f"[bold yellow]Waiting for human[/bold yellow]\n"
+                    f"Task ID: {result.get('task_id')}\n"
+                    f"{result.get('message')}\n"
+                    + (
+                        f"Answer: superai hitl answer {cid} approve\n"
+                        f"Resume: superai run \"{task}\" --resume {result.get('task_id')}"
+                        if cid
+                        else ""
+                    ),
+                    title="HITL",
+                    border_style="yellow",
+                )
+            )
+            raise typer.Exit(code=2)
+
         if output_format.lower() == "json":
             console.print_json(data=result)
         else:
             summary = result.get("result") or result.get("message") or ""
             status = result.get("status", "unknown")
             color = "green" if result.get("success") else "yellow"
+            meta = result.get("metadata") or {}
+            extra = ""
+            if meta.get("cli_parallel"):
+                extra += f"\n[bold]CLIs:[/bold] {meta.get('cli_parallel')}"
+            if meta.get("adaptation_events"):
+                extra += (
+                    f"\n[dim]adaptation events: "
+                    f"{len(meta.get('adaptation_events') or [])}[/dim]"
+                )
             console.print(
                 Panel(
                     f"[bold]Status:[/bold] {status}\n"
                     f"[bold]Task ID:[/bold] {result.get('task_id')}\n"
                     f"[bold]Model:[/bold] {result.get('model_used')}\n"
                     f"[bold]Duration:[/bold] {result.get('duration')}s\n"
-                    f"[bold]Mode:[/bold] {result.get('mode')}\n\n"
+                    f"[bold]Mode:[/bold] {result.get('mode')}\n"
+                    f"{extra}\n\n"
                     f"{summary}",
                     title="Result",
                     border_style=color,
                 )
             )
+    except typer.Exit:
+        raise
     except Exception as e:  # noqa: BLE001
         _print_error(e, debug=debug)
         raise typer.Exit(code=1) from e
@@ -2065,6 +2133,11 @@ def hitl_cmd(
         if not r:
             raise typer.Exit(1)
         console.print_json(data=r)
+        if (r.get("kind") or "") == "replan_approval":
+            console.print(
+                f"[dim]Replan decision={r.get('decision')}. "
+                f"Resume: superai run \"…\" --resume {r.get('task_id')}[/dim]"
+            )
         return
     if action == "veto":
         if not task_id:

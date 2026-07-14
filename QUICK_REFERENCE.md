@@ -46,6 +46,8 @@ superai run "hello" --format json
 | `search-web "q" --provider duckduckgo` | Instant Answer API (no scrape) |
 | `github status\|issues\|prs\|issue-create\|pr\|comment` | GitHub product API / gh CLI |
 | Env `SUPERAI_FAISS_INDEX=hnsw` | FAISS HNSW vector index (G13) |
+| `config set cli_delegate_workers true` | Orchestrator delegates worker steps to external CLIs |
+| `run "…" --model cli:claude` | Force step execution via external CLI (integrated) |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |
 | `run … --stream -m model` | Stream single-model output |

@@ -16,6 +16,7 @@
 | **Wings/Rooms first-class + embedding/wing clustering** | **Implemented** |
 | **Palace browser + cluster→room auto-promote (P3)** | **Implemented** |
 | **LearningEngine mid-task adaptation + smarter distill/conflicts** | **Implemented** |
+| **External CLI SuperAI-integrated delegation (context/memory/audit)** | **Implemented** |
 | **Central Memory Palace for all SuperAI-mediated AIs** | **Implemented** |
 | Learning, skills, preferences, constitution | **Implemented** |
 | Encrypted backup + key export + rclone hooks | **Implemented** |

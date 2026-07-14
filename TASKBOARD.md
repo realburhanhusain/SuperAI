@@ -55,8 +55,8 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-15 |
-| **What** | LearningEngine mid-task + smarter conflict/distill |
-| **Verify** | `pytest tests/test_learning_engine_gaps.py -q` · `docs/LEARNING_ENGINE_GAPS.md` |
+| **What** | External CLI ↔ orchestrator/Memory Palace integration |
+| **Verify** | `pytest tests/test_external_cli_integration.py -q` · `docs/EXTERNAL_CLI_GAPS.md` |
 
 ### Multi-CLI parallel (new)
 

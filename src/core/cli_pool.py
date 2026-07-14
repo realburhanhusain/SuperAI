@@ -257,6 +257,8 @@ class ParallelCLIManager:
                 tool = ExternalCLITool(
                     auto_approve=auto_approve or dry_run,
                     dry_run=dry_run,
+                    with_context=with_context,
+                    write_memory=True,
                 )
                 # If CLI not on PATH, force dry-run so parallel demos still work
                 force_dry = False
@@ -270,10 +272,21 @@ class ParallelCLIManager:
                     tool.dry_run = True
                     force_dry = True
 
+                # Role from job for supervisor–worker framing
+                role_name = "worker"
+                with self._lock:
+                    role_name = self.jobs[jid].role or "worker"
+
                 env = tool.run(
                     cli_name,
                     prompt,
                     approve=auto_approve or tool.dry_run,
+                    with_context=with_context,
+                    write_memory=True,
+                    role=role_name,
+                    workflow_id=wid,
+                    source="cli_pool",
+                    task_type="coding",
                 )
                 finished_at = time.time()
                 duration = round(finished_at - (started_at or finished_at), 3)

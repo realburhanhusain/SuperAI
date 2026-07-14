@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **183 passed**  
+**Tests:** **189 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -30,6 +30,7 @@
 
 ### Latest highlights
 
+- **External CLI deep integration** — Memory Palace + learning + audit; orchestrator `cli_delegate_workers` (`docs/EXTERNAL_CLI_GAPS.md`)  
 - **LearningEngine gaps closed** — mid-task learn/context, entropy conflicts, Jaccard distill (`docs/LEARNING_ENGINE_GAPS.md`)  
 - **G13–G15 code closed** — FAISS HNSW, DuckDuckGo Instant Answer, GitHub issues/PRs API  
 - **Memory Palace P3** — cluster→room promote + palace browser (CLI/dashboard/web)  

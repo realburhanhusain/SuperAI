@@ -1092,6 +1092,42 @@ class SuperAIOrchestrator:
                 verbose=verbose,
             )
 
+        # Supervisor–worker: optionally delegate implementer/worker steps to external CLIs
+        # (tight ExternalCLI ↔ orchestrator integration; ModelCaller routes cli:*)
+        if (
+            not forced_model
+            and not str(primary).startswith("cli:")
+            and bool(self.config.get("cli_delegate_workers", False))
+            and role in {"worker", "implementer", "tester"}
+        ):
+            try:
+                from .external_cli import ExternalCLIRegistry
+
+                reg = ExternalCLIRegistry()
+                pref = self.config.get("cli_delegate_preferred")
+                pick = (
+                    str(pref)
+                    if pref and pref in reg.available()
+                    else reg.pick_for_role(
+                        "implementer" if role == "worker" else role
+                    )
+                )
+                if pick:
+                    primary = f"cli:{pick}"
+                    self._event(
+                        "cli_delegate",
+                        step=step.step_id,
+                        role=role,
+                        cli=pick,
+                    )
+                    if verbose:
+                        console.print(
+                            f"[cyan]→ Delegating step {step.step_id} "
+                            f"to external CLI {primary} ({role})[/cyan]"
+                        )
+            except Exception as e:  # noqa: BLE001
+                logger.debug("cli_delegate_workers skipped: %s", e)
+
         models_to_try = [primary] + self._failover_candidates(primary, step.description)
         max_retries = max(0, int(self.config.get("max_step_retries") or 0))
         backoff = float(self.config.get("step_retry_backoff_sec") or 0.05)

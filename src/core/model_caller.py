@@ -298,19 +298,19 @@ class ModelCaller:
         )
 
     def _call_external_cli(self, model: str, prompt: str) -> Dict[str, Any]:
-        """Invoke dual-registered external CLI as if it were a model."""
+        """
+        Invoke dual-registered external CLI as if it were a model.
+
+        SuperAI integration (context inject, Memory Palace write-back, audit)
+        lives in ExternalCLITool.run — single path for orchestrator / cli_pool / here.
+        """
         from .config import Config
-        from .external_cli import ExternalCLITool
-        from .mcp_context import MCPContextPack
+        from .external_cli import ExternalCLIRegistry, ExternalCLITool
 
         cli_name = model.split(":", 1)[-1] if ":" in model else model
         info = self.registry.get_model(model) if self.registry else None
         if info and info.model_id:
             cli_name = info.model_id
-
-        # Attach MCP context automatically for external workers
-        pack = MCPContextPack().build(task=prompt, auto_memory=True, auto_skills=True)
-        wrapped = MCPContextPack().wrap_cli_prompt(pack, prompt)
 
         # Honor require_human_approval — never hardcode auto_approve for live CLIs
         require_approval = True
@@ -321,8 +321,6 @@ class ModelCaller:
 
         dry = bool(self.use_mock)
         try:
-            from .external_cli import ExternalCLIRegistry
-
             avail = ExternalCLIRegistry().available()
             if cli_name not in avail:
                 dry = True
@@ -339,7 +337,7 @@ class ModelCaller:
 
                 approved = prompt_approval(
                     f"External CLI `{cli_name}`",
-                    detail=wrapped[:1500],
+                    detail=prompt[:1500],
                     default=False,
                 )
             except Exception:
@@ -350,29 +348,37 @@ class ModelCaller:
         tool = ExternalCLITool(
             auto_approve=approved,
             dry_run=dry,
+            with_context=True,
+            write_memory=True,
         )
         env = tool.run(
             cli_name,
-            wrapped,
+            prompt,
             approve=approved,
+            source="model_caller",
+            task_type="coding",
+            role="worker",
         )
         text = env.stdout or env.stderr or env.error or ""
+        ctx_id = (env.metadata or {}).get("context_id")
         if tool.dry_run and not text:
             text = (
-                f"[external_cli:{cli_name} dry-run] Would execute with context "
-                f"{pack.get('id')}. Prompt length={len(wrapped)}."
+                f"[external_cli:{cli_name} dry-run] SuperAI-integrated delegation "
+                f"context={ctx_id}."
             )
         ok = env.ok or tool.dry_run
         return {
             "status": "success" if ok else "error",
             "response": text or env.error,
             "provider": "external_cli",
-            "model": model,
+            "model": model if str(model).startswith("cli:") else f"cli:{cli_name}",
             "mock": bool(tool.dry_run),
-            "usage": {"total_tokens": max(1, len(wrapped) // 4)},
+            "usage": {"total_tokens": max(1, len(prompt) // 4)},
             "estimated_cost_usd": 0.0,
             "external_cli": env.to_dict() if hasattr(env, "to_dict") else {},
-            "context_id": pack.get("id"),
+            "context_id": ctx_id,
+            "memory_write": (env.metadata or {}).get("memory_write"),
+            "integrated": True,
         }
 
     def _call_provider(

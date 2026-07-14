@@ -74,6 +74,10 @@ class Config:
         "critic_mode": "light",
         # Max one council critique per run when critic_mode=council
         "council_max_per_run": 1,
+        # Delegate worker/implementer steps to external CLIs (cli:*) when available
+        "cli_delegate_workers": False,
+        # Prefer this CLI name when delegating (else pick_for_role)
+        "cli_delegate_preferred": None,
     }
 
     def __init__(self, config_path: Optional[str] = None):

@@ -24,3 +24,15 @@
 ## Defaults wings
 
 technical · operations · product · learning · agentic
+
+## P3 — cluster → rooms + palace browser
+
+| Feature | API / CLI |
+|---------|-----------|
+| Suggest rooms from clusters | `suggest_rooms_from_clusters` · `memory-palace suggest` |
+| Auto-promote rooms into catalog | `auto_promote_rooms(apply=…)` · `memory-palace promote [--apply] [--reassign]` |
+| Browser snapshot | `browser_snapshot` · `memory-palace snapshot` · dashboard Memory panel · web `/palace` |
+| Web API | `GET /api/palace` · `GET /api/palace/suggest` · `POST /api/palace/promote` |
+| MCP | `superai_memory_palace` actions: `suggest` · `promote` · `snapshot` |
+
+Promote is **dry-run by default** (`--apply` to write). `--reassign` also updates memory metadata wing/room for cluster members.

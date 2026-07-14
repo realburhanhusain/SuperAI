@@ -14,6 +14,7 @@
 | Scoring router + bandit + failover chain + A/B | **Implemented** |
 | Memory Palace (Chroma / FAISS / in-memory) | **Implemented** |
 | **Wings/Rooms first-class + embedding/wing clustering** | **Implemented** |
+| **Palace browser + cluster→room auto-promote (P3)** | **Implemented** |
 | **Central Memory Palace for all SuperAI-mediated AIs** | **Implemented** |
 | Learning, skills, preferences, constitution | **Implemented** |
 | Encrypted backup + key export + rclone hooks | **Implemented** |

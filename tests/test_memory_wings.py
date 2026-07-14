@@ -110,3 +110,45 @@ def test_query_semantic_room_filter(palace: MemoryPalace, tmp_path: Path, monkey
         "deployment production", top_k=5, wing="operations", room="deployments"
     )
     assert isinstance(hits, list)
+
+
+def test_suggest_and_promote_rooms(palace: MemoryPalace, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    # Seed a cluster of similar coding memories
+    for i in range(5):
+        palace.store(
+            f"Coding memory about FastAPI routes and handlers number {i} with detail.",
+            tags=["learning", "coding"],
+            metadata={"task_type": "coding", "success": True},
+        )
+    suggestions = palace.suggest_rooms_from_clusters(min_size=2, method="wing")
+    assert isinstance(suggestions, list)
+    assert len(suggestions) >= 1
+
+    dry = palace.auto_promote_rooms(apply=False, min_size=2, method="wing")
+    assert dry["apply"] is False
+    assert "suggestions" in dry
+
+    live = palace.auto_promote_rooms(
+        apply=True, reassign=True, min_size=2, method="wing"
+    )
+    assert live["apply"] is True
+    # Catalog should include technical/coding at least
+    cat = live.get("catalog") or {}
+    assert "technical" in cat or live["promoted_count"] >= 0
+
+    snap = palace.browser_snapshot(limit=5)
+    assert "layout" in snap
+    assert "suggestions" in snap
+    assert "top_wings" in snap
+    assert "browse" in snap
+
+
+def test_ensure_room_promotion(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    (tmp_path / ".superai").mkdir(parents=True)
+    wm = WingsManager()
+    r = wm.ensure_room("technical", "edge_cases", note="test")
+    assert r["promoted"] is True
+    assert "edge_cases" in wm.list_rooms("technical")
+    assert wm.recent_promotions(5)

@@ -176,6 +176,14 @@ def build_dashboard_snapshot(
     except Exception as e:  # noqa: BLE001
         snap["central_memory"] = {"error": str(e)}
 
+    # Memory Palace browser (wings/rooms + cluster suggestions)
+    try:
+        from .memory_palace import MemoryPalace
+
+        snap["palace"] = MemoryPalace().browser_snapshot(limit=8)
+    except Exception as e:  # noqa: BLE001
+        snap["palace"] = {"error": str(e)}
+
     return snap
 
 

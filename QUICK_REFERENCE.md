@@ -39,9 +39,10 @@ superai run "hello" --format json
 | `run "task" --replan-approval` | HITL must approve recovery replan |
 | `run "task" --with-clis claude,aider [--cli-live]` | After plan, multi-CLI fan-out (dry-run default) |
 | `hitl answer <id> approve\|reject` | Answer replan / clarifications |
-| `memory-palace layout\|browse\|search` | Palace by wing/room + filtered search |
+| `memory-palace layout\|browse\|search\|suggest\|promote\|snapshot` | Palace browser + room promotion |
 | `memory-clusters --method auto\|embedding\|wing\|tag` | Memory clustering |
 | `wings list\|stats\|browse\|assign\|sync` | Wings & rooms navigation |
+| `web` → `/palace` | Interactive Memory Palace browser |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |
 | `run … --stream -m model` | Stream single-model output |

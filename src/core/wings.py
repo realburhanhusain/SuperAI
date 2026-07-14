@@ -302,3 +302,89 @@ class WingsManager:
                 self.assign(str(mid), str(wing), str(room), note="sync_from_metadata")
                 n += 1
         return n
+
+    def ensure_room(self, wing: str, room: str, *, note: str = "") -> Dict[str, Any]:
+        """Create wing/room in catalog if missing (auto-promote)."""
+        room = self._slug_room(room)
+        wings = self.list_wings()
+        if wing not in wings:
+            wings[wing] = {
+                "description": f"Auto-promoted wing ({note or 'cluster'})",
+                "rooms": [room],
+            }
+        else:
+            rooms = list(wings[wing].get("rooms") or [])
+            if room not in rooms:
+                rooms.append(room)
+                wings[wing]["rooms"] = rooms
+        self.data["wings"] = wings
+        self.data.setdefault("promotions", []).append(
+            {
+                "wing": wing,
+                "room": room,
+                "note": note,
+                "ts": __import__("time").strftime(
+                    "%Y-%m-%dT%H:%M:%SZ", __import__("time").gmtime()
+                ),
+            }
+        )
+        self.data["promotions"] = (self.data.get("promotions") or [])[-200:]
+        self.save()
+        return {"wing": wing, "room": room, "promoted": True}
+
+    @staticmethod
+    def _slug_room(name: str) -> str:
+        s = re.sub(r"[^a-zA-Z0-9_]+", "_", (name or "general").strip().lower())
+        s = re.sub(r"_+", "_", s).strip("_")
+        return (s or "general")[:48]
+
+    def suggest_room_from_cluster(
+        self,
+        cluster: Dict[str, Any],
+        *,
+        min_size: int = 3,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Map a cluster dict (from MemoryPalace.cluster_memories) to a suggested wing/room.
+        """
+        size = int(cluster.get("size") or 0)
+        if size < min_size:
+            return None
+        label = str(
+            cluster.get("label")
+            or cluster.get("cluster")
+            or ""
+        )
+        wing = cluster.get("wing")
+        room = cluster.get("room")
+        # Parse emb:technical/coding or technical/coding
+        if not wing or not room:
+            clean = label.replace("emb:", "").replace("emb-", "")
+            if "/" in clean:
+                parts = clean.split("/", 1)
+                wing = wing or parts[0]
+                room = room or parts[1]
+            else:
+                # use cluster key as room candidate under best wing
+                mapped = self.classify_task_type(clean, content=str(cluster.get("sample") or ""))
+                wing = wing or mapped["wing"]
+                room = room or self._slug_room(clean if clean not in {"general", ""} else mapped["room"])
+        wing = str(wing or "learning")
+        room = self._slug_room(str(room or "general"))
+        # Skip if already in catalog
+        catalog = self.list_wings()
+        known = room in (catalog.get(wing) or {}).get("rooms", [])
+        return {
+            "wing": wing,
+            "room": room,
+            "size": size,
+            "cluster": cluster.get("cluster"),
+            "sample": (cluster.get("sample") or "")[:120],
+            "ids": list(cluster.get("ids") or [])[:20],
+            "already_in_catalog": known,
+            "confidence": min(1.0, 0.4 + 0.1 * size),
+            "reason": f"cluster '{cluster.get('cluster')}' size={size} method={cluster.get('method')}",
+        }
+
+    def recent_promotions(self, limit: int = 20) -> List[Dict[str, Any]]:
+        return list(reversed(self.data.get("promotions") or []))[:limit]

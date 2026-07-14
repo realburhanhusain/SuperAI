@@ -2219,28 +2219,49 @@ def memory_clusters_cmd(
 def memory_palace_cmd(
     action: str = typer.Argument(
         "layout",
-        help="layout | browse | search",
+        help="layout | browse | search | suggest | promote | snapshot",
     ),
     wing: Optional[str] = typer.Option(None, "--wing", "-w"),
     room: Optional[str] = typer.Option(None, "--room", "-r"),
     query: Optional[str] = typer.Option(None, "--query", "-q"),
     limit: int = typer.Option(20, "--limit", "-n"),
+    apply: bool = typer.Option(
+        False, "--apply", help="promote: write rooms into wings catalog"
+    ),
+    reassign: bool = typer.Option(
+        False, "--reassign", help="promote: also re-tag memory metadata"
+    ),
+    min_size: int = typer.Option(3, "--min-size", help="Min cluster size to promote"),
+    method: str = typer.Option("auto", "--method", help="Cluster method"),
 ):
-    """Browse Memory Palace by wings/rooms or semantic search with location filters"""
+    """Browse Memory Palace by wings/rooms; suggest/promote rooms from clusters"""
     from core.memory_palace import MemoryPalace
+    from rich.table import Table
 
     mp = MemoryPalace()
     if action == "layout":
         console.print_json(data=mp.palace_layout())
         return
+    if action == "snapshot":
+        console.print_json(data=mp.browser_snapshot(wing=wing, room=room, limit=limit))
+        return
     if action == "browse":
-        console.print_json(
-            data={
-                "items": mp.query_by_location(wing=wing, room=room, limit=limit),
-                "wing": wing,
-                "room": room,
-            }
-        )
+        items = mp.query_by_location(wing=wing, room=room, limit=limit)
+        table = Table(title=f"Palace browse wing={wing or '*'} room={room or '*'}")
+        table.add_column("id", max_width=14)
+        table.add_column("wing")
+        table.add_column("room")
+        table.add_column("content", max_width=50)
+        for m in items:
+            meta = m.get("metadata") or {}
+            table.add_row(
+                str(m.get("id") or "")[:14],
+                str(m.get("wing") or meta.get("wing") or ""),
+                str(m.get("room") or meta.get("room") or ""),
+                (m.get("content") or "")[:50].replace("\n", " "),
+            )
+        console.print(table)
+        console.print(f"[dim]{len(items)} item(s) · also: superai memory-palace snapshot[/dim]")
         return
     if action == "search":
         if not query:
@@ -2251,7 +2272,31 @@ def memory_palace_cmd(
         )
         console.print_json(data={"query": query, "wing": wing, "room": room, "hits": hits})
         return
-    console.print("[red]action: layout | browse | search[/red]")
+    if action == "suggest":
+        console.print_json(
+            data=mp.suggest_rooms_from_clusters(
+                limit=max(limit, 50), min_size=min_size, method=method
+            )
+        )
+        return
+    if action == "promote":
+        report = mp.auto_promote_rooms(
+            apply=apply,
+            reassign=reassign,
+            limit=max(limit, 100),
+            min_size=min_size,
+            method=method,
+        )
+        console.print_json(data=report)
+        if not apply:
+            console.print(
+                "[dim]Dry-run. Apply: superai memory-palace promote --apply "
+                "[--reassign][/dim]"
+            )
+        return
+    console.print(
+        "[red]action: layout | browse | search | suggest | promote | snapshot[/red]"
+    )
     raise typer.Exit(1)
 
 

@@ -49,8 +49,8 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-14 |
-| **What** | Memory Palace wings/rooms + embedding clustering |
-| **Verify** | `pytest tests/test_memory_wings.py -q` · `docs/MEMORY_PALACE_GAPS.md` |
+| **What** | Memory Palace P3 — promote rooms + browser |
+| **Verify** | `pytest tests/test_memory_wings.py -q` · `memory-palace snapshot` |
 
 ### Multi-CLI parallel (new)
 

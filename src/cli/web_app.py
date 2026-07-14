@@ -92,7 +92,8 @@ def create_app() -> Any:
 <h1>SuperAI Memory Query</h1>
 <p>Shared surface for terminal + web (Mempalace-inspired).
  <a href="/dashboard">Dashboard</a> · <a href="/cli-pool">CLI Pool</a> ·
- <a href="/terminals">Terminals</a> · <a href="/mcp">MCP</a> ·
+ <a href="/terminals">Terminals</a> · <a href="/palace">Palace</a> ·
+ <a href="/mcp">MCP</a> ·
  <a href="/charts">Charts</a> · <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
@@ -175,6 +176,108 @@ async function status(){
         from core.wings import WingsManager
 
         return WingsManager().list_wings()
+
+    @app.get("/api/palace")
+    def api_palace(
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
+        limit: int = Query(12, ge=1, le=50),
+    ) -> Dict[str, Any]:
+        """Memory Palace browser snapshot (layout, clusters, suggestions)."""
+        from core.memory_palace import MemoryPalace
+
+        return MemoryPalace().browser_snapshot(wing=wing, room=room, limit=limit)
+
+    @app.get("/api/palace/suggest")
+    def api_palace_suggest(
+        min_size: int = Query(3, ge=1, le=50),
+        method: str = Query("auto"),
+    ) -> Dict[str, Any]:
+        from core.memory_palace import MemoryPalace
+
+        return {
+            "suggestions": MemoryPalace().suggest_rooms_from_clusters(
+                min_size=min_size, method=method
+            )
+        }
+
+    @app.post("/api/palace/promote")
+    def api_palace_promote(
+        apply: bool = Query(False),
+        reassign: bool = Query(False),
+        min_size: int = Query(3, ge=1, le=50),
+    ) -> Dict[str, Any]:
+        from core.memory_palace import MemoryPalace
+
+        return MemoryPalace().auto_promote_rooms(
+            apply=apply, reassign=reassign, min_size=min_size
+        )
+
+    @app.get("/palace", response_class=HTMLResponse)
+    def palace_page() -> str:
+        return """<!doctype html>
+<html><head><meta charset="utf-8"><title>SuperAI Memory Palace</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:1100px;margin:1.5rem auto;padding:0 1rem}
+ .grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+ .card{border:1px solid #ddd;border-radius:8px;padding:.75rem}
+ table{border-collapse:collapse;width:100%;font-size:.9rem}
+ th,td{border:1px solid #eee;padding:.35rem .5rem;text-align:left}
+ th{background:#f4f7fb}
+ #meta{opacity:.75;margin-bottom:1rem}
+ @media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body>
+<h1>Memory Palace browser</h1>
+<p id="meta">Loading… · <a href="/">Home</a> · <a href="/dashboard">Dashboard</a></p>
+<div class="grid">
+ <div class="card"><h2>Wings</h2><table><thead><tr><th>Wing</th><th>Count</th></tr></thead><tbody id="wings"></tbody></table></div>
+ <div class="card"><h2>Room suggestions</h2><table><thead><tr><th>Wing/Room</th><th>Size</th><th>New?</th></tr></thead><tbody id="sug"></tbody></table>
+  <button onclick="promote()">Promote new rooms (apply)</button></div>
+ <div class="card" style="grid-column:1/-1"><h2>Browse</h2>
+  <label>Wing <input id="wing" placeholder="technical"/></label>
+  <label>Room <input id="room" placeholder="coding"/></label>
+  <button onclick="load()">Refresh</button>
+  <table><thead><tr><th>ID</th><th>Wing</th><th>Room</th><th>Content</th></tr></thead><tbody id="items"></tbody></table>
+ </div>
+</div>
+<script>
+async function load(){
+  const w=document.getElementById('wing').value;
+  const r=document.getElementById('room').value;
+  const u='/api/palace?limit=15'+(w?'&wing='+encodeURIComponent(w):'')+(r?'&room='+encodeURIComponent(r):'');
+  const j=await (await fetch(u)).json();
+  const L=j.layout||{};
+  document.getElementById('meta').textContent=
+    'located='+(L.total_located||0)+' unassigned='+(L.unassigned||0)+' · auto-refresh 5s';
+  const wb=document.getElementById('wings'); wb.innerHTML='';
+  (j.top_wings||[]).forEach(row=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+row.wing+'</td><td>'+row.count+'</td>';
+    wb.appendChild(tr);
+  });
+  const sb=document.getElementById('sug'); sb.innerHTML='';
+  (j.suggestions||[]).forEach(s=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+s.wing+'/'+s.room+'</td><td>'+s.size+'</td><td>'+(s.already_in_catalog?'no':'YES')+'</td>';
+    sb.appendChild(tr);
+  });
+  const ib=document.getElementById('items'); ib.innerHTML='';
+  ((j.browse||{}).items||[]).forEach(m=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(m.id||'')+'</td><td>'+(m.wing||'')+'</td><td>'+(m.room||'')+'</td><td>'+(m.content||'')+'</td>';
+    ib.appendChild(tr);
+  });
+}
+async function promote(){
+  const j=await (await fetch('/api/palace/promote?apply=true',{method:'POST'})).json();
+  alert('Promoted '+((j.promoted_count)||0)+' room(s)');
+  load();
+}
+load();
+setInterval(load, 5000);
+</script>
+</body></html>"""
 
     @app.get("/api/learnings/summary")
     def learnings_summary() -> Dict[str, Any]:

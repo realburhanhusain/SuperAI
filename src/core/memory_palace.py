@@ -710,6 +710,137 @@ class MemoryPalace:
             )
         return clusters
 
+    def suggest_rooms_from_clusters(
+        self,
+        *,
+        limit: int = 200,
+        max_clusters: int = 8,
+        min_size: int = 3,
+        method: str = "auto",
+    ) -> List[Dict[str, Any]]:
+        """Map clusters → suggested wing/room promotions (P3)."""
+        from .wings import WingsManager
+
+        wm = WingsManager()
+        clusters = self.cluster_memories(
+            limit=limit, max_clusters=max_clusters, method=method
+        )
+        suggestions = []
+        for c in clusters:
+            s = wm.suggest_room_from_cluster(c, min_size=min_size)
+            if s:
+                suggestions.append(s)
+        return suggestions
+
+    def auto_promote_rooms(
+        self,
+        *,
+        apply: bool = False,
+        reassign: bool = False,
+        limit: int = 200,
+        max_clusters: int = 8,
+        min_size: int = 3,
+        method: str = "auto",
+    ) -> Dict[str, Any]:
+        """
+        Promote suggested rooms into the wings catalog.
+
+        apply=False → dry-run suggestions only
+        reassign=True → also set wing/room metadata on cluster member memories
+        """
+        from .wings import WingsManager
+
+        wm = WingsManager()
+        suggestions = self.suggest_rooms_from_clusters(
+            limit=limit,
+            max_clusters=max_clusters,
+            min_size=min_size,
+            method=method,
+        )
+        promoted = []
+        reassigned = 0
+        if apply:
+            for s in suggestions:
+                if s.get("already_in_catalog"):
+                    continue
+                entry = wm.ensure_room(
+                    s["wing"],
+                    s["room"],
+                    note=s.get("reason") or "cluster_promote",
+                )
+                promoted.append(entry)
+                if reassign:
+                    for mid in s.get("ids") or []:
+                        if not mid:
+                            continue
+                        if self.update_metadata(
+                            str(mid),
+                            {"wing": s["wing"], "room": s["room"]},
+                        ):
+                            try:
+                                wm.assign(
+                                    str(mid),
+                                    s["wing"],
+                                    s["room"],
+                                    note="auto_promote_reassign",
+                                )
+                            except Exception:
+                                pass
+                            reassigned += 1
+        return {
+            "apply": apply,
+            "reassign": reassign,
+            "suggestions": suggestions,
+            "promoted": promoted,
+            "promoted_count": len(promoted),
+            "reassigned": reassigned,
+            "catalog": wm.list_wings(),
+        }
+
+    def browser_snapshot(
+        self,
+        *,
+        wing: Optional[str] = None,
+        room: Optional[str] = None,
+        limit: int = 12,
+    ) -> Dict[str, Any]:
+        """Dashboard / web browser payload for the Memory Palace (P3)."""
+        from .wings import WingsManager
+
+        wm = WingsManager()
+        layout = self.palace_layout()
+        clusters = self.cluster_memories(limit=120, max_clusters=6, method="auto")
+        suggestions = self.suggest_rooms_from_clusters(
+            limit=120, max_clusters=6, min_size=2
+        )
+        browse = self.query_by_location(wing=wing, room=room, limit=limit)
+        # Top wings by count
+        wing_totals = {
+            w: sum(rooms.values()) for w, rooms in (layout.get("by_wing") or {}).items()
+        }
+        top_wings = sorted(wing_totals.items(), key=lambda kv: -kv[1])[:8]
+        return {
+            "layout": layout,
+            "top_wings": [{"wing": w, "count": c} for w, c in top_wings],
+            "clusters": clusters,
+            "suggestions": suggestions[:8],
+            "browse": {
+                "wing": wing,
+                "room": room,
+                "items": [
+                    {
+                        "id": (m.get("id") or "")[:20],
+                        "wing": m.get("wing") or (m.get("metadata") or {}).get("wing"),
+                        "room": m.get("room") or (m.get("metadata") or {}).get("room"),
+                        "content": ((m.get("content") or "")[:100]).replace("\n", " "),
+                    }
+                    for m in browse
+                ],
+            },
+            "promotions": wm.recent_promotions(8),
+            "stats": wm.stats(),
+        }
+
     def retrieve_by_tags(
         self,
         tags: List[str],

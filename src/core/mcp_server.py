@@ -75,11 +75,11 @@ TOOLS: List[Dict[str, Any]] = [
     ),
     _tool(
         "superai_memory_palace",
-        "Browse Memory Palace layout or list memories by wing/room.",
+        "Browse Memory Palace layout, clusters, room suggestions, or promote rooms.",
         {
             "action": {
                 "type": "string",
-                "description": "layout | browse | clusters",
+                "description": "layout | browse | clusters | suggest | promote | snapshot",
             },
             "wing": {"type": "string"},
             "room": {"type": "string"},
@@ -88,6 +88,15 @@ TOOLS: List[Dict[str, Any]] = [
                 "type": "string",
                 "description": "For clusters: auto|embedding|wing|tag",
             },
+            "apply": {
+                "type": "boolean",
+                "description": "For promote: write rooms into catalog",
+            },
+            "reassign": {
+                "type": "boolean",
+                "description": "For promote: re-tag memory metadata",
+            },
+            "min_size": {"type": "integer"},
         },
     ),
     _tool(
@@ -387,8 +396,16 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
         wing = args.get("wing")
         room = args.get("room")
         limit = int(args.get("limit") or 30)
+        method = str(args.get("method") or "auto")
+        min_size = int(args.get("min_size") or 3)
         if action == "layout":
             return mp.palace_layout()
+        if action == "snapshot":
+            return mp.browser_snapshot(
+                wing=str(wing) if wing else None,
+                room=str(room) if room else None,
+                limit=limit,
+            )
         if action == "browse":
             return {
                 "items": mp.query_by_location(
@@ -401,10 +418,28 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
             return {
                 "clusters": mp.cluster_memories(
                     limit=max(limit, 50),
-                    method=str(args.get("method") or "auto"),
+                    method=method,
                 )
             }
-        raise ValueError("action must be layout|browse|clusters")
+        if action == "suggest":
+            return {
+                "suggestions": mp.suggest_rooms_from_clusters(
+                    limit=max(limit, 50),
+                    min_size=min_size,
+                    method=method,
+                )
+            }
+        if action == "promote":
+            return mp.auto_promote_rooms(
+                apply=bool(args.get("apply")),
+                reassign=bool(args.get("reassign")),
+                limit=max(limit, 50),
+                min_size=min_size,
+                method=method,
+            )
+        raise ValueError(
+            "action must be layout|browse|clusters|suggest|promote|snapshot"
+        )
 
     if name == "superai_memory_store":
         from .memory_palace import MemoryPalace

@@ -357,13 +357,40 @@ class SuperAIDashboard:
         return Panel(text, title="Recent activity", border_style="red")
 
     def _memory_panel(self) -> Panel:
-        text = Text()
-        mem = (self._snapshot or {}).get("memory") or {}
-        if mem:
-            text.append(str(mem)[:400] + "\n", style="dim")
-        for item in self.memory_queries[:3]:
-            text.append(f"Q: {item.get('query')}\n", style="cyan")
-        return Panel(text, title="Memory / status", border_style="magenta")
+        """Memory Palace browser: wings layout + room suggestions."""
+        table = Table(title="Memory Palace", expand=True)
+        table.add_column("Wing", style="cyan")
+        table.add_column("Count", justify="right")
+        table.add_column("Hint", max_width=28)
+
+        palace = (self._snapshot or {}).get("palace") or {}
+        top = palace.get("top_wings") or []
+        if top:
+            for row in top[:6]:
+                table.add_row(
+                    str(row.get("wing") or ""),
+                    str(row.get("count") or 0),
+                    "",
+                )
+        else:
+            mem = (self._snapshot or {}).get("memory") or {}
+            table.add_row("—", "0", str(mem)[:28] if mem else "empty")
+
+        suggestions = palace.get("suggestions") or []
+        for s in suggestions[:3]:
+            table.add_row(
+                f"+{s.get('wing')}",
+                str(s.get("size") or ""),
+                f"room:{s.get('room')}"[:28],
+            )
+
+        layout = palace.get("layout") or {}
+        title = (
+            f"Palace  located={layout.get('total_located', 0)}  "
+            f"unassigned={layout.get('unassigned', 0)}  "
+            f"suggest={len(suggestions)}"
+        )
+        return Panel(table, title=title, border_style="magenta")
 
     def run_terminal_dashboard(self, refresh_sec: float = 3.0, once: bool = False) -> None:
         """Live terminal dashboard. Ctrl+C to exit."""

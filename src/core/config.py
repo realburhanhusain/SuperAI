@@ -61,6 +61,13 @@ class Config:
         # Central Memory Palace for all SuperAI-mediated AIs (inject + write-back)
         "central_memory": True,
         "central_memory_write_back": True,
+        # Orchestrator mid-task adaptation (gap close)
+        "adapt_on_failure": True,
+        "max_step_retries": 2,
+        "max_replans": 1,
+        "quality_gate": True,
+        "mid_task_memory_refresh": True,
+        "step_retry_backoff_sec": 0.05,
     }
 
     def __init__(self, config_path: Optional[str] = None):

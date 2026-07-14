@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
 **Updated:** 2026-07-14  
-**Tests:** **151 passed**  
+**Tests:** **156 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -30,6 +30,7 @@
 
 ### Latest highlights
 
+- **Orchestrator mid-task adaptation** (retry/failover/replan/quality/degraded flags) — see `docs/ORCHESTRATOR_GAPS.md`  
 - **Local MCP server** so other AIs/CLIs share SuperAI Memory Palace (`mcp-serve`, `mcp-config`, HTTP `/mcp`)  
 - **Central Memory Palace** for all SuperAI-mediated AIs (inject + write-back; `core/central_memory.py`)  
 - **Host tools checklist + optional auto-install** (`host-tools`, bootstrap scripts, `SUPERAI_AUTO_HOST_TOOLS`) — not bundled in package  

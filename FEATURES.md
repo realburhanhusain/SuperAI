@@ -8,6 +8,7 @@
 | Feature | Status |
 |---------|--------|
 | Multi-step orchestration + parallel plans | **Implemented** |
+| **Mid-task adaptation** (retry, failover, replan, quality gate, memory refresh) | **Implemented** |
 | Mock-first + multi-provider ModelCaller | **Implemented** |
 | Scoring router + bandit + failover chain + A/B | **Implemented** |
 | Memory Palace (Chroma / FAISS / in-memory) | **Implemented** |

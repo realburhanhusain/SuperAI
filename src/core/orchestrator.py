@@ -1,8 +1,17 @@
 """
-SuperAI Orchestrator (Phase 1 foundation + Phase 2/3 hooks)
+SuperAI Orchestrator (Phase 1 foundation + Phase 2/3 + mid-task adaptation)
 
 Guided by implementation_plan_v2 / detailed plan.
 Stabilized wiring: registry → router → caller, structured results, history, logging.
+
+Gap close (dynamic adaptation):
+  - Per-step retry + failover chain + error_recovery classification
+  - Replan remaining steps after hard failures
+  - Mid-task memory/skills refresh via central Memory Palace
+  - Simple quality gate + one rework pass
+  - Mid-run budget check
+  - Structured metadata.degraded for soft-fail optional components
+  - Thread-safe context / cost accumulation under parallel batches
 """
 
 from __future__ import annotations
@@ -11,7 +20,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -52,10 +61,10 @@ class SuperAIOrchestrator:
             self.load_balancer,
             health_store=self.health_store,
         )
-        try:
-            self.model_router.refresh_history_stats()
-        except Exception:  # noqa: BLE001
-            pass
+        self._soft(
+            "history_stats",
+            lambda: self.model_router.refresh_history_stats(),
+        )
         self.model_caller = ModelCaller(
             use_mock=self.config.use_mock,
             registry=self.model_registry,
@@ -70,21 +79,49 @@ class SuperAIOrchestrator:
         self.skills_manager = SkillsManager()
         self.history = TaskHistory()
         self.preferences = UserPreferenceModel()
-        try:
-            self.preferences.apply_to_config_defaults(self.config)
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            self.model_registry.register_external_clis_as_models()
-        except Exception:  # noqa: BLE001
-            pass
+        self._soft(
+            "preferences",
+            lambda: self.preferences.apply_to_config_defaults(self.config),
+        )
+        self._soft(
+            "external_cli_models",
+            lambda: self.model_registry.register_external_clis_as_models(),
+        )
         self.step_cache = StepResultCache()
         self.hitl = HITLStore()
         self.use_step_cache = bool(self.config.get("use_step_cache", True))
+        self._exec_lock = threading.RLock()
+        self._degraded: List[Dict[str, str]] = []
+        self._adaptation_events: List[Dict[str, Any]] = []
         logger.info(
             "SuperAIOrchestrator initialized (mock_mode=%s, strategy=%s)",
             self.config.use_mock,
             strategy.value,
+        )
+
+    # ── soft-fail helpers ──────────────────────────────────────────────
+
+    def _soft(self, feature: str, fn, *, result: Optional[Dict] = None) -> Any:
+        """Run optional side effect; record degradation instead of crashing."""
+        try:
+            return fn()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Optional feature '%s' degraded: %s", feature, e)
+            entry = {"feature": feature, "error": str(e)[:300]}
+            self._degraded.append(entry)
+            if result is not None:
+                result.setdefault("metadata", {}).setdefault("degraded", []).append(
+                    entry
+                )
+            return None
+
+    def _event(self, kind: str, **payload: Any) -> None:
+        self._adaptation_events.append(
+            {
+                "ts": time.time(),
+                "kind": kind,
+                **payload,
+            }
         )
 
     def run_task(
@@ -95,13 +132,16 @@ class SuperAIOrchestrator:
         resume_task_id: Optional[str] = None,
         pause_on_clarification: bool = True,
     ) -> Dict[str, Any]:
-        """Execute a task using planning, routing, and (mock or real) model calls."""
+        """Execute a task using planning, routing, adaptation, and model calls."""
         task = (task or "").strip()
         if not task:
             raise UserInputError(
                 "Task description is empty.",
                 hint='Provide a task, e.g. superai run "Create a FastAPI hello world"',
             )
+
+        self._degraded = []
+        self._adaptation_events = []
 
         # Resume incomplete run
         resumed_completed: List[Dict[str, Any]] = []
@@ -147,34 +187,39 @@ class SuperAIOrchestrator:
 
         # S4 budget pre-check + N20 forecast
         forecast = None
+        budget_guard = None
         try:
             from .budget import BudgetGuard
             from .cost_forecast import forecast_task_cost
 
             forecast = forecast_task_cost(task, model=forced_model)
-            bg = BudgetGuard()
-            bg.configure(
+            budget_guard = BudgetGuard()
+            budget_guard.configure(
                 daily_usd=float(self.config.get("budget_daily_usd") or 5),
                 run_usd=float(self.config.get("budget_run_usd") or 1),
             )
-            bg.check_can_spend(estimated_usd=float(forecast.get("estimated_usd") or 0.01))
+            budget_guard.check_can_spend(
+                estimated_usd=float(forecast.get("estimated_usd") or 0.01)
+            )
         except RuntimeError:
             raise
-        except Exception:  # noqa: BLE001
-            bg = None  # type: ignore
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Budget/forecast degraded: %s", e)
+            self._degraded.append({"feature": "budget_precheck", "error": str(e)[:300]})
+            budget_guard = None
 
         # N21 A/B routing override
         if not forced_model:
             try:
                 from .ab_routing import ABRouter
 
-                ab = ABRouter().pick(
-                    self.model_router.classify_task(task)
-                )
+                ab = ABRouter().pick(self.model_router.classify_task(task))
                 if ab:
                     forced_model = ab
-            except Exception:  # noqa: BLE001
-                pass
+                    self._event("ab_route", model=ab)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("A/B routing degraded: %s", e)
+                self._degraded.append({"feature": "ab_routing", "error": str(e)[:300]})
 
         task_type = self.model_router.classify_task(task)
         result: Dict[str, Any] = {
@@ -197,6 +242,8 @@ class SuperAIOrchestrator:
                 "task_type": task_type,
                 "strategy": self.load_balancer.strategy.value,
                 "cost_forecast": forecast,
+                "degraded": list(self._degraded),
+                "adaptation_events": [],
             },
         }
 
@@ -204,6 +251,17 @@ class SuperAIOrchestrator:
         step_records: List[Dict[str, Any]] = []
         total_tokens = 0
         total_cost = 0.0
+        run_state: Dict[str, Any] = {
+            "context": "",
+            "relevant_context": {},
+            "skill_prompt_block": "",
+            "skills": [],
+            "total_tokens": 0,
+            "total_cost": 0.0,
+            "selected_model": selected_model,
+            "replans_used": 0,
+            "budget_guard": budget_guard,
+        }
 
         try:
             if verbose:
@@ -218,12 +276,12 @@ class SuperAIOrchestrator:
                         )
             logger.info("Starting task %s: %s", task_id, task)
 
-            # S3: prefer LLM planner when live
             use_llm_plan = bool(self.config.get("prefer_llm_planner", True)) and (
                 not self.config.use_mock
             )
-            plan_steps = self.task_planner.create_plan(task, use_llm=use_llm_plan or None)
-            # Skip already-completed steps on resume
+            plan_steps = self.task_planner.create_plan(
+                task, use_llm=use_llm_plan or None
+            )
             if resumed_completed:
                 done_ids = {
                     int(s.get("step"))
@@ -235,203 +293,24 @@ class SuperAIOrchestrator:
             if verbose:
                 self.task_planner.print_plan(plan_steps)
 
-            # Phase 3 hook: mid-task adaptation (best-effort)
-            relevant_context: Dict[str, Any] = {}
-            try:
-                task_type = self.model_router.classify_task(task)
-                relevant_context = self.learning_engine.get_relevant_context_for_current_task(
-                    task_description=task,
+            # Initial memory + skills (central Memory Palace when enabled)
+            self._refresh_enrichment(
+                task, task_type, run_state, result, verbose=verbose, reason="initial"
+            )
+
+            def _run_one_step(step: ExecutionStep) -> Dict[str, Any]:
+                return self._execute_step_with_adaptation(
+                    step=step,
+                    task=task,
+                    task_id=task_id,
                     task_type=task_type,
-                    limit=5,
+                    forced_model=forced_model,
+                    run_state=run_state,
+                    result=result,
+                    verbose=verbose,
                 )
-                if verbose and (
-                    relevant_context.get("relevant_learnings")
-                    or relevant_context.get("warnings")
-                ):
-                    console.print("[yellow]→ Using past learnings for this task[/yellow]")
-            except Exception as e:  # noqa: BLE001 — best-effort memory
-                logger.debug("Could not retrieve past learnings: %s", e)
-                if verbose:
-                    console.print(f"[yellow]Warning: Could not retrieve past learnings: {e}[/yellow]")
 
-            # Phase 4: relevant skills injected into step prompts
-            skill_prompt_block = ""
-            skills: List[Dict[str, Any]] = []
-            try:
-                skills = self.skills_manager.get_relevant_skills(task, top_k=3)
-                if skills:
-                    skill_prompt_block = self.skills_manager.format_for_prompt(skills)
-                    for s in skills:
-                        try:
-                            self.skills_manager.mark_used(s["name"])
-                        except Exception:  # noqa: BLE001
-                            pass
-                    result["metadata"]["skills_injected"] = True
-                    if verbose:
-                        console.print(
-                            f"[dim]→ Injecting skills: {[s['name'] for s in skills]}[/dim]"
-                        )
-                result["metadata"]["skills"] = [s.get("name") for s in skills]
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Skill lookup failed: %s", e)
-
-            context = ""
-
-            def _run_one_step(step):
-                nonlocal total_tokens, total_cost, context, selected_model
-                if verbose:
-                    console.print(
-                        f"\n[bold blue]Step {step.step_id}:[/bold blue] {step.description}"
-                    )
-
-                if self.hitl.is_vetoed(task_id):
-                    return {
-                        "step": step.step_id,
-                        "description": step.description,
-                        "model": None,
-                        "status": "failed",
-                        "result": None,
-                        "error": "vetoed by human",
-                        "duration_ms": 0,
-                        "usage": {},
-                        "estimated_cost_usd": 0.0,
-                    }
-
-                # Dynamic role switching: supervisor/critic roles prefer configured models
-                role = getattr(step, "role", "worker") or "worker"
-                if forced_model:
-                    selected_model = forced_model
-                else:
-                    preferred = (
-                        self.config.default_supervisor
-                        if role in {"supervisor", "critic"}
-                        else None
-                    ) or self.preferences.preferred_model_for(task_type)
-                    if role == "critic" and not preferred:
-                        preferred = self.config.default_supervisor
-                    selected_model = self.model_router.select_model(
-                        task_description=step.description,
-                        preferred_model=preferred,
-                        verbose=verbose,
-                    )
-
-                if verbose:
-                    console.print(f"[green]→ Using model: {selected_model}[/green]")
-
-                # Step cache hit
-                if self.use_step_cache:
-                    cached = self.step_cache.get(step.description, selected_model)
-                    if cached and cached.get("status") == "success":
-                        if verbose:
-                            console.print(
-                                f"[dim]→ Cache hit for step {step.step_id}[/dim]"
-                            )
-                        return {
-                            **cached,
-                            "step": step.step_id,
-                            "description": step.description,
-                            "model": selected_model,
-                            "cached": True,
-                        }
-
-                step_start = time.time()
-                step_status = "success"
-                step_output: Any = None
-                step_error: Optional[str] = None
-                usage: Dict[str, Any] = {}
-                cost = 0.0
-
-                try:
-                    prompt_parts = [step.description]
-                    # N14 constitution
-                    if self.config.get("use_constitution", True):
-                        try:
-                            from .constitution import format_for_prompt
-
-                            prompt_parts.append(format_for_prompt())
-                        except Exception:  # noqa: BLE001
-                            pass
-                    if skill_prompt_block:
-                        prompt_parts.append(f"\n{skill_prompt_block}")
-                    if relevant_context.get("relevant_learnings"):
-                        learnings_text = "\n".join(
-                            f"- {l['content']}"
-                            for l in relevant_context["relevant_learnings"][:3]
-                        )
-                        prompt_parts.append(f"\nRelevant past learnings:\n{learnings_text}")
-                    if relevant_context.get("warnings"):
-                        warnings_text = "\n".join(
-                            f"- {w['content']}" for w in relevant_context["warnings"][:2]
-                        )
-                        prompt_parts.append(f"\nWarnings from past experience:\n{warnings_text}")
-                    if context:
-                        prompt_parts.append(f"\nContext from previous steps:\n{context}")
-
-                    prompt = "\n".join(prompt_parts)
-                    call_result = self.model_caller.call(
-                        model=selected_model,
-                        prompt=prompt,
-                    )
-                    step_output = self._extract_response_text(call_result)
-                    if isinstance(call_result, dict):
-                        usage = call_result.get("usage") or {}
-                        cost = float(call_result.get("estimated_cost_usd") or 0.0)
-                        total_tokens += int(usage.get("total_tokens") or 0)
-                        total_cost += cost
-                        if call_result.get("status") == "error":
-                            step_status = "failed"
-                            step_error = str(
-                                call_result.get("response") or "provider error"
-                            )
-                    context += f"\n\n[Step {step.step_id} Result]:\n{str(step_output)[:500]}..."
-                    if verbose:
-                        if step_status == "success":
-                            console.print(f"[green]✓ Step {step.step_id} completed[/green]")
-                        else:
-                            console.print(
-                                f"[red]✗ Step {step.step_id} failed: {step_error}[/red]"
-                            )
-                except Exception as e:  # noqa: BLE001
-                    step_status = "failed"
-                    step_error = str(e)
-                    step_output = f"Error: {e}"
-                    usage = {}
-                    cost = 0.0
-                    logger.warning("Step %s failed: %s", step.step_id, e)
-                    if verbose:
-                        console.print(f"[red]✗ Step {step.step_id} failed: {e}[/red]")
-
-                rec = {
-                    "step": step.step_id,
-                    "description": step.description,
-                    "model": selected_model,
-                    "status": step_status,
-                    "result": step_output,
-                    "error": step_error,
-                    "duration_ms": int((time.time() - step_start) * 1000),
-                    "usage": usage if step_status == "success" else {},
-                    "estimated_cost_usd": cost if step_status == "success" else 0.0,
-                }
-                if self.use_step_cache and step_status == "success":
-                    try:
-                        self.step_cache.put(step.description, rec, selected_model)
-                    except Exception:  # noqa: BLE001
-                        pass
-                if step_status == "failed":
-                    try:
-                        from .model_blacklist import ModelBlacklist
-
-                        ModelBlacklist().record_failure(
-                            selected_model or "unknown"
-                        )
-                    except Exception:  # noqa: BLE001
-                        pass
-                return rec
-
-            # Execute plan respecting depends_on; parallel when can_run_parallel
-            _records_lock = threading.Lock()
-
-            def _run_and_checkpoint(step):
+            def _run_and_checkpoint(step: ExecutionStep) -> Dict[str, Any]:
                 if self.hitl.is_vetoed(task_id):
                     rec = {
                         "step": step.step_id,
@@ -446,8 +325,7 @@ class SuperAIOrchestrator:
                     }
                 else:
                     rec = _run_one_step(step)
-                # Accumulate for resume checkpoints (thread-safe)
-                with _records_lock:
+                with self._exec_lock:
                     step_records.append(rec)
                     snapshot = list(step_records)
                     done_ids = {
@@ -458,34 +336,116 @@ class SuperAIOrchestrator:
                     remaining = [
                         s.step_id for s in plan_steps if s.step_id not in done_ids
                     ]
-                try:
-                    self.step_cache.save_run_checkpoint(
+                self._soft(
+                    "checkpoint",
+                    lambda: self.step_cache.save_run_checkpoint(
                         task_id,
                         task,
                         completed_steps=snapshot,
                         remaining_step_ids=remaining,
                         metadata={"task_type": task_type},
+                    ),
+                    result=result,
+                )
+                # Mid-task memory refresh after each successful step
+                if (
+                    rec.get("status") == "success"
+                    and bool(self.config.get("mid_task_memory_refresh", True))
+                ):
+                    self._refresh_enrichment(
+                        task,
+                        task_type,
+                        run_state,
+                        result,
+                        last_output=str(rec.get("result") or "")[:800],
+                        verbose=False,
+                        reason=f"after_step_{step.step_id}",
                     )
-                except Exception:  # noqa: BLE001
-                    pass
                 return rec
 
-            _new_records, parallel_meta = self._execute_plan_steps(
-                plan_steps,
-                _run_and_checkpoint,
-                verbose=verbose,
-            )
-            # step_records already accumulated (resume + new); re-order by step id
+            # Adaptive execution: run plan; on hard failures, replan remaining
+            max_replans = int(self.config.get("max_replans") or 0)
+            if not bool(self.config.get("adapt_on_failure", True)):
+                max_replans = 0
+
+            while True:
+                _new_records, parallel_meta = self._execute_plan_steps(
+                    plan_steps,
+                    _run_and_checkpoint,
+                    verbose=verbose,
+                    already_done={
+                        int(s["step"])
+                        for s in step_records
+                        if s.get("step") is not None and s.get("status") == "success"
+                    },
+                )
+                result["metadata"]["execution"] = parallel_meta
+
+                failed_now = [
+                    s
+                    for s in step_records
+                    if s.get("status") == "failed"
+                    and not s.get("replanned_away")
+                ]
+                pending_ids = {
+                    s.step_id
+                    for s in plan_steps
+                    if s.step_id
+                    not in {
+                        int(r["step"])
+                        for r in step_records
+                        if r.get("step") is not None
+                    }
+                }
+
+                if (
+                    failed_now
+                    and run_state["replans_used"] < max_replans
+                    and bool(self.config.get("adapt_on_failure", True))
+                ):
+                    # Mark unrecovered failed steps; replan remaining work
+                    new_steps = self._replan_after_failure(
+                        task=task,
+                        task_type=task_type,
+                        failed_steps=failed_now,
+                        completed_ok=[
+                            s for s in step_records if s.get("status") == "success"
+                        ],
+                        plan_steps=plan_steps,
+                        verbose=verbose,
+                    )
+                    if new_steps:
+                        run_state["replans_used"] += 1
+                        self._event(
+                            "replan",
+                            attempt=run_state["replans_used"],
+                            new_steps=[s.step_id for s in new_steps],
+                            after_failures=[s.get("step") for s in failed_now],
+                        )
+                        # Avoid re-running original failed steps; only new plan
+                        plan_steps = new_steps
+                        if verbose:
+                            console.print(
+                                f"[yellow]→ Replanned remaining work "
+                                f"(attempt {run_state['replans_used']}): "
+                                f"{len(new_steps)} step(s)[/yellow]"
+                            )
+                        continue
+                break
+
+            # Order records
             by_id = {
                 int(s["step"]): s
                 for s in step_records
                 if s.get("step") is not None
             }
             step_records = [by_id[k] for k in sorted(by_id.keys())]
-            result["metadata"]["execution"] = parallel_meta
-            # Clear checkpoint on full success later
 
-            # Synthesize final answer only if we have successful material
+            with self._exec_lock:
+                total_tokens = int(run_state["total_tokens"])
+                total_cost = float(run_state["total_cost"])
+                selected_model = run_state.get("selected_model") or selected_model
+
             success_steps = [s for s in step_records if s["status"] == "success"]
             failed_steps = [s for s in step_records if s["status"] == "failed"]
             if len(success_steps) > 1:
@@ -500,14 +460,12 @@ class SuperAIOrchestrator:
             any_failed = bool(failed_steps)
             all_failed = bool(step_records) and len(failed_steps) == len(step_records)
             no_steps = not step_records
-            overall_success = not all_failed and not no_steps and not any_failed
-            # partial: some steps failed but not all
             if all_failed or no_steps:
                 overall_status = "failed"
                 overall_success = False
             elif any_failed:
                 overall_status = "partial"
-                overall_success = False  # learning treats partial as not full success
+                overall_success = False
             else:
                 overall_status = "success"
                 overall_success = True
@@ -543,12 +501,17 @@ class SuperAIOrchestrator:
                         "task_type": task_type,
                         "steps_succeeded": len(success_steps),
                         "steps_failed": len(failed_steps),
-                        "routing_top": self.model_router.explain_selection(task, top_k=3),
+                        "routing_top": self.model_router.explain_selection(
+                            task, top_k=3
+                        ),
                         "routing_explain": self.model_router.explain_selection(
                             task, top_k=5
-                        ),  # S17
+                        ),
                         "load_balancer": self.load_balancer.stats_snapshot(),
                         "cost_forecast": forecast,
+                        "degraded": list(self._degraded),
+                        "adaptation_events": list(self._adaptation_events),
+                        "replans_used": run_state["replans_used"],
                     },
                 }
             )
@@ -559,9 +522,14 @@ class SuperAIOrchestrator:
                     f"\n[bold {color}]Task {overall_status} in {duration:.2f}s "
                     f"({len(success_steps)} ok / {len(failed_steps)} failed)[/bold {color}]"
                 )
+                if self._degraded:
+                    console.print(
+                        f"[dim]Degraded features: "
+                        f"{[d['feature'] for d in self._degraded]}[/dim]"
+                    )
 
-            # Phase 3: learn from outcome (best-effort) with accurate success signal
-            try:
+            # Phase 3: learn from outcome + central memory write-back
+            def _learn():
                 memory_id = self.learning_engine.learn_from_task(
                     task_description=task,
                     task_type=task_type,
@@ -574,23 +542,40 @@ class SuperAIOrchestrator:
                     error_message=error_summary,
                 )
                 result["metadata"]["learning_memory_id"] = memory_id
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Could not store learning: %s", e)
-                if verbose:
-                    console.print(f"[yellow]Warning: Could not store learning: {e}[/yellow]")
+                try:
+                    from .central_memory import write_back
 
-            try:
-                self.preferences.observe_task(
+                    wb = write_back(
+                        task=task,
+                        source="orchestrator",
+                        model_or_cli=selected_model or "unknown",
+                        success=overall_success,
+                        latency=duration,
+                        cost=total_cost,
+                        output=str(final_output or "")[:2000],
+                        error=error_summary,
+                        task_type=task_type,
+                        tags=["orchestrator", "run_task", task_type],
+                        metadata={"task_id": task_id, "status": overall_status},
+                    )
+                    result["metadata"]["central_memory_write"] = wb
+                except Exception as e:  # noqa: BLE001
+                    raise e
+
+            self._soft("learning", _learn, result=result)
+
+            self._soft(
+                "preferences_observe",
+                lambda: self.preferences.observe_task(
                     task_type=task_type,
                     model=selected_model or "unknown",
                     success=overall_success,
                     duration=duration,
-                )
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Preference observe failed: %s", e)
+                ),
+                result=result,
+            )
 
-            # H6: update contextual bandit from task outcome
-            try:
+            def _bandit():
                 reward = self.model_router.update_bandit(
                     model=selected_model or "unknown",
                     success=overall_success,
@@ -599,19 +584,17 @@ class SuperAIOrchestrator:
                 )
                 if reward is not None:
                     result["metadata"]["bandit_reward"] = reward
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Bandit update failed: %s", e)
 
-            # S4 record budget spend
-            try:
+            self._soft("bandit", _bandit, result=result)
+
+            def _budget_record():
                 from .budget import BudgetGuard
 
                 BudgetGuard().record(usd=total_cost, tokens=total_tokens)
-            except Exception:  # noqa: BLE001
-                pass
 
-            # S8 audit
-            try:
+            self._soft("budget_record", _budget_record, result=result)
+
+            def _audit():
                 from .audit_log import AuditLog
 
                 AuditLog().record(
@@ -621,14 +604,14 @@ class SuperAIOrchestrator:
                         "success": overall_success,
                         "model": selected_model,
                         "cost": total_cost,
+                        "replans": run_state["replans_used"],
                     },
                     outcome="ok" if overall_success else "fail",
                 )
-            except Exception:  # noqa: BLE001
-                pass
 
-            # N29 telemetry opt-in
-            try:
+            self._soft("audit", _audit, result=result)
+
+            def _telemetry():
                 from .telemetry import Telemetry
 
                 Telemetry().event(
@@ -641,49 +624,53 @@ class SuperAIOrchestrator:
                         "task_type": task_type,
                     },
                 )
-            except Exception:  # noqa: BLE001
-                pass
 
-            # Phase 4: record skill outcomes + auto-create after enough successes
-            try:
+            self._soft("telemetry", _telemetry, result=result)
+
+            def _skill_outcomes():
                 for sname in result.get("metadata", {}).get("skills") or []:
-                    self.skills_manager.record_outcome(sname, success=overall_success)
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Skill outcome tracking failed: %s", e)
+                    self.skills_manager.record_outcome(
+                        sname, success=overall_success
+                    )
+
+            self._soft("skill_outcomes", _skill_outcomes, result=result)
 
             if overall_success:
-                try:
-                    created = self._maybe_auto_create_skills(task_type, min_success_count=3)
+                def _auto_skills():
+                    created = self._maybe_auto_create_skills(
+                        task_type, min_success_count=3
+                    )
                     if created:
                         result["metadata"]["skills_created"] = created
-                        # New skills start in sandbox until promoted
                         for cname in created:
                             self.skills_manager.sandbox_skill(cname)
                         if verbose:
                             console.print(
                                 f"[green]→ Auto-created skills (sandbox): {created}[/green]"
                             )
-                except Exception as e:  # noqa: BLE001
-                    logger.debug("Auto skill creation failed: %s", e)
-                try:
-                    self.step_cache.clear_run(task_id)
-                except Exception:  # noqa: BLE001
-                    pass
-                # Pattern extraction → optional skill suggestions
-                try:
+
+                self._soft("auto_skills", _auto_skills, result=result)
+                self._soft(
+                    "clear_checkpoint",
+                    lambda: self.step_cache.clear_run(task_id),
+                    result=result,
+                )
+                def _patterns():
                     from .pattern_extract import PatternExtractor
 
                     patterns = PatternExtractor().extract(min_support=3)
                     if patterns.get("type_patterns"):
                         result["metadata"]["patterns"] = patterns["type_patterns"][:5]
-                except Exception:  # noqa: BLE001
-                    pass
+
+                self._soft("pattern_extract", _patterns, result=result)
 
             logger.info(
-                "Task %s finished status=%s duration=%.2fs",
+                "Task %s finished status=%s duration=%.2fs degraded=%s events=%s",
                 task_id,
                 result["status"],
                 duration,
+                len(self._degraded),
+                len(self._adaptation_events),
             )
 
         except UserInputError:
@@ -702,6 +689,8 @@ class SuperAIOrchestrator:
                     "model_used": selected_model,
                 }
             )
+            result.setdefault("metadata", {})["degraded"] = list(self._degraded)
+            result["metadata"]["adaptation_events"] = list(self._adaptation_events)
             logger.exception("Task %s failed", task_id)
             raise OrchestratorError(str(e)) from e
         finally:
@@ -709,31 +698,558 @@ class SuperAIOrchestrator:
                 self.history.save(result)
             except Exception as e:  # noqa: BLE001
                 logger.warning("Failed to persist history: %s", e)
+                self._degraded.append(
+                    {"feature": "history_save", "error": str(e)[:300]}
+                )
+                result.setdefault("metadata", {}).setdefault("degraded", []).append(
+                    {"feature": "history_save", "error": str(e)[:300]}
+                )
 
-        # Typed validation (keeps dict return for history/CLI compatibility)
         try:
-            result["_typed"] = TaskResult.from_dict(result).to_dict()
-            # Drop internal helper key noise — callers still get plain dict
-            typed = result.pop("_typed", None)
+            typed = TaskResult.from_dict(result).to_dict()
             if typed:
                 result.setdefault("metadata", {})["task_result_validated"] = True
         except Exception as e:  # noqa: BLE001
             logger.debug("TaskResult validation skipped: %s", e)
+            self._degraded.append(
+                {"feature": "task_result_validate", "error": str(e)[:200]}
+            )
 
+        result.setdefault("metadata", {})["degraded"] = list(self._degraded)
+        result["metadata"]["adaptation_events"] = list(self._adaptation_events)
         return result
+
+    # ── mid-task enrichment ────────────────────────────────────────────
+
+    def _refresh_enrichment(
+        self,
+        task: str,
+        task_type: str,
+        run_state: Dict[str, Any],
+        result: Dict[str, Any],
+        last_output: str = "",
+        verbose: bool = False,
+        reason: str = "",
+    ) -> None:
+        """Refresh Memory Palace learnings + skills (mid-task adaptation)."""
+
+        def _mem():
+            query = task
+            if last_output:
+                query = f"{task}\nRecent step output: {last_output[:400]}"
+            # Prefer central_memory preface + learning engine
+            ctx = self.learning_engine.get_relevant_context_for_current_task(
+                task_description=query,
+                task_type=task_type,
+                limit=5,
+            )
+            try:
+                from .central_memory import memory_preface_for_llm
+
+                preface = memory_preface_for_llm(query, top_k=4)
+                if preface:
+                    ctx.setdefault("relevant_learnings", []).insert(
+                        0, {"content": preface, "id": "central_preface"}
+                    )
+            except Exception:
+                pass
+            with self._exec_lock:
+                run_state["relevant_context"] = ctx
+            return ctx
+
+        def _skills():
+            skills = self.skills_manager.get_relevant_skills(task, top_k=3)
+            block = ""
+            if skills:
+                block = self.skills_manager.format_for_prompt(skills)
+                for s in skills:
+                    try:
+                        self.skills_manager.mark_used(s["name"])
+                    except Exception:  # noqa: BLE001
+                        pass
+            with self._exec_lock:
+                run_state["skills"] = skills
+                run_state["skill_prompt_block"] = block
+            result["metadata"]["skills"] = [s.get("name") for s in skills]
+            result["metadata"]["skills_injected"] = bool(skills)
+            return skills
+
+        self._soft(f"memory_refresh:{reason}", _mem, result=result)
+        self._soft(f"skills_refresh:{reason}", _skills, result=result)
+        if reason and reason != "initial":
+            self._event("enrichment_refresh", reason=reason)
+        if verbose and run_state.get("relevant_context"):
+            console.print("[yellow]→ Using past learnings for this task[/yellow]")
+        if verbose and run_state.get("skills"):
+            console.print(
+                f"[dim]→ Injecting skills: "
+                f"{[s.get('name') for s in run_state['skills']]}[/dim]"
+            )
+
+    # ── step execution with retry / failover / quality ─────────────────
+
+    def _failover_candidates(
+        self, primary: Optional[str], step_desc: str
+    ) -> List[str]:
+        names: List[str] = []
+        chain = list(self.config.get("failover_chain") or [])
+        for n in chain:
+            if n and n not in names and n != primary:
+                names.append(str(n))
+        try:
+            for row in self.model_router.explain_selection(step_desc, top_k=5) or []:
+                m = row.get("model")
+                if m and m not in names and m != primary:
+                    names.append(str(m))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            for m in self.model_registry.list_all_models() or []:
+                sm = str(m)
+                if sm.startswith("cli:"):
+                    continue
+                if sm not in names and sm != primary:
+                    names.append(sm)
+                if len(names) >= 4:
+                    break
+        except Exception:  # noqa: BLE001
+            pass
+        return names[:4]
+
+    def _quality_ok(self, text: Any) -> Tuple[bool, str]:
+        """Lightweight quality gate — fail empty/error-like outputs."""
+        if not bool(self.config.get("quality_gate", True)):
+            return True, "disabled"
+        s = str(text or "").strip()
+        if not s:
+            return False, "empty_output"
+        if s.lower().startswith("error:"):
+            return False, "error_prefix"
+        if len(s) < 8:
+            return False, "too_short"
+        bad = ("traceback (most recent call last)", "exception:", "fatal:")
+        low = s.lower()
+        if any(b in low for b in bad):
+            return False, "looks_like_exception"
+        return True, "ok"
+
+    def _execute_step_with_adaptation(
+        self,
+        step: ExecutionStep,
+        task: str,
+        task_id: str,
+        task_type: str,
+        forced_model: Optional[str],
+        run_state: Dict[str, Any],
+        result: Dict[str, Any],
+        verbose: bool,
+    ) -> Dict[str, Any]:
+        from .error_recovery import classify_error
+
+        if verbose:
+            console.print(
+                f"\n[bold blue]Step {step.step_id}:[/bold blue] {step.description}"
+            )
+
+        if self.hitl.is_vetoed(task_id):
+            return {
+                "step": step.step_id,
+                "description": step.description,
+                "model": None,
+                "status": "failed",
+                "result": None,
+                "error": "vetoed by human",
+                "duration_ms": 0,
+                "usage": {},
+                "estimated_cost_usd": 0.0,
+            }
+
+        # Mid-run budget check
+        bg = run_state.get("budget_guard")
+        if bg is not None:
+            try:
+                spent = float(run_state.get("total_cost") or 0)
+                bg.check_can_spend(estimated_usd=max(0.001, spent * 0.05 + 0.001))
+            except RuntimeError as e:
+                self._event("budget_stop", step=step.step_id, error=str(e))
+                return {
+                    "step": step.step_id,
+                    "description": step.description,
+                    "model": None,
+                    "status": "failed",
+                    "result": None,
+                    "error": f"budget: {e}",
+                    "duration_ms": 0,
+                    "usage": {},
+                    "estimated_cost_usd": 0.0,
+                    "recovery": classify_error(e),
+                }
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Mid-run budget check degraded: %s", e)
+                self._degraded.append(
+                    {"feature": "budget_mid_run", "error": str(e)[:300]}
+                )
+                result.setdefault("metadata", {}).setdefault("degraded", []).append(
+                    {"feature": "budget_mid_run", "error": str(e)[:300]}
+                )
+
+        role = getattr(step, "role", "worker") or "worker"
+        if forced_model:
+            primary = forced_model
+        else:
+            preferred = (
+                self.config.default_supervisor
+                if role in {"supervisor", "critic"}
+                else None
+            ) or self.preferences.preferred_model_for(task_type)
+            if role == "critic" and not preferred:
+                preferred = self.config.default_supervisor
+            primary = self.model_router.select_model(
+                task_description=step.description,
+                preferred_model=preferred,
+                verbose=verbose,
+            )
+
+        models_to_try = [primary] + self._failover_candidates(primary, step.description)
+        max_retries = max(0, int(self.config.get("max_step_retries") or 0))
+        backoff = float(self.config.get("step_retry_backoff_sec") or 0.05)
+        adapt = bool(self.config.get("adapt_on_failure", True))
+
+        # Cache hit (primary only)
+        if self.use_step_cache:
+            cached = self.step_cache.get(step.description, primary)
+            if cached and cached.get("status") == "success":
+                if verbose:
+                    console.print(f"[dim]→ Cache hit for step {step.step_id}[/dim]")
+                with self._exec_lock:
+                    run_state["context"] += (
+                        f"\n\n[Step {step.step_id} Result]:\n"
+                        f"{str(cached.get('result'))[:500]}..."
+                    )
+                return {
+                    **cached,
+                    "step": step.step_id,
+                    "description": step.description,
+                    "model": primary,
+                    "cached": True,
+                }
+
+        step_start = time.time()
+        last_error: Optional[str] = None
+        last_recovery: Optional[Dict[str, Any]] = None
+        last_output: Any = None
+        last_usage: Dict[str, Any] = {}
+        last_cost = 0.0
+        last_model = primary
+        attempts_log: List[Dict[str, Any]] = []
+
+        for model in models_to_try:
+            attempts = 1 + (max_retries if adapt else 0)
+            for attempt in range(1, attempts + 1):
+                last_model = model
+                if verbose:
+                    console.print(
+                        f"[green]→ Using model: {model} "
+                        f"(attempt {attempt}/{attempts})[/green]"
+                    )
+                try:
+                    prompt = self._build_step_prompt(step, task, run_state)
+                    call_result = self.model_caller.call(model=model, prompt=prompt)
+                    step_output = self._extract_response_text(call_result)
+                    usage: Dict[str, Any] = {}
+                    cost = 0.0
+                    status_err = None
+                    if isinstance(call_result, dict):
+                        usage = call_result.get("usage") or {}
+                        cost = float(call_result.get("estimated_cost_usd") or 0.0)
+                        if call_result.get("status") == "error":
+                            status_err = str(
+                                call_result.get("response") or "provider error"
+                            )
+
+                    if status_err:
+                        raise RuntimeError(status_err)
+
+                    ok, reason = self._quality_ok(step_output)
+                    if not ok and adapt and attempt < attempts:
+                        self._event(
+                            "quality_retry",
+                            step=step.step_id,
+                            model=model,
+                            reason=reason,
+                            attempt=attempt,
+                        )
+                        # One rework prompt
+                        rework = (
+                            f"Previous output failed quality gate ({reason}). "
+                            f"Improve and complete:\n{step.description}\n\n"
+                            f"Draft:\n{str(step_output)[:1500]}"
+                        )
+                        call_result = self.model_caller.call(
+                            model=model,
+                            prompt=rework + "\n\n" + prompt[:2000],
+                        )
+                        step_output = self._extract_response_text(call_result)
+                        ok, reason = self._quality_ok(step_output)
+                        if isinstance(call_result, dict):
+                            usage = call_result.get("usage") or usage
+                            cost = float(
+                                call_result.get("estimated_cost_usd") or cost
+                            )
+
+                    if not ok:
+                        raise RuntimeError(f"quality_gate:{reason}")
+
+                    # Success
+                    with self._exec_lock:
+                        run_state["total_tokens"] += int(
+                            usage.get("total_tokens") or 0
+                        )
+                        run_state["total_cost"] += cost
+                        run_state["selected_model"] = model
+                        run_state["context"] += (
+                            f"\n\n[Step {step.step_id} Result]:\n"
+                            f"{str(step_output)[:500]}..."
+                        )
+
+                    rec = {
+                        "step": step.step_id,
+                        "description": step.description,
+                        "model": model,
+                        "status": "success",
+                        "result": step_output,
+                        "error": None,
+                        "duration_ms": int((time.time() - step_start) * 1000),
+                        "usage": usage,
+                        "estimated_cost_usd": cost,
+                        "attempts": attempts_log
+                        + [{"model": model, "attempt": attempt, "ok": True}],
+                    }
+                    if self.use_step_cache:
+                        self._soft(
+                            "step_cache_put",
+                            lambda: self.step_cache.put(
+                                step.description, rec, model
+                            ),
+                            result=result,
+                        )
+                    if verbose:
+                        console.print(
+                            f"[green]✓ Step {step.step_id} completed[/green]"
+                        )
+                    if attempt > 1 or model != primary:
+                        self._event(
+                            "step_recovered",
+                            step=step.step_id,
+                            model=model,
+                            attempt=attempt,
+                            primary=primary,
+                        )
+                    return rec
+
+                except Exception as e:  # noqa: BLE001
+                    recovery = classify_error(e)
+                    last_recovery = recovery
+                    last_error = str(e)
+                    last_output = f"Error: {e}"
+                    attempts_log.append(
+                        {
+                            "model": model,
+                            "attempt": attempt,
+                            "ok": False,
+                            "error": last_error[:200],
+                            "recovery": recovery,
+                        }
+                    )
+                    self._event(
+                        "step_attempt_failed",
+                        step=step.step_id,
+                        model=model,
+                        attempt=attempt,
+                        error=last_error[:200],
+                        recovery=recovery.get("class"),
+                    )
+                    logger.warning(
+                        "Step %s model=%s attempt=%s failed: %s (%s)",
+                        step.step_id,
+                        model,
+                        attempt,
+                        e,
+                        recovery.get("class"),
+                    )
+                    if verbose:
+                        console.print(
+                            f"[red]✗ Step {step.step_id} attempt {attempt} "
+                            f"({model}): {e}[/red]"
+                        )
+                    retryable = bool(recovery.get("retryable")) and adapt
+                    if retryable and attempt < attempts:
+                        time.sleep(backoff * attempt)
+                        continue
+                    # non-retryable or out of retries → next failover model
+                    break
+
+            # next model in failover chain
+            if adapt and model != models_to_try[-1]:
+                self._event(
+                    "failover",
+                    step=step.step_id,
+                    from_model=model,
+                    to_model=models_to_try[
+                        models_to_try.index(model) + 1
+                    ]
+                    if model in models_to_try
+                    and models_to_try.index(model) + 1 < len(models_to_try)
+                    else None,
+                )
+                continue
+            break
+
+        # All attempts failed
+        def _blacklist_fail():
+            from .model_blacklist import ModelBlacklist
+
+            ModelBlacklist().record_failure(last_model or "unknown")
+
+        self._soft("model_blacklist", _blacklist_fail, result=result)
+        return {
+            "step": step.step_id,
+            "description": step.description,
+            "model": last_model,
+            "status": "failed",
+            "result": last_output,
+            "error": last_error,
+            "duration_ms": int((time.time() - step_start) * 1000),
+            "usage": last_usage,
+            "estimated_cost_usd": last_cost,
+            "recovery": last_recovery,
+            "attempts": attempts_log,
+        }
+
+    def _build_step_prompt(
+        self,
+        step: ExecutionStep,
+        task: str,
+        run_state: Dict[str, Any],
+    ) -> str:
+        with self._exec_lock:
+            skill_block = run_state.get("skill_prompt_block") or ""
+            relevant = dict(run_state.get("relevant_context") or {})
+            context = run_state.get("context") or ""
+
+        prompt_parts = [step.description]
+        if self.config.get("use_constitution", True):
+            try:
+                from .constitution import format_for_prompt
+
+                prompt_parts.append(format_for_prompt())
+            except Exception as e:  # noqa: BLE001
+                logger.debug("constitution inject failed: %s", e)
+        if skill_block:
+            prompt_parts.append(f"\n{skill_block}")
+        if relevant.get("relevant_learnings"):
+            learnings_text = "\n".join(
+                f"- {l.get('content')}"
+                for l in relevant["relevant_learnings"][:3]
+                if isinstance(l, dict)
+            )
+            if learnings_text.strip():
+                prompt_parts.append(
+                    f"\nRelevant past learnings:\n{learnings_text}"
+                )
+        if relevant.get("warnings"):
+            warnings_text = "\n".join(
+                f"- {w.get('content')}"
+                for w in relevant["warnings"][:2]
+                if isinstance(w, dict)
+            )
+            if warnings_text.strip():
+                prompt_parts.append(
+                    f"\nWarnings from past experience:\n{warnings_text}"
+                )
+        if context:
+            prompt_parts.append(f"\nContext from previous steps:\n{context}")
+        # Light task framing
+        prompt_parts.append(f"\n(Overall task: {task[:500]})")
+        return "\n".join(prompt_parts)
+
+    def _replan_after_failure(
+        self,
+        task: str,
+        task_type: str,
+        failed_steps: List[Dict[str, Any]],
+        completed_ok: List[Dict[str, Any]],
+        plan_steps: List[ExecutionStep],
+        verbose: bool,
+    ) -> List[ExecutionStep]:
+        """Create a recovery plan for remaining work after hard step failures."""
+        fail_blob = "; ".join(
+            f"step {s.get('step')}: {s.get('error') or s.get('description')}"
+            for s in failed_steps[:5]
+        )
+        ok_blob = "; ".join(
+            f"step {s.get('step')} ok"
+            for s in completed_ok[:8]
+        )
+        recovery_task = (
+            f"Original task: {task}\n"
+            f"Task type: {task_type}\n"
+            f"Completed successfully: {ok_blob or 'none'}\n"
+            f"Failures to recover from: {fail_blob}\n"
+            "Create a short recovery plan that finishes the original goal, "
+            "avoiding the failed approaches."
+        )
+        try:
+            use_llm = bool(self.config.get("prefer_llm_planner", True)) and (
+                not self.config.use_mock
+            )
+            new_steps = self.task_planner.create_plan(
+                recovery_task, use_llm=use_llm or None
+            )
+            if not new_steps:
+                return []
+            # Offset step ids so they don't collide
+            max_id = max(
+                [s.step_id for s in plan_steps]
+                + [int(s.get("step") or 0) for s in completed_ok + failed_steps]
+                + [0]
+            )
+            offset = max_id
+            remapped: List[ExecutionStep] = []
+            for s in new_steps:
+                remapped.append(
+                    ExecutionStep(
+                        step_id=s.step_id + offset,
+                        description=f"[recovery] {s.description}",
+                        depends_on=[d + offset for d in (s.depends_on or [])],
+                        recommended_model=s.recommended_model,
+                        estimated_complexity=s.estimated_complexity,
+                        can_run_parallel=s.can_run_parallel,
+                        role=s.role,
+                    )
+                )
+            if verbose:
+                self.task_planner.print_plan(remapped)
+            return remapped
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Replan failed: %s", e)
+            self._degraded.append({"feature": "replan", "error": str(e)[:300]})
+            return []
 
     def _execute_plan_steps(
         self,
         plan_steps: List[ExecutionStep],
         run_one,
         verbose: bool = False,
+        already_done: Optional[Set[int]] = None,
     ) -> tuple:
         """
         Topological execution: ready steps with can_run_parallel run concurrently.
         Returns (step_records sorted by step_id, meta).
         """
         by_id: Dict[int, ExecutionStep] = {s.step_id: s for s in plan_steps}
-        completed: Set[int] = set()
+        completed: Set[int] = set(already_done or set())
+        # Treat already-done as satisfied deps without re-running
         records_by_id: Dict[int, Dict[str, Any]] = {}
         batches = 0
         parallel_runs = 0
@@ -741,7 +1257,8 @@ class SuperAIOrchestrator:
         def deps_met(step: ExecutionStep) -> bool:
             return all(d in completed for d in (step.depends_on or []))
 
-        remaining = set(by_id.keys())
+        remaining = set(by_id.keys()) - completed
+        deadlocks_fixed = 0
 
         use_progress = not verbose and len(plan_steps) > 1
         progress_ctx = None
@@ -757,7 +1274,9 @@ class SuperAIOrchestrator:
                 transient=True,
             )
             progress_ctx.__enter__()
-            task_prog = progress_ctx.add_task("Executing steps", total=len(plan_steps))
+            task_prog = progress_ctx.add_task(
+                "Executing steps", total=max(1, len(remaining))
+            )
 
         try:
             while remaining:
@@ -767,10 +1286,31 @@ class SuperAIOrchestrator:
                     if deps_met(by_id[sid])
                 ]
                 if not ready:
-                    # Deadlock / bad deps — run remaining sequentially
-                    ready = [by_id[sid] for sid in sorted(remaining)]
+                    # Deadlock / bad deps — break cycle by dropping unsatisfied deps
+                    deadlocks_fixed += 1
+                    self._event(
+                        "dep_repair",
+                        remaining=sorted(remaining),
+                        action="run_serial_ignoring_broken_deps",
+                    )
+                    for sid in list(remaining):
+                        step = by_id[sid]
+                        # Soft-repair: clear unmet deps so we can progress
+                        unmet = [
+                            d for d in (step.depends_on or []) if d not in completed
+                        ]
+                        if unmet:
+                            step.depends_on = [
+                                d for d in (step.depends_on or []) if d in completed
+                            ]
+                    ready = [
+                        by_id[sid]
+                        for sid in sorted(remaining)
+                        if deps_met(by_id[sid])
+                    ]
+                    if not ready:
+                        ready = [by_id[sid] for sid in sorted(remaining)]
 
-                # Split: parallel-eligible vs serial
                 parallelizable = [
                     s for s in ready if s.can_run_parallel and len(ready) > 1
                 ]
@@ -780,9 +1320,7 @@ class SuperAIOrchestrator:
                 batch: List[ExecutionStep] = []
                 if len(parallelizable) >= 2:
                     batch = parallelizable
-                    # also run one serial after if any? keep simple: run parallel set first
                 elif ready:
-                    # single-step batch (serial)
                     batch = [ready[0]]
                     serial = ready[1:]
 
@@ -804,17 +1342,21 @@ class SuperAIOrchestrator:
                             if task_prog is not None and progress_ctx is not None:
                                 progress_ctx.update(
                                     task_prog,
-                                    description=f"Step {step.step_id}: {step.description[:40]}",
+                                    description=(
+                                        f"Step {step.step_id}: "
+                                        f"{step.description[:40]}"
+                                    ),
                                 )
                                 progress_ctx.advance(task_prog)
                 else:
                     for step in batch:
-                        if verbose:
-                            pass  # _run_one_step already prints
                         if task_prog is not None and progress_ctx is not None:
                             progress_ctx.update(
                                 task_prog,
-                                description=f"Step {step.step_id}: {step.description[:40]}",
+                                description=(
+                                    f"Step {step.step_id}: "
+                                    f"{step.description[:40]}"
+                                ),
                             )
                         rec = run_one(step)
                         records_by_id[step.step_id] = rec
@@ -823,7 +1365,6 @@ class SuperAIOrchestrator:
                         if task_prog is not None and progress_ctx is not None:
                             progress_ctx.advance(task_prog)
 
-                # Run leftover serial ready steps that weren't in batch
                 for step in serial:
                     if step.step_id not in remaining:
                         continue
@@ -832,7 +1373,9 @@ class SuperAIOrchestrator:
                     if task_prog is not None and progress_ctx is not None:
                         progress_ctx.update(
                             task_prog,
-                            description=f"Step {step.step_id}: {step.description[:40]}",
+                            description=(
+                                f"Step {step.step_id}: {step.description[:40]}"
+                            ),
                         )
                     rec = run_one(step)
                     records_by_id[step.step_id] = rec
@@ -849,16 +1392,13 @@ class SuperAIOrchestrator:
             "batches": batches,
             "parallel_step_runs": parallel_runs,
             "total_steps": len(plan_steps),
+            "dep_repairs": deadlocks_fixed,
         }
         return ordered, meta
 
     def _maybe_auto_create_skills(
         self, task_type: str, min_success_count: int = 3
     ) -> List[str]:
-        """
-        Gate: only auto-create when we have enough successful learnings
-        for this task type (avoids skill spam on first run).
-        """
         summary = self.learning_engine.get_learnings_summary(task_type=task_type)
         if summary.get("success_count", 0) < min_success_count:
             return []
@@ -884,7 +1424,6 @@ class SuperAIOrchestrator:
         )
 
         try:
-            # Prefer configured supervisor / a known registry model
             synth_model = (
                 self.config.default_supervisor
                 or self.model_router.select_model(original_task)
@@ -894,6 +1433,11 @@ class SuperAIOrchestrator:
                 prompt=synthesis_prompt,
             )
             return self._extract_response_text(call_result)
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Synthesis LLM failed, concatenating steps: %s", e)
+            self._degraded.append(
+                {"feature": "synthesis", "error": str(e)[:300]}
+            )
+            self._event("synthesis_fallback", error=str(e)[:200])
             parts = [str(r.get("result", "")) for r in results]
             return "\n\n".join(parts)

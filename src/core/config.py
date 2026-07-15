@@ -82,6 +82,12 @@ class Config:
         "cli_delegate_workers": False,
         # Prefer this CLI name when delegating (else pick_for_role)
         "cli_delegate_preferred": None,
+        # Ask available AI CLIs to review/advise (critic + dedicated review board)
+        "cli_delegate_reviewers": True,
+        # Prefer these CLIs for review/advise (comma list or null = auto)
+        "cli_review_preferred": None,
+        # Prefer external CLIs as default council members when available
+        "council_prefer_clis": True,
     }
 
     def __init__(self, config_path: Optional[str] = None):

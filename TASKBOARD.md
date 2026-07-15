@@ -55,8 +55,17 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-16 |
-| **What** | Interactive install wizard: opt-in host tools + Postgres/pgvector DSN setup |
-| **Verify** | `pytest tests/test_install_wizard.py tests/test_pgvector_store.py -q` |
+| **What** | Multi-CLI review/advisor board — fill 5 gaps (council CLIs, delegate reviewers, advisor role, templates, structured protocol) |
+| **Verify** | `pytest tests/test_multi_cli_advisory.py -q` |
+
+### Multi-CLI review & advisors
+
+- `[x]` `superai review` / `superai advise` structured board  
+- `[x]` Council + pr-review default to available `cli:*`  
+- `[x]` `cli_delegate_reviewers` (default true) for critic path  
+- `[x]` `advisor` role + gemini/grok defaults  
+- `[x]` Alt args templates, probe, install_hint  
+- `[x]` Protocol v1: verdict / findings / confidence / merge
 
 ### Install wizard (opt-in Postgres + host tools)
 

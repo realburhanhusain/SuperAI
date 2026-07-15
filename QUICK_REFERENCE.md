@@ -47,6 +47,8 @@ superai run "hello" --format json
 | `web` → `/palace` | Interactive Memory Palace browser |
 | `search-web "q" --provider duckduckgo` | Instant Answer API (no scrape) |
 | `github status\|issues\|prs\|issue-create\|pr\|comment` | GitHub product API / gh CLI |
+| `review "…"` / `advise "…"` | Multi-CLI structured review / advisor board |
+| `pr-review --use-clis` | Diff review with CLI board + council (default CLIs on) |
 | Env `SUPERAI_MEMORY_BACKEND=pgvector` | Default Memory Palace backend (Postgres+pgvector or SQLite cosine) |
 | Env `SUPERAI_MEMORY_DSN` | e.g. `postgresql+psycopg://user:pass@localhost/superai` |
 | Env `SUPERAI_MEMORY_BACKEND=faiss` | Optional FAISS offline index |

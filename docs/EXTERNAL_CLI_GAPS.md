@@ -1,7 +1,7 @@
 # External CLI integration gaps — closed
 
-**Updated:** 2026-07-15  
-**Module:** `src/core/external_cli.py`
+**Updated:** 2026-07-16  
+**Module:** `src/core/external_cli.py` · `src/core/multi_cli_advisory.py`
 
 ## Observations → status
 
@@ -10,6 +10,11 @@
 | Module felt standalone | **Closed** — single integration path for inject/write-back/audit |
 | Weak Memory Palace / context / output wrapping | **Closed** — `with_context` + `write_memory` defaults on `ExternalCLITool.run` |
 | Unclear orchestrator supervisor–worker use | **Closed** — `cli_delegate_workers` + `run_as_worker` + ModelCaller `cli:*` |
+| Council/pr-review ignore CLIs by default | **Closed** — prefer available `cli:*` members; pr-review runs multi-CLI board |
+| No auto multi-CLI review | **Closed** — `cli_delegate_reviewers` (default true) + `superai review` / `advise` |
+| No advisor role | **Closed** — `advisor` role + gemini default_role=advisor |
+| Weak CLI args / PATH errors | **Closed** — alt templates, probe(), install_hint on miss |
+| Freeform review only | **Closed** — structured protocol v1 (verdict/findings/confidence) |
 
 ## Integration graph
 

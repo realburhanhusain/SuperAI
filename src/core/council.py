@@ -274,7 +274,26 @@ class Council:
         }
 
     def _default_models(self, n: int) -> List[str]:
-        names = self.registry.list_all_models()
+        """Prefer available external AI CLIs (cli:*) as council members."""
+        try:
+            from .multi_cli_advisory import default_council_members
+
+            members = default_council_members(n, prefer_clis=True, registry=self.registry)
+            if members:
+                return members
+        except Exception:
+            pass
+        try:
+            self.registry.register_external_clis_as_models()
+        except Exception:
+            pass
+        names = [
+            m
+            for m in self.registry.list_all_models()
+            if not str(m).startswith("cli:")
+        ]
+        if not names:
+            names = list(self.registry.list_all_models())
         if not names:
             return ["gpt-4o"] * n
         return names[:n]

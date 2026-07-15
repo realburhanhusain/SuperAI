@@ -1220,6 +1220,25 @@ class SuperAIOrchestrator:
                             cost = float(
                                 call_result.get("estimated_cost_usd") or cost
                             )
+                        # Optional multi-CLI reviewer board on light critic
+                        if (
+                            not ok
+                            and critic == "light"
+                            and bool(self.config.get("cli_delegate_reviewers", True))
+                        ):
+                            improved, cmeta = self._council_critique_step(
+                                step=step,
+                                draft=str(step_output or ""),
+                                task=task,
+                            )
+                            if improved:
+                                step_output = improved
+                                ok, reason = self._quality_ok(step_output)
+                                self._event(
+                                    "cli_reviewer_board",
+                                    step=step.step_id,
+                                    **(cmeta or {}),
+                                )
 
                     # Council critic: high complexity or still failing quality
                     complexity = (
@@ -1563,23 +1582,71 @@ class SuperAIOrchestrator:
         draft: str,
         task: str,
     ) -> Tuple[Optional[str], Dict[str, Any]]:
-        """Optional multi-model council critique for a single step output."""
+        """
+        Critique a step via multi-CLI reviewer board (preferred) and/or model council.
+
+        Gap fill: cli_delegate_reviewers routes critique to available AI CLIs.
+        """
+        topic = (
+            f"Improve this step for overall task.\n"
+            f"Overall: {task[:400]}\n"
+            f"Step: {step.description}\n"
+            f"Draft:\n{draft[:3000]}\n"
+            "Vote on the best improved approach; summary should be the improved text."
+        )
+        meta: Dict[str, Any] = {}
+
+        # 1) Multi-CLI reviewer board when enabled
+        if bool(self.config.get("cli_delegate_reviewers", True)):
+            try:
+                from .multi_cli_advisory import multi_cli_board, pick_advisory_clis
+
+                pref = self.config.get("cli_review_preferred")
+                preferred = None
+                if pref:
+                    preferred = [
+                        p.strip()
+                        for p in str(pref).split(",")
+                        if p.strip()
+                    ]
+                clis = preferred or pick_advisory_clis(role="reviewer", max_clis=3)
+                board = multi_cli_board(
+                    topic,
+                    mode="review",
+                    clis=clis,
+                    max_clis=3,
+                    dry_run=bool(self.config.use_mock),
+                    approve=True,
+                )
+                meta["cli_board"] = {
+                    "clis": board.get("clis"),
+                    "verdict": (board.get("board") or {}).get("verdict"),
+                    "tally": (board.get("board") or {}).get("tally"),
+                }
+                bsum = str((board.get("board") or {}).get("summary") or "").strip()
+                if bsum and len(bsum) >= 8:
+                    meta["source"] = "multi_cli_review"
+                    return bsum, meta
+            except Exception as e:  # noqa: BLE001
+                meta["cli_board_error"] = str(e)[:200]
+
+        # 2) Fallback: multi-model/CLI council (defaults prefer cli:* members)
         try:
             from .council import Council
+            from .multi_cli_advisory import default_council_members
 
-            topic = (
-                f"Improve this step for overall task.\n"
-                f"Overall: {task[:400]}\n"
-                f"Step: {step.description}\n"
-                f"Draft:\n{draft[:3000]}\n"
-                "Vote on the best improved approach; summary should be the improved text."
+            prefer_clis = bool(self.config.get("council_prefer_clis", True))
+            members = default_council_members(
+                3, prefer_clis=prefer_clis, registry=self.model_registry
             )
-            out = Council(caller=self.model_caller, registry=self.model_registry).run(
+            out = Council(
+                caller=self.model_caller, registry=self.model_registry
+            ).run(
                 topic,
+                models=members,
                 with_critique=True,
             )
             decision = out.get("decision") or {}
-            # Prefer decision summary / winner text
             text = (
                 decision.get("summary")
                 or decision.get("winner_summary")
@@ -1587,18 +1654,18 @@ class SuperAIOrchestrator:
             )
             if not text and out.get("proposals"):
                 text = (out["proposals"][0] or {}).get("summary")
+            meta["voting_mode"] = out.get("voting_mode")
+            meta["members"] = out.get("members")
+            meta["source"] = "council"
             if text and len(str(text).strip()) >= 8:
-                return str(text), {
-                    "voting_mode": out.get("voting_mode"),
-                    "members": out.get("members"),
-                }
-            return None, {"note": "council produced no usable summary"}
+                return str(text), meta
+            return None, {**meta, "note": "council produced no usable summary"}
         except Exception as e:  # noqa: BLE001
             logger.warning("Council critic failed: %s", e)
             self._degraded.append(
                 {"feature": "council_critic", "error": str(e)[:300]}
             )
-            return None, {"error": str(e)[:200]}
+            return None, {**meta, "error": str(e)[:200]}
 
     def _run_with_clis(
         self,

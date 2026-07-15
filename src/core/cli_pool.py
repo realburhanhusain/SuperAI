@@ -409,16 +409,18 @@ class ParallelCLIManager:
             except Exception:
                 clis = ["claude", "aider", "cursor", "gemini"]
 
-        roles = ["architect", "implementer", "tester", "reviewer"]
+        roles = ["architect", "implementer", "tester", "reviewer", "advisor"]
         work = []
         for i, cli in enumerate(clis):
             role = roles[i % len(roles)]
+            # Prefer role-matched CLI when list was generic
             work.append(
                 {
                     "cli": cli,
                     "role": role,
                     "prompt": (
-                        f"You are the {role} worker in a SuperAI multi-CLI agentic workflow.\n"
+                        f"You are the {role} on a SuperAI multi-CLI board "
+                        f"(implementer/worker builds; reviewer/advisor critique).\n"
                         f"Task: {task}\n"
                         f"Focus on the {role} perspective. Be concise and actionable."
                     ),

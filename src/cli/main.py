@@ -1578,6 +1578,17 @@ def council(
         console.print(f"[red]Invalid voting mode. Use one of: {VOTING_MODES}[/red]")
         raise typer.Exit(code=1)
     model_list = [m.strip() for m in models.split(",")] if models else None
+    # Default: prefer available external CLIs as council members
+    if model_list is None and bool(cfg.get("council_prefer_clis", True)):
+        try:
+            from core.multi_cli_advisory import default_council_members
+            from core.model_registry import ModelRegistry
+
+            reg = ModelRegistry()
+            reg.register_external_clis_as_models()
+            model_list = default_council_members(3, prefer_clis=True, registry=reg)
+        except Exception:
+            model_list = None
     sup = supervisor or cfg.default_supervisor
     c = Council(voting_mode=mode, supervisor_model=sup)
     result = c.run(
@@ -3639,19 +3650,103 @@ def langgraph_export_cmd(
 def pr_review_cmd(
     ref: str = typer.Option("HEAD~1", "--ref", help="git diff base"),
     mock: bool = typer.Option(True, "--mock/--live"),
+    use_clis: bool = typer.Option(
+        True,
+        "--use-clis/--no-clis",
+        help="Use available external AI CLIs as reviewers (default on)",
+    ),
+    clis: Optional[str] = typer.Option(
+        None, "--clis", help="Comma-separated CLIs e.g. grok,gemini,claude"
+    ),
     pr: Optional[int] = typer.Option(
         None, "--pr", help="Also fetch GitHub PR metadata by number"
     ),
     repo: Optional[str] = typer.Option(None, "--repo", "-R"),
 ):
-    """N26: Council-style review of local git diff (+ optional GitHub PR metadata)"""
+    """N26: Multi-CLI + council review of local git diff (+ optional GitHub PR)"""
     from core.pr_review import review_local
 
-    out = review_local(ref=ref, use_mock=mock)
+    cli_list = [c.strip() for c in clis.split(",")] if clis else None
+    out = review_local(
+        ref=ref,
+        use_mock=mock,
+        use_clis=use_clis,
+        clis=cli_list,
+        dry_run=mock,
+    )
     if pr is not None:
         from core.github_api import GitHubClient
 
         out["github_pr"] = GitHubClient(repo=repo).get_pr(pr)
+    console.print_json(data=out)
+
+
+@app.command("review")
+def multi_review_cmd(
+    subject: str = typer.Argument(..., help="What to review"),
+    clis: Optional[str] = typer.Option(
+        None, "--clis", help="Comma list e.g. grok,gemini,claude (default: auto)"
+    ),
+    max_clis: int = typer.Option(3, "--max", help="Max CLIs on the board"),
+    dry_run: bool = typer.Option(True, "--dry-run/--live"),
+    approve: bool = typer.Option(True, "--approve/--no-approve"),
+):
+    """Multi-CLI structured code/design review board (gap: always ask CLIs to review)."""
+    from core.multi_cli_advisory import multi_cli_board
+
+    cli_list = [c.strip() for c in clis.split(",")] if clis else None
+    out = multi_cli_board(
+        subject,
+        mode="review",
+        clis=cli_list,
+        max_clis=max_clis,
+        dry_run=dry_run,
+        approve=approve,
+    )
+    board = out.get("board") or {}
+    console.print(
+        Panel.fit(
+            f"[bold]Multi-CLI review[/bold]\n"
+            f"CLIs: {', '.join(out.get('clis') or [])}\n"
+            f"Verdict: {board.get('verdict')}  conf={board.get('confidence')}\n"
+            f"Tally: {board.get('tally')}",
+            border_style="yellow",
+        )
+    )
+    console.print_json(data=out)
+
+
+@app.command("advise")
+def multi_advise_cmd(
+    subject: str = typer.Argument(..., help="Question / decision for advisors"),
+    clis: Optional[str] = typer.Option(
+        None, "--clis", help="Comma list e.g. gemini,grok,claude (default: auto)"
+    ),
+    max_clis: int = typer.Option(3, "--max", help="Max advisor CLIs"),
+    dry_run: bool = typer.Option(True, "--dry-run/--live"),
+    approve: bool = typer.Option(True, "--approve/--no-approve"),
+):
+    """Multi-CLI advisor board (CLIs act as advisors; structured opinions + merge)."""
+    from core.multi_cli_advisory import multi_cli_board
+
+    cli_list = [c.strip() for c in clis.split(",")] if clis else None
+    out = multi_cli_board(
+        subject,
+        mode="advise",
+        clis=cli_list,
+        max_clis=max_clis,
+        dry_run=dry_run,
+        approve=approve,
+    )
+    board = out.get("board") or {}
+    console.print(
+        Panel.fit(
+            f"[bold]Multi-CLI advisors[/bold]\n"
+            f"CLIs: {', '.join(out.get('clis') or [])}\n"
+            f"Board: {board.get('verdict')}  conf={board.get('confidence')}",
+            border_style="cyan",
+        )
+    )
     console.print_json(data=out)
 
 

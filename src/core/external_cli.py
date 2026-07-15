@@ -22,6 +22,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+# Roles used by orchestrator / parallel / advisory board
+CLI_ROLES = (
+    "worker",
+    "implementer",
+    "reviewer",
+    "advisor",
+    "architect",
+    "tester",
+)
+
+
 @dataclass
 class ExternalCLISpec:
     name: str
@@ -31,7 +42,10 @@ class ExternalCLISpec:
     detects: List[str] = field(default_factory=list)  # PATH names or files
     modifies_files: bool = True
     description: str = ""
-    default_role: str = "worker"  # for supervisor-worker patterns
+    default_role: str = "worker"  # worker|implementer|reviewer|advisor|…
+    # Optional alternate argv templates tried if primary fails validation
+    alt_args_templates: List[List[str]] = field(default_factory=list)
+    install_hint: str = ""
 
 
 @dataclass
@@ -58,55 +72,67 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         name="claude",
         command="claude",
         args_template=["-p", "{prompt}"],
+        alt_args_templates=[["--print", "{prompt}"], ["{prompt}"]],
         detects=["claude", "claude.exe"],
         modifies_files=True,
         description="Claude Code CLI",
         default_role="implementer",
+        install_hint="Install Claude Code CLI and ensure `claude` is on PATH",
     ),
     ExternalCLISpec(
         name="aider",
         command="aider",
         args_template=["--message", "{prompt}", "--yes"],
+        alt_args_templates=[["--message", "{prompt}"], ["{prompt}"]],
         detects=["aider", "aider.exe"],
         modifies_files=True,
         description="Aider coding agent",
         default_role="implementer",
+        install_hint="pip install aider-chat",
     ),
     ExternalCLISpec(
         name="cursor",
         command="cursor",
         args_template=["agent", "{prompt}"],
-        detects=["cursor", "cursor.exe"],
+        alt_args_templates=[["agent", "-p", "{prompt}"], ["{prompt}"]],
+        detects=["cursor", "cursor.exe", "cursor-agent"],
         modifies_files=True,
         description="Cursor agent CLI (if available)",
         default_role="implementer",
+        install_hint="Install Cursor IDE / agent CLI",
     ),
     ExternalCLISpec(
         name="grok",
         command="grok",
         args_template=["--prompt", "{prompt}"],
+        alt_args_templates=[["-p", "{prompt}"], ["ask", "{prompt}"], ["{prompt}"]],
         detects=["grok", "grok.exe"],
         modifies_files=True,
-        description="Grok CLI",
+        description="Grok CLI (strong reviewer/advisor)",
         default_role="reviewer",
+        install_hint="Install Grok CLI and ensure `grok` is on PATH",
     ),
     ExternalCLISpec(
         name="gemini",
         command="gemini",
         args_template=["-p", "{prompt}"],
+        alt_args_templates=[["--prompt", "{prompt}"], ["prompt", "{prompt}"], ["{prompt}"]],
         detects=["gemini", "gemini.exe"],
         modifies_files=True,
-        description="Gemini CLI",
-        default_role="worker",
+        description="Gemini CLI (worker/advisor)",
+        default_role="advisor",
+        install_hint="Install Google Gemini CLI; ensure `gemini` is on PATH",
     ),
     ExternalCLISpec(
         name="codex",
         command="codex",
         args_template=["exec", "{prompt}"],
+        alt_args_templates=[["exec", "--full-auto", "{prompt}"], ["{prompt}"]],
         detects=["codex", "codex.exe"],
         modifies_files=True,
         description="OpenAI Codex CLI",
         default_role="implementer",
+        install_hint="npm i -g @openai/codex  (or install OpenAI Codex CLI)",
     ),
     ExternalCLISpec(
         name="continue",
@@ -115,7 +141,8 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         detects=["continue", "cn", "continue.exe"],
         modifies_files=True,
         description="Continue.dev CLI (if installed)",
-        default_role="worker",
+        default_role="advisor",
+        install_hint="Install Continue.dev CLI",
     ),
     ExternalCLISpec(
         name="cline",
@@ -125,6 +152,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         modifies_files=True,
         description="Cline agent CLI (if installed)",
         default_role="implementer",
+        install_hint="Install Cline CLI",
     ),
     ExternalCLISpec(
         name="roo",
@@ -134,6 +162,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         modifies_files=True,
         description="Roo Code CLI (if installed)",
         default_role="implementer",
+        install_hint="Install Roo Code CLI",
     ),
 ]
 
@@ -157,9 +186,11 @@ class ExternalCLIRegistry:
                     "name": name,
                     "available": path is not None,
                     "path": path,
+                    "command": spec.command,
                     "modifies_files": spec.modifies_files,
                     "description": spec.description,
                     "default_role": spec.default_role,
+                    "install_hint": spec.install_hint or "",
                 }
             )
         return found
@@ -170,24 +201,62 @@ class ExternalCLIRegistry:
     def get(self, name: str) -> Optional[ExternalCLISpec]:
         return self.specs.get(name)
 
+    def install_hint(self, name: str) -> str:
+        spec = self.get(name)
+        if not spec:
+            return f"Unknown CLI '{name}'. Known: {', '.join(self.specs)}"
+        if spec.install_hint:
+            return spec.install_hint
+        return f"Install `{spec.command}` and ensure it is on PATH ({', '.join(spec.detects)})"
+
+    def probe(self, name: str) -> Dict[str, Any]:
+        """Rich availability probe for a CLI (path, role, templates, hint)."""
+        spec = self.get(name)
+        if not spec:
+            return {"name": name, "available": False, "error": "unknown"}
+        path = None
+        for d in spec.detects or [spec.command]:
+            path = shutil.which(d)
+            if path:
+                break
+        return {
+            "name": name,
+            "available": path is not None,
+            "path": path,
+            "command": spec.command,
+            "default_role": spec.default_role,
+            "args_template": list(spec.args_template),
+            "alt_templates": len(spec.alt_args_templates or []),
+            "install_hint": self.install_hint(name),
+            "description": spec.description,
+        }
+
     def pick_for_role(self, role: str = "worker") -> Optional[str]:
-        """Prefer an available CLI whose default_role matches, else any available."""
+        """Prefer an available CLI whose default_role matches, else role preference list."""
         role = (role or "worker").lower()
+        # alias
+        if role in {"advice", "consult"}:
+            role = "advisor"
+        if role in {"review", "code_review"}:
+            role = "reviewer"
         avail = {d["name"]: d for d in self.discover() if d.get("available")}
         if not avail:
             return None
         for name, d in avail.items():
-            if str(d.get("default_role") or "").lower() in {
-                role,
-                "implementer" if role == "worker" else role,
-            }:
+            dr = str(d.get("default_role") or "").lower()
+            if dr == role:
                 return name
-        # map common roles
+            if role == "worker" and dr == "implementer":
+                return name
+            if role == "advisor" and dr in {"reviewer", "advisor"}:
+                return name
         prefer = {
             "implementer": ["aider", "claude", "codex", "cursor", "cline", "roo"],
             "worker": ["claude", "aider", "gemini", "codex"],
-            "reviewer": ["grok", "claude", "gemini"],
-            "tester": ["aider", "claude", "codex"],
+            "reviewer": ["grok", "claude", "gemini", "codex"],
+            "advisor": ["gemini", "grok", "claude", "codex", "continue"],
+            "architect": ["claude", "gemini", "grok", "cursor"],
+            "tester": ["aider", "claude", "codex", "gemini"],
         }.get(role, [])
         for p in prefer:
             if p in avail:
@@ -277,12 +346,17 @@ class ExternalCLITool:
                     duration_sec=0.0,
                     modifies_files=spec.modifies_files,
                     approved=False,
-                    error=f"CLI not found on PATH: {spec.command}",
+                    error=(
+                        f"CLI not found on PATH: {spec.command}. "
+                        f"{self.registry.install_hint(cli_name)}"
+                    ),
                     metadata={
                         "source": source,
                         "role": role,
                         "step_id": step_id,
                         "task_id": task_id,
+                        "install_hint": self.registry.install_hint(cli_name),
+                        "probed": self.registry.probe(cli_name),
                     },
                 )
 
@@ -339,14 +413,25 @@ class ExternalCLITool:
                 # keep original prompt; record in metadata later
                 context_id = f"ctx-error:{e}"[:80]
 
-        # Role framing for supervisor–worker pattern
+        # Role framing for supervisor–worker / advisor–reviewer patterns
         if role and role not in {"worker", ""}:
-            prompt = (
-                f"You are the {role} worker in a SuperAI multi-agent workflow.\n"
-                f"{prompt}"
-            )
+            if role in {"advisor", "reviewer", "architect"}:
+                prompt = (
+                    f"You are the {role} on a SuperAI multi-CLI advisory board.\n"
+                    f"{prompt}"
+                )
+            else:
+                prompt = (
+                    f"You are the {role} worker in a SuperAI multi-agent workflow.\n"
+                    f"{prompt}"
+                )
 
-        args = [a.replace("{prompt}", prompt) for a in spec.args_template]
+        templates = [list(spec.args_template or [])] + list(
+            spec.alt_args_templates or []
+        )
+        if not templates or not templates[0]:
+            templates = [["{prompt}"]]
+        args = [a.replace("{prompt}", prompt) for a in templates[0]]
         cmd = [resolved, *args]
         meta: Dict[str, Any] = {
             "source": source,
@@ -359,6 +444,8 @@ class ExternalCLITool:
             "task_id": task_id,
             "step_id": step_id,
             "integrated": True,
+            "args_template_used": templates[0],
+            "alt_templates_available": max(0, len(templates) - 1),
         }
 
         if self.dry_run:

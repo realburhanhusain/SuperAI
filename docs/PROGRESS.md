@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
 **Updated:** 2026-07-15  
-**Tests:** **195 passed**  
+**Tests:** **202 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -30,6 +30,7 @@
 
 ### Latest highlights
 
+- **Review hardening** — approval-denial correctness, WriteQueue timeouts, workspace jail fail-closed, multiproc job locks, SSRF URL gate, memory redaction, MCP mock-default, XSS escape; `tests/test_review_hardening.py`  
 - **Memory Palace concurrent safety (Phase 3)** — `store_lock` / atomic writes / `get_shared_palace` / write queue / sync merge; `tests/test_memory_concurrency.py` (`docs/MEMORY_PALACE_GAPS.md`)  
 - **External CLI deep integration** — Memory Palace + learning + audit; orchestrator `cli_delegate_workers` (`docs/EXTERNAL_CLI_GAPS.md`)  
 - **LearningEngine gaps closed** — mid-task learn/context, entropy conflicts, Jaccard distill (`docs/LEARNING_ENGINE_GAPS.md`)  

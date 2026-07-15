@@ -164,7 +164,21 @@ class FaissMemoryStore:
             self.ids.append(mid)
             self.vectors.append(vec)
             if HAS_FAISS:
-                self._rebuild_faiss()
+                # Incremental add when index exists and dim matches; else rebuild
+                try:
+                    import numpy as np
+
+                    arr = np.array([vec], dtype="float32")
+                    if (
+                        self._index is not None
+                        and getattr(self, "dim", None)
+                        and len(vec) == self.dim
+                    ):
+                        self._index.add(arr)
+                    else:
+                        self._rebuild_faiss()
+                except Exception:
+                    self._rebuild_faiss()
             # save without nested double-lock: write files only
             payload = {
                 "docs": self.docs,

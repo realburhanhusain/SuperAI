@@ -106,8 +106,28 @@ class ToolProposalManager:
         p = self._get(proposal_id)
         if p.status == ProposalStatus.REJECTED.value:
             raise ValueError("Cannot execute rejected proposal")
+        if force and p.requires_human and p.status != ProposalStatus.APPROVED.value:
+            # force only with explicit env override (never silent)
+            import os
+
+            if (os.getenv("SUPERAI_ALLOW_FORCE_PROPOSALS") or "").lower() not in {
+                "1",
+                "true",
+                "yes",
+            }:
+                raise ValueError(
+                    "force=True requires SUPERAI_ALLOW_FORCE_PROPOSALS=1 "
+                    "(proposal still needs human approval otherwise)"
+                )
         if p.requires_human and p.status != ProposalStatus.APPROVED.value and not force:
             raise ValueError("Proposal requires human approval first")
+        # Dangerous actions always require human unless approved or force+env
+        if p.action in {"run_shell", "edit_file"} and not p.requires_human:
+            if p.status != ProposalStatus.APPROVED.value and not force:
+                raise ValueError(
+                    f"Action {p.action} requires human approval "
+                    "(requires_human=False is ignored for shell/file)"
+                )
         executor = self._executors.get(p.action)
         if not executor:
             p.status = ProposalStatus.FAILED.value
@@ -173,6 +193,15 @@ class ToolProposalManager:
                 "Set SUPERAI_ALLOW_SHELL_META=1 to override (not recommended)."
             )
         timeout = float(args.get("timeout", 60))
+        # Always jail cwd to workspace
+        from .workspace import assert_in_workspace, workspace_root
+
+        root = workspace_root()
+        raw_cwd = args.get("cwd")
+        if raw_cwd:
+            cwd = str(assert_in_workspace(raw_cwd, root, label="cwd"))
+        else:
+            cwd = str(root)
         # N15: optional docker sandbox
         try:
             from .config import Config
@@ -191,6 +220,7 @@ class ToolProposalManager:
             text=True,
             timeout=timeout,
             shell=False,
+            cwd=cwd,
         )
         return {
             "exit_code": proc.returncode,

@@ -250,22 +250,23 @@ async function load(){
   const L=j.layout||{};
   document.getElementById('meta').textContent=
     'located='+(L.total_located||0)+' unassigned='+(L.unassigned||0)+' · auto-refresh 5s';
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const wb=document.getElementById('wings'); wb.innerHTML='';
   (j.top_wings||[]).forEach(row=>{
     const tr=document.createElement('tr');
-    tr.innerHTML='<td>'+row.wing+'</td><td>'+row.count+'</td>';
+    tr.innerHTML='<td>'+esc(row.wing)+'</td><td>'+esc(row.count)+'</td>';
     wb.appendChild(tr);
   });
   const sb=document.getElementById('sug'); sb.innerHTML='';
   (j.suggestions||[]).forEach(s=>{
     const tr=document.createElement('tr');
-    tr.innerHTML='<td>'+s.wing+'/'+s.room+'</td><td>'+s.size+'</td><td>'+(s.already_in_catalog?'no':'YES')+'</td>';
+    tr.innerHTML='<td>'+esc(s.wing)+'/'+esc(s.room)+'</td><td>'+esc(s.size)+'</td><td>'+esc(s.already_in_catalog?'no':'YES')+'</td>';
     sb.appendChild(tr);
   });
   const ib=document.getElementById('items'); ib.innerHTML='';
   ((j.browse||{}).items||[]).forEach(m=>{
     const tr=document.createElement('tr');
-    tr.innerHTML='<td>'+(m.id||'')+'</td><td>'+(m.wing||'')+'</td><td>'+(m.room||'')+'</td><td>'+(m.content||'')+'</td>';
+    tr.innerHTML='<td>'+esc(m.id)+'</td><td>'+esc(m.wing)+'</td><td>'+esc(m.room)+'</td><td>'+esc((m.content||'').slice(0,200))+'</td>';
     ib.appendChild(tr);
   });
 }
@@ -532,16 +533,17 @@ async function load(){
   const t=s.totals||{};
   document.getElementById('meta').textContent=
     `running=${t.running||0} queued=${t.queued||0} done=${t.done||0} failed=${t.failed||0} · auto-refresh 2s`;
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const jobs=j.jobs||[];
   const tb=document.getElementById('rows');
   tb.innerHTML='';
   jobs.forEach(job=>{
     const tr=document.createElement('tr');
-    tr.className=job.status||'';
-    const out=(job.stdout_tail||job.error||'').slice(0,80).replace(/</g,'&lt;');
-    tr.innerHTML=`<td>${job.id||''}</td><td>${job.cli||''}</td><td>${job.role||''}</td>
-      <td>${job.status||''}</td><td>${job.duration_sec||0}</td>
-      <td>${job.workflow_id||''}</td><td><code>${out}</code></td>`;
+    tr.className=esc(job.status||'');
+    const out=esc((job.stdout_tail||job.error||'').slice(0,80));
+    tr.innerHTML=`<td>${esc(job.id)}</td><td>${esc(job.cli)}</td><td>${esc(job.role)}</td>
+      <td>${esc(job.status)}</td><td>${esc(job.duration_sec||0)}</td>
+      <td>${esc(job.workflow_id)}</td><td><code>${out}</code></td>`;
     tb.appendChild(tr);
   });
   if(!jobs.length){
@@ -600,17 +602,18 @@ async function load(){
   const t=s.totals||{};
   document.getElementById('meta').textContent=
     `running=${t.running||0} queued=${t.queued||0} done=${t.done||0} failed=${t.failed||0} · auto-refresh 2s`;
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const sessions=j.sessions||[];
   const tb=document.getElementById('rows');
   tb.innerHTML='';
   sessions.forEach(sess=>{
     const tr=document.createElement('tr');
-    tr.className=sess.status||'';
-    const out=(sess.stdout_tail||sess.error||'').slice(0,100).replace(/</g,'&lt;');
-    const cmd=(sess.command||[]).join(' ').slice(0,80).replace(/</g,'&lt;');
-    tr.innerHTML=`<td>${sess.id||''}</td><td>${sess.title||''}</td><td>${sess.role||''}</td>
-      <td>${sess.status||''}</td><td>${sess.duration_sec||0}</td>
-      <td>${sess.workflow_id||''}</td><td><code>${cmd}</code></td>
+    tr.className=esc(sess.status||'');
+    const out=esc((sess.stdout_tail||sess.error||'').slice(0,100));
+    const cmd=esc((sess.command||[]).join(' ').slice(0,80));
+    tr.innerHTML=`<td>${esc(sess.id)}</td><td>${esc(sess.title)}</td><td>${esc(sess.role)}</td>
+      <td>${esc(sess.status)}</td><td>${esc(sess.duration_sec||0)}</td>
+      <td>${esc(sess.workflow_id)}</td><td><code>${cmd}</code></td>
       <td><code>${out}</code></td>`;
     tb.appendChild(tr);
   });

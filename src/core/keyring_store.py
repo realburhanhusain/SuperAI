@@ -42,9 +42,24 @@ class SecretStore:
     def get(self, name: str) -> Optional[str]:
         if HAS_KEYRING:
             try:
-                return keyring.get_password(SERVICE, name)
+                val = keyring.get_password(SERVICE, name)
+                if val is not None:
+                    return val
+                # No silent split-brain: do not fall back to file for keyring-managed store
+                # unless SUPERAI_SECRETS_FILE_FALLBACK=1 (migration).
+                if (os.getenv("SUPERAI_SECRETS_FILE_FALLBACK") or "").lower() not in {
+                    "1",
+                    "true",
+                    "yes",
+                }:
+                    return None
             except Exception:
-                pass
+                if (os.getenv("SUPERAI_SECRETS_FILE_FALLBACK") or "").lower() not in {
+                    "1",
+                    "true",
+                    "yes",
+                }:
+                    return None
         return self._load_file().get(name)
 
     def delete(self, name: str) -> bool:
@@ -77,7 +92,9 @@ class SecretStore:
         return {}
 
     def _save_file(self, data: Dict[str, str]) -> None:
-        self.file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        from .store_lock import atomic_write_json
+
+        atomic_write_json(self.file, data)
         try:
             os.chmod(self.file, 0o600)
         except OSError:

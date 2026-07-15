@@ -382,13 +382,43 @@ class ExternalCLITool:
             return env
 
         start = time.time()
+        # Default cwd to workspace jail (external CLIs not OS-sandboxed otherwise)
+        run_cwd = cwd
+        if not run_cwd:
+            try:
+                from .workspace import workspace_root
+
+                run_cwd = str(workspace_root())
+            except Exception:
+                run_cwd = os.getcwd()
+        else:
+            try:
+                from .workspace import assert_in_workspace, workspace_root
+
+                run_cwd = str(
+                    assert_in_workspace(run_cwd, workspace_root(), label="cwd")
+                )
+            except Exception as e:  # noqa: BLE001
+                return CLIResultEnvelope(
+                    ok=False,
+                    cli=cli_name,
+                    command=cmd,
+                    exit_code=-1,
+                    stdout="",
+                    stderr="",
+                    duration_sec=0.0,
+                    modifies_files=spec.modifies_files,
+                    approved=approved,
+                    error=f"cwd outside workspace: {e}",
+                    metadata=meta,
+                )
         try:
             proc = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout_sec,
-                cwd=cwd or os.getcwd(),
+                cwd=run_cwd,
                 shell=False,
             )
             duration = time.time() - start

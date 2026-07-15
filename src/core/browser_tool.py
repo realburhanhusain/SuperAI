@@ -19,9 +19,13 @@ def browser_available() -> bool:
 def fetch_page_text(url: str, timeout_ms: int = 15000) -> Dict[str, Any]:
     """
     Fetch page text. Requires: pip install playwright && playwright install chromium
+    Blocks private/link-local destinations (SSRF mitigation).
     """
-    if not url.startswith("https://") and not url.startswith("http://"):
-        return {"ok": False, "error": "Only http(s) URLs allowed"}
+    from .net_safety import validate_public_http_url
+
+    url_err = validate_public_http_url(url)
+    if url_err:
+        return {"ok": False, "error": url_err, "url": url}
     if not browser_available():
         return {
             "ok": False,

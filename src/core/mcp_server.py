@@ -505,13 +505,41 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
         )
 
     if name == "superai_run":
+        import os
+
+        from .config import Config
         from .orchestrator import SuperAIOrchestrator
 
         task = str(args.get("task") or "")
         if not task.strip():
             raise ValueError("task required")
-        # Orchestrator already injects/learns via MemoryPalace
-        return SuperAIOrchestrator().run_task(task)
+        # Safe default: mock unless live=true + SUPERAI_MCP_ALLOW_LIVE=1
+        live = bool(args.get("live") or args.get("live_run"))
+        cfg = Config()
+        use_mock = True
+        if live:
+            if (os.getenv("SUPERAI_MCP_ALLOW_LIVE") or "").lower() not in {
+                "1",
+                "true",
+                "yes",
+            }:
+                return {
+                    "ok": False,
+                    "error": (
+                        "superai_run live requires SUPERAI_MCP_ALLOW_LIVE=1 "
+                        "(and live=true). Default is mock."
+                    ),
+                    "mock": True,
+                }
+            use_mock = False
+        cfg.config["mock_mode"] = use_mock
+        cfg.config["use_mock"] = use_mock
+        orch = SuperAIOrchestrator(config=cfg)
+        result = orch.run_task(task)
+        if isinstance(result, dict):
+            result.setdefault("mock", use_mock)
+            result.setdefault("live", live and not use_mock)
+        return result
 
     if name == "superai_cli_discover":
         from .discovery import discover_environment

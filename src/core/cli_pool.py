@@ -25,7 +25,7 @@ class CLIJob:
     id: str
     cli: str
     prompt: str
-    status: str = "queued"  # queued | running | done | failed | cancelled
+    status: str = "queued"  # queued | running | done | dry_run | failed | cancelled
     role: str = "worker"
     approved: bool = False
     dry_run: bool = False
@@ -78,42 +78,31 @@ class ParallelCLIManager:
             self._save_unlocked()
 
     def _save_unlocked(self) -> None:
-        """Caller must hold self._lock."""
+        """Caller must hold self._lock. Also takes cross-process file lock + merge."""
+        from .store_lock import atomic_write_json, store_lock
+
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "jobs": [j.to_dict() for j in self.jobs.values()],
-        }
-        data = json.dumps(payload, indent=2, default=str)
-        # Unique tmp avoids multi-process collision on a shared .tmp name
-        tmp = self.path.with_name(
-            f"{self.path.stem}.{os.getpid()}.{threading.get_ident()}.{uuid.uuid4().hex[:8]}.tmp"
-        )
-        tmp.write_text(data, encoding="utf-8")
-        last_err: Optional[BaseException] = None
-        for attempt in range(10):
+        with store_lock(self.path.parent, name="cli_jobs.lock", timeout=30.0):
+            # Re-merge disk jobs we don't own as running/queued to reduce lost updates
             try:
-                os.replace(str(tmp), str(self.path))
-                return
-            except PermissionError as e:
-                # Common on Windows when another reader/AV holds the target briefly
-                last_err = e
-                time.sleep(0.015 * (attempt + 1))
-            except OSError as e:
-                last_err = e
-                time.sleep(0.015 * (attempt + 1))
-        # Last resort: in-place write (not atomic) so registry still updates
-        try:
-            self.path.write_text(data, encoding="utf-8")
-        except OSError:
-            if last_err is not None:
-                raise last_err
-            raise
-        finally:
-            try:
-                tmp.unlink(missing_ok=True)
-            except OSError:
+                if self.path.exists():
+                    disk = json.loads(self.path.read_text(encoding="utf-8"))
+                    for item in disk.get("jobs") or []:
+                        if not isinstance(item, dict) or not item.get("id"):
+                            continue
+                        jid = item["id"]
+                        if jid not in self.jobs:
+                            self.jobs[jid] = CLIJob.from_dict(item)
+                        else:
+                            # Prefer in-memory for same id (this process is authoritative)
+                            pass
+            except (OSError, json.JSONDecodeError):
                 pass
+            payload = {
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "jobs": [j.to_dict() for j in self.jobs.values()],
+            }
+            atomic_write_json(self.path, payload)
 
     def _set_job_fields(self, jid: str, **fields: Any) -> None:
         """Mutate a job and persist, under lock."""
@@ -151,7 +140,7 @@ class ParallelCLIManager:
         jobs = self.list_jobs(limit=40)
         running = [j for j in jobs if j.get("status") == "running"]
         queued = [j for j in jobs if j.get("status") == "queued"]
-        done = [j for j in jobs if j.get("status") in {"done", "failed"}]
+        done = [j for j in jobs if j.get("status") in {"done", "dry_run", "failed"}]
         by_workflow: Dict[str, List[Dict[str, Any]]] = {}
         for j in jobs:
             wid = j.get("workflow_id") or "adhoc"
@@ -173,7 +162,9 @@ class ParallelCLIManager:
             "totals": {
                 "running": len(running),
                 "queued": len(queued),
-                "done": sum(1 for j in jobs if j.get("status") == "done"),
+                "done": sum(1 for j in jobs if j.get("status") in {"done", "dry_run"}),
+                "live_done": sum(1 for j in jobs if j.get("status") == "done"),
+                "dry_run": sum(1 for j in jobs if j.get("status") == "dry_run"),
                 "failed": sum(1 for j in jobs if j.get("status") == "failed"),
                 "all": len(jobs),
             },
@@ -293,7 +284,8 @@ class ParallelCLIManager:
                 stdout_tail = (env.stdout or "")[-2000:]
                 stderr_tail = (env.stderr or "")[-1000:]
                 if env.ok or tool.dry_run:
-                    status = "done"
+                    # Distinguish intentional dry-run / missing-CLI from live success
+                    status = "dry_run" if (tool.dry_run or force_dry) else "done"
                     error = env.error
                     if tool.dry_run and not stdout_tail:
                         stdout_tail = (
@@ -308,7 +300,7 @@ class ParallelCLIManager:
                         task=orig_prompt[:500],
                         source="cli_pool",
                         model_or_cli=f"cli:{cli_name}",
-                        success=status == "done",
+                        success=status in {"done", "dry_run"},
                         latency=duration,
                         output=stdout_tail,
                         error=error,
@@ -360,6 +352,7 @@ class ParallelCLIManager:
                 results.append(fut.result())
 
         done = [j for j in results if j.status == "done"]
+        dry_runs = [j for j in results if j.status == "dry_run"]
         failed = [j for j in results if j.status == "failed"]
         out = {
             "ok": len(failed) == 0,
@@ -368,6 +361,7 @@ class ParallelCLIManager:
             "max_workers": workers,
             "total": len(results),
             "succeeded": len(done),
+            "dry_run_count": len(dry_runs),
             "failed": len(failed),
             "jobs": [j.to_dict() for j in results],
             "dashboard": self.snapshot_for_dashboard(),

@@ -67,6 +67,12 @@ class EcosystemHub:
         if self.dry_run:
             return {"ok": True, "dry_run": True, "url": target, "body": body}
 
+        from .net_safety import validate_public_http_url
+
+        url_err = validate_public_http_url(target, require_https=True)
+        if url_err:
+            return {"ok": False, "error": f"webhook URL blocked: {url_err}", "event": event}
+
         data = json.dumps(body).encode("utf-8")
         req = urllib.request.Request(
             target,

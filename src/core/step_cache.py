@@ -28,7 +28,10 @@ class StepResultCache:
         return {"entries": {}, "runs": {}}
 
     def save(self) -> None:
-        self.path.write_text(json.dumps(self._data, indent=2, default=str), encoding="utf-8")
+        from .store_lock import atomic_write_json, store_lock
+
+        with store_lock(self.path.parent, name="step_cache.lock", timeout=30.0):
+            atomic_write_json(self.path, self._data)
 
     @staticmethod
     def cache_key(step_description: str, model: Optional[str] = None) -> str:

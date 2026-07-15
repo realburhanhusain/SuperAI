@@ -221,12 +221,16 @@ class MemoryPalace:
         meta_final = metadata
         imp = importance
 
+        # Compute embeddings outside the palace lock (may be CPU/network heavy)
+        faiss_emb = None
+        if self.use_faiss and self.faiss_store is not None:
+            faiss_emb = self.embedding_function([content])[0]
+
         def _do_store() -> str:
             if self.use_faiss and self.faiss_store is not None:
-                emb = self.embedding_function([content])[0]
                 self.faiss_store.add(
                     content=content,
-                    embedding=emb,
+                    embedding=faiss_emb,
                     metadata=meta_final,
                     tags=tags_final,
                     memory_id=memory_id,
@@ -435,13 +439,8 @@ class MemoryPalace:
                     mem_tags = _parse_tags(metadata)
                     if not wanted.intersection(mem_tags):
                         continue
-                try:
-                    metadata["last_accessed"] = datetime.now().isoformat()
-                    self.collection.update(
-                        ids=[memory_id], metadatas=[_safe_metadata(metadata)]
-                    )
-                except Exception:
-                    pass
+                # Do not mutate collection on read path (races with concurrent stores)
+                metadata["last_accessed"] = datetime.now().isoformat()
                 memories.append(
                     {
                         "id": memory_id,

@@ -183,13 +183,14 @@ def write_back(
     result: Dict[str, Any] = {"ok": True, "learning_id": None, "ingest_id": None}
     try:
         from .learning_engine import LearningEngine
-        from .memory_palace import MemoryPalace
-
         from .memory_palace import get_shared_palace
+        from .secrets import redact_text
 
+        safe_task = redact_text(str(task or "")[:500])
+        safe_err = redact_text(str(error)) if error else None
         le = LearningEngine(get_shared_palace())
         learning_id = le.learn_from_task(
-            task_description=f"[{source}] {task[:500]}",
+            task_description=f"[{source}] {safe_task}",
             task_type=task_type,
             model_used=model_or_cli,
             success=success,
@@ -197,20 +198,23 @@ def write_back(
             cost=float(cost or 0),
             steps_completed=1 if success else 0,
             steps_failed=0 if success else 1,
-            error_message=error,
+            error_message=safe_err,
         )
         result["learning_id"] = learning_id
     except Exception as e:  # noqa: BLE001
         result["learning_error"] = str(e)
 
-    # Also store a richer result snippet for semantic recall
+    # Also store a richer result snippet for semantic recall (redacted)
     if output or error:
         try:
             from .mcp_context import MCPContextPack
+            from .secrets import redact_text
 
+            safe_out = redact_text(str(output or ""))
+            safe_err = redact_text(str(error or ""))
             envelope = MCPContextPack().parse_cli_output(
-                stdout=output or "",
-                stderr=error or "",
+                stdout=safe_out,
+                stderr=safe_err,
                 exit_code=0 if success else 1,
                 cli=model_or_cli,
                 context_id=context_id,
@@ -224,8 +228,8 @@ def write_back(
                 try:
                     from .memory_palace import get_shared_palace
 
-                    snippet = (
-                        f"Source={source} model={model_or_cli} task={task[:300]}\n"
+                    snippet = redact_text(
+                        f"Source={source} model={model_or_cli} task={str(task)[:300]}\n"
                         f"Success={success}\n"
                         f"Output: {(output or '')[:1200]}"
                     )

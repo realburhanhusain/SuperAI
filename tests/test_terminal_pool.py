@@ -10,6 +10,7 @@ from core.observability import build_dashboard_snapshot
 
 def test_parallel_terminals_dry_run(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("SUPERAI_WORKSPACE", str(tmp_path))
     (tmp_path / ".superai").mkdir()
     mgr = ParallelTerminalManager(path=tmp_path / ".superai" / "terminal_sessions.json")
     result = mgr.run_parallel(
@@ -83,6 +84,7 @@ def test_agentic_parallel_terminals(tmp_path: Path, monkeypatch):
 
 def test_dashboard_includes_terminal_pool(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("SUPERAI_WORKSPACE", str(tmp_path))
     (tmp_path / ".superai").mkdir()
     mgr = ParallelTerminalManager(path=tmp_path / ".superai" / "terminal_sessions.json")
     mgr.run_parallel(
@@ -97,6 +99,7 @@ def test_dashboard_includes_terminal_pool(tmp_path: Path, monkeypatch):
 
 def test_blocks_shell_meta(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("SUPERAI_WORKSPACE", str(tmp_path))
     (tmp_path / ".superai").mkdir()
     monkeypatch.delenv("SUPERAI_ALLOW_SHELL_META", raising=False)
     mgr = ParallelTerminalManager(path=tmp_path / ".superai" / "terminal_sessions.json")

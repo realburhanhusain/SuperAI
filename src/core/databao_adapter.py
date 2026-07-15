@@ -431,28 +431,44 @@ class DatabaoAdapter:
             "load_extension",
             "into outfile",
             "copy ",
+            "pg_sleep",
+            "sleep(",
+            "benchmark(",
+            "xp_cmdshell",
         )
         if not (low.startswith("select") or low.startswith("with")):
             raise ValueError("Only SELECT/WITH queries are allowed")
         # Token-ish check: keyword as whole word
         for b in banned:
-            if re.search(rf"\b{re.escape(b.strip())}\b", low):
+            if re.search(rf"\b{re.escape(b.strip())}\b", low) or b.strip() in low:
                 raise ValueError(f"Forbidden SQL keyword detected: {b.strip()}")
         if ";" in s:
             raise ValueError("Multiple statements not allowed")
-        # M5: honor data_read_only config (always true for writes; SELECT only already)
+        # M5: data_read_only must stay on for live DSN (SELECT-only enforcement)
         try:
             from .config import Config
 
             if not Config().get("data_read_only", True):
-                # Still SELECT-only at this layer; flag is for ops documentation / future
-                pass
+                raise ValueError(
+                    "data_read_only is disabled — refusing SQL execution for safety"
+                )
+        except ValueError:
+            raise
         except Exception:  # noqa: BLE001
             pass
         return s
 
     def _execute_sql(self, sql: str) -> Tuple[List[str], List[List[Any]]]:
         with self._engine.connect() as conn:
+            # Best-effort session read-only (SQLite / Postgres)
+            try:
+                dialect = str(getattr(self._engine.dialect, "name", "") or "")
+                if dialect == "sqlite":
+                    conn.execute(text("PRAGMA query_only = ON"))
+                elif dialect in {"postgresql", "postgres"}:
+                    conn.execute(text("SET default_transaction_read_only = on"))
+            except Exception:
+                pass
             result = conn.execute(text(sql))
             columns = list(result.keys())
             rows = [list(r) for r in result.fetchmany(500)]

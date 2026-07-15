@@ -125,8 +125,24 @@ class BackupManager:
         self.encryption_key = encryption_key or self._get_or_create_key()
 
     def _get_or_create_key(self) -> bytes:
+        # Prefer OS keyring when available (avoids long-lived plaintext beside archives)
+        try:
+            from .keyring_store import HAS_KEYRING, SecretStore
+
+            if HAS_KEYRING:
+                store = SecretStore()
+                existing = store.get("SUPERAI_BACKUP_KEY_B64")
+                if existing:
+                    import base64
+
+                    return base64.b64decode(existing.encode("ascii"))
+        except Exception:
+            pass
+
         if self.key_file.exists():
-            return self.key_file.read_bytes()
+            key = self.key_file.read_bytes()
+            self._maybe_migrate_key_to_keyring(key)
+            return key
         key = os.urandom(32)
         self.key_file.parent.mkdir(parents=True, exist_ok=True)
         self.key_file.write_bytes(key)
@@ -134,11 +150,31 @@ class BackupManager:
             os.chmod(self.key_file, 0o600)
         except OSError:
             pass
+        self._maybe_migrate_key_to_keyring(key)
         print(
             "[BackupManager] New encryption key generated at "
-            f"{self.key_file}. Back this file up securely!"
+            f"{self.key_file}. Prefer OS keyring (SUPERAI_BACKUP_KEY_B64); "
+            "back this file up securely if keyring is unavailable!"
         )
         return key
+
+    def _maybe_migrate_key_to_keyring(self, key: bytes) -> None:
+        try:
+            import base64
+
+            from .keyring_store import HAS_KEYRING, SecretStore
+
+            if not HAS_KEYRING:
+                return
+            store = SecretStore()
+            if store.get("SUPERAI_BACKUP_KEY_B64"):
+                return
+            store.set(
+                "SUPERAI_BACKUP_KEY_B64",
+                base64.b64encode(key).decode("ascii"),
+            )
+        except Exception:
+            pass
 
     def export_key(self, dest: str | Path) -> Path:
         """S9: copy encryption key to a secure path chosen by user."""

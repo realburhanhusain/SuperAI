@@ -33,6 +33,23 @@ class SkillPermissions:
     def allowed(self, skill: str, tool: str) -> bool:
         entry = (self.data.get("skills") or {}).get(skill)
         if not entry:
+            # Default-deny under compliance / strict skill mode
+            try:
+                from .config import Config
+
+                cfg = Config()
+                if cfg.get("compliance_mode") or cfg.get("strict_skill_permissions"):
+                    return False
+            except Exception:
+                pass
+            import os
+
+            if (os.getenv("SUPERAI_STRICT_SKILL_PERMS") or "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }:
+                return False
             return True  # default allow if unset
         allow = set(entry.get("allow") or [])
         return tool in allow or "*" in allow

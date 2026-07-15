@@ -3,7 +3,14 @@ Container sandbox for tool shell execution (N15).
 
 When prefer_container_sandbox / SUPERAI_CONTAINER_SANDBOX=1 and Docker is
 available, run_shell commands execute inside an ephemeral container with
-the workspace mounted read-write at /workspace.
+the workspace mounted at /workspace.
+
+Limitations (documented):
+  - Workspace is mounted read-write (not a full host jail).
+  - No non-root user / capability drop by default.
+  - Network defaults to "none" (good) but rootfs is not read-only.
+  - On Docker failure, try_sandboxed_shell may fall back to host shell
+    unless SUPERAI_SANDBOX_FAIL_CLOSED=1.
 """
 
 from __future__ import annotations
@@ -85,13 +92,20 @@ def try_sandboxed_shell(
     """Return docker result if sandbox enabled and docker present; else None."""
     if not sandbox_enabled(prefer):
         return None
+    fail_closed = (os.getenv("SUPERAI_SANDBOX_FAIL_CLOSED") or "").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     if not docker_available():
         return {
             "exit_code": -1,
             "stdout": "",
-            "stderr": "Sandbox requested but docker not available; falling back",
+            "stderr": "Sandbox requested but docker not available",
             "sandbox": "unavailable",
-            "fallback": True,
+            "fallback": not fail_closed,
+            "fail_closed": fail_closed,
         }
     try:
         return run_in_docker(argv, timeout=timeout)
@@ -101,5 +115,6 @@ def try_sandboxed_shell(
             "stdout": "",
             "stderr": str(e),
             "sandbox": "error",
-            "fallback": True,
+            "fallback": not fail_closed,
+            "fail_closed": fail_closed,
         }

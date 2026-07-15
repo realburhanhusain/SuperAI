@@ -145,6 +145,11 @@ class MessengerBus:
         headers: Optional[Dict[str, str]] = None,
         method: str = "POST",
     ) -> Dict[str, Any]:
+        from .net_safety import validate_public_http_url
+
+        url_err = validate_public_http_url(url, require_https=True)
+        if url_err:
+            return {"ok": False, "error": f"webhook URL blocked: {url_err}", "url": url}
         if self.dry_run:
             return {
                 "ok": True,

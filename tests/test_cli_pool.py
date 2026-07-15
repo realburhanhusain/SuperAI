@@ -23,13 +23,13 @@ def test_parallel_cli_dry_run(tmp_path: Path, monkeypatch):
         with_context=False,
     )
     assert result["total"] == 3
-    assert result["succeeded"] == 3
+    assert result["succeeded"] + result.get("dry_run_count", 0) == 3
     assert result.get("workflow_id")
     snap = mgr.snapshot_for_dashboard()
     assert snap["totals"]["done"] >= 3
     jobs = mgr.list_jobs()
     assert len(jobs) >= 3
-    assert all(j["status"] == "done" for j in jobs)
+    assert all(j["status"] in {"done", "dry_run"} for j in jobs)
 
 
 def test_agentic_parallel_cli(tmp_path: Path, monkeypatch):
@@ -46,7 +46,7 @@ def test_agentic_parallel_cli(tmp_path: Path, monkeypatch):
     )
     assert result.get("jobs")
     assert "synthesis" in result
-    assert result.get("succeeded", 0) >= 1
+    assert result.get("succeeded", 0) + result.get("dry_run_count", 0) >= 1
 
 
 def test_dashboard_includes_cli_pool(tmp_path: Path, monkeypatch):
@@ -81,6 +81,6 @@ def test_parallel_save_stress(tmp_path: Path, monkeypatch):
         with_context=False,
     )
     assert result["total"] == 8
-    assert result["succeeded"] == 8
+    assert result["succeeded"] + result.get("dry_run_count", 0) == 8
     assert mgr.path.exists()
     assert len(mgr.list_jobs()) >= 8

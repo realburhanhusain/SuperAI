@@ -329,8 +329,9 @@ class ModelCaller:
         if info and (info.extra or {}).get("available") is False:
             dry = True
 
-        # M9: interactive approval when TTY; else dry-run if approval required
+        # M9: interactive approval when TTY; blocked (not success) if denied
         approved = not require_approval
+        denial_reason: Optional[str] = None
         if require_approval and not dry:
             try:
                 from .approval_tui import prompt_approval
@@ -343,7 +344,29 @@ class ModelCaller:
             except Exception:
                 approved = False
             if not approved:
-                dry = True
+                denial_reason = (
+                    f"External CLI `{cli_name}` blocked: human approval denied "
+                    "or unavailable (not counted as success)"
+                )
+                return {
+                    "status": "error",
+                    "response": denial_reason,
+                    "provider": "external_cli",
+                    "model": model if str(model).startswith("cli:") else f"cli:{cli_name}",
+                    "mock": False,
+                    "blocked": True,
+                    "usage": {"total_tokens": 0},
+                    "estimated_cost_usd": 0.0,
+                    "external_cli": {
+                        "ok": False,
+                        "cli": cli_name,
+                        "error": denial_reason,
+                        "approved": False,
+                    },
+                    "context_id": None,
+                    "memory_write": None,
+                    "integrated": True,
+                }
 
         tool = ExternalCLITool(
             auto_approve=approved,
@@ -366,7 +389,11 @@ class ModelCaller:
                 f"[external_cli:{cli_name} dry-run] SuperAI-integrated delegation "
                 f"context={ctx_id}."
             )
-        ok = env.ok or tool.dry_run
+        # Dry-run only counts as success when intentionally mock/unavailable — not after denial
+        ok = bool(env.ok) if not tool.dry_run else True
+        if tool.dry_run and not env.ok and env.error and not self.use_mock:
+            # forced dry because missing binary: still surface as mock success for demos
+            ok = True
         return {
             "status": "success" if ok else "error",
             "response": text or env.error,

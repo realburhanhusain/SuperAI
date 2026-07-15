@@ -145,39 +145,27 @@ class ParallelTerminalManager:
             self._save_unlocked()
 
     def _save_unlocked(self) -> None:
-        """Caller must hold self._lock. Windows-safe atomic replace with retry."""
+        """Caller must hold self._lock. Cross-process file lock + atomic write."""
+        from .store_lock import atomic_write_json, store_lock
+
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "sessions": [s.to_dict() for s in self.sessions.values()],
-        }
-        data = json.dumps(payload, indent=2, default=str)
-        tmp = self.path.with_name(
-            f"{self.path.stem}.{os.getpid()}.{threading.get_ident()}.{uuid.uuid4().hex[:8]}.tmp"
-        )
-        tmp.write_text(data, encoding="utf-8")
-        last_err: Optional[BaseException] = None
-        for attempt in range(10):
+        with store_lock(self.path.parent, name="terminal_sessions.lock", timeout=30.0):
             try:
-                os.replace(str(tmp), str(self.path))
-                return
-            except PermissionError as e:
-                last_err = e
-                time.sleep(0.015 * (attempt + 1))
-            except OSError as e:
-                last_err = e
-                time.sleep(0.015 * (attempt + 1))
-        try:
-            self.path.write_text(data, encoding="utf-8")
-        except OSError:
-            if last_err is not None:
-                raise last_err
-            raise
-        finally:
-            try:
-                tmp.unlink(missing_ok=True)
-            except OSError:
+                if self.path.exists():
+                    disk = json.loads(self.path.read_text(encoding="utf-8"))
+                    for item in disk.get("sessions") or []:
+                        if not isinstance(item, dict) or not item.get("id"):
+                            continue
+                        sid = item["id"]
+                        if sid not in self.sessions:
+                            self.sessions[sid] = TerminalSession.from_dict(item)
+            except (OSError, json.JSONDecodeError):
                 pass
+            payload = {
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "sessions": [s.to_dict() for s in self.sessions.values()],
+            }
+            atomic_write_json(self.path, payload)
 
     def list_sessions(
         self,
@@ -263,18 +251,14 @@ class ParallelTerminalManager:
         if not work:
             return {"ok": False, "error": "no work items", "sessions": []}
 
-        # Resolve workspace cwd once
-        base_cwd: Optional[str] = None
-        try:
-            from .workspace import workspace_root, assert_in_workspace
+        # Resolve workspace cwd once — fail closed (no silent jail escape)
+        from .workspace import assert_in_workspace, workspace_root
 
-            root = workspace_root()
-            if cwd:
-                base_cwd = str(assert_in_workspace(cwd, root, label="cwd"))
-            else:
-                base_cwd = str(root)
-        except Exception:
-            base_cwd = cwd or os.getcwd()
+        root = workspace_root()
+        if cwd:
+            base_cwd = str(assert_in_workspace(cwd, root, label="cwd"))
+        else:
+            base_cwd = str(root)
 
         wid = workflow_id or f"twf-{uuid.uuid4().hex[:10]}"
         session_ids: List[str] = []
@@ -292,18 +276,9 @@ class ParallelTerminalManager:
                 )
                 sess_cwd = item.get("cwd")
                 if sess_cwd:
-                    try:
-                        from .workspace import assert_in_workspace, workspace_root
-
-                        sess_cwd = str(
-                            assert_in_workspace(
-                                sess_cwd, workspace_root(), label="cwd"
-                            )
-                        )
-                    except Exception as e:  # noqa: BLE001
-                        # keep relative / original and record later if needed
-                        sess_cwd = str(sess_cwd)
-                        _ = e
+                    sess_cwd = str(
+                        assert_in_workspace(sess_cwd, root, label="cwd")
+                    )
                 else:
                     sess_cwd = base_cwd
 

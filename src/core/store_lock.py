@@ -240,7 +240,7 @@ class WriteQueue:
             finally:
                 event.set()
 
-    def submit(self, fn) -> Any:
+    def submit(self, fn, timeout: float = 120.0) -> Any:
         event = threading.Event()
         box: Dict[str, Any] = {}
         with self._cv:
@@ -248,7 +248,11 @@ class WriteQueue:
                 raise RuntimeError("WriteQueue closed")
             self._q.append((fn, event, box))
             self._cv.notify()
-        event.wait(timeout=120)
+        if not event.wait(timeout=timeout):
+            raise TimeoutError(
+                f"WriteQueue submit timed out after {timeout}s "
+                "(worker may still be running)"
+            )
         if "error" in box:
             raise box["error"]
         return box.get("result")

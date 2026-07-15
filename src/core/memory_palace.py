@@ -1,10 +1,15 @@
 """
-Memory Palace for SuperAI — Persistent semantic memory (ChromaDB + in-memory fallback).
+Memory Palace for SuperAI — Persistent semantic memory.
+
+Default backend: **pgvector** (Postgres+pgvector, or SQLite+JSON cosine offline).
+Optional: FAISS (`SUPERAI_MEMORY_BACKEND=faiss`) or pure in-memory (`memory`).
+ChromaDB support removed (multi-session concurrent R/W unsafe).
 
 Phase 3 concurrent safety:
   - process file lock + per-process thread RLock on store/update
   - shared singleton per persist_directory
   - optional write queue for multi-CLI fan-out
+  - SQL store provides multi-session safety for the default backend
 """
 
 from __future__ import annotations
@@ -17,15 +22,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-try:
-    import chromadb
-
-    CHROMADB_AVAILABLE = True
-except ImportError:
-    CHROMADB_AVAILABLE = False
-
 from .embeddings import create_embedding_function, describe_embedding
 from .faiss_store import FaissMemoryStore, use_faiss_backend
+from .pgvector_store import (
+    PgvectorMemoryStore,
+    use_memory_only_backend,
+    use_pgvector_backend,
+)
 from .store_lock import memory_write_queue, store_lock, thread_lock_for
 
 
@@ -51,24 +54,6 @@ def get_shared_palace(
                 persist_directory=persist_directory or key, **kwargs
             )
         return _PALACE_SINGLETONS[key]
-
-
-def _safe_metadata(metadata: Dict[str, Any], tags: Optional[List[str]] = None) -> Dict[str, Any]:
-    """Chroma only accepts str/int/float/bool primitives."""
-    safe: Dict[str, Any] = {}
-    if tags is not None:
-        safe["tags"] = ",".join(tags)
-    for k, v in metadata.items():
-        if v is None:
-            continue
-        if isinstance(v, bool):
-            # Store as int for broader Chroma compatibility, keep bool if accepted
-            safe[k] = v
-        elif isinstance(v, (str, int, float)):
-            safe[k] = v
-        else:
-            safe[k] = str(v)
-    return safe
 
 
 def _parse_tags(meta: Dict[str, Any], mem: Optional[Dict] = None) -> set[str]:
@@ -112,49 +97,47 @@ class MemoryPalace:
         )
         self.embedding_id = describe_embedding(self.embedding_function)
 
-        # N5: optional FAISS / brute-force vector backend
+        # Probe embedding dim for vector columns
+        try:
+            probe = self.embedding_function(["dim-probe"])[0]
+            self.embedding_dim = len(probe)
+        except Exception:
+            self.embedding_dim = 384
+
         self.use_faiss = use_faiss_backend()
+        self.use_pgvector = False
+        self.use_chromadb = False  # removed; kept False for API compatibility
         self.faiss_store: Optional[FaissMemoryStore] = None
-        if self.use_faiss:
-            self.faiss_store = FaissMemoryStore(
-                root=Path(self.persist_directory) / "faiss"
-            )
-            self.use_chromadb = False
+        self.pg_store: Optional[PgvectorMemoryStore] = None
+
+        if use_memory_only_backend():
             return
 
-        if CHROMADB_AVAILABLE:
-            self.client = chromadb.PersistentClient(path=self.persist_directory)
-            safe = re.sub(r"[^a-zA-Z0-9_]+", "_", self.embedding_id)[:48] or "default"
-            coll_name = f"superai_memories_{safe}"
-            # HNSW knobs via env (Future Plan advanced embedding)
-            hnsw_meta = {
-                "hnsw:space": os.getenv("SUPERAI_HNSW_SPACE", "cosine"),
-                "embedding": self.embedding_id[:200],
-            }
-            # Chroma accepts construction-time M / ef via metadata on some versions
-            for env_k, meta_k in (
-                ("SUPERAI_HNSW_M", "hnsw:M"),
-                ("SUPERAI_HNSW_EF_CONSTRUCTION", "hnsw:construction_ef"),
-                ("SUPERAI_HNSW_EF_SEARCH", "hnsw:search_ef"),
-            ):
-                raw = os.getenv(env_k)
-                if raw and raw.isdigit():
-                    hnsw_meta[meta_k] = int(raw)
+        if self.use_faiss:
+            self.faiss_store = FaissMemoryStore(
+                root=Path(self.persist_directory) / "faiss",
+                dim=self.embedding_dim,
+            )
+            return
+
+        # Default: pgvector (Postgres) or SQL cosine (SQLite offline)
+        if use_pgvector_backend():
             try:
-                self.collection = self.client.get_or_create_collection(
-                    name=coll_name,
-                    metadata=hnsw_meta,
-                    embedding_function=self.embedding_function,
+                self.pg_store = PgvectorMemoryStore(
+                    dsn=os.getenv("SUPERAI_MEMORY_DSN") or None,
+                    persist_directory=self.persist_directory,
+                    dim=self.embedding_dim,
                 )
-            except Exception:
-                # Older chroma / incompatible EF — fall back to default EF collection
-                self.collection = self.client.get_or_create_collection(
-                    name="superai_memories",
-                    metadata={"hnsw:space": "cosine"},
+                self.use_pgvector = True
+            except Exception as e:  # noqa: BLE001
+                # Fall through to in-memory if SQL backend cannot start
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "pgvector/SQL memory backend unavailable (%s); using in-memory", e
                 )
-            self.use_chromadb = True
-        else:
-            self.use_chromadb = False
+                self.pg_store = None
+                self.use_pgvector = False
 
     def _locked_write(self, fn):
         """Serialize writers (thread + cross-process lock)."""
@@ -222,25 +205,28 @@ class MemoryPalace:
         imp = importance
 
         # Compute embeddings outside the palace lock (may be CPU/network heavy)
-        faiss_emb = None
-        if self.use_faiss and self.faiss_store is not None:
-            faiss_emb = self.embedding_function([content])[0]
+        emb = None
+        if (self.use_faiss and self.faiss_store is not None) or (
+            self.use_pgvector and self.pg_store is not None
+        ):
+            emb = self.embedding_function([content])[0]
 
         def _do_store() -> str:
-            if self.use_faiss and self.faiss_store is not None:
-                self.faiss_store.add(
+            if self.use_pgvector and self.pg_store is not None:
+                self.pg_store.add(
                     content=content,
-                    embedding=faiss_emb,
+                    embedding=emb,
                     metadata=meta_final,
                     tags=tags_final,
                     memory_id=memory_id,
                 )
-            elif self.use_chromadb:
-                safe_meta = _safe_metadata(meta_final, tags=tags_final)
-                self.collection.add(
-                    documents=[content],
-                    metadatas=[safe_meta],
-                    ids=[memory_id],
+            elif self.use_faiss and self.faiss_store is not None:
+                self.faiss_store.add(
+                    content=content,
+                    embedding=emb,
+                    metadata=meta_final,
+                    tags=tags_final,
+                    memory_id=memory_id,
                 )
             else:
                 self.memories.append(
@@ -296,6 +282,8 @@ class MemoryPalace:
         """Persist metadata updates (importance, deprecated flags, etc.)."""
 
         def _do() -> bool:
+            if self.use_pgvector and self.pg_store is not None:
+                return self.pg_store.update_metadata(memory_id, metadata_updates)
             if self.use_faiss and self.faiss_store is not None:
                 doc = self.faiss_store.docs.get(memory_id)
                 if not doc:
@@ -308,27 +296,6 @@ class MemoryPalace:
                 self.faiss_store.docs[memory_id] = doc
                 self.faiss_store.save()
                 return True
-            if self.use_chromadb:
-                try:
-                    existing = self.collection.get(ids=[memory_id])
-                    if not existing["ids"]:
-                        return False
-                    meta = dict(existing["metadatas"][0] or {})
-                    meta.update(metadata_updates)
-                    tags_str = meta.get("tags", "")
-                    tags = (
-                        [t for t in str(tags_str).split(",") if t] if tags_str else None
-                    )
-                    safe = _safe_metadata(
-                        {k: v for k, v in meta.items() if k != "tags"},
-                        tags=tags,
-                    )
-                    if tags_str and "tags" not in safe:
-                        safe["tags"] = tags_str
-                    self.collection.update(ids=[memory_id], metadatas=[safe])
-                    return True
-                except Exception:
-                    return False
 
             for mem in self.memories:
                 if mem.get("id") == memory_id:
@@ -371,6 +338,44 @@ class MemoryPalace:
                     return False
             return True
 
+        if self.use_pgvector and self.pg_store is not None:
+            emb = self.embedding_function([query])[0]
+            hits = self.pg_store.search(
+                emb,
+                top_k=fetch_k if need_filter else top_k,
+                wing=wing if not need_filter or wing else wing,
+                room=room if not need_filter or room else room,
+            )
+            # When both wing/room and tags filters: search broader then filter tags
+            if need_filter and tags:
+                hits = self.pg_store.search(emb, top_k=fetch_k)
+            out = []
+            wanted = {t.lower() for t in tags} if tags else None
+            for h in hits:
+                meta = h.get("metadata") or {}
+                if not include_deprecated and meta.get("deprecated") in (
+                    True,
+                    "True",
+                    "true",
+                    1,
+                ):
+                    continue
+                if not _loc_ok(meta, h):
+                    continue
+                if wanted:
+                    mem_tags = {str(t).lower() for t in (h.get("tags") or [])}
+                    tag_str = str(meta.get("tags") or "")
+                    mem_tags |= {
+                        t.strip().lower() for t in tag_str.split(",") if t.strip()
+                    }
+                    if not wanted.intersection(mem_tags):
+                        continue
+                out.append(h)
+                if len(out) >= top_k:
+                    break
+            if out:
+                return out
+
         if self.use_faiss and self.faiss_store is not None:
             emb = self.embedding_function([query])[0]
             hits = self.faiss_store.search(
@@ -401,62 +406,6 @@ class MemoryPalace:
                 if len(out) >= top_k:
                     break
             return out
-
-        if self.use_chromadb:
-            fetch_n = max(fetch_k, top_k)
-            try:
-                results = self.collection.query(
-                    query_texts=[query],
-                    n_results=max(fetch_n, 1),
-                )
-            except Exception:
-                results = {}
-
-            memories: List[Dict] = []
-            ids = (results.get("ids") or [[]])[0] if results else []
-            docs = (results.get("documents") or [[]])[0] if results else []
-            metas = (results.get("metadatas") or [[]])[0] if results else []
-            dists = (
-                (results.get("distances") or [[None] * len(ids)])[0]
-                if results
-                else []
-            )
-
-            wanted = {t.lower() for t in tags} if tags else None
-
-            for i, memory_id in enumerate(ids):
-                metadata = dict(metas[i] or {})
-                if not include_deprecated and metadata.get("deprecated") in (
-                    True,
-                    "True",
-                    "true",
-                    1,
-                ):
-                    continue
-                if not _loc_ok(metadata):
-                    continue
-                if wanted:
-                    mem_tags = _parse_tags(metadata)
-                    if not wanted.intersection(mem_tags):
-                        continue
-                # Do not mutate collection on read path (races with concurrent stores)
-                metadata["last_accessed"] = datetime.now().isoformat()
-                memories.append(
-                    {
-                        "id": memory_id,
-                        "content": docs[i],
-                        "metadata": metadata,
-                        "importance": float(metadata.get("importance", 0.5)),
-                        "distance": dists[i] if i < len(dists) else None,
-                        "wing": metadata.get("wing"),
-                        "room": metadata.get("room"),
-                    }
-                )
-                if len(memories) >= top_k:
-                    break
-            if memories:
-                return memories
-            # Fall through to keyword scan when vector query returns empty
 
         # Keyword fallback (in-memory list + full store scan)
         return self._keyword_search(
@@ -941,55 +890,69 @@ class MemoryPalace:
         return matched
 
     def get_all_memories(self) -> List[Dict]:
+        if self.use_pgvector and self.pg_store is not None:
+            return self.pg_store.get_all()
         if self.use_faiss and self.faiss_store is not None:
             return list(self.faiss_store.docs.values())
-        if self.use_chromadb:
-            results = self.collection.get()
-            memories = []
-            for i in range(len(results["ids"])):
-                meta = results["metadatas"][i] or {}
-                memories.append(
-                    {
-                        "id": results["ids"][i],
-                        "content": results["documents"][i],
-                        "metadata": meta,
-                        "importance": float(meta.get("importance", 0.5)),
-                    }
-                )
-            return memories
         return list(self.memories)
 
     def delete(self, memory_id: str) -> None:
-        if self.use_chromadb:
-            self.collection.delete(ids=[memory_id])
-        else:
+        def _do() -> None:
+            if self.use_pgvector and self.pg_store is not None:
+                self.pg_store.delete(memory_id)
+                return
+            if self.use_faiss and self.faiss_store is not None:
+                if memory_id in self.faiss_store.docs:
+                    del self.faiss_store.docs[memory_id]
+                    try:
+                        idx = self.faiss_store.ids.index(memory_id)
+                        self.faiss_store.ids.pop(idx)
+                        if idx < len(self.faiss_store.vectors):
+                            self.faiss_store.vectors.pop(idx)
+                        self.faiss_store.save()
+                    except ValueError:
+                        self.faiss_store.save()
+                return
             self.memories = [m for m in self.memories if m.get("id") != memory_id]
 
+        self._locked_write(_do)
+
     def get_memory_stats(self) -> Dict[str, Any]:
+        if self.use_pgvector and self.pg_store is not None:
+            st = self.pg_store.stats()
+            return {
+                "total_memories": st.get("count", 0),
+                "using_chromadb": False,
+                "using_pgvector": True,
+                "using_faiss": False,
+                "pgvector": st,
+                "embedding": getattr(self, "embedding_id", "unknown"),
+                "backend": st.get("backend"),
+            }
         if self.use_faiss and self.faiss_store is not None:
             st = self.faiss_store.stats()
             return {
                 "total_memories": st.get("count", 0),
                 "using_chromadb": False,
+                "using_pgvector": False,
                 "using_faiss": True,
                 "faiss": st,
                 "embedding": getattr(self, "embedding_id", "unknown"),
+                "backend": "faiss",
             }
-        if self.use_chromadb:
-            count = self.collection.count()
-        else:
-            count = len(self.memories)
         return {
-            "total_memories": count,
-            "using_chromadb": self.use_chromadb,
+            "total_memories": len(self.memories),
+            "using_chromadb": False,
+            "using_pgvector": False,
             "using_faiss": False,
             "embedding": getattr(self, "embedding_id", "unknown"),
+            "backend": "memory",
         }
 
     def apply_memory_decay(
         self, decay_factor: float = 0.97, min_importance: float = 0.05
     ) -> int:
-        """Reduce importance of stale memories. Works for Chroma and in-memory."""
+        """Reduce importance of stale memories (all backends)."""
         updated_count = 0
         memories = self.get_all_memories()
 

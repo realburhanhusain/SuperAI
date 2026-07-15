@@ -89,7 +89,7 @@ def _suggest_fix(exc: Exception) -> Optional[str]:
         return "Install/configure rclone, or use local `superai backup` / `superai restore <file>`."
     if "empty" in msg and "task" in msg:
         return 'Provide a non-empty task string, e.g. superai run "Create a FastAPI app"'
-    if "chromadb" in msg or "embedding" in msg:
+    if "pgvector" in msg or "chromadb" in msg or "embedding" in msg:
         return (
             "Set SUPERAI_EMBEDDING_HASH=1 for offline hash embeddings, "
             "or pip install -e \".[embeddings]\"."
@@ -610,7 +610,7 @@ def learnings(
                 f"Successes: {summary['success_count']} | "
                 f"Failures: {summary['failure_count']}\n"
                 f"Memory store: {stats.get('total_memories')} "
-                f"(chromadb={stats.get('using_chromadb')})",
+                f"(pgvector={stats.get('using_pgvector')} backend={stats.get('backend')})",
                 border_style="green",
             )
         )

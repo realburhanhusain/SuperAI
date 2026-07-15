@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
-**Updated:** 2026-07-15  
-**Tests:** **202 passed**  
+**Updated:** 2026-07-16  
+**Tests:** **207 passed**  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 
@@ -30,6 +30,7 @@
 
 ### Latest highlights
 
+- **Memory Palace default = pgvector** — ChromaDB removed; Postgres+pgvector or SQLite cosine offline; FAISS opt-in only (`docs/MEMORY_PALACE_GAPS.md`)  
 - **Review hardening** — approval-denial correctness, WriteQueue timeouts, workspace jail fail-closed, multiproc job locks, SSRF URL gate, memory redaction, MCP mock-default, XSS escape; `tests/test_review_hardening.py`  
 - **Memory Palace concurrent safety (Phase 3)** — `store_lock` / atomic writes / `get_shared_palace` / write queue / sync merge; `tests/test_memory_concurrency.py` (`docs/MEMORY_PALACE_GAPS.md`)  
 - **External CLI deep integration** — Memory Palace + learning + audit; orchestrator `cli_delegate_workers` (`docs/EXTERNAL_CLI_GAPS.md`)  

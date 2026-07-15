@@ -6,7 +6,8 @@ Priority:
 2. sentence-transformers EmbeddingGemma or all-MiniLM fallback
 3. Deterministic hash embedding (always available offline)
 
-Chroma can use a custom embedding function implementing name + __call__.
+Embedding functions implement name() + __call__(texts) -> list[list[float]].
+Used by the default pgvector Memory Palace backend (and optional FAISS).
 """
 
 from __future__ import annotations

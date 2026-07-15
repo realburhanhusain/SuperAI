@@ -1,6 +1,19 @@
 # Memory Palace gaps — closed (Wings/Rooms + clustering)
 
-**Updated:** 2026-07-15
+**Updated:** 2026-07-16
+
+## Vector backend (default: pgvector)
+
+| Backend | When |
+|---------|------|
+| **pgvector** (default) | Postgres DSN (`SUPERAI_MEMORY_DSN=postgresql+psycopg://…`) with `vector` extension; multi-session R/W safe |
+| **SQL cosine (SQLite)** | Default offline path: `~/.superai/memory/palace.sqlite` when no Postgres DSN — same API, brute-force cosine |
+| **FAISS** | Opt-in only: `SUPERAI_MEMORY_BACKEND=faiss` |
+| **memory** | Opt-in only: `SUPERAI_MEMORY_BACKEND=memory` (RAM, tests) |
+| ~~ChromaDB~~ | **Removed** (unsafe concurrent multi-session local store) |
+| ~~Qdrant~~ | Not supported |
+
+Env: `SUPERAI_MEMORY_BACKEND`, `SUPERAI_MEMORY_DSN`, `SUPERAI_EMBEDDING_HASH=1` for offline hash embeddings.
 
 ## Observations → status
 

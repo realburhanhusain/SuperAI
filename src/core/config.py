@@ -61,6 +61,10 @@ class Config:
         # Central Memory Palace for all SuperAI-mediated AIs (inject + write-back)
         "central_memory": True,
         "central_memory_write_back": True,
+        # Memory Palace vector backend: pgvector (default) | faiss | memory
+        "memory_backend": "pgvector",
+        # Optional DSN: postgresql+psycopg://...  (else SQLite under ~/.superai/memory)
+        "memory_dsn": None,
         # Orchestrator mid-task adaptation (gap close)
         "adapt_on_failure": True,
         "max_step_retries": 2,

@@ -45,7 +45,10 @@ superai run "hello" --format json
 | `web` → `/palace` | Interactive Memory Palace browser |
 | `search-web "q" --provider duckduckgo` | Instant Answer API (no scrape) |
 | `github status\|issues\|prs\|issue-create\|pr\|comment` | GitHub product API / gh CLI |
-| Env `SUPERAI_FAISS_INDEX=hnsw` | FAISS HNSW vector index (G13) |
+| Env `SUPERAI_MEMORY_BACKEND=pgvector` | Default Memory Palace backend (Postgres+pgvector or SQLite cosine) |
+| Env `SUPERAI_MEMORY_DSN` | e.g. `postgresql+psycopg://user:pass@localhost/superai` |
+| Env `SUPERAI_MEMORY_BACKEND=faiss` | Optional FAISS offline index |
+| Env `SUPERAI_FAISS_INDEX=hnsw` | FAISS HNSW (when backend=faiss) |
 | `config set cli_delegate_workers true` | Orchestrator delegates worker steps to external CLIs |
 | `run "…" --model cli:claude` | Force step execution via external CLI (integrated) |
 | `run "<task>"` | Orchestrated multi-step run |
@@ -105,7 +108,8 @@ superai run "hello" --format json
 | `SUPERAI_MOCK_MODE` | true/false |
 | `SUPERAI_WORKSPACE` | Path jail root |
 | `SUPERAI_WEB_TOKEN` | Web API auth |
-| `SUPERAI_MEMORY_BACKEND` | `faiss` for vector store |
+| `SUPERAI_MEMORY_BACKEND` | `pgvector` (default) · `faiss` · `memory` |
+| `SUPERAI_MEMORY_DSN` | Postgres URL for true pgvector; else SQLite under `~/.superai/memory` |
 | `SUPERAI_CONTAINER_SANDBOX` | Docker tool shell |
 | `SUPERAI_LANG` | en/es/fr/de |
 | `SUPERAI_VERSION_URL` | Update check JSON |

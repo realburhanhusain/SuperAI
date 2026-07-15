@@ -17,7 +17,8 @@ Env: `SUPERAI_MEMORY_BACKEND`, `SUPERAI_MEMORY_DSN`, `SUPERAI_EMBEDDING_HASH=1` 
 
 ### Opt-in Postgres install (not automatic)
 
-Postgres is **never** installed silently. During guided install:
+Postgres is **never** installed silently (live still requires confirm). During guided
+install the Memory Palace Postgres question defaults to **Yes** (user can decline).
 
 ```text
 superai install                          # interactive: host tools + optional Postgres

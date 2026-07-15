@@ -242,7 +242,7 @@ def run_install_wizard(
             else:
                 want_pg = _prompt_yes_no(
                     "Install and configure PostgreSQL for Memory Palace?",
-                    default=False,
+                    default=True,
                 )
         elif want_pg is None:
             # non-interactive: only if SUPERAI_INSTALL_POSTGRES=1 or with_postgres flag

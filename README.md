@@ -36,8 +36,11 @@ superai install
 superai doctor
 ```
 
-Postgres is **not** installed by default. Without it, Memory Palace uses SQLite under `~/.superai/memory`.  
-`superai install` can detect local Postgres, optionally install the server via winget/brew/apt, create DB + `vector` extension, and write `memory_dsn` into config — only when you opt in.
+Postgres is **not** installed silently. On `superai install`, the Memory Palace Postgres
+step defaults to **Yes** (press Enter to accept); decline with `n` to keep SQLite under
+`~/.superai/memory`. Live package/DB changes still need an explicit live confirm.
+`superai install` can detect local Postgres, install via winget/brew/apt if missing,
+create DB + `vector` extension, and write `memory_dsn` into config.
 
 **Local MCP** (other AIs share SuperAI Memory Palace):
 

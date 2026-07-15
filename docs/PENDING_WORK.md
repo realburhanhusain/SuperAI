@@ -1,9 +1,10 @@
 # SuperAI — Pending work
 
-**Updated:** 2026-07-15  
+**Updated:** 2026-07-16  
 
-Implementation of planned features, backlog waves, and deferred code gaps
-(G13–G15) is **complete in code**.
+Implementation of planned features, backlog waves, deferred code gaps
+(G13–G15), concurrent Memory Palace, review hardening, **pgvector default**,
+and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 
 ## Postponed (host / external smoke only)
 
@@ -11,15 +12,22 @@ Implementation of planned features, backlog waves, and deferred code gaps
 2. Live Telegram/Slack E2E  
 3. rclone cloud remote E2E  
 4. GitHub Pages enablement in repo settings  
+5. Live Postgres + `vector` extension smoke on a real server (suite uses SQLite cosine offline)
+
+## Explicitly not planned
+
+- ChromaDB backend or Chroma → SQL migrator (no existing user data; Chroma removed)
 
 ## Recently closed (code)
 
-| ID | Item |
-|----|------|
-| G13 | FAISS HNSW index + env knobs |
-| G14 | DuckDuckGo Instant Answer API (no scrape) |
-| G15 | GitHub issues/PRs via token or `gh` |
-| — | Orchestrator adaptation, MCP, Memory Palace P1–P3, multi-CLI/terminal, host-tools |
+| Item | Notes |
+|------|--------|
+| G13–G15 | FAISS HNSW, DDG Instant Answer, GitHub issues/PRs |
+| Concurrent palace | store_lock, shared palace, sync merge |
+| Review hardening | approval/jail/SSRF/redact/MCP/XSS |
+| pgvector default | Chroma removed; SQLite cosine offline; FAISS opt-in |
+| Install wizard | `superai install`, host tools prompts, Postgres default Yes |
+| Semantic tests | Stricter Memory Palace query/delete asserts |
 
 ## Not pending
 

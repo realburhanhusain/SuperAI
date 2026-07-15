@@ -12,7 +12,8 @@
 | **HITL replan approval · critic modes · run --with-clis** | **Implemented** |
 | Mock-first + multi-provider ModelCaller | **Implemented** |
 | Scoring router + bandit + failover chain + A/B | **Implemented** |
-| Memory Palace (Chroma / FAISS / in-memory) | **Implemented** |
+| Memory Palace (pgvector default / SQLite cosine / optional FAISS) | **Implemented** |
+| Guided install (host tools + opt-in Postgres → DSN) | **Implemented** |
 | **Wings/Rooms first-class + embedding/wing clustering** | **Implemented** |
 | **Palace browser + cluster→room auto-promote (P3)** | **Implemented** |
 | **LearningEngine mid-task adaptation + smarter distill/conflicts** | **Implemented** |

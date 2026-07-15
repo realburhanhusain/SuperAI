@@ -1,7 +1,7 @@
 # SuperAI — Phase progress
 
 **Updated:** 2026-07-16  
-**Tests:** **207 passed**  
+**Tests:** run `pytest -q` (suite growing; install wizard + pgvector covered)  
 **Layout:** `src/cli` + `src/core`  
 **Backlog:** all M/S/N waves **implemented in code**
 

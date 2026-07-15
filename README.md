@@ -5,9 +5,10 @@
 **Canonical tree:** this repo (`Documents\Personal\github\SuperAI`).  
 **Resume:** [TASKBOARD.md](TASKBOARD.md) · **Backlog:** [docs/FEATURE_BACKLOG.md](docs/FEATURE_BACKLOG.md)
 
-> **Status (2026-07-14):** Feature backlog (M/S/N waves 1–2) **implemented in code**.  
-> Remaining: **host smoke** only (API keys, live bots, rclone, GitHub Pages).  
-> **Tests:** `pytest -q` → **114 passed**.
+> **Status (2026-07-16):** Feature backlog (M/S/N waves 1–2) **implemented in code**.  
+> Memory Palace default: **pgvector** (Postgres) or SQLite cosine offline; Chroma removed.  
+> Remaining: **host smoke** only (API keys, live bots, rclone, GitHub Pages, live Postgres).  
+> **Install:** `superai install` (host tools + optional Postgres, Memory Palace Postgres defaults to Yes).
 
 ## Layout
 
@@ -89,7 +90,7 @@ superai web   # http://127.0.0.1:8787  and  /pwa/
 
 ## Feature summary
 
-Orchestration, multi-provider routing, bandit/A/B, memory (Chroma/FAISS), skills, encrypted backup, council/hierarchy, tool proposals, doctor/chat/TDD/diff-edit, compliance, GDPR forget, MCP, PWA, VS Code extension, and more — see FEATURES.md.
+Orchestration, multi-provider routing, bandit/A/B, memory (pgvector / SQLite cosine / optional FAISS), skills, encrypted backup, council/hierarchy, tool proposals, doctor/chat/TDD/diff-edit, compliance, GDPR forget, MCP, PWA, VS Code extension, guided `superai install`, and more — see FEATURES.md.
 
 **Deferred (host):** live multi-provider E2E, live Telegram/Slack, rclone remote, Pages enable.
 

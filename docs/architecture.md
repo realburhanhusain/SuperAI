@@ -104,7 +104,7 @@ Imports: `from core.…` and `from scli.…`
 |------|---------|
 | `config.json` | User settings |
 | `history/` | Task run JSON |
-| `memory/` | Chroma / memory stores |
+| `memory/` | Memory Palace store (SQLite cosine default file; Postgres+pgvector when DSN set) |
 | `skills/` | Markdown skills + index |
 | `backups/` | Encrypted archives |
 | `.backup_key` | AES key (protect) |

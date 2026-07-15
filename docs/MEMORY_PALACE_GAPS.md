@@ -36,3 +36,21 @@ technical · operations · product · learning · agentic
 | MCP | `superai_memory_palace` actions: `suggest` · `promote` · `snapshot` |
 
 Promote is **dry-run by default** (`--apply` to write). `--reassign` also updates memory metadata wing/room for cluster members.
+
+## Phase 3 — concurrent-safe multi-CLI / multi-process writes
+
+| Layer | Mechanism |
+|-------|-----------|
+| Cross-process + thread lock | `src/core/store_lock.py` — `FileLock` (msvcrt/fcntl) + per-path RLock via `store_lock()` |
+| Atomic file writes | `atomic_write_json` / `atomic_write_text` / `atomic_write_bytes` (unique tmp + `os.replace` + Windows retry) |
+| Shared palace | `get_shared_palace(persist_directory)` singleton — prefer over many `MemoryPalace()` instances |
+| Store path | `MemoryPalace.store` / `update_metadata` under `palace.lock` |
+| Optional write queue | `store_queued` → process-wide `WriteQueue` for multi-CLI fan-out |
+| FAISS sidecar | `faiss.lock` + atomic meta/index save on `add`/`save` |
+| Wings assignments | `wings.lock` + re-read/merge on `save` |
+| Learning history | `learning_history.lock` + atomic JSON append |
+| Encrypted sync | `export_encrypted_memory` under lock; `import_encrypted_memory(merge=skip\|overwrite\|always, use_queue=…)` |
+| Call sites | `central_memory`, `mcp_context` use `get_shared_palace()` |
+| CLI | `memory-sync --merge skip\|overwrite\|always` · `--queue` |
+
+**Tests:** `tests/test_memory_concurrency.py` (thread stores, queue, singleton, wings, merge-skip).

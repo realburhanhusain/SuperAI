@@ -15,6 +15,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from .store_lock import atomic_write_json, store_lock
+
 try:
     import faiss  # type: ignore
 
@@ -69,12 +71,19 @@ class FaissMemoryStore:
             "updated_at": time.time(),
             "backend": "faiss" if HAS_FAISS else "numpy-brute",
         }
-        self.meta_path.write_text(json.dumps(payload), encoding="utf-8")
-        if HAS_FAISS and self._index is not None:
-            try:
-                faiss.write_index(self._index, str(self.index_path))
-            except Exception:
-                pass
+        # Atomic JSON write under store lock (caller may already hold palace lock)
+        with store_lock(self.root, name="faiss.lock", timeout=45.0):
+            atomic_write_json(self.meta_path, payload)
+            if HAS_FAISS and self._index is not None:
+                try:
+                    # write to tmp then replace
+                    tmp_idx = self.index_path.with_suffix(
+                        f".{os.getpid()}.tmp.faiss"
+                    )
+                    faiss.write_index(self._index, str(tmp_idx))
+                    os.replace(str(tmp_idx), str(self.index_path))
+                except Exception:
+                    pass
 
     def _index_kind(self) -> str:
         """flat (default) | hnsw — via SUPERAI_FAISS_INDEX=hnsw|flat"""
@@ -143,19 +152,41 @@ class FaissMemoryStore:
                 vec = vec[: self.dim]
         elif not self.vectors:
             self.dim = len(vec)
-        self.docs[mid] = {
-            "id": mid,
-            "content": content,
-            "metadata": metadata or {},
-            "tags": tags or [],
-            "importance": float((metadata or {}).get("importance") or 0.7),
-        }
-        self.ids.append(mid)
-        self.vectors.append(vec)
-        if HAS_FAISS:
-            self._rebuild_faiss()
-        self.save()
-        return mid
+
+        def _do() -> str:
+            self.docs[mid] = {
+                "id": mid,
+                "content": content,
+                "metadata": metadata or {},
+                "tags": tags or [],
+                "importance": float((metadata or {}).get("importance") or 0.7),
+            }
+            self.ids.append(mid)
+            self.vectors.append(vec)
+            if HAS_FAISS:
+                self._rebuild_faiss()
+            # save without nested double-lock: write files only
+            payload = {
+                "docs": self.docs,
+                "ids": self.ids,
+                "vectors": self.vectors,
+                "updated_at": time.time(),
+                "backend": "faiss" if HAS_FAISS else "numpy-brute",
+            }
+            atomic_write_json(self.meta_path, payload)
+            if HAS_FAISS and self._index is not None:
+                try:
+                    tmp_idx = self.index_path.with_suffix(
+                        f".{os.getpid()}.tmp.faiss"
+                    )
+                    faiss.write_index(self._index, str(tmp_idx))
+                    os.replace(str(tmp_idx), str(self.index_path))
+                except Exception:
+                    pass
+            return mid
+
+        with store_lock(self.root, name="faiss.lock", timeout=45.0):
+            return _do()
 
     def search(
         self, query_embedding: Sequence[float], top_k: int = 8

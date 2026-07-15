@@ -1,11 +1,30 @@
-# TASKBOARD — SuperAI
+﻿# Checkpoint: memory-concurrent-safety
+
+- **When:** 2026-07-15 03:21:13 +03:00
+- **Host:** IT-DV-110-L
+- **Repo:** C:\Users\burhan.husain\Documents\Personal\github\SuperAI
+- **Git HEAD:** 8a31667
+- **Git status:** ## master...origin/master
+- **Pytest:** skipped
+
+## Recovery
+
+1. Open this repo path.
+2. Read `TASKBOARD.md` Last session + first `[ ]` / `[~]` item.
+3. If tree is corrupted, restore from last git commit: `git status` / `git log -5 --oneline` / `git stash list`.
+4. Runtime data (not always in git): `~/.superai/` â€” use `superai backup-verify` / `superai restore`.
+
+## TASKBOARD snapshot (truncated)
+
+```markdown
+# TASKBOARD â€” SuperAI
 
 **Backlog:** `docs/FEATURE_BACKLOG.md`  
 **Security:** `docs/SECURITY_REVIEW.md`  
 **Progress:** `docs/PROGRESS.md`  
-**Layout:** `src/cli` (`scli`) · `src/core` (`core`) · entry `superai = scli.main:app`
+**Layout:** `src/cli` (`scli`) Â· `src/core` (`core`) Â· entry `superai = scli.main:app`
 
-**Legend:** `[x]` done · `[!]` external host only
+**Legend:** `[x]` done Â· `[!]` external host only
 
 ---
 
@@ -13,11 +32,11 @@
 
 | Track | Status |
 |-------|--------|
-| A–J foundations | `[x]` |
-| Future Plan G1–G12 | `[x]` |
+| Aâ€“J foundations | `[x]` |
+| Future Plan G1â€“G12 | `[x]` |
 | Depth finish + security harden | `[x]` |
-| M1–M8 / S1–S12 / N1–N15 | `[x]` |
-| **Wave 2 M9–M13 / S13–S22 / N16–N30** | `[x]` |
+| M1â€“M8 / S1â€“S12 / N1â€“N15 | `[x]` |
+| **Wave 2 M9â€“M13 / S13â€“S22 / N16â€“N30** | `[x]` |
 
 ---
 
@@ -25,17 +44,17 @@
 
 | Command | ID |
 |---------|-----|
-| `secrets` / `update` / `diagnose` / `rate-queue` | M10–M13 |
-| `diff-edit` / `tdd` / `workspace-index` / `profile-bundle` | S13–S21 |
-| `forecast` / `ab-route` / `compliance` / `onboard` | N20–N28 |
-| `browse` / `speak` / `listen` / `pr-review` / `notebook` | N17–N26 |
+| `secrets` / `update` / `diagnose` / `rate-queue` | M10â€“M13 |
+| `diff-edit` / `tdd` / `workspace-index` / `profile-bundle` | S13â€“S21 |
+| `forecast` / `ab-route` / `compliance` / `onboard` | N20â€“N28 |
+| `browse` / `speak` / `listen` / `pr-review` / `notebook` | N17â€“N26 |
 | `memory-forget` / `memory-ttl` / `memory-sync` | N19/N27 |
 | `langgraph-export` / `plugin-catalog` / `skill-perms` / `telemetry` / `lang` | N16+ |
 | `merge-results` / `validate-json` | S16/S18 |
 
 ---
 
-## External smoke (POSTPONED — not code)
+## External smoke (POSTPONED â€” not code)
 
 - [!] Live multi-provider keys  
 - [!] Live Telegram/Slack  
@@ -56,20 +75,20 @@
 |-------|--------|
 | **When** | 2026-07-15 |
 | **What** | Memory Palace concurrent safety (store_lock, atomic write, shared palace, sync merge/queue) |
-| **Verify** | `pytest tests/test_memory_concurrency.py -q` · full suite **195 passed** · `docs/MEMORY_PALACE_GAPS.md` |
+| **Verify** | `pytest tests/test_memory_concurrency.py -q` Â· full suite **195 passed** Â· `docs/MEMORY_PALACE_GAPS.md` |
 
 ### Concurrent Memory Palace (Phase 3 parallel-safe)
 
-- `[x]` `src/core/store_lock.py` — FileLock + thread RLock + atomic_write_* + WriteQueue  
+- `[x]` `src/core/store_lock.py` â€” FileLock + thread RLock + atomic_write_* + WriteQueue  
 - `[x]` `MemoryPalace` store/update under `palace.lock`; `get_shared_palace`; `store_queued`  
 - `[x]` FAISS / wings / learning history atomic + locked saves  
 - `[x]` `memory_sync` merge skip|overwrite|always + optional queue; CLI flags  
-- `[x]` central_memory / mcp_context → shared palace  
+- `[x]` central_memory / mcp_context â†’ shared palace  
 - `[x]` Tests: `tests/test_memory_concurrency.py`
 
 ### Multi-CLI parallel (new)
 
-- `[x]` `ParallelCLIManager` — concurrent external CLIs + job registry  
+- `[x]` `ParallelCLIManager` â€” concurrent external CLIs + job registry  
 - `[x]` `cli-parallel` / `cli-jobs` commands  
 - `[x]` Terminal dashboard panel for all CLI workers  
 - `[x]` Web `/cli-pool` + `/api/cli-pool`  
@@ -79,10 +98,12 @@
 
 ### Multi-terminal parallel (new)
 
-- `[x]` `ParallelTerminalManager` — concurrent shell sessions + registry  
+- `[x]` `ParallelTerminalManager` â€” concurrent shell sessions + registry  
 - `[x]` `term-parallel` / `term-jobs` commands  
 - `[x]` Dashboard panel (side-by-side with CLI pool)  
 - `[x]` Web `/terminals` + `/api/terminals`  
 - `[x]` Agentic role terminals + supervisor synthesis  
 - `[x]` Safety: dry-run default, argv-only, workspace jail, meta-shell block  
 - `[x]` Tests: `tests/test_terminal_pool.py`
+
+```

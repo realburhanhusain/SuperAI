@@ -1,11 +1,17 @@
 """
 Memory Palace for SuperAI — Persistent semantic memory (ChromaDB + in-memory fallback).
+
+Phase 3 concurrent safety:
+  - process file lock + per-process thread RLock on store/update
+  - shared singleton per persist_directory
+  - optional write queue for multi-CLI fan-out
 """
 
 from __future__ import annotations
 
 import os
 import re
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +26,31 @@ except ImportError:
 
 from .embeddings import create_embedding_function, describe_embedding
 from .faiss_store import FaissMemoryStore, use_faiss_backend
+from .store_lock import memory_write_queue, store_lock, thread_lock_for
+
+
+_PALACE_SINGLETONS: Dict[str, "MemoryPalace"] = {}
+_PALACE_SINGLETONS_GUARD = threading.Lock()
+
+
+def get_shared_palace(
+    persist_directory: Optional[str] = None,
+    **kwargs: Any,
+) -> "MemoryPalace":
+    """
+    Process-wide shared MemoryPalace for a given store path.
+    Prefer this over constructing many MemoryPalace() instances under concurrency.
+    """
+    if persist_directory:
+        key = str(Path(persist_directory).expanduser().resolve())
+    else:
+        key = str(Path(os.path.expanduser("~/.superai/memory")).resolve())
+    with _PALACE_SINGLETONS_GUARD:
+        if key not in _PALACE_SINGLETONS:
+            _PALACE_SINGLETONS[key] = MemoryPalace(
+                persist_directory=persist_directory or key, **kwargs
+            )
+        return _PALACE_SINGLETONS[key]
 
 
 def _safe_metadata(metadata: Dict[str, Any], tags: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -67,6 +98,8 @@ class MemoryPalace:
 
         os.makedirs(self.persist_directory, exist_ok=True)
         self.memories: List[Dict[str, Any]] = []
+        self._root = Path(self.persist_directory)
+        self._thread_lock = thread_lock_for(self._root)
 
         # F3.1: local EmbeddingGemma / ST / hash embeddings
         prefer_hash = os.getenv("SUPERAI_EMBEDDING_HASH", "").lower() in {
@@ -123,6 +156,15 @@ class MemoryPalace:
         else:
             self.use_chromadb = False
 
+    def _locked_write(self, fn):
+        """Serialize writers (thread + cross-process lock)."""
+        with store_lock(self._root, name="palace.lock", timeout=45.0):
+            return fn()
+
+    def store_queued(self, *args: Any, **kwargs: Any) -> str:
+        """Enqueue a store through the process write queue (parallel multi-CLI safe)."""
+        return memory_write_queue().submit(lambda: self.store(*args, **kwargs))
+
     def store(
         self,
         content: str,
@@ -175,50 +217,55 @@ class MemoryPalace:
                 metadata.setdefault("room", room or "general")
 
         memory_id = f"{datetime.now().timestamp():.6f}-{uuid.uuid4().hex[:8]}"
+        tags_final = list(tags)
+        meta_final = metadata
+        imp = importance
 
-        if self.use_faiss and self.faiss_store is not None:
-            emb = self.embedding_function([content])[0]
-            self.faiss_store.add(
-                content=content,
-                embedding=emb,
-                metadata=metadata,
-                tags=list(tags),
-                memory_id=memory_id,
-            )
-        elif self.use_chromadb:
-            safe_meta = _safe_metadata(metadata, tags=tags)
-            self.collection.add(
-                documents=[content],
-                metadatas=[safe_meta],
-                ids=[memory_id],
-            )
-        else:
-            self.memories.append(
-                {
-                    "id": memory_id,
-                    "content": content,
-                    "tags": list(tags),
-                    "metadata": metadata,
-                    "importance": importance,
-                    "created_at": metadata["created_at"],
-                }
-            )
-
-        # Sidecar assignment index (best-effort, never blocks store)
-        if metadata.get("wing") and metadata.get("room"):
-            try:
-                from .wings import WingsManager
-
-                WingsManager().assign(
-                    memory_id,
-                    str(metadata["wing"]),
-                    str(metadata["room"]),
-                    note="memory_palace.store",
+        def _do_store() -> str:
+            if self.use_faiss and self.faiss_store is not None:
+                emb = self.embedding_function([content])[0]
+                self.faiss_store.add(
+                    content=content,
+                    embedding=emb,
+                    metadata=meta_final,
+                    tags=tags_final,
+                    memory_id=memory_id,
                 )
-            except Exception:
-                pass
+            elif self.use_chromadb:
+                safe_meta = _safe_metadata(meta_final, tags=tags_final)
+                self.collection.add(
+                    documents=[content],
+                    metadatas=[safe_meta],
+                    ids=[memory_id],
+                )
+            else:
+                self.memories.append(
+                    {
+                        "id": memory_id,
+                        "content": content,
+                        "tags": tags_final,
+                        "metadata": meta_final,
+                        "importance": imp,
+                        "created_at": meta_final["created_at"],
+                    }
+                )
 
-        return memory_id
+            # Sidecar assignment index (best-effort, never blocks store)
+            if meta_final.get("wing") and meta_final.get("room"):
+                try:
+                    from .wings import WingsManager
+
+                    WingsManager().assign(
+                        memory_id,
+                        str(meta_final["wing"]),
+                        str(meta_final["room"]),
+                        note="memory_palace.store",
+                    )
+                except Exception:
+                    pass
+            return memory_id
+
+        return self._locked_write(_do_store)
 
     def store_version(
         self,
@@ -243,35 +290,52 @@ class MemoryPalace:
 
     def update_metadata(self, memory_id: str, metadata_updates: Dict[str, Any]) -> bool:
         """Persist metadata updates (importance, deprecated flags, etc.)."""
-        if self.use_chromadb:
-            try:
-                existing = self.collection.get(ids=[memory_id])
-                if not existing["ids"]:
-                    return False
-                meta = dict(existing["metadatas"][0] or {})
-                meta.update(metadata_updates)
-                # Re-sanitize
-                tags_str = meta.get("tags", "")
-                tags = [t for t in str(tags_str).split(",") if t] if tags_str else None
-                safe = _safe_metadata(
-                    {k: v for k, v in meta.items() if k != "tags"},
-                    tags=tags,
-                )
-                if tags_str and "tags" not in safe:
-                    safe["tags"] = tags_str
-                self.collection.update(ids=[memory_id], metadatas=[safe])
-                return True
-            except Exception:
-                return False
 
-        for mem in self.memories:
-            if mem.get("id") == memory_id:
-                meta = mem.setdefault("metadata", {})
+        def _do() -> bool:
+            if self.use_faiss and self.faiss_store is not None:
+                doc = self.faiss_store.docs.get(memory_id)
+                if not doc:
+                    return False
+                meta = dict(doc.get("metadata") or {})
                 meta.update(metadata_updates)
+                doc["metadata"] = meta
                 if "importance" in metadata_updates:
-                    mem["importance"] = metadata_updates["importance"]
+                    doc["importance"] = metadata_updates["importance"]
+                self.faiss_store.docs[memory_id] = doc
+                self.faiss_store.save()
                 return True
-        return False
+            if self.use_chromadb:
+                try:
+                    existing = self.collection.get(ids=[memory_id])
+                    if not existing["ids"]:
+                        return False
+                    meta = dict(existing["metadatas"][0] or {})
+                    meta.update(metadata_updates)
+                    tags_str = meta.get("tags", "")
+                    tags = (
+                        [t for t in str(tags_str).split(",") if t] if tags_str else None
+                    )
+                    safe = _safe_metadata(
+                        {k: v for k, v in meta.items() if k != "tags"},
+                        tags=tags,
+                    )
+                    if tags_str and "tags" not in safe:
+                        safe["tags"] = tags_str
+                    self.collection.update(ids=[memory_id], metadatas=[safe])
+                    return True
+                except Exception:
+                    return False
+
+            for mem in self.memories:
+                if mem.get("id") == memory_id:
+                    meta = mem.setdefault("metadata", {})
+                    meta.update(metadata_updates)
+                    if "importance" in metadata_updates:
+                        mem["importance"] = metadata_updates["importance"]
+                    return True
+            return False
+
+        return bool(self._locked_write(_do))
 
     def query_semantic(
         self,

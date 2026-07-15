@@ -14,6 +14,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .store_lock import atomic_write_json, store_lock
+
 
 DEFAULT_WINGS = {
     "technical": {
@@ -74,7 +76,38 @@ class WingsManager:
         return {"wings": json.loads(json.dumps(DEFAULT_WINGS)), "assignments": []}
 
     def save(self) -> None:
-        self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
+        with store_lock(self.path.parent, name="wings.lock", timeout=30.0):
+            # re-read merge to reduce lost updates under concurrency
+            try:
+                if self.path.exists():
+                    disk = json.loads(self.path.read_text(encoding="utf-8"))
+                    # keep our wings catalog; merge assignments by memory_id (ours win)
+                    disk_a = {
+                        a.get("memory_id"): a
+                        for a in (disk.get("assignments") or [])
+                        if a.get("memory_id")
+                    }
+                    for a in self.data.get("assignments") or []:
+                        if a.get("memory_id"):
+                            disk_a[a["memory_id"]] = a
+                    self.data["assignments"] = list(disk_a.values())[-5000:]
+                    if disk.get("promotions"):
+                        prom = list(disk.get("promotions") or []) + list(
+                            self.data.get("promotions") or []
+                        )
+                        # de-dupe by ts+wing+room
+                        seen = set()
+                        merged = []
+                        for p in reversed(prom):
+                            k = (p.get("ts"), p.get("wing"), p.get("room"))
+                            if k in seen:
+                                continue
+                            seen.add(k)
+                            merged.append(p)
+                        self.data["promotions"] = list(reversed(merged))[-200:]
+            except Exception:
+                pass
+            atomic_write_json(self.path, self.data)
 
     def list_wings(self) -> Dict[str, Any]:
         return self.data.get("wings") or DEFAULT_WINGS

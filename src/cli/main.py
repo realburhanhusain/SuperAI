@@ -3394,8 +3394,18 @@ def memory_sync_cmd(
     action: str = typer.Argument(..., help="export | import"),
     path: str = typer.Argument(...),
     password: str = typer.Option(..., "--password", "-p", prompt=True, hide_input=True),
+    merge: str = typer.Option(
+        "skip",
+        "--merge",
+        help="import merge: skip | overwrite | always",
+    ),
+    queue: bool = typer.Option(
+        False,
+        "--queue",
+        help="import via write queue (safer under concurrent multi-CLI)",
+    ),
 ):
-    """N19: Encrypted memory sync package"""
+    """N19: Encrypted memory sync (concurrent-safe export/import + merge)"""
     from core.memory_sync import export_encrypted_memory, import_encrypted_memory
     from pathlib import Path as P
 
@@ -3403,7 +3413,11 @@ def memory_sync_cmd(
         console.print(f"[green]{export_encrypted_memory(password, P(path))}[/green]")
         return
     if action == "import":
-        console.print_json(data=import_encrypted_memory(password, P(path)))
+        console.print_json(
+            data=import_encrypted_memory(
+                password, P(path), merge=merge, use_queue=queue
+            )
+        )
         return
     raise typer.Exit(1)
 

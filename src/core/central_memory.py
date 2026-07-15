@@ -134,9 +134,9 @@ def memory_preface_for_llm(
     if not enabled:
         return ""
     try:
-        from .memory_palace import MemoryPalace
+        from .memory_palace import get_shared_palace
 
-        hits = MemoryPalace().query_semantic(task, top_k=top_k)
+        hits = get_shared_palace().query_semantic(task, top_k=top_k)
         if not hits:
             return ""
         lines = ["[SuperAI Memory Palace — shared context]"]
@@ -185,7 +185,9 @@ def write_back(
         from .learning_engine import LearningEngine
         from .memory_palace import MemoryPalace
 
-        le = LearningEngine(MemoryPalace())
+        from .memory_palace import get_shared_palace
+
+        le = LearningEngine(get_shared_palace())
         learning_id = le.learn_from_task(
             task_description=f"[{source}] {task[:500]}",
             task_type=task_type,
@@ -220,14 +222,14 @@ def write_back(
             # Enrich metadata if store supports it — best effort via second store
             if metadata:
                 try:
-                    from .memory_palace import MemoryPalace
+                    from .memory_palace import get_shared_palace
 
                     snippet = (
                         f"Source={source} model={model_or_cli} task={task[:300]}\n"
                         f"Success={success}\n"
                         f"Output: {(output or '')[:1200]}"
                     )
-                    MemoryPalace().store(
+                    get_shared_palace().store(
                         snippet,
                         tags=tag_list + ["outcome"],
                         metadata={
@@ -307,14 +309,15 @@ def status() -> Dict[str, Any]:
     write = central_memory_write_back_enabled()
     stats: Dict[str, Any] = {}
     try:
-        from .memory_palace import MemoryPalace
+        from .memory_palace import get_shared_palace
 
-        mp = MemoryPalace()
+        mp = get_shared_palace()
         all_m = mp.get_all_memories() if hasattr(mp, "get_all_memories") else []
         stats = {
             "count": len(all_m) if isinstance(all_m, list) else None,
             "path": getattr(mp, "persist_directory", None),
             "embedding": getattr(mp, "embedding_id", None),
+            "concurrent_safe": True,
         }
     except Exception as e:  # noqa: BLE001
         stats = {"error": str(e)}

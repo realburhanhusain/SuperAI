@@ -15,6 +15,7 @@ import math
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .memory_palace import MemoryPalace
@@ -34,16 +35,25 @@ class LearningEngine:
 
     def _log_to_history(self, entry: dict) -> None:
         try:
-            with open(self.history_file, "r", encoding="utf-8") as f:
-                history = json.load(f)
-            if not isinstance(history, list):
-                history = []
-            history.append(entry)
-            # Cap file growth
-            if len(history) > 5000:
-                history = history[-5000:]
-            with open(self.history_file, "w", encoding="utf-8") as f:
-                json.dump(history, f, indent=2)
+            from .store_lock import atomic_write_json, store_lock
+
+            hist_path = Path(self.history_file)
+            root = hist_path.parent
+            with store_lock(root, name="learning_history.lock", timeout=30.0):
+                history: list = []
+                if hist_path.exists():
+                    try:
+                        history = json.loads(
+                            hist_path.read_text(encoding="utf-8")
+                        )
+                    except Exception:
+                        history = []
+                if not isinstance(history, list):
+                    history = []
+                history.append(entry)
+                if len(history) > 5000:
+                    history = history[-5000:]
+                atomic_write_json(hist_path, history)
         except Exception as e:  # noqa: BLE001
             print(f"Warning: Could not write to learning history: {e}")
 

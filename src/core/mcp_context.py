@@ -162,13 +162,13 @@ class MCPContextPack:
     ) -> Optional[str]:
         """Store CLI result envelope in Memory Palace."""
         try:
-            from .memory_palace import MemoryPalace
+            from .memory_palace import get_shared_palace
 
             content = (
                 f"CLI {envelope.get('cli')} result (ok={envelope.get('ok')}): "
                 f"{(envelope.get('stdout') or '')[:1500]}"
             )
-            mid = MemoryPalace().store(
+            mid = get_shared_palace().store(
                 content,
                 tags=tags or ["cli", "mcp_context", str(envelope.get("cli") or "ext")],
                 metadata={

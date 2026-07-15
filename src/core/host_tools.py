@@ -67,6 +67,26 @@ HOST_TOOL_CATALOG: List[HostTool] = [
         profiles=["core", "agentic", "full"],
     ),
     HostTool(
+        id="postgres",
+        name="PostgreSQL",
+        category="utility",
+        detects=["psql", "psql.exe"],
+        description="Postgres server client (Memory Palace pgvector). Prefer: superai install --with-postgres",
+        winget="PostgreSQL.PostgreSQL.17",
+        choco="postgresql",
+        brew="postgresql@17",
+        apt="postgresql",
+        url="https://www.postgresql.org/download/",
+        notes=(
+            "Server install may need admin. After install: "
+            "superai install-postgres --setup-only --live  "
+            "(creates DB + vector extension + writes memory_dsn). "
+            "pgvector extension must be available for your major version."
+        ),
+        profiles=["full"],
+        auto_installable=True,
+    ),
+    HostTool(
         id="gh",
         name="GitHub CLI",
         category="vcs",

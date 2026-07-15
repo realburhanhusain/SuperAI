@@ -129,11 +129,28 @@ def init_cmd(
         "--non-interactive",
         help="Skip prompts (also set SUPERAI_NON_INTERACTIVE=1)",
     ),
+    full_install: bool = typer.Option(
+        False,
+        "--full-install",
+        help="Run interactive install wizard (host tools + optional Postgres)",
+    ),
 ):
     """Initialize SuperAI home directory, config, and discover environment"""
     config = Config()
     if non_interactive:
         config.set("non_interactive", True, persist=True)
+
+    # Optional guided install (host tools + Postgres opt-in)
+    if full_install and not non_interactive:
+        from core.install_wizard import run_install_wizard
+
+        wiz = run_install_wizard(interactive=True)
+        console.print_json(data=wiz)
+        console.print(
+            "[dim]Next: superai doctor && superai run \"hello\"[/dim]"
+        )
+        return
+
     dirs = config.initialize()
 
     from core.discovery import discover_environment
@@ -186,7 +203,8 @@ def init_cmd(
             f"Models registered: {env.get('models_registered')}\n"
             f"rclone: {env.get('rclone_on_path')} | ollama: {env.get('ollama_on_path')}\n"
             f"{ht_line}\n"
-            f"Next: superai doctor && superai host-tools check && superai run \"hello\"",
+            f"Next: superai install   # guided host tools + optional Postgres\n"
+            f"      superai doctor && superai run \"hello\"",
             border_style="green",
         )
     )
@@ -3314,12 +3332,162 @@ def profile_bundle_cmd(
 
 @app.command()
 def onboard(
-    non_interactive: bool = typer.Option(True, "--non-interactive/--interactive"),
+    non_interactive: bool = typer.Option(
+        True,
+        "--non-interactive/--interactive",
+        help="Interactive prompts for host tools + optional Postgres (default: non-interactive)",
+    ),
+    with_postgres: bool = typer.Option(
+        False,
+        "--with-postgres",
+        help="Configure Postgres Memory Palace (opt-in)",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Allow live package/DB installs (default dry-run)",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Assume yes for recommended opts + live installs",
+    ),
+    host_tools_profile: str = typer.Option(
+        "core",
+        "--host-tools-profile",
+        help="core | agentic | cloud | full",
+    ),
 ):
-    """N28: First-run onboarding wizard"""
+    """N28: First-run onboarding (use --interactive for guided install)"""
     from core.onboarding import run_onboarding
 
-    console.print_json(data=run_onboarding(non_interactive=non_interactive))
+    console.print_json(
+        data=run_onboarding(
+            non_interactive=non_interactive,
+            with_postgres=with_postgres or None,
+            live=live,
+            yes=yes,
+            host_tools_profile=host_tools_profile,
+        )
+    )
+
+
+@app.command("install")
+def install_cmd(
+    interactive: bool = typer.Option(
+        True,
+        "--interactive/--non-interactive",
+        help="Prompt for host tools profile and optional Postgres (default: interactive on TTY)",
+    ),
+    with_postgres: Optional[bool] = typer.Option(
+        None,
+        "--with-postgres/--no-postgres",
+        help="Opt-in Postgres Memory Palace setup (prompt if omitted in interactive mode)",
+    ),
+    host_tools_profile: Optional[str] = typer.Option(
+        None,
+        "--host-tools-profile",
+        help="core | agentic | cloud | full (prompt if interactive)",
+    ),
+    install_host_tools: Optional[bool] = typer.Option(
+        None,
+        "--install-host-tools/--skip-host-tools",
+        help="Install missing host tools from chosen profile",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Perform live installs (default is dry-run / plan only)",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Non-interactive consent: live installs for requested components",
+    ),
+    skip_postgres: bool = typer.Option(False, "--skip-postgres", help="Skip Postgres entirely"),
+    admin_password: Optional[str] = typer.Option(
+        None,
+        "--pg-admin-password",
+        help="Postgres admin password (or set SUPERAI_PG_ADMIN_PASSWORD / PGPASSWORD)",
+        envvar="SUPERAI_PG_ADMIN_PASSWORD",
+    ),
+):
+    """
+    Guided SuperAI installation: host tools (opt-in) + optional Postgres/pgvector.
+
+    Examples:
+      superai install
+      superai install --with-postgres --live --yes
+      superai install --host-tools-profile agentic --install-host-tools --live
+      superai install --non-interactive --skip-postgres
+    """
+    from core.install_wizard import run_install_wizard
+
+    data = run_install_wizard(
+        interactive=interactive if not yes else False,
+        with_postgres=False if skip_postgres else with_postgres,
+        host_tools_profile=host_tools_profile,
+        install_host_tools=install_host_tools,
+        live=live,
+        yes=yes,
+        admin_password=admin_password,
+        skip_host_tools=install_host_tools is False,
+        skip_postgres=skip_postgres,
+    )
+    console.print_json(data=data)
+    if not data.get("ok"):
+        raise typer.Exit(1)
+
+
+@app.command("install-postgres")
+def install_postgres_cmd(
+    setup_only: bool = typer.Option(
+        False,
+        "--setup-only",
+        help="Do not install server; only create DB/extension/DSN if psql exists",
+    ),
+    live: bool = typer.Option(False, "--live", help="Apply changes (default dry-run)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Same as --live for this command"),
+    admin_password: Optional[str] = typer.Option(
+        None,
+        "--pg-admin-password",
+        envvar="SUPERAI_PG_ADMIN_PASSWORD",
+    ),
+    host: str = typer.Option("localhost", "--host"),
+    port: int = typer.Option(5432, "--port"),
+):
+    """Opt-in Postgres detect/install + Memory Palace DB/vector/DSN setup."""
+    from core.postgres_setup import detect_postgres, ensure_postgres_for_superai
+
+    if not live and not yes:
+        det = detect_postgres()
+        plan = ensure_postgres_for_superai(
+            live=False,
+            install_if_missing=not setup_only,
+            admin_password=admin_password,
+            host=host,
+            port=port,
+        )
+        console.print_json(data={"detect": det, "plan": plan})
+        console.print(
+            "[dim]Re-run with --live (and admin password if needed) to apply.[/dim]"
+        )
+        return
+
+    data = ensure_postgres_for_superai(
+        live=True,
+        install_if_missing=not setup_only,
+        admin_password=admin_password,
+        host=host,
+        port=port,
+    )
+    if isinstance(data.get("setup"), dict):
+        data["setup"].pop("db_password", None)
+    console.print_json(data=data)
+    if not data.get("ok"):
+        raise typer.Exit(1)
 
 
 @app.command()

@@ -26,9 +26,18 @@ Entry point: `superai` → `scli.main:app`
 cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 pip install -e ".[dev]"
 # Optional: pip install -e ".[web]" ".[embeddings]" ".[vector]" ".[data]"
-superai onboard
+
+# Guided install (opt-in host tools + optional Postgres/pgvector)
+superai install
+# Non-interactive Postgres opt-in (after Postgres is available / with admin rights):
+#   superai install --with-postgres --live --yes
+#   superai install-postgres --setup-only --live
+
 superai doctor
 ```
+
+Postgres is **not** installed by default. Without it, Memory Palace uses SQLite under `~/.superai/memory`.  
+`superai install` can detect local Postgres, optionally install the server via winget/brew/apt, create DB + `vector` extension, and write `memory_dsn` into config — only when you opt in.
 
 **Local MCP** (other AIs share SuperAI Memory Palace):
 

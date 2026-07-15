@@ -31,8 +31,10 @@ superai run "hello" --format json
 | `term-parallel "task" [--commands a;b] [--dry-run\|--live]` | Multi-terminal parallel agentic shells |
 | `term-jobs list\|snapshot\|clear` | Parallel terminal session registry |
 | `dashboard` / `web` → `/cli-pool` · `/terminals` | Single dashboard for CLI + terminal workers |
+| `install` | Guided install: host tools profile + optional Postgres/pgvector + DSN |
+| `install-postgres [--setup-only] [--live]` | Detect/install Postgres, create DB + vector, write `memory_dsn` |
 | `host-tools check\|install\|matrix [--profile core\|agentic\|cloud\|full]` | Host CLI checklist + optional install (not bundled) |
-| `scripts/bootstrap.ps1` / `bootstrap.sh` | pip install SuperAI + host-tools dry-run/live |
+| `scripts/bootstrap.ps1` / `bootstrap.sh` | pip + optional `-Interactive` / `--with-postgres` |
 | `cli-run` … `--context/--no-context` · `--memory/--no-memory` | Central Memory Palace inject + write-back (default on) |
 | Config `central_memory` / env `SUPERAI_CENTRAL_MEMORY` | Master switch for shared Memory Palace |
 | `run "task" --critic off\|light\|council` | Critic mode (default light) |

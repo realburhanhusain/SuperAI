@@ -155,6 +155,9 @@ class Config:
             "SUPERAI_PREFER_LLM_PLANNER": ("prefer_llm_planner", _as_bool),
             "SUPERAI_BUDGET_DAILY_USD": ("budget_daily_usd", float),
             "SUPERAI_BUDGET_RUN_USD": ("budget_run_usd", float),
+            "SUPERAI_MEMORY_DSN": ("memory_dsn", str),
+            "SUPERAI_MEMORY_BACKEND": ("memory_backend", str),
+            "SUPERAI_DATABASE_URL": ("memory_dsn", str),
         }
         for env_key, (cfg_key, caster) in env_map.items():
             raw = os.getenv(env_key)

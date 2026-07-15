@@ -116,6 +116,13 @@ _MODEL_CACHE: Dict[str, Any] = {}
 
 def _default_dsn(persist_directory: Optional[str] = None) -> str:
     env = (os.getenv("SUPERAI_MEMORY_DSN") or os.getenv("SUPERAI_DATABASE_URL") or "").strip()
+    if not env:
+        try:
+            from .config import Config
+
+            env = str(Config().get("memory_dsn") or "").strip()
+        except Exception:
+            env = ""
     if env:
         return env
     root = Path(persist_directory or (Path.home() / ".superai" / "memory"))

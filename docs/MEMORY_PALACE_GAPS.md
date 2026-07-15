@@ -15,6 +15,18 @@
 
 Env: `SUPERAI_MEMORY_BACKEND`, `SUPERAI_MEMORY_DSN`, `SUPERAI_EMBEDDING_HASH=1` for offline hash embeddings.
 
+### Opt-in Postgres install (not automatic)
+
+Postgres is **never** installed silently. During guided install:
+
+```text
+superai install                          # interactive: host tools + optional Postgres
+superai install --with-postgres --live --yes
+superai install-postgres --setup-only --live
+```
+
+Flow when opted in: detect Postgres → optional winget/brew/apt install → create DB/user → `CREATE EXTENSION vector` → write `memory_dsn` + `memory_backend=pgvector` into `~/.superai/config.json`.
+
 ## Observations → status
 
 | Observation | Status |

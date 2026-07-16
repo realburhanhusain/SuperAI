@@ -33,6 +33,7 @@ HELP = """
 **Sessions:** `/new` `/sessions` `/resume id` `/export` `/undo`  
 **Changes:** `/changeset` `/apply` `/reject` (staged writes)  
 **Tools:** `/tools` · tool loop runs automatically  
+**Voice:** `/listen [sec]` `/speak [text]` `/voice status|on|off|auto on|off|queue …`  
 **Other:** `/cost` `/trace` `/help` `/exit`
 
 Plain text → agent run (tool loop).
@@ -287,8 +288,37 @@ def run_superai_agent_tui(
             if cmd == "layout":
                 console.print(render_frame(state, events, stream_on))
                 continue
-            console.print(f"[yellow]unknown /{cmd} — /help[/yellow]")
-            continue
+            # MOS-N6 voice hooks
+            if cmd == "listen":
+                from core.voice_io import listen_once
+
+                try:
+                    to = float(arg.strip()) if (arg or "").strip() else 5.0
+                except Exception:
+                    to = 5.0
+                r = listen_once(timeout=to)
+                console.print_json(data=r)
+                if r.get("ok") and r.get("text"):
+                    line = str(r["text"])
+                    console.print(f"[cyan]voice→[/cyan] {line[:200]}")
+                    # fall through to agent run with spoken text as user line
+                else:
+                    continue
+            elif cmd == "speak":
+                from core.voice_io import speak
+
+                console.print_json(data=speak(arg or "SuperAI agent ready."))
+                continue
+            elif cmd == "voice":
+                from core.voice_io import handle_voice_slash
+
+                console.print_json(data=handle_voice_slash(arg or "status"))
+                continue
+            else:
+                console.print(f"[yellow]unknown /{cmd} — /help[/yellow]")
+                continue
+
+            # Only successful /listen reaches here (other voice cmds continue above)
 
         def _approve(name: str, args: Dict[str, Any]) -> bool:
             console.print(
@@ -333,6 +363,14 @@ def run_superai_agent_tui(
             f"[dim]mock={result.mock} cost≈${result.estimated_cost_usd:.6f} "
             f"session={state.id}[/dim]"
         )
+        # MOS-N6: auto-speak reply when /voice auto on
+        try:
+            from core.voice_io import speak_reply
+
+            spoken = "".join(buf) if (stream_on and buf) else (result.response or "")
+            speak_reply(str(spoken)[:500])
+        except Exception:
+            pass
         console.print(
             render_frame(state, events, stream_on, "ok" if result.ok else "err")
         )

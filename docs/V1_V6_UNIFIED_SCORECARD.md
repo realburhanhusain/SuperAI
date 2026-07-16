@@ -17,17 +17,17 @@
 
 | Status | Count | Meaning |
 |--------|------:|---------|
-| **full (completed)** | **271** | Production-usable, 100% for stated intent |
-| foundation | 51 | Real code, incomplete |
+| **full (completed)** | **273** | Production-usable, 100% for stated intent |
+| foundation | 49 | Real code, incomplete |
 | stub | 162 | Surface only |
 | absent | 31 | Missing |
 | host | 3 | Code yes; live keys needed |
 | refuse | 15 | Safety closed |
 | **total rows** | **533** | |
 
-- **Feature completion rate (full / non-refuse rows):** **52.3%**
-- **Average percent_complete (non-refuse):** **62.0%**
-- **Strict completed count:** **271**
+- **Feature completion rate (full / non-refuse rows):** **52.7%**
+- **Average percent_complete (non-refuse):** **62.2%**
+- **Strict completed count:** **273**
 
 ### Related evidence
 
@@ -39,7 +39,7 @@
 
 ## 1. FULLY COMPLETED (percent_complete = 100) — only these count as completed
 
-**Count:** 271
+**Count:** 273
 
 ### MOS-M1 — Must M1 — Model tool protocol
 
@@ -168,6 +168,16 @@
 - **Percent complete:** **100%**
 - **Counts as completed?** **YES**
 - **Fully implemented:** Plan DoD met with code+tests for: Nice N5 — Plugin catalog verify-sha default path
+- **Partially implemented:** —
+- **Still incomplete:** —
+
+### MOS-N6 — Nice N6 — Voice hooks in agent-tui
+
+- **Track:** V1-V5
+- **Status:** `full`
+- **Percent complete:** **100%**
+- **Counts as completed?** **YES**
+- **Fully implemented:** Plan DoD met with code+tests for: Nice N6 — Voice hooks in agent-tui
 - **Partially implemented:** —
 - **Still incomplete:** —
 
@@ -2311,6 +2321,16 @@
 - **Partially implemented:** —
 - **Still incomplete:** —
 
+### N213 — Optional voice channel
+
+- **Track:** V6
+- **Status:** `full`
+- **Percent complete:** **100%**
+- **Counts as completed?** **YES**
+- **Fully implemented:** Implemented for N213 intent with usable code
+- **Partially implemented:** —
+- **Still incomplete:** —
+
 ### N227 — Pre/post tool hooks
 
 - **Track:** V6
@@ -2753,17 +2773,7 @@
 
 ## 2. FOUNDATION (partially implemented — NOT completed)
 
-**Count:** 51
-
-### MOS-N6 — Nice N6 — Voice hooks in agent-tui
-
-- **Track:** V1-V5
-- **Status:** `foundation`
-- **Percent complete:** **50%**
-- **Counts as completed?** **NO**
-- **Fully implemented:** voice_io /listen /speak hooks
-- **Partially implemented:** Optional deps; not full voice product
-- **Still incomplete:** Full voice channel
+**Count:** 49
 
 ### V1-N8 — Phase 8 N8 — Plugin marketplace browse
 
@@ -2820,16 +2830,6 @@
 - **Track:** V6
 - **Status:** `foundation`
 - **Percent complete:** **40%**
-- **Counts as completed?** **NO**
-- **Fully implemented:** Partial/real module exists
-- **Partially implemented:** Not production-complete product
-- **Still incomplete:** Full production depth
-
-### N213 — Optional voice channel
-
-- **Track:** V6
-- **Status:** `foundation`
-- **Percent complete:** **45%**
 - **Counts as completed?** **NO**
 - **Fully implemented:** Partial/real module exists
 - **Partially implemented:** Not production-complete product

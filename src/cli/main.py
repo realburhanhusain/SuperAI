@@ -5418,6 +5418,59 @@ def mode_cmd(
     )
 
 
+@app.command("voice")
+def voice_cmd(
+    action: str = typer.Argument(
+        "status",
+        help="status|speak|listen|queue|backends|on|off|auto",
+    ),
+    text: Optional[str] = typer.Argument(
+        None, help="Text for speak/queue, or 'on'/'off' for auto"
+    ),
+    timeout: float = typer.Option(5.0, "--timeout", "-t", help="STT timeout seconds"),
+    mock: bool = typer.Option(
+        False, "--mock", help="Force mock TTS (write outbox, no audio)"
+    ),
+):
+    """MOS-N6: Voice hooks — TTS/STT for agent TUI and automation."""
+    from core.voice_io import (
+        handle_voice_slash,
+        list_backends,
+        listen_once,
+        queue_voice_text,
+        speak,
+        status,
+    )
+
+    act = (action or "status").lower().strip()
+    if act == "status":
+        console.print_json(data=status())
+        return
+    if act == "backends":
+        console.print_json(data=list_backends())
+        return
+    if act == "speak":
+        console.print_json(
+            data=speak(text or "SuperAI ready.", force_backend="mock" if mock else None)
+        )
+        return
+    if act == "listen":
+        console.print_json(
+            data=listen_once(timeout=timeout, prefer_file=mock or False)
+        )
+        return
+    if act == "queue":
+        console.print_json(data=queue_voice_text(text or ""))
+        return
+    if act in {"on", "off", "auto"}:
+        arg = act if act != "auto" else f"auto {text or 'on'}"
+        console.print_json(data=handle_voice_slash(arg))
+        return
+    # generic slash handler
+    blob = f"{act} {text}".strip() if text else act
+    console.print_json(data=handle_voice_slash(blob))
+
+
 @app.command("foundation-check")
 def foundation_check_cmd(
     item: str = typer.Argument(

@@ -658,9 +658,10 @@ ITEMS: list[Item] = [
         "MoSCoW",
         "MOS-N6",
         "Nice N6 — Voice hooks in agent-tui",
-        "foundation",
-        "/listen /speak → voice_io stubs work; optional deps; not full voice product "
-        "(honest foundation for optional voice).",
+        "full",
+        "voice_io full: TTS pyttsx3/SAPI/mock, STT mic/file/queue, /listen /speak /voice in "
+        "agent_tui + superai_agent TUI, auto-speak replies, superai voice CLI, tests "
+        "test_voice_mos_n6.py. MOS-N6 production-usable offline with file/mock backends.",
     ),
     (
         "MoSCoW",

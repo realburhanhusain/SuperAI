@@ -36,8 +36,8 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 
 | Status | Count | % |
 |--------|------:|--:|
-| full | 108 | 81.2% |
-| foundation | 23 | 17.3% |
+| full | 109 | 82.0% |
+| foundation | 22 | 16.5% |
 | host | 2 | 1.5% |
 | **total** | **133** | **100%** |
 
@@ -54,7 +54,7 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 | V1-P8 | 8 | 7 | 1 | 0 | 0 |
 | V2 | 17 | 14 | 3 | 0 | 0 |
 | V3 | 15 | 13 | 2 | 0 | 0 |
-| MoSCoW | 26 | 22 | 3 | 1 | 0 |
+| MoSCoW | 26 | 23 | 2 | 1 | 0 |
 | NotImportant | 9 | 8 | 1 | 0 | 0 |
 | V4 | 20 | 15 | 5 | 0 | 0 |
 | V5 | 16 | 12 | 4 | 0 | 0 |
@@ -180,7 +180,7 @@ Source: `docs/MOSCOW_100_PLAN.md`
 | MOS-N3 | **full** | Nice N3 — Worktree subagent runner |
 | MOS-N4 | **full** | Nice N4 — Bakeoff report file + eval hook |
 | MOS-N5 | **full** | Nice N5 — Plugin catalog verify-sha default path |
-| MOS-N6 | **foundation** | Nice N6 — Voice hooks in agent-tui |
+| MOS-N6 | **full** | Nice N6 — Voice hooks in agent-tui |
 | MOS-N7 | **full** | Nice N7 — Team palace export/import by tenant |
 | MOS-N8 | **host** | Nice N8 — Live multi-vendor smoke |
 
@@ -730,8 +730,8 @@ Source plan: `docs/MOSCOW_100_PLAN.md`
 
 ### MOS-N6 — Nice N6 — Voice hooks in agent-tui
 
-- **Status:** `foundation`
-- **Why:** /listen /speak → voice_io stubs work; optional deps; not full voice product (honest foundation for optional voice).
+- **Status:** `full`
+- **Why:** voice_io full: TTS pyttsx3/SAPI/mock, STT mic/file/queue, /listen /speak /voice in agent_tui + superai_agent TUI, auto-speak replies, superai voice CLI, tests test_voice_mos_n6.py. MOS-N6 production-usable offline with file/mock backends.
 
 ### MOS-N7 — Nice N7 — Team palace export/import by tenant
 
@@ -747,8 +747,8 @@ Source plan: `docs/MOSCOW_100_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 22 |
-| foundation | 3 |
+| full | 23 |
+| foundation | 2 |
 | host | 1 |
 
 ## Not-important polish (W1–W8 + superai_agent)

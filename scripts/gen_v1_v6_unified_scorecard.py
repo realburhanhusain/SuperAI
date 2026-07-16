@@ -226,9 +226,10 @@ V6["S189"] = A("absent", 0, "—", "—", "No JetBrains plugin")
 V6["S192"] = A("absent", 0, "—", "—", "No keybind config system")
 
 # Nice N201-300
-N_FULL = {203, 227, 260, 261}
+N_FULL = {203, 213, 227, 260, 261}
 N_FOUNDATION = {
-    202: 60, 205: 55, 206: 50, 209: 40, 213: 45, 214: 40, 219: 70, 221: 75,
+    202: 60, 205: 55, 206: 50, 209: 40, # 213 completed MOS-N6 full
+ 214: 40, 219: 70, 221: 75,
     224: 45, 225: 60, 228: 55, 231: 45, 247: 50, 249: 55, 250: 55, 259: 60,
     278: 40, 284: 70, 286: 70, 291: 40, 292: 40, 293: 35, 298: 55, 299: 40, 300: 50,
 }
@@ -312,7 +313,7 @@ def v15_assessment(iid: str, title: str, old_st: str) -> Assessment:
         "V5-S1", "V5-S2", "V5-S3", "V5-S4", "V5-S5", "V5-S6", "V5-S7", "V5-S10",
     }
     host_ids = {"V1-P99", "MOS-N8"}
-    foundation_ids = {"V1-N8", "MOS-N6", "W7"}  # still partial products
+    foundation_ids = {"V1-N8", "W7"}  # still partial products
     if iid in host_ids:
         return A("host", 90, "Smoke harness code complete", "Needs host keys for live_passed", "Live multi-provider run")
     if iid in foundation_ids:

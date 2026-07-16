@@ -103,7 +103,7 @@ def run_agent_tui(
             f"[bold]SuperAI Agent TUI[/bold]\n"
             f"{_footer()}\n"
             f"Slash: /help /commands /export /sessions /resume /undo /paste /cost\n"
-            f"       /tool /diff /listen /speak /permission /profile /stream /exit",
+            f"       /tool /diff /listen /speak /voice /permission /profile /stream /exit",
             border_style="cyan",
             title="session",
             subtitle="W1–W6 polish · shared AskSessionStore",
@@ -303,10 +303,15 @@ def run_agent_tui(
             if cmd == "listen":
                 from .voice_io import listen_once
 
-                r = listen_once()
+                try:
+                    to = float(arg.strip()) if (arg or "").strip() else 5.0
+                except Exception:
+                    to = 5.0
+                r = listen_once(timeout=to)
                 console.print_json(data=r)
                 if r.get("ok") and r.get("text"):
                     line = str(r["text"])
+                    console.print(f"[cyan]voice→[/cyan] {line[:200]}")
                     # fall through to agent with spoken text
                 else:
                     continue
@@ -315,6 +320,11 @@ def run_agent_tui(
 
                 text = arg or "SuperAI agent ready."
                 console.print_json(data=speak(text))
+                continue
+            elif cmd == "voice":
+                from .voice_io import handle_voice_slash
+
+                console.print_json(data=handle_voice_slash(arg or "status"))
                 continue
             if cmd == "compact":
                 data = store._load(sid)
@@ -427,6 +437,13 @@ def run_agent_tui(
             )
         else:
             body = str(res or out.get("error") or "")[:2000]
+        # MOS-N6: optional auto-speak of assistant reply
+        try:
+            from .voice_io import speak_reply
+
+            speak_reply(str(body or "")[:500])
+        except Exception:
+            pass
         if stream_enabled and body:
             try:
                 from .token_stream import stream_tokens

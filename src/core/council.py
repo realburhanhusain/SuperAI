@@ -59,6 +59,17 @@ class Council:
         supervisor = supervisor_model or self.supervisor_model
         members = models or self._default_models(3)
 
+        # DoD-strict: budget pre-check before multi-model spend
+        try:
+            from .spend_guard import budget_precheck
+
+            est = 0.05 * max(1, len(members))
+            block = budget_precheck(estimated_usd=est, tokens=400 * max(1, len(members)))
+            if block.get("blocked"):
+                return block
+        except Exception:
+            pass
+
         # Document context injection (Future Plan council depth)
         doc_block = self._load_documents(documents, document_paths)
 
@@ -153,11 +164,15 @@ class Council:
             )
         except Exception:
             pass
-        # M6: stable public result envelope
+        # M6 + spend record + public envelope
         try:
-            from .result_contract import apply_contract
+            from .spend_guard import budget_record, ensure_public_result
 
-            return apply_contract(
+            toks = 0
+            for p in proposals:
+                toks += 200
+            budget_record(usd=0.0 if getattr(self.caller, "use_mock", False) else 0.05 * len(members), tokens=toks)
+            return ensure_public_result(
                 result,
                 mock=bool(getattr(self.caller, "use_mock", False)),
                 dry_run=False,
@@ -165,7 +180,18 @@ class Council:
                 ok=True,
             )
         except Exception:
-            return result
+            try:
+                from .result_contract import apply_contract
+
+                return apply_contract(
+                    result,
+                    mock=bool(getattr(self.caller, "use_mock", False)),
+                    dry_run=False,
+                    members=members,
+                    ok=True,
+                )
+            except Exception:
+                return result
 
     def _classify_complexity(self, topic: str) -> Dict[str, Any]:
         t = (topic or "").lower()

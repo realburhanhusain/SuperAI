@@ -672,11 +672,30 @@ def resolve_worker_pool(
     if not pool:
         pool = ["gpt-4o"]
     cap = max(1, max_members + (1 if forced_primary else 0))
+    # DoD-strict local-first when profile requests it
+    local_only_flag = False
+    try:
+        from .local_first import order_local_first, profile_flags
+
+        flags = profile_flags()
+        local_only_flag = bool(flags.get("local_only"))
+        if flags.get("local_only") or flags.get("prefer_local"):
+            pool = order_local_first(
+                pool,
+                primary=forced_primary or router_primary,
+                local_only=local_only_flag,
+                prefer_local=True,
+                max_n=cap * 2,
+            )
+    except Exception:
+        pass
     if diversify:
+        # local-only: do not force premium first
+        force = None if local_only_flag else (forced_primary or router_primary)
         return diversify_pool(
             pool[: cap * 2],
             max_members=min(cap, max_members if not forced_primary else cap),
-            force_premium=forced_primary or router_primary,
+            force_premium=force,
         )
     return pool[:cap]
 

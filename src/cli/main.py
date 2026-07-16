@@ -99,7 +99,7 @@ def _main_callback(
 ) -> None:
     if not no_auto_backup:
         _register_auto_backup_if_enabled()
-    # No subcommand → SuperAI agent TUI (product front door)
+    # No subcommand → front-door interactive (DoD-strict) or TUI
     if ctx.invoked_subcommand is None:
         if ask_mode:
             from core.nl_intent import interactive_repl
@@ -108,20 +108,52 @@ def _main_callback(
                 Panel.fit(
                     "[bold]SuperAI[/bold] — natural language routes\n"
                     "Type a request, or 'help' / 'exit'. "
-                    "Default agent TUI: just run `superai`",
+                    "Agent TUI: `superai agent` · one-shot: `superai do \"…\"`",
                     border_style="cyan",
                 )
             )
             interactive_repl(execute=True, verbose=False)
             raise typer.Exit(0)
-        from core.superai_agent.tui import run_superai_agent_tui
-
-        run_superai_agent_tui(
-            session_id=session,
-            agent=agent,
-            model=model,
-            permission=permission,
+        # Interactive front door: empty / /tui → full agent TUI; else route task
+        console.print(
+            Panel.fit(
+                "[bold]SuperAI[/bold] — type a task (front-door routes agent/board/run)\n"
+                "Empty or `/tui` opens multi-panel agent · `/ask` NL REPL · `exit` quits",
+                border_style="cyan",
+            )
         )
+        try:
+            line = console.input("[bold green]superai>[/bold green] ").strip()
+        except (EOFError, KeyboardInterrupt):
+            raise typer.Exit(0)
+        if not line or line.lower() in {"/tui", "tui", "/agent"}:
+            from core.superai_agent.tui import run_superai_agent_tui
+
+            run_superai_agent_tui(
+                session_id=session,
+                agent=agent,
+                model=model,
+                permission=permission,
+            )
+            raise typer.Exit(0)
+        if line.lower() in {"/ask", "ask"}:
+            from core.nl_intent import interactive_repl
+
+            interactive_repl(execute=True, verbose=False)
+            raise typer.Exit(0)
+        if line.lower() in {"exit", "quit", "/exit", "/quit"}:
+            raise typer.Exit(0)
+        # Route one-shot via front door + NL execute
+        from core.front_door import choose_path
+        from core.nl_intent import ask_superai
+
+        route = choose_path(line)
+        console.print(
+            f"[dim]→ front_door path={route.get('path')} "
+            f"reason={route.get('reason')}[/dim]"
+        )
+        out = ask_superai(line, execute=True, verbose=False)
+        console.print_json(data=out if isinstance(out, dict) else {"result": out})
         raise typer.Exit(0)
 
 
@@ -4519,6 +4551,36 @@ def plugin_catalog_cmd(
         console.print_json(data=install_from_catalog_entry(entry))
         return
     console.print_json(data=cat)
+
+
+@app.command("do")
+def do_cmd(
+    task: str = typer.Argument(..., help="Task — routed by front-door policy"),
+    live: bool = typer.Option(False, "--live", help="Allow live model calls"),
+    path: Optional[str] = typer.Option(
+        None, "--path", help="Force path: agent|board|run|ask"
+    ),
+):
+    """
+    One-shot SuperAI task with front-door routing (agent / board / run / ask).
+    """
+    from core.front_door import choose_path
+    from core.nl_intent import ask_superai
+    from core.spend_guard import ensure_public_result
+
+    route = choose_path(task, force=path)
+    console.print(
+        f"[dim]front_door → {route.get('path')} ({route.get('reason')})[/dim]"
+    )
+    text = task
+    if live and "live" not in text.lower():
+        text = f"{task} (live)"
+    out = ask_superai(text, execute=True, verbose=False)
+    if isinstance(out, dict):
+        out.setdefault("front_door", route)
+        console.print_json(data=ensure_public_result(out, ok=bool(out.get("ok", True))))
+    else:
+        console.print_json(data={"result": out, "front_door": route})
 
 
 @app.command("agent")

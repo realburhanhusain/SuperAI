@@ -210,11 +210,27 @@ async function status(){
             "true",
             "yes",
         }:
-            return {
-                "ok": False,
-                "error": "live requires SUPERAI_MCP_ALLOW_LIVE=1",
-                "mock": True,
-            }
+            from core.spend_guard import ensure_public_result
+
+            return ensure_public_result(
+                {
+                    "ok": False,
+                    "error": "live requires SUPERAI_MCP_ALLOW_LIVE=1",
+                    "mock": True,
+                },
+                mock=True,
+                ok=False,
+            )
+        # DoD-strict budget gate on HTTP spend path
+        try:
+            from core.spend_guard import budget_precheck, ensure_public_result
+
+            if live:
+                block = budget_precheck(estimated_usd=0.15, tokens=800)
+                if block.get("blocked"):
+                    return block
+        except Exception:
+            pass
         rt = AgentRuntime(use_mock=not live)
         out = rt.run(
             prompt,
@@ -223,7 +239,21 @@ async function status(){
             model=body.get("model"),
             permission=str(body.get("permission") or ("ask" if live else "plan")),
         )
-        return out.to_dict()
+        data = out.to_dict()
+        try:
+            from core.spend_guard import budget_record, ensure_public_result
+
+            budget_record(
+                usd=float(data.get("estimated_cost_usd") or 0),
+                tokens=int(data.get("tokens") or 0),
+            )
+            return ensure_public_result(
+                data,
+                mock=bool(data.get("mock", not live)),
+                ok=bool(data.get("ok", True)),
+            )
+        except Exception:
+            return data
 
     @app.get("/graph", response_class=HTMLResponse)
     def graph_page() -> str:

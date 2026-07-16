@@ -53,6 +53,18 @@ def bakeoff(
     from .model_caller import ModelCaller
     from .model_registry import ModelRegistry
 
+    # DoD-strict: budget gate before multi-model bakeoff
+    try:
+        from .spend_guard import budget_precheck
+
+        est = 0.08 * max(1, len(list(models)))
+        if not use_mock:
+            block = budget_precheck(estimated_usd=est, tokens=300 * max(1, len(list(models))))
+            if block.get("blocked"):
+                return block
+    except Exception:
+        pass
+
     reg = ModelRegistry()
     caller = ModelCaller(use_mock=use_mock, registry=reg)
     hook = eval_hook or default_eval_hook
@@ -119,7 +131,16 @@ def bakeoff(
             out["report_path"] = str(path)
         except Exception as e:
             out["report_error"] = str(e)[:200]
-    return out
+    try:
+        from .spend_guard import budget_record, ensure_public_result
+
+        budget_record(
+            usd=float(out.get("estimated_cost_usd") or 0),
+            tokens=int(out.get("tokens") or 0),
+        )
+        return ensure_public_result(out, mock=use_mock, dry_run=False, ok=True)
+    except Exception:
+        return out
 
 
 def pin_winner(model: Optional[str], *, persist: bool = True) -> Dict[str, Any]:

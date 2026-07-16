@@ -29,6 +29,19 @@ def compare_models(
     if not models:
         models = list(registry.list_all_models())[:top_n]
 
+    try:
+        from .spend_guard import budget_precheck
+
+        if not use_mock:
+            block = budget_precheck(
+                estimated_usd=0.08 * max(1, len(models or [])),
+                tokens=300 * max(1, len(models or [])),
+            )
+            if block.get("blocked"):
+                return block
+    except Exception:
+        pass
+
     caller = ModelCaller(use_mock=use_mock, registry=registry)
     results: List[Dict[str, Any]] = []
     for name in models:
@@ -92,12 +105,21 @@ def compare_models(
         "memory_ids": [],
     }
     try:
-        from .result_contract import apply_contract
+        from .spend_guard import budget_record, ensure_public_result
 
-        return apply_contract(out, mock=use_mock, dry_run=False, ok=True)
+        budget_record(
+            usd=float(out.get("estimated_cost_usd") or 0),
+            tokens=int(out.get("tokens") or 0),
+        )
+        return ensure_public_result(out, mock=use_mock, dry_run=False, ok=True)
     except Exception:
-        out["contract"] = "superai.result.v1"
-        return out
+        try:
+            from .result_contract import apply_contract
+
+            return apply_contract(out, mock=use_mock, dry_run=False, ok=True)
+        except Exception:
+            out["contract"] = "superai.result.v1"
+            return out
 
 
 def benchmark_models(

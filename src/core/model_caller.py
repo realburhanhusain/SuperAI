@@ -88,7 +88,8 @@ class ModelCaller:
                 yield ch
             return
 
-        # Try OpenAI-compatible streaming
+        # Try OpenAI-compatible streaming; on empty/failure fall back to full call
+        streamed_any = False
         try:
             from openai import OpenAI
 
@@ -99,7 +100,17 @@ class ModelCaller:
             messages: List[Dict[str, Any]] = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
+            # vision attachments if provided
+            atts = kwargs.get("vision_attachments")
+            if atts:
+                try:
+                    from .multimodal import vision_messages
+
+                    messages.extend(vision_messages(prompt, atts))
+                except Exception:
+                    messages.append({"role": "user", "content": prompt})
+            else:
+                messages.append({"role": "user", "content": prompt})
             stream = client.chat.completions.create(
                 model=self._model_id(model),
                 messages=messages,
@@ -110,19 +121,21 @@ class ModelCaller:
                     delta = event.choices[0].delta
                     piece = getattr(delta, "content", None) or ""
                     if piece:
+                        streamed_any = True
                         yield piece
                 except Exception:
                     continue
-            return
+            if streamed_any:
+                return
         except Exception:
-            pass
+            streamed_any = False
 
         full = self.call(
             model=model,
             prompt=prompt,
             system_prompt=system_prompt,
             use_fallback=True,
-            **kwargs,
+            **{k: v for k, v in kwargs.items() if k != "stream"},
         )
         text = str(full.get("response") or full.get("error") or "")
         from .token_stream import chunk_text
@@ -142,23 +155,38 @@ class ModelCaller:
         if not model:
             raise ValueError("ModelCaller.call requires a model name")
 
-        # Build failover list of ready models (V3 A M2)
+        # Build failover list (V3 A M2 + V4 local-first escalate)
         models_to_try: List[str] = [str(model)]
-        if use_fallback and self.registry and not self.use_mock:
-            try:
-                from .readiness import check_model_ready
+        try:
+            from .local_first import escalate_chain, profile_flags
 
-                for name in self.registry.list_all_models():
-                    if str(name) == str(model):
-                        continue
-                    if len(models_to_try) >= 4:
-                        break
-                    if check_model_ready(
-                        str(name), use_mock=False, registry=self.registry
-                    ).get("ok"):
-                        models_to_try.append(str(name))
-            except Exception:
-                pass
+            flags = profile_flags()
+            if use_fallback:
+                models_to_try = escalate_chain(
+                    str(model),
+                    registry=self.registry,
+                    prefer_local=bool(
+                        flags.get("prefer_local") or flags.get("prefer_open_weight")
+                    ),
+                    local_only=bool(flags.get("local_only")),
+                    max_n=5,
+                )
+        except Exception:
+            if use_fallback and self.registry and not self.use_mock:
+                try:
+                    from .readiness import check_model_ready
+
+                    for name in self.registry.list_all_models():
+                        if str(name) == str(model):
+                            continue
+                        if len(models_to_try) >= 4:
+                            break
+                        if check_model_ready(
+                            str(name), use_mock=False, registry=self.registry
+                        ).get("ok"):
+                            models_to_try.append(str(name))
+                except Exception:
+                    pass
 
         if not self.use_mock:
             try:
@@ -171,6 +199,7 @@ class ModelCaller:
                         m, use_mock=False, registry=self.registry
                     ).get("ok")
                 ]
+                # local-only: if nothing ready, still report block (fail-closed)
                 if not ready:
                     blocked = assert_ready_or_error(str(model), use_mock=False)
                     if blocked:

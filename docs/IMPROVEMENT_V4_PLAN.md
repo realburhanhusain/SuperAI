@@ -1,8 +1,18 @@
 # Improvement V4 — deepen SuperAI (strong / efficient / cost / flexible / complete)
 
 **Updated:** 2026-07-16  
-**Status:** Sprints A–C **implemented** (code + unit tests)  
+**Status:** Sprints A–C **implemented** + **DoD-strict sweep** (budget/contract all major spend paths, front-door CLI, local-first escalate, stream harden)  
 **Smoke:** Phase 99 still host-gated (not this plan’s implementation)
+
+### DoD-strict sweep (post A–C)
+
+| Gap | Fix |
+|-----|-----|
+| Budget not on all spend paths | `spend_guard` on council, bakeoff, compare, HTTP `/api/superai/run`, agent |
+| Contract not universal | `ensure_public_result` helper on those paths |
+| Front door not wired | `superai` interactive + `superai do` + NL execute_intent re-route |
+| Local-first escalate weak | `local_first.escalate_chain` in ModelCaller + worker pool |
+| Stream empty-success | stream falls back to full `call()` if no chunks |
 
 ## Goals
 

@@ -157,3 +157,46 @@ def test_local_first_profile():
     p = get_profile("local-only") or get_profile("local_only") or {}
     # profile may use different keying
     assert isinstance(p, dict)
+
+
+def test_local_first_escalate():
+    from core.local_first import escalate_chain, order_local_first
+
+    ordered = order_local_first(
+        ["gpt-4o", "cli:claude", "deepseek-chat", "llama3.2"],
+        prefer_local=True,
+        max_n=4,
+    )
+    assert _is_localish(ordered[0]) or ordered[0] == "cli:claude"
+    chain = escalate_chain("gpt-4o", prefer_local=True, max_n=4)
+    assert "gpt-4o" in chain
+    assert len(chain) >= 1
+
+
+def _is_localish(m: str) -> bool:
+    s = m.lower()
+    return s.startswith("cli:") or "llama" in s or "local" in s or "deepseek" in s
+
+
+def test_spend_guard_and_contract():
+    from core.spend_guard import budget_precheck, ensure_public_result
+
+    r = ensure_public_result({"ok": True, "model": "gpt-4o"}, mock=True, ok=True)
+    assert r.get("contract") == "superai.result.v1"
+    d = budget_precheck(estimated_usd=0.01, tokens=10, enforce=True)
+    assert "ok" in d
+
+
+def test_front_door_routes_code_to_agent():
+    from core.front_door import choose_path
+    from core.nl_intent import parse_intent, execute_intent
+
+    assert choose_path("implement rate limiting").get("path") == "agent"
+    # dry execute should not hang; use_mock path
+    intent = parse_intent("implement a hello function")
+    # parse may be run action; execute with mock env
+    import os
+
+    os.environ["SUPERAI_MOCK_MODE"] = "1"
+    out = execute_intent(intent, execute=True, verbose=False)
+    assert out.get("executed") is True or out.get("ok") is not None

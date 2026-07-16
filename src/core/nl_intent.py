@@ -661,7 +661,37 @@ def execute_intent(
 
     action = intent.action
     try:
+        # DoD-strict: front-door policy re-routes free-form run/default tasks
+        if action in {"run", "unknown"} or "universal_agent" in (intent.notes or []):
+            try:
+                from .front_door import choose_path
+
+                path = choose_path(intent.subject or intent.raw)
+                intent.extras["front_door"] = path
+                p = path.get("path")
+                if p == "board" and action == "run":
+                    intent.action = "review"
+                    action = "review"
+                elif p == "agent":
+                    # Prefer coding agent runtime over orchestrator for code/plan
+                    intent.extras["agent_role"] = path.get("agent_role") or "build"
+                    action = "superai_agent"
+                    intent.action = "superai_agent"
+                elif p == "ask" and action == "run":
+                    # keep run for simple tasks via orchestrator/tools is heavy;
+                    # light path still agent ask role
+                    intent.extras["agent_role"] = "ask"
+                    action = "superai_agent"
+                    intent.action = "superai_agent"
+                elif p == "run":
+                    action = "run"
+                    intent.action = "run"
+            except Exception:
+                pass
+
         handler = _HANDLERS.get(action)
+        if handler is None and action == "superai_agent":
+            handler = _h_superai_agent
         if handler is None:
             # Safety: anything unmapped → universal agent run
             handler = _HANDLERS["run"]
@@ -1109,16 +1139,46 @@ def _h_agent_tui(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
         return {
             "ok": True,
             "dry_run": True,
-            "message": "Would start: superai agent-tui",
-            "command": "superai agent-tui",
+            "message": "Would start: superai agent",
+            "command": "superai agent",
         }
     try:
-        from .agent_tui import run_agent_tui
+        from .superai_agent.tui import run_superai_agent_tui
 
-        run_agent_tui()
-        return {"ok": True, "message": "agent-tui session ended"}
+        run_superai_agent_tui()
+        return {"ok": True, "message": "agent session ended"}
     except Exception as e:
-        return {"ok": False, "error": str(e)[:300], "command": "superai agent-tui"}
+        return {"ok": False, "error": str(e)[:300], "command": "superai agent"}
+
+
+def _h_superai_agent(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    """Front-door coding agent one-shot (DoD-strict routing)."""
+    from .spend_guard import budget_precheck, ensure_public_result
+    from .superai_agent.runtime import AgentRuntime
+
+    role = str(intent.extras.get("agent_role") or "build")
+    if not intent.live and intent.dry_run:
+        # still allow mock agent work in dry_run for usefulness
+        pass
+    block = budget_precheck(estimated_usd=0.12 if intent.live else 0.02, tokens=600)
+    if block.get("blocked"):
+        return block
+    rt = AgentRuntime(use_mock=not intent.live)
+    out = rt.run(
+        intent.subject or intent.raw,
+        agent=role,
+        model=intent.model,
+        permission=str(intent.extras.get("permission_mode") or ("plan" if intent.dry_run else "ask")),
+        max_rounds=2 if role == "ask" else 3,
+    )
+    data = out.to_dict()
+    data["front_door"] = intent.extras.get("front_door")
+    return ensure_public_result(
+        data,
+        mock=bool(data.get("mock", not intent.live)),
+        dry_run=bool(intent.dry_run and not intent.live),
+        ok=bool(data.get("ok", True)),
+    )
 
 
 def _h_profile(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
@@ -1168,6 +1228,7 @@ _HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "goals": _h_goals,
     "bakeoff": _h_bakeoff,
     "agent_tui": _h_agent_tui,
+    "superai_agent": _h_superai_agent,
     "profile": _h_profile,
 }
 

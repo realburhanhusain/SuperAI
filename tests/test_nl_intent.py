@@ -105,3 +105,11 @@ def test_format_planned_command_stable():
     i = parse_intent("advise shipping prefer mixed")
     cmd = format_planned_command(i)
     assert cmd.startswith("superai advise")
+
+
+def test_parse_open_weight_vendor_names():
+    i = parse_intent("review the design with deepseek and glm dry-run")
+    assert i.action == "review"
+    blob = " ".join(i.members).lower()
+    assert "deepseek" in blob or any("deepseek" in m for m in i.members)
+    assert "glm" in blob or any("glm" in m for m in i.members)

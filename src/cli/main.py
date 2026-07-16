@@ -3119,6 +3119,9 @@ def list_models(
         "--refresh",
         help="Refresh catalog (project + SUPERAI_MODELS_URL) into ~/.superai/config/models.json",
     ),
+    provider: Optional[str] = typer.Option(None, "--provider", help="Filter provider"),
+    open_weight: bool = typer.Option(False, "--open-weight", help="Open-weight family only"),
+    local_only: bool = typer.Option(False, "--local", help="Local endpoints only"),
 ):
     """List models known to the registry"""
     from core.model_registry import ModelRegistry
@@ -3148,12 +3151,39 @@ def list_models(
     table.add_column("Name")
     table.add_column("Provider")
     table.add_column("Model ID")
+    table.add_column("OW")
+    table.add_column("Local")
     table.add_column("Latest")
+    local_provs = {"ollama", "ollama_openai", "lmstudio", "vllm"}
     for name in registry.list_all_models():
         m = registry.get_model(name)
         if not m:
             continue
-        table.add_row(m.name, m.provider, m.model_id, "yes" if m.is_latest else "")
+        if provider and str(m.provider).lower() != provider.lower():
+            continue
+        extra = m.extra or {}
+        is_local = bool(
+            extra.get("local")
+            or m.provider in local_provs
+            or (m.base_url or "").startswith("http://localhost")
+            or (m.base_url or "").startswith("http://127.0.0.1")
+        )
+        is_ow = bool(extra.get("open_weight") or is_local or m.provider in {
+            "deepseek", "qwen", "moonshot", "zhipu", "minimax", "nvidia",
+            "openrouter", "fireworks", "siliconflow", "groq", "together", "mistral",
+        })
+        if open_weight and not is_ow:
+            continue
+        if local_only and not is_local:
+            continue
+        table.add_row(
+            m.name,
+            m.provider,
+            m.model_id,
+            "y" if is_ow else "",
+            "y" if is_local else "",
+            "yes" if m.is_latest else "",
+        )
     console.print(table)
 
 
@@ -3990,6 +4020,22 @@ def members_cmd(
         "--live-probe",
         help="Try live CLI help/list commands (slow; results cached)",
     ),
+    open_weight: Optional[bool] = typer.Option(
+        None,
+        "--open-weight/--no-open-weight",
+        help="Filter open-weight family models (None=all)",
+    ),
+    local_only: bool = typer.Option(
+        False, "--local", help="Only local models (Ollama/LM Studio/vLLM)"
+    ),
+    provider: Optional[str] = typer.Option(
+        None, "--provider", help="Filter by provider id (nvidia, deepseek, …)"
+    ),
+    ollama_live: bool = typer.Option(
+        False,
+        "--ollama-live",
+        help="Soft-include running Ollama tags (no write)",
+    ),
     pick: bool = typer.Option(
         False,
         "--pick",
@@ -4004,6 +4050,10 @@ def members_cmd(
         only_available=only_available,
         with_cli_models=with_models,
         live_cli_models=live,
+        open_weight=open_weight,
+        local_only=local_only,
+        provider=provider,
+        include_ollama_live=ollama_live,
     )
     if pick:
         from core.approval_tui import prompt_pick_from_catalog
@@ -4012,6 +4062,9 @@ def members_cmd(
             title="Select members",
             max_n=max_pick,
             only_available=only_available or True,
+            open_weight=open_weight,
+            local_only=local_only,
+            provider=provider,
         )
         console.print_json(data={"ok": True, "selected": chosen})
         return

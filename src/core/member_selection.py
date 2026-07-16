@@ -147,9 +147,19 @@ def list_selectable_members(
     only_available: bool = False,
     with_cli_models: bool = True,
     live_cli_models: bool = False,
+    open_weight: Optional[bool] = None,
+    local_only: bool = False,
+    provider: Optional[str] = None,
+    include_ollama_live: bool = False,
 ) -> Dict[str, Any]:
     """
     Catalog of selectable API models + external CLIs (+ inner models) for UIs.
+
+    Filters:
+      open_weight=True|False|None — registry open_weight / local flags
+      local_only — Ollama/LM Studio/vLLM/local only
+      provider — registry provider id (nvidia, deepseek, …)
+      include_ollama_live — soft-merge Ollama tags when daemon up (no write)
     """
     from .external_cli import ExternalCLIRegistry
     from .model_registry import ModelRegistry
@@ -160,7 +170,46 @@ def list_selectable_members(
     except Exception:
         pass
 
+    # Soft-discover Ollama into in-memory registry for listing only
+    ollama_soft: List[str] = []
+    if include_ollama_live:
+        try:
+            from .model_discovery import list_ollama_tags, ollama_tags_to_catalog
+
+            for entry in ollama_tags_to_catalog(list_ollama_tags(), use_openai_compat=True):
+                n = entry["name"]
+                if reg.get_model(n):
+                    continue
+                reg.register_model(
+                    name=n,
+                    provider=entry.get("provider") or "ollama_openai",
+                    model_id=entry.get("model_id") or n,
+                    base_url=entry.get("base_url"),
+                    api_key_env=entry.get("api_key_env"),
+                    strengths=entry.get("strengths") or "",
+                    cost_per_1k_tokens=float(entry.get("cost_per_1k_tokens") or 0),
+                    latency_tier=int(entry.get("latency_tier") or 2),
+                    is_latest=bool(entry.get("is_latest")),
+                    extra={
+                        "open_weight": True,
+                        "local": True,
+                        "soft_discovered": True,
+                    },
+                )
+                ollama_soft.append(n)
+        except Exception:
+            pass
+
     mock = _mock_mode()
+    prov_filter = (provider or "").strip().lower() or None
+    local_providers = {
+        "ollama",
+        "ollama_openai",
+        "lmstudio",
+        "vllm",
+        "custom",
+    }
+
     api_models: List[MemberSpec] = []
     for name in reg.list_all_models():
         if str(name).startswith("cli:"):
@@ -168,7 +217,55 @@ def list_selectable_members(
         info = reg.get_model(name)
         if not info or info.provider == "external_cli":
             continue
+        extra_src = dict(info.extra or {})
+        is_local = bool(
+            extra_src.get("local")
+            or str(info.provider or "").lower() in local_providers
+            or (info.base_url or "").startswith("http://localhost")
+            or (info.base_url or "").startswith("http://127.0.0.1")
+        )
+        is_ow = bool(
+            extra_src.get("open_weight")
+            or is_local
+            or str(info.provider or "").lower()
+            in {
+                "deepseek",
+                "qwen",
+                "moonshot",
+                "zhipu",
+                "minimax",
+                "groq",
+                "together",
+                "mistral",
+                "nvidia",
+                "openrouter",
+                "fireworks",
+                "siliconflow",
+                "ollama",
+                "ollama_openai",
+                "lmstudio",
+                "vllm",
+            }
+        )
+        if local_only and not is_local:
+            continue
+        if open_weight is True and not is_ow:
+            continue
+        if open_weight is False and is_ow:
+            continue
+        if prov_filter and str(info.provider or "").lower() != prov_filter:
+            continue
+
+        # Local often needs no key
         key_ok = _api_key_present(info.api_key_env)
+        if is_local and not info.api_key_env:
+            key_ok = True
+        if is_local and info.api_key_env in {
+            "OLLAMA_API_KEY",
+            "LMSTUDIO_API_KEY",
+            "VLLM_API_KEY",
+        }:
+            key_ok = True
         configured = key_ok or mock
         if only_available and not configured:
             continue
@@ -188,6 +285,9 @@ def list_selectable_members(
                     "strengths": info.strengths,
                     "cost_per_1k_tokens": info.cost_per_1k_tokens,
                     "api_key_env": info.api_key_env,
+                    "open_weight": is_ow,
+                    "local": is_local,
+                    "base_url": info.base_url,
                 },
             )
         )
@@ -283,17 +383,28 @@ def list_selectable_members(
         "cli_models_catalog": cli_models_catalog,
         "selectable_ids": all_ids,
         "pick_ids": pick_ids,
+        "filters": {
+            "open_weight": open_weight,
+            "local_only": local_only,
+            "provider": prov_filter,
+            "include_ollama_live": include_ollama_live,
+            "ollama_soft_added": ollama_soft,
+        },
         "counts": {
             "api_configured": sum(1 for m in api_models if m.available),
             "api_total": len(api_models),
             "cli_available": sum(1 for m in clis if m.available),
             "cli_total": len(clis),
             "cli_model_variants": len(cli_model_rows),
+            "open_weight": sum(
+                1 for m in api_models if (m.extra or {}).get("open_weight")
+            ),
+            "local": sum(1 for m in api_models if (m.extra or {}).get("local")),
         },
         "syntax": {
-            "api": "gpt-4o | claude-3-5-sonnet | … (registry name)",
+            "api": "gpt-4o | deepseek-r1 | nvidia-… | ollama/…",
             "cli": "cli:gemini | cli:grok@MODEL | gemini@MODEL",
-            "mixed": "gpt-4o,cli:gemini@gemini-2.5-pro,cli:grok",
+            "mixed": "gpt-4o,cli:gemini@gemini-2.5-pro,deepseek-chat",
         },
     }
 

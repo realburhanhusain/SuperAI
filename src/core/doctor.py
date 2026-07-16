@@ -70,6 +70,41 @@ def run_doctor(quick: bool = False) -> Dict[str, Any]:
         f"available={env.get('clis_available') or []}",
     )
 
+    # Multi-vendor provider readiness (catalog — no live API smoke)
+    try:
+        from .model_discovery import provider_status
+
+        pst = provider_status()
+        counts = pst.get("counts") or {}
+        ready = [
+            r["id"]
+            for r in (pst.get("providers") or [])
+            if r.get("key_configured")
+        ]
+        add(
+            "llm_providers",
+            True,
+            (
+                f"ready={counts.get('key_configured', 0)}/"
+                f"{counts.get('total', 0)} "
+                f"ids={ready[:16]}"
+            ),
+        )
+        # Soft Ollama tag count when daemon up
+        try:
+            from .model_discovery import list_ollama_tags
+
+            tags = list_ollama_tags()
+            add(
+                "ollama_models",
+                bool(tags) or not env.get("ollama_on_path"),
+                f"tags={len(tags)}" if tags else "daemon_empty_or_down",
+            )
+        except Exception as e:  # noqa: BLE001
+            add("ollama_models", True, f"skip:{e}"[:80])
+    except Exception as e:  # noqa: BLE001
+        add("llm_providers", False, str(e)[:120], "warn")
+
     # Host tools checklist (not bundled; PATH discovery)
     host_tools_report = None
     try:

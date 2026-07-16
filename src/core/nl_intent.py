@@ -97,7 +97,21 @@ _API_HINTS = (
     "grok-2",
     "deepseek-coder",
     "deepseek-r1",
+    "deepseek-chat",
     "qwen2.5-coder",
+    "qwen2.5-72b",
+    "kimi",
+    "kimi-k2",
+    "glm-4",
+    "glm-4-flash",
+    "minimax-text",
+    "gemma2-9b",
+    "llama3.2",
+    "nvidia-llama-3.1-70b-instruct",
+    "nvidia-nemotron-mini",
+    "openrouter-auto",
+    "lmstudio-local",
+    "vllm-local",
 )
 
 # (action, confidence, regex) — first match wins (order = priority)
@@ -373,10 +387,46 @@ def _extract_members(text: str) -> List[str]:
             continue
         if any(
             k in low
-            for k in ("gpt", "claude", "gemini", "grok", "o3", "o4", "deepseek", "qwen")
+            for k in (
+                "gpt",
+                "claude",
+                "gemini",
+                "grok",
+                "o3",
+                "o4",
+                "deepseek",
+                "qwen",
+                "kimi",
+                "glm",
+                "minimax",
+                "gemma",
+                "llama",
+                "nvidia",
+                "nemotron",
+                "openrouter",
+            )
         ):
             if tok not in found and f"cli:{tok}" not in found:
                 found.append(tok)
+    # vendor shorthand → preferred registry name
+    vendor_map = {
+        r"\bdeepseek\b": "deepseek-chat",
+        r"\bkimi\b": "kimi-k2",
+        r"\bglm\b": "glm-4",
+        r"\bminimax\b": "minimax-text",
+        r"\bgemma\b": "gemma2-9b",
+        r"\bnvidia\b": "nvidia-llama-3.1-70b-instruct",
+        r"\bopenrouter\b": "openrouter-auto",
+        r"\bollama\b": "llama3.2",
+    }
+    for pat, reg_name in vendor_map.items():
+        if re.search(pat, text, flags=re.I):
+            if reg_name not in found and not any(
+                reg_name.split("-")[0] in x for x in found if not x.startswith("cli:")
+            ):
+                # only add if no more specific already present
+                if not any(reg_name in x or x.startswith(reg_name.split("-")[0]) for x in found):
+                    found.append(reg_name)
     return found[:8]
 
 

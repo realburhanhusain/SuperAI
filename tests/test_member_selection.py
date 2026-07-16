@@ -76,6 +76,19 @@ def test_list_includes_api_when_mock():
     assert "api" in data["syntax"]
 
 
+def test_list_filters_open_weight_and_provider():
+    ow = list_selectable_members(open_weight=True, with_cli_models=False)
+    assert ow.get("ok") is True
+    for m in ow.get("api_models") or []:
+        assert (m.get("extra") or {}).get("open_weight") is True
+    nv = list_selectable_members(provider="nvidia", with_cli_models=False)
+    for m in nv.get("api_models") or []:
+        assert m.get("provider") == "nvidia"
+    loc = list_selectable_members(local_only=True, with_cli_models=False)
+    for m in loc.get("api_models") or []:
+        assert (m.get("extra") or {}).get("local") is True
+
+
 def test_split_cli_selector_and_parse():
     from core.external_cli import parse_cli_model, split_cli_selector
 

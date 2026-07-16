@@ -139,18 +139,33 @@ def prompt_pick_from_catalog(
     max_n: int = 5,
     only_available: bool = True,
     prefer: str = "mixed",
+    open_weight: Optional[bool] = None,
+    local_only: bool = False,
+    provider: Optional[str] = None,
 ) -> List[str]:
     """Load selectable catalog and run interactive multi-select."""
     from .member_selection import list_selectable_members, resolve_members
 
     data = list_selectable_members(
-        only_available=only_available, with_cli_models=True
+        only_available=only_available,
+        with_cli_models=True,
+        open_weight=open_weight,
+        local_only=local_only,
+        provider=provider,
     )
     options = list(data.get("pick_ids") or data.get("selectable_ids") or [])
     defaults = [s.id for s in resolve_members(None, max_members=max_n, prefer=prefer)]
+    filt = []
+    if open_weight is True:
+        filt.append("open-weight")
+    if local_only:
+        filt.append("local")
+    if provider:
+        filt.append(f"provider={provider}")
+    t = title + (f" [{', '.join(filt)}]" if filt else "")
     return prompt_select_members(
         options,
-        title=title,
+        title=t,
         max_n=max_n,
         allow_empty=False,
         default=defaults,

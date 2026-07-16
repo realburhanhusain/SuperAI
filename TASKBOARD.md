@@ -55,30 +55,35 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-16 |
-| **What** | Universal models Phase 1 — multi-vendor + open-weight + NVIDIA + Ollama sync |
+| **What** | Universal models Phases 0–5 **code complete**; smoke Phase 99 postponed |
+| **Plan** | `docs/UNIVERSAL_MODELS_PLAN.md` (task list + %) |
 | **Charter** | `docs/UNIVERSAL_MODELS.md` |
-| **Verify** | `pytest tests/test_provider_catalog.py tests/test_model_discovery.py -q` |
+| **Verify** | `pytest tests/test_provider_catalog.py tests/test_model_discovery.py tests/test_member_selection.py tests/test_nl_intent.py -q` |
 
 ### Universal models (multi-vendor / open-weight)
 
-**Resume:** read `docs/UNIVERSAL_MODELS.md` + this section.
+**Resume:** `UNIVERSAL_MODELS_PLAN.md` → dashboard → next open task (only Phase 99).
 
-| Phase | Status |
-|-------|--------|
-| 0 Charter + taskboard | `[x]` |
-| 1 Provider catalog, registry-aware caller, expanded models, Ollama sync, register CLI | `[x]` basic |
-| 2 Richer catalogs / gateway polish | `[ ]` next |
-| 3 Auto-discover on doctor/members; live smoke | `[ ]` / smoke postponed |
-| 4 Interactive pick by provider in ask/REPL | `[ ]` |
+| Phase | Status | % |
+|-------|--------|--:|
+| 0 Charter | `[x]` | 100 |
+| 1 Foundation | `[x]` | 100 |
+| 2 Catalog + filters | `[x]` | 100 |
+| 3 Doctor/discovery auto | `[x]` | 100 |
+| 4 NL + pick filters | `[x]` | 100 |
+| 5 Docs closeout | `[x]` | 100 |
+| **Code total** | **done** | **100** |
+| 99 Live smoke | `[!]` postponed | 0 |
 
-**Phase 1 deliverables**
+**Deliverables**
 
-- `[x]` `src/core/provider_catalog.py` — single provider map (NVIDIA, MiniMax, OpenRouter, LM Studio, vLLM, …)  
-- `[x]` `ModelCaller` uses catalog + **per-model `base_url` / `api_key_env`**  
-- `[x]` `src/core/model_discovery.py` — Ollama tags sync + register OpenAI-compat  
-- `[x]` `config/models.json` expanded (DeepSeek, Kimi, GLM, MiniMax, Gemma, NVIDIA hosted OW, OpenRouter, local)  
-- `[x]` CLI: `providers`, `models-sync-ollama`, `models-register`  
-- `[x]` Tests: `test_provider_catalog.py`, `test_model_discovery.py`  
+- `[x]` provider_catalog + registry-aware ModelCaller  
+- `[x]` model_discovery (Ollama sync, register, provider_status)  
+- `[x]` models.json multi-vendor (~40) incl. NVIDIA own + hosted OW  
+- `[x]` CLI: providers, models-sync-ollama, models-register, members/list-models filters  
+- `[x]` doctor llm_providers + ollama_models; discovery expanded keys  
+- `[x]` NL vendor hints (deepseek/kimi/glm/nvidia/…)  
+- `[!]` Live multi-key smoke → Phase 99 only
 
 ---
 

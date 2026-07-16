@@ -18,15 +18,17 @@
 </head>
 <body>
   <h1>SuperAI</h1>
-  <p>Mobile-friendly shell. Set token if API is protected.</p>
+  <p>Mobile-friendly shell (N13 polish). Set token if API is protected.</p>
   <label>API token (optional)</label>
   <input id="token" type="password" placeholder="SUPERAI_WEB_TOKEN"/>
   <div class="row">
     <button onclick="status()">Status</button>
     <button onclick="search()">Search memory</button>
+    <button onclick="graph()">Agent graph</button>
+    <button onclick="prefs()">Preferences</button>
   </div>
   <input id="q" placeholder="Memory query…"/>
-  <pre id="out">Ready.</pre>
+  <pre id="out">Ready. Offline shell via service worker when installed.</pre>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/pwa/sw.js').catch(()=>{});
@@ -37,14 +39,20 @@
       if (t) h['Authorization'] = 'Bearer ' + t;
       return h;
     }
-    async function status() {
-      const r = await fetch('/api/status', { headers: headers() });
-      document.getElementById('out').textContent = JSON.stringify(await r.json(), null, 2);
+    async function show(path) {
+      try {
+        const r = await fetch(path, { headers: headers() });
+        document.getElementById('out').textContent = JSON.stringify(await r.json(), null, 2);
+      } catch (e) {
+        document.getElementById('out').textContent = String(e);
+      }
     }
+    async function status() { return show('/api/status'); }
+    async function graph() { return show('/api/agent-graph'); }
+    async function prefs() { return show('/api/preferences'); }
     async function search() {
       const q = document.getElementById('q').value;
-      const r = await fetch('/api/memory/search?q=' + encodeURIComponent(q) + '&top_k=5', { headers: headers() });
-      document.getElementById('out').textContent = JSON.stringify(await r.json(), null, 2);
+      return show('/api/memory/search?q=' + encodeURIComponent(q) + '&top_k=5');
     }
   </script>
 </body>

@@ -61,7 +61,22 @@ pytest -m unit -q
 | Item | Status |
 |------|--------|
 | Claiming live smoke passed without keys | **Will not lie** — harness only (`live_passed=False` by default) |
-| Full OpenCode rewrite | Out of scope; TUI depth instead |
+| Full OpenCode rewrite | Out of scope; **TUI depth pack W1–W8** instead (`docs/NOT_IMPORTANT_PLAN.md`) |
+
+### Not-important polish pack (pre–live smoke)
+
+| ID | Item | Status |
+|----|------|--------|
+| W1 | Session export markdown | **[x]** |
+| W2 | Session list + resume | **[x]** |
+| W3 | Undo last turn | **[x]** |
+| W4 | Cost/token session totals | **[x]** |
+| W5 | Command palette + aliases | **[x]** |
+| W6 | Multi-line paste mode | **[x]** |
+| W7 | VS Code extension depth | **[x]** |
+| W8 | Smoke preflight checklist | **[x]** `superai smoke-preflight` |
+
+**Next external gate only:** Phase 99 live multi-vendor smoke (with real keys).
 
 ## Commands
 

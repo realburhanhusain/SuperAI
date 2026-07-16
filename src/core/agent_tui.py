@@ -78,59 +78,82 @@ def run_agent_tui(
     if permission:
         cfg.config["permission_mode"] = normalize_mode(permission)
 
+    from .tui_commands import command_palette, help_markdown, resolve_alias
+
     store = AskSessionStore()
     sid = session_id or store.create()
     bus = get_progress_bus()
     traces: List[Dict[str, Any]] = []
+    session_cost = 0.0
+    session_tokens = 0
 
     def _hook(ev: Dict[str, Any]) -> None:
         traces.append(ev)
 
     bus.on(_hook)
 
+    def _footer() -> str:
+        return (
+            f"session={sid}  perm={mode_from_config(cfg)}  "
+            f"cost≈${session_cost:.6f}  tokens={session_tokens}"
+        )
+
     console.print(
         Panel.fit(
             f"[bold]SuperAI Agent TUI[/bold]\n"
-            f"session={sid}  permission={mode_from_config(cfg)}\n"
-            f"Slash: /help /trace /compact /tool … /diff /listen /speak\n"
-            f"       /permission /profile /panel /stream /exit\n"
-            f"Tools: /tool read path=… · grep · write · diff_apply",
+            f"{_footer()}\n"
+            f"Slash: /help /commands /export /sessions /resume /undo /paste /cost\n"
+            f"       /tool /diff /listen /speak /permission /profile /stream /exit",
             border_style="cyan",
             title="session",
-            subtitle="shared AskSessionStore",
+            subtitle="W1–W6 polish · shared AskSessionStore",
         )
     )
     stream_enabled = True
+    paste_buf: List[str] = []
+    paste_mode = False
 
     while True:
         try:
-            line = console.input("[bold green]you>[/bold green] ").strip()
+            line = console.input("[bold green]you>[/bold green] ").rstrip("\n")
         except (EOFError, KeyboardInterrupt):
             console.print()
             break
+        # W6: multi-line paste until /end
+        if paste_mode:
+            if line.strip().lower() in {"/end", "end"}:
+                paste_mode = False
+                line = "\n".join(paste_buf).strip()
+                paste_buf = []
+                if not line:
+                    console.print("[dim]empty paste[/dim]")
+                    continue
+                # fall through as normal user message (not slash)
+            else:
+                paste_buf.append(line)
+                console.print(f"[dim]… paste line {len(paste_buf)} (type /end)[/dim]")
+                continue
+
+        line = line.strip()
         if not line:
             continue
         if line.startswith("/"):
-            cmd, *rest = line[1:].split(maxsplit=1)
+            raw_cmd, *rest = line[1:].split(maxsplit=1)
+            cmd = resolve_alias(raw_cmd)
             arg = rest[0] if rest else ""
             if cmd in {"exit", "quit", "q"}:
                 break
-            if cmd == "help":
-                console.print(
-                    Markdown(
-                        "- `/trace` show tool/step events\n"
-                        "- `/compact` [smart] compact context\n"
-                        "- `/panel` session summary panel\n"
-                        "- `/stream on|off` token streaming (S1)\n"
-                        "- `/diff [path]` preview git diff; confirm apply\n"
-                        "- `/listen` voice STT stub · `/speak text` TTS\n"
-                        "- `/tool read path=FILE` · `/tool grep pattern=X`\n"
-                        "- `/tool write path=F content=…` (respects permission)\n"
-                        "- `/tool diff_apply diff=…` (plan=dry-run)\n"
-                        "- `/permission plan|ask|auto|yolo` · `/profile …`\n"
-                        "- plain text → agent (`ask`)\n"
-                    )
-                )
+            if cmd in {"help", "?"}:
+                console.print(Markdown(help_markdown()))
+                continue
+            if cmd in {"commands", "cmds"}:
+                table = Table(title="Command palette", show_header=True)
+                table.add_column("command")
+                table.add_column("alias")
+                table.add_column("desc")
+                for row in command_palette():
+                    table.add_row(row["cmd"], row.get("alias") or "", row["desc"])
+                console.print(table)
                 continue
             if cmd == "trace":
                 render_trace(traces)
@@ -138,6 +161,67 @@ def run_agent_tui(
             if cmd == "stream":
                 stream_enabled = (arg or "on").lower() not in {"off", "0", "false"}
                 console.print(f"stream={stream_enabled}")
+                continue
+            if cmd in {"cost", "tokens"}:
+                tot = store.session_totals(sid)
+                session_cost = float(tot.get("estimated_cost_usd") or session_cost)
+                session_tokens = int(tot.get("tokens") or session_tokens)
+                console.print(
+                    Panel(
+                        f"turns={tot.get('turns')}  tokens={tot.get('tokens')}  "
+                        f"cost≈${float(tot.get('estimated_cost_usd') or 0):.6f}\n"
+                        f"{_footer()}",
+                        title="session cost",
+                        border_style="green",
+                    )
+                )
+                continue
+            if cmd == "export":
+                from pathlib import Path
+
+                dest = Path(arg) if arg else None
+                console.print_json(data=store.export_markdown(sid, dest=dest))
+                continue
+            if cmd in {"sessions", "ls"}:
+                rows = store.list_sessions(15)
+                table = Table(title="Sessions", show_header=True)
+                table.add_column("id")
+                table.add_column("turns")
+                table.add_column("created")
+                for r in rows:
+                    table.add_row(
+                        str(r.get("id")),
+                        str(r.get("turns")),
+                        str(r.get("created_at") or "")[:19],
+                    )
+                console.print(table)
+                continue
+            if cmd == "resume":
+                if not arg:
+                    console.print("[yellow]usage: /resume ask-…[/yellow]")
+                    continue
+                try:
+                    store.get(arg.strip())
+                    sid = arg.strip()
+                    tot = store.session_totals(sid)
+                    session_cost = float(tot.get("estimated_cost_usd") or 0)
+                    session_tokens = int(tot.get("tokens") or 0)
+                    console.print(f"[green]resumed {sid}[/green]  {_footer()}")
+                except KeyError:
+                    console.print(f"[red]unknown session {arg}[/red]")
+                continue
+            if cmd == "undo":
+                console.print_json(data=store.undo_turn(sid))
+                tot = store.session_totals(sid)
+                session_cost = float(tot.get("estimated_cost_usd") or 0)
+                session_tokens = int(tot.get("tokens") or 0)
+                continue
+            if cmd == "paste":
+                paste_mode = True
+                paste_buf = []
+                console.print(
+                    "[cyan]Paste mode: enter lines, finish with /end[/cyan]"
+                )
                 continue
             if cmd == "panel":
                 data = store._load(sid)
@@ -155,8 +239,7 @@ def run_agent_tui(
                 console.print(table)
                 console.print(
                     Panel(
-                        f"permission={mode_from_config(cfg)}  turns={len(turns)}  "
-                        f"traces={len(traces)}",
+                        f"{_footer()}  traces={len(traces)}",
                         title="status",
                         border_style="blue",
                     )
@@ -256,7 +339,7 @@ def run_agent_tui(
                     bus.emit("tool_result", tool=r["directive"].get("tool"), ok=r["result"].get("ok"))
                     console.print_json(data=r)
                 continue
-            if cmd == "permission":
+            if cmd in {"permission", "perm"}:
                 cfg.config["permission_mode"] = normalize_mode(arg or "ask")
                 console.print(f"permission={cfg.config['permission_mode']}")
                 continue
@@ -265,7 +348,9 @@ def run_agent_tui(
                 console.print(f"profile={cfg.config.get('run_profile')}")
                 continue
             if cmd not in {"listen"}:
-                console.print(f"[yellow]Unknown slash: /{cmd}[/yellow]")
+                console.print(
+                    f"[yellow]Unknown slash: /{cmd} — try /commands[/yellow]"
+                )
                 continue
 
         # Inline /tool lines mixed with message
@@ -369,10 +454,13 @@ def run_agent_tui(
             console.print(
                 Panel(str(body), title=f"agent ({intent.action})", border_style="green")
             )
+        turn_cost = float(out.get("estimated_cost_usd") or 0)
+        turn_tok = int(out.get("tokens") or 0)
+        session_cost += turn_cost
+        session_tokens += turn_tok
         console.print(
             f"[dim]mock={out.get('mock')} dry_run={out.get('dry_run')} "
-            f"cost≈${float(out.get('estimated_cost_usd') or 0):.6f} "
-            f"session={sid}[/dim]"
+            f"turn≈${turn_cost:.6f}  {_footer()}[/dim]"
         )
         if traces:
             render_trace(traces, limit=6)
@@ -380,7 +468,13 @@ def run_agent_tui(
             sid,
             line,
             str(body)[:500],
-            meta={"action": intent.action, "ok": out.get("ok"), "tools": len(tool_results)},
+            meta={
+                "action": intent.action,
+                "ok": out.get("ok"),
+                "tools": len(tool_results),
+                "tokens": turn_tok,
+                "estimated_cost_usd": turn_cost,
+            },
         )
 
-    console.print(f"[dim]session saved: {sid}[/dim]")
+    console.print(f"[dim]session saved: {sid}  {_footer()}[/dim]")

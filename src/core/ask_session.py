@@ -121,3 +121,85 @@ class AskSessionStore:
             self._save(sid, data)
             return sid
         return self.create()
+
+    def undo_turn(self, sid: str) -> Dict[str, Any]:
+        """W3: remove last turn from session."""
+        data = self._load(sid)
+        turns = data.get("turns") or []
+        if not turns:
+            return {"ok": False, "error": "no_turns", "session_id": sid}
+        removed = turns.pop()
+        data["turns"] = turns
+        self._save(sid, data)
+        return {
+            "ok": True,
+            "session_id": sid,
+            "removed": {
+                "user": str(removed.get("user") or "")[:120],
+                "assistant": str(removed.get("assistant") or "")[:120],
+            },
+            "turns_left": len(turns),
+        }
+
+    def session_totals(self, sid: str) -> Dict[str, Any]:
+        """W4: aggregate tokens/cost from turn meta."""
+        data = self._load(sid)
+        tokens = 0
+        cost = 0.0
+        for t in data.get("turns") or []:
+            meta = t.get("meta") if isinstance(t.get("meta"), dict) else {}
+            try:
+                tokens += int(meta.get("tokens") or 0)
+            except (TypeError, ValueError):
+                pass
+            try:
+                cost += float(meta.get("estimated_cost_usd") or meta.get("cost") or 0)
+            except (TypeError, ValueError):
+                pass
+        return {
+            "ok": True,
+            "session_id": sid,
+            "turns": len(data.get("turns") or []),
+            "tokens": tokens,
+            "estimated_cost_usd": round(cost, 6),
+            "created_at": data.get("created_at"),
+        }
+
+    def export_markdown(
+        self,
+        sid: str,
+        dest: Optional[Path] = None,
+    ) -> Dict[str, Any]:
+        """W1: export session transcript to markdown."""
+        data = self._load(sid)
+        lines = [
+            f"# SuperAI ask session `{sid}`",
+            "",
+            f"- created: {data.get('created_at')}",
+            f"- turns: {len(data.get('turns') or [])}",
+            "",
+        ]
+        for i, t in enumerate(data.get("turns") or [], 1):
+            lines.append(f"## Turn {i}")
+            lines.append("")
+            lines.append(f"**User:** {t.get('user') or ''}")
+            lines.append("")
+            lines.append(f"**Assistant:** {t.get('assistant') or ''}")
+            meta = t.get("meta") if isinstance(t.get("meta"), dict) else {}
+            if meta:
+                lines.append("")
+                lines.append(f"_meta:_ `{json.dumps(meta, default=str)[:300]}`")
+            lines.append("")
+        body = "\n".join(lines)
+        out = Path(
+            dest
+            or (
+                Path.home()
+                / ".superai"
+                / "exports"
+                / f"{sid}_{int(time.time())}.md"
+            )
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(body, encoding="utf-8")
+        return {"ok": True, "session_id": sid, "path": str(out), "chars": len(body)}

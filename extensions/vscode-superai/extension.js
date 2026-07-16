@@ -1,5 +1,5 @@
 /**
- * SuperAI VS Code extension scaffold (N2).
+ * SuperAI VS Code extension (N2 + not-important W7 depth).
  * Invokes the installed `superai` CLI via child_process.
  */
 const vscode = require("vscode");
@@ -8,7 +8,7 @@ const { execFile } = require("child_process");
 function runCli(args, cwd) {
   const cli = vscode.workspace.getConfiguration("superai").get("cliPath") || "superai";
   return new Promise((resolve, reject) => {
-    execFile(cli, args, { cwd, maxBuffer: 2 * 1024 * 1024 }, (err, stdout, stderr) => {
+    execFile(cli, args, { cwd, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
         reject(new Error(stderr || err.message));
         return;
@@ -23,57 +23,97 @@ function getCwd() {
   return folders && folders[0] ? folders[0].uri.fsPath : undefined;
 }
 
+async function showOut(title, args) {
+  const out = vscode.window.createOutputChannel("SuperAI");
+  out.show(true);
+  out.appendLine(`$ superai ${args.join(" ")}`);
+  try {
+    const stdout = await runCli(args, getCwd());
+    out.appendLine(stdout);
+  } catch (e) {
+    out.appendLine(String(e));
+    vscode.window.showErrorMessage(`SuperAI failed: ${e.message}`);
+  }
+}
+
 /**
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-  context.subscriptions.push(
-    vscode.commands.registerCommand("superai.runTask", async () => {
-      const task = await vscode.window.showInputBox({
-        prompt: "SuperAI task",
-        placeHolder: "Create a FastAPI hello world",
-      });
-      if (!task) return;
-      const out = vscode.window.createOutputChannel("SuperAI");
-      out.show(true);
-      out.appendLine(`$ superai run ${JSON.stringify(task)}`);
-      try {
-        const stdout = await runCli(["run", task, "--format", "json"], getCwd());
-        out.appendLine(stdout);
-      } catch (e) {
-        out.appendLine(String(e));
-        vscode.window.showErrorMessage(`SuperAI failed: ${e.message}`);
-      }
-    })
-  );
+  const cmds = [
+    [
+      "superai.runTask",
+      async () => {
+        const task = await vscode.window.showInputBox({
+          prompt: "SuperAI task",
+          placeHolder: "Create a FastAPI hello world",
+        });
+        if (!task) return;
+        await showOut("run", ["run", task, "--format", "json"]);
+      },
+    ],
+    [
+      "superai.doctor",
+      async () => {
+        await showOut("doctor", ["doctor", "--quick"]);
+      },
+    ],
+    [
+      "superai.chat",
+      async () => {
+        const msg = await vscode.window.showInputBox({ prompt: "Chat message" });
+        if (!msg) return;
+        await showOut("chat", ["chat", msg, "--new"]);
+      },
+    ],
+    // W7 depth
+    [
+      "superai.ask",
+      async () => {
+        const msg = await vscode.window.showInputBox({
+          prompt: "Ask SuperAI (NL front door)",
+          placeHolder: "review the auth design dry-run",
+        });
+        if (!msg) return;
+        await showOut("ask", ["ask", msg, "--format", "json"]);
+      },
+    ],
+    [
+      "superai.review",
+      async () => {
+        const subj = await vscode.window.showInputBox({
+          prompt: "Review subject",
+          placeHolder: "auth middleware",
+        });
+        if (!subj) return;
+        await showOut("review", ["review", subj, "--dry-run", "--format", "json"]);
+      },
+    ],
+    [
+      "superai.members",
+      async () => {
+        await showOut("members", ["members", "--available"]);
+      },
+    ],
+    [
+      "superai.smokePreflight",
+      async () => {
+        await showOut("smoke-preflight", ["smoke-preflight"]);
+      },
+    ],
+    [
+      "superai.agentTuiHint",
+      async () => {
+        vscode.window.showInformationMessage(
+          "Run in terminal: superai agent-tui  (slash: /export /undo /paste /cost)"
+        );
+      },
+    ],
+  ];
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand("superai.doctor", async () => {
-      const out = vscode.window.createOutputChannel("SuperAI");
-      out.show(true);
-      try {
-        const stdout = await runCli(["doctor", "--quick"], getCwd());
-        out.appendLine(stdout);
-      } catch (e) {
-        out.appendLine(String(e));
-      }
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("superai.chat", async () => {
-      const msg = await vscode.window.showInputBox({ prompt: "Chat message" });
-      if (!msg) return;
-      const out = vscode.window.createOutputChannel("SuperAI");
-      out.show(true);
-      try {
-        const stdout = await runCli(["chat", msg, "--new"], getCwd());
-        out.appendLine(stdout);
-      } catch (e) {
-        out.appendLine(String(e));
-      }
-    })
-  );
+  for (const [id, fn] of cmds) {
+    context.subscriptions.push(vscode.commands.registerCommand(id, fn));
+  }
 }
 
 function deactivate() {}

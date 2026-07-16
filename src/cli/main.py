@@ -4667,10 +4667,24 @@ def smoke_harness_cmd(
         help="Only when credentials present; never claim pass without keys",
     ),
 ):
-    """N8: Live multi-vendor smoke HARNEST only (default: no live calls)."""
+    """N8: Live multi-vendor smoke HARNESS only (default: no live calls)."""
     from core.provider_smoke import smoke_harness
 
     console.print_json(data=smoke_harness(allow_live=allow_live))
+
+
+@app.command("smoke-preflight")
+def smoke_preflight_cmd(
+    readiness: bool = typer.Option(
+        False,
+        "--readiness",
+        help="Also run model readiness checks (not full chat smoke)",
+    ),
+):
+    """W8: Inventory keys/local services + checklist before live smoke."""
+    from core.smoke_preflight import smoke_preflight
+
+    console.print_json(data=smoke_preflight(include_readiness=readiness))
 
 
 @app.command()

@@ -1,27 +1,32 @@
 {
   "name": "superai",
   "displayName": "SuperAI",
-  "description": "Run SuperAI tasks, doctor, and chat from VS Code (N2)",
-  "version": "0.1.0",
+  "description": "Run SuperAI ask/run/review/doctor and smoke preflight from VS Code (W7)",
+  "version": "0.2.0",
   "publisher": "superai",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other", "Machine Learning"],
-  "activationEvents": ["onCommand:superai.runTask", "onCommand:superai.doctor"],
+  "activationEvents": [
+    "onCommand:superai.runTask",
+    "onCommand:superai.doctor",
+    "onCommand:superai.chat",
+    "onCommand:superai.ask",
+    "onCommand:superai.review",
+    "onCommand:superai.members",
+    "onCommand:superai.smokePreflight",
+    "onCommand:superai.agentTuiHint"
+  ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "superai.runTask",
-        "title": "SuperAI: Run Task"
-      },
-      {
-        "command": "superai.doctor",
-        "title": "SuperAI: Doctor"
-      },
-      {
-        "command": "superai.chat",
-        "title": "SuperAI: Chat"
-      }
+      { "command": "superai.runTask", "title": "SuperAI: Run Task" },
+      { "command": "superai.doctor", "title": "SuperAI: Doctor" },
+      { "command": "superai.chat", "title": "SuperAI: Chat" },
+      { "command": "superai.ask", "title": "SuperAI: Ask (NL)" },
+      { "command": "superai.review", "title": "SuperAI: Review (dry-run)" },
+      { "command": "superai.members", "title": "SuperAI: List Members" },
+      { "command": "superai.smokePreflight", "title": "SuperAI: Smoke Preflight" },
+      { "command": "superai.agentTuiHint", "title": "SuperAI: Agent TUI hint" }
     ],
     "configuration": {
       "title": "SuperAI",

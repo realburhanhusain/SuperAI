@@ -1084,7 +1084,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: NL → any command with preview
 - **Documentation (thorough):** YES — docs/NL_PREVIEW.md + V6 backlog N202
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Tests (full):** YES — tests/test_nl_preview_n202.py
 - **Still incomplete:** —
 
 ### N203 — Command macros / aliases
@@ -1103,8 +1103,8 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Daemon for goals/schedules
-- **Documentation (thorough):** YES — docs/GOALS_DAEMON.md + V6 backlog N206
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Documentation (thorough):** YES — docs/GOALS_DAEMON.md + docs/DAEMON_DEPLOY.md (K8s/cluster/Windows)
+- **Tests (full):** YES — tests/test_goals_daemon_n206.py + tests/test_daemon_deploy_n206.py
 - **Still incomplete:** —
 
 ### N213 — Optional voice channel
@@ -1454,7 +1454,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N8 — Plugin marketplace browse
 - **Documentation (thorough):** YES — docs/PLUGIN_MARKETPLACE.md + PHASE8_PLAN N8
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Tests (full):** YES — tests/test_plugin_marketplace_n8.py
 - **Still incomplete:** —
 
 ### V1-P0 — Phase 0 — Planning (IMPROVEMENT_PLAN, TASKBOARD, handoff)
@@ -2244,7 +2244,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: VS Code extension depth
 - **Documentation (thorough):** YES — docs/VSCODE_EXTENSION.md + extensions/vscode-superai/README.md
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Tests (full):** YES — extensions/vscode-superai/test/run.js + tests/test_vscode_extension_w7.py
 - **Still incomplete:** —
 
 ### W8 — Smoke preflight checklist

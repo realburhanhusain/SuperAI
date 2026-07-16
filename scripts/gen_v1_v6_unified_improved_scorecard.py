@@ -286,6 +286,7 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
             docs_note = "IMPROVEMENT_V4_PLAN.md"
         if iid.startswith("V5"):
             docs_note = "IMPROVEMENT_V5_PLAN.md"
+        tests_note = "unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)"
         if iid == "V1-N8":
             docs_note = "docs/PLUGIN_MARKETPLACE.md + PHASE8_PLAN N8"
             tests_note = "tests/test_plugin_marketplace_n8.py"
@@ -296,11 +297,10 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
             docs_note = "docs/NL_PREVIEW.md + V6 backlog N202"
             tests_note = "tests/test_nl_preview_n202.py"
         elif iid == "N206":
-            docs_note = "docs/GOALS_DAEMON.md + V6 backlog N206"
-            tests_note = "tests/test_goals_daemon_n206.py"
+            docs_note = "docs/GOALS_DAEMON.md + docs/DAEMON_DEPLOY.md (K8s/cluster/Windows)"
+            tests_note = "tests/test_goals_daemon_n206.py + tests/test_daemon_deploy_n206.py"
         elif iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
             docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs"
-        tests_note = "unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)"
         return "complete", T(
             True, True, True, 100,
             f"Production-usable implementation for: {title}",

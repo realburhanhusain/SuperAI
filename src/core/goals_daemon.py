@@ -178,9 +178,13 @@ def tick(
     notify: Optional[bool] = None,
     schedule_due: Optional[bool] = None,
     max_goals: Optional[int] = None,
+    cluster: bool = True,
 ) -> Dict[str, Any]:
     """
     Single daemon tick: schedules + goals heartbeat + optional notify/execute.
+
+    When cluster=True (default), multi-host coordination may skip this host
+    (leader_only / sharded modes via SUPERAI_CLUSTER_MODE).
     """
     from .assistant_goals import GoalStore
     from .spend_guard import ensure_public_result
@@ -191,6 +195,46 @@ def tick(
     sch = bool(st.get("schedule_due") if schedule_due is None else schedule_due)
     mx = int(st.get("max_goals") if max_goals is None else max_goals)
 
+    cluster_info: Dict[str, Any] = {"enabled": False}
+    schedule_job_filter = None
+    if cluster and (os.getenv("SUPERAI_CLUSTER_MODE") or "single").lower() not in {
+        "off",
+        "disabled",
+        "single",
+        "",
+    }:
+        try:
+            from .daemon_cluster import should_run_tick, shard_owns
+
+            cluster_info = should_run_tick()
+            cluster_info["enabled"] = True
+            if not cluster_info.get("run_tick"):
+                return ensure_public_result(
+                    {
+                        "ok": True,
+                        "skipped": True,
+                        "reason": cluster_info.get("reason") or "cluster_follower",
+                        "cluster": cluster_info,
+                        "daemon_tick": True,
+                        "execute_goals": False,
+                    },
+                    ok=True,
+                )
+            if not cluster_info.get("run_execute"):
+                ex = False
+            # Sharded: only run schedule jobs this host owns
+            if cluster_info.get("mode") == "sharded":
+                h_idx = int(cluster_info.get("host_index") or 0)
+                h_cnt = int(cluster_info.get("host_count") or 1)
+
+                def schedule_job_filter(job: Dict[str, Any], _i=h_idx, _c=h_cnt) -> bool:
+                    jid = str(job.get("id") or job.get("name") or "")
+                    return shard_owns(jid, _i, _c)
+
+                cluster_info["shard_filter"] = True
+        except Exception as e:
+            cluster_info = {"enabled": True, "error": str(e)[:200]}
+
     started = time.time()
     try:
         result = GoalStore().daemon_tick(
@@ -198,15 +242,18 @@ def tick(
             execute=ex,
             notify=nt,
             schedule_due=sch,
+            schedule_job_filter=schedule_job_filter,
         )
         result["latency_sec"] = round(time.time() - started, 3)
         result["daemon_tick"] = True
         result["execute_goals"] = ex
+        result["cluster"] = cluster_info
     except Exception as e:
         result = {
             "ok": False,
             "error": str(e)[:400],
             "daemon_tick": True,
+            "cluster": cluster_info,
         }
 
     ticks = int(st.get("ticks_total") or 0) + 1

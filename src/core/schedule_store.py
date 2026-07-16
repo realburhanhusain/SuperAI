@@ -69,10 +69,20 @@ class ScheduleStore:
                 self.save()
                 return
 
-    def run_due(self) -> List[Dict[str, Any]]:
-        """Execute due jobs with built-in handlers."""
+    def run_due(
+        self,
+        *,
+        job_filter=None,
+    ) -> List[Dict[str, Any]]:
+        """Execute due jobs with built-in handlers.
+
+        job_filter: optional callable(job_dict) -> bool; when set, only matching
+        jobs run (used by multi-host shard ownership).
+        """
         results = []
         for j in self.due():
+            if job_filter is not None and not job_filter(j):
+                continue
             cmd = str(j.get("command") or "")
             outcome: Dict[str, Any] = {"job": j.get("id"), "command": cmd}
             try:

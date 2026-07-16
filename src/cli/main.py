@@ -3858,10 +3858,6 @@ def routing_stats(
         console.print(table)
 
 
-if __name__ == "__main__":
-    app()
-
-
 @app.command()
 def secrets(
     action: str = typer.Argument("list", help="list | set | get | delete | inject"),
@@ -5167,7 +5163,10 @@ def side_effects_cmd(limit: int = typer.Option(30, "--limit")):
 def daemon_cmd(
     action: str = typer.Argument(
         "status",
-        help="status | start | stop | tick | run (foreground loop)",
+        help=(
+            "status|start|stop|tick|run|cluster-status|cluster-heartbeat|"
+            "k8s-render|k8s-validate|windows-install|windows-uninstall|windows-query"
+        ),
     ),
     interval: float = typer.Option(
         60.0, "--interval", "-i", help="Seconds between ticks"
@@ -5186,8 +5185,21 @@ def daemon_cmd(
     foreground: bool = typer.Option(
         False, "--foreground", "-f", help="With start: run loop in this process"
     ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="k8s-render output YAML path"
+    ),
+    namespace: str = typer.Option("superai", "--namespace", help="K8s namespace"),
+    cron: str = typer.Option("*/5 * * * *", "--cron", help="K8s CronJob schedule"),
+    image: str = typer.Option("python:3.12-slim", "--image", help="K8s container image"),
+    task_name: Optional[str] = typer.Option(
+        None, "--task-name", help="Windows Scheduled Task name"
+    ),
+    cli_path: str = typer.Option("superai", "--cli-path", help="CLI path for Windows task"),
+    apply_dry: bool = typer.Option(
+        False, "--kubectl-dry-run", help="With k8s-render: kubectl apply --dry-run=client"
+    ),
 ):
-    """N206: Goals/schedules daemon — start/stop/status/tick/run."""
+    """N206: Goals/schedules daemon + K8s CronJob + cluster + Windows Task Scheduler."""
     from core.goals_daemon import (
         run_loop,
         start_background,
@@ -5212,6 +5224,73 @@ def daemon_cmd(
         return
     if act == "stop":
         console.print_json(data=stop())
+        return
+    if act in {"cluster-status", "cluster_status"}:
+        from core.daemon_cluster import cluster_status
+
+        console.print_json(data=cluster_status())
+        return
+    if act in {"cluster-heartbeat", "cluster_heartbeat"}:
+        from core.daemon_cluster import heartbeat
+
+        console.print_json(data=heartbeat())
+        return
+    if act in {"k8s-render", "k8s_render"}:
+        from pathlib import Path
+
+        from core.k8s_cronjob import try_kubectl_apply, write_manifest
+
+        out = Path(output or "packaging/k8s/superai-goals-cronjob.yaml")
+        res = write_manifest(
+            out,
+            namespace=namespace,
+            schedule=cron,
+            image=image,
+            execute_goals=execute_goals,
+            max_goals=max_goals,
+        )
+        if apply_dry and res.get("ok"):
+            res["kubectl"] = try_kubectl_apply(out, dry_run=True)
+        console.print_json(data=res)
+        return
+    if act in {"k8s-validate", "k8s_validate"}:
+        from pathlib import Path
+
+        from core.k8s_cronjob import render_cronjob_yaml, validate_yaml_text
+
+        if output and Path(output).is_file():
+            text = Path(output).read_text(encoding="utf-8")
+        else:
+            text = render_cronjob_yaml(
+                namespace=namespace,
+                schedule=cron,
+                image=image,
+                execute_goals=execute_goals,
+                max_goals=max_goals,
+            )
+        console.print_json(data=validate_yaml_text(text))
+        return
+    if act in {"windows-install", "windows_install"}:
+        from core.windows_task_scheduler import install_task
+
+        console.print_json(
+            data=install_task(
+                name=task_name,
+                interval_sec=interval,
+                execute_goals=execute_goals,
+                cli_path=cli_path,
+            )
+        )
+        return
+    if act in {"windows-uninstall", "windows_uninstall"}:
+        from core.windows_task_scheduler import uninstall_task
+
+        console.print_json(data=uninstall_task(name=task_name))
+        return
+    if act in {"windows-query", "windows_query"}:
+        from core.windows_task_scheduler import query_task
+
+        console.print_json(data=query_task(name=task_name))
         return
     if act == "run":
         # Foreground loop (blocking)
@@ -5256,7 +5335,11 @@ def daemon_cmd(
             )
         )
         return
-    console.print("[red]Unknown action. Use: status|start|stop|tick|run[/red]")
+    console.print(
+        "[red]Unknown action. Use: status|start|stop|tick|run|"
+        "cluster-status|cluster-heartbeat|k8s-render|k8s-validate|"
+        "windows-install|windows-uninstall|windows-query[/red]"
+    )
     raise typer.Exit(1)
 
 
@@ -5735,3 +5818,7 @@ def foundation_check_cmd(
         record_spend=False,
     )
 
+
+
+if __name__ == "__main__":
+    app()

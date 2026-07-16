@@ -200,10 +200,13 @@ class GoalStore:
         execute: bool = False,
         notify: bool = True,
         schedule_due: bool = True,
+        schedule_job_filter=None,
     ) -> Dict[str, Any]:
         """
         N2: single daemon tick — heartbeat, optional schedule run-due,
         notify messengers, optionally execute goals (never yolo).
+
+        schedule_job_filter: optional callable(job) -> bool for multi-host shard.
         """
         hb = self.heartbeat()
         schedule_out: Dict[str, Any] = {"ran": 0}
@@ -211,7 +214,10 @@ class GoalStore:
             try:
                 from .schedule_store import ScheduleStore
 
-                schedule_out = {"ran": 0, "results": ScheduleStore().run_due()}
+                schedule_out = {
+                    "ran": 0,
+                    "results": ScheduleStore().run_due(job_filter=schedule_job_filter),
+                }
                 schedule_out["ran"] = len(schedule_out.get("results") or [])
             except Exception as e:
                 schedule_out = {"ran": 0, "error": str(e)[:200]}

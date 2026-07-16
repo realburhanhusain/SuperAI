@@ -1,10 +1,11 @@
 # N206 — Daemon for goals / schedules
 
-**Status:** Production-ready local daemon  
+**Status:** Production-ready local daemon + deploy expansion  
 **Module:** `src/core/goals_daemon.py`  
 **Integrates:** `assistant_goals.GoalStore`, `schedule_store.ScheduleStore`  
 **CLI:** `superai daemon …` · `superai goals tick`  
-**Tests:** `tests/test_goals_daemon_n206.py`
+**Tests:** `tests/test_goals_daemon_n206.py`, `tests/test_daemon_deploy_n206.py`  
+**Deploy (K8s / multi-host / Windows):** [DAEMON_DEPLOY.md](DAEMON_DEPLOY.md)
 
 ---
 
@@ -141,19 +142,25 @@ Coverage: status shape, tick updates state, run_loop max_ticks, start already-ru
 | Criterion | Evidence |
 |-----------|----------|
 | Production-ready code | `goals_daemon.py` + CLI `daemon` |
-| Thorough documentation | This file |
-| Fully tested | `tests/test_goals_daemon_n206.py` |
+| Thorough documentation | This file + [DAEMON_DEPLOY.md](DAEMON_DEPLOY.md) |
+| Fully tested | `tests/test_goals_daemon_n206.py` + `tests/test_daemon_deploy_n206.py` |
+| K8s CronJob | `k8s_cronjob.py` + `packaging/k8s/superai-goals-cronjob.yaml` |
+| Multi-host cluster | `daemon_cluster.py` + cluster-aware tick |
+| Windows installer | `windows_task_scheduler.py` (Task Scheduler + `daemon run`) |
 
-### Out of scope
+### Deploy expansion (formerly out of scope — now implemented)
 
-- Kubernetes CronJob / cloud scheduler product  
-- Multi-host distributed daemon cluster  
-- Windows Service installer (use Task Scheduler + `daemon run` if needed)
+See **[DAEMON_DEPLOY.md](DAEMON_DEPLOY.md)** for:
+
+- Kubernetes CronJob generator + packaged YAML  
+- Multi-host shared-file leader election / sharding  
+- Windows Task Scheduler installer (Service-like without custom SCM binary)
 
 ---
 
 ## Related
 
+- Deploy paths: [DAEMON_DEPLOY.md](DAEMON_DEPLOY.md)  
 - Goals store: `assistant_goals.py` (Phase 8 N2)  
 - Schedules: `schedule_store.py` (N10)  
 - Caps / goals safety: M096  

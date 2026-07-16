@@ -44,7 +44,10 @@ superai run "hello" --format json
 | `models-register --name … --model-id … --base-url …` | Any OpenAI-compatible vendor/server |
 | `list-models [--provider] [--open-weight] [--local] [--refresh]` | Registry multi-vendor catalog |
 | `members --open-weight \| --local \| --provider X \| --ollama-live` | Filter selectable API/CLI members |
-| `ask "…"` / `ask` (REPL) | **Universal NL agent** — any request (routes or orchestrates) |
+| `superai` (no args) | Default NL agent REPL |
+| `ask "…" [--session] [--profile cheap] [--permission plan\|ask\|auto\|yolo]` | NL agent + multi-turn + cost footer |
+| `run "…" --profile local-only --permission plan` | Orchestrated run with cost/permission profile |
+| `profile cheap\|balanced\|quality\|local-only [--persist]` | Apply cost/quality defaults |
 | `ask "review auth with gpt-4o" --plan-only` | Show planned command only |
 | `chat "…"` | Routes NL via `ask` (use `--no-intent` for pure chat) |
 | `run "task" --critic off\|light\|council` | Critic mode (default light) |

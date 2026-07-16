@@ -234,9 +234,10 @@ class SuperAIOrchestrator:
                 except Exception:  # noqa: BLE001
                     pass
 
-        # S4 budget pre-check + N20 forecast
+        # S4 budget pre-check + N20 forecast (hard-stop when enforce_budget)
         forecast = None
         budget_guard = None
+        enforce_budget = bool(self.config.get("enforce_budget", True))
         try:
             from .budget import BudgetGuard
             from .cost_forecast import forecast_task_cost
@@ -246,12 +247,17 @@ class SuperAIOrchestrator:
             budget_guard.configure(
                 daily_usd=float(self.config.get("budget_daily_usd") or 5),
                 run_usd=float(self.config.get("budget_run_usd") or 1),
+                daily_tokens=int(self.config.get("budget_daily_tokens") or 500_000),
             )
             budget_guard.check_can_spend(
                 estimated_usd=float(forecast.get("estimated_usd") or 0.01)
             )
         except RuntimeError:
-            raise
+            if enforce_budget:
+                raise
+            logger.warning("Budget exceeded but enforce_budget=false; continuing")
+            self._degraded.append({"feature": "budget_soft", "error": "over_budget"})
+            budget_guard = None
         except Exception as e:  # noqa: BLE001
             logger.warning("Budget/forecast degraded: %s", e)
             self._degraded.append({"feature": "budget_precheck", "error": str(e)[:300]})
@@ -655,6 +661,7 @@ class SuperAIOrchestrator:
             result.update(
                 {
                     "success": overall_success,
+                    "ok": overall_success,
                     "status": overall_status,
                     "message": {
                         "success": "Task completed successfully",
@@ -668,7 +675,10 @@ class SuperAIOrchestrator:
                     "duration": round(duration, 3),
                     "finished_at": finished_at,
                     "total_tokens": total_tokens,
+                    "tokens": total_tokens,
                     "estimated_cost_usd": round(total_cost, 6),
+                    "mock": bool(self.config.use_mock),
+                    "dry_run": bool(run_state.get("cli_dry_run")),
                     "metadata": {
                         **result.get("metadata", {}),
                         "task_type": task_type,
@@ -685,9 +695,42 @@ class SuperAIOrchestrator:
                         "degraded": list(self._degraded),
                         "adaptation_events": list(self._adaptation_events),
                         "replans_used": run_state["replans_used"],
+                        "permission_mode": self.config.get("permission_mode"),
+                        "run_profile": self.config.get("run_profile"),
                     },
                 }
             )
+            try:
+                from .result_contract import apply_contract
+
+                chain = []
+                for s in step_records:
+                    m = s.get("model")
+                    if m and m not in chain:
+                        chain.append(m)
+                if selected_model and selected_model not in chain:
+                    chain.insert(0, selected_model)
+                result["model_chain"] = chain
+                mem_ids = []
+                mid = (result.get("metadata") or {}).get("learning_memory_id")
+                if mid:
+                    mem_ids.append(str(mid))
+                apply_contract(
+                    result,
+                    mock=bool(self.config.use_mock),
+                    dry_run=bool(run_state.get("cli_dry_run")),
+                    members=chain,
+                    ok=overall_success if overall_status != "partial" else False,
+                )
+                if overall_status == "partial":
+                    result["status"] = "partial"
+                    result["ok"] = False
+                if mem_ids:
+                    result["memory_ids"] = list(
+                        dict.fromkeys((result.get("memory_ids") or []) + mem_ids)
+                    )
+            except Exception:
+                result.setdefault("contract", "superai.result.v1")
 
             if verbose:
                 color = "green" if overall_success else "yellow"
@@ -1039,6 +1082,42 @@ class SuperAIOrchestrator:
                 members = [tag]
             elif members is not None and tag not in members:
                 members = [tag] + list(members)
+
+        # Profile: local-only / prefer open-weight — seed members from catalog
+        if members is None and (
+            self.config.get("local_only")
+            or self.config.get("prefer_local")
+            or self.config.get("prefer_open_weight")
+        ):
+            try:
+                from .member_selection import list_selectable_members
+
+                data = list_selectable_members(
+                    only_available=True,
+                    with_cli_models=False,
+                    open_weight=True
+                    if self.config.get("prefer_open_weight")
+                    or self.config.get("prefer_local")
+                    or self.config.get("local_only")
+                    else None,
+                    local_only=bool(self.config.get("local_only")),
+                    include_ollama_live=bool(
+                        self.config.get("auto_ollama_discover")
+                    ),
+                )
+                ids = [
+                    m["id"]
+                    for m in (data.get("api_models") or [])
+                    if m.get("available")
+                ]
+                if ids:
+                    members = ids[:max_n]
+                    if self.config.get("local_only") or self.config.get(
+                        "prefer_local"
+                    ):
+                        prefer = "api"
+            except Exception:
+                pass
 
         router_failover = self._failover_candidates_router(
             router_primary or forced_model, step_desc

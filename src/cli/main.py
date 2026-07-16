@@ -29,7 +29,9 @@ app = typer.Typer(
     name="superai",
     help="SuperAI - Intelligent Multi-Model AI Orchestration Platform",
     add_completion=True,  # G3: enable `superai --install-completion`
-    no_args_is_help=True,
+    # Default entry: NL agent when no subcommand (Improvement Phase 2)
+    no_args_is_help=False,
+    invoke_without_command=True,
 )
 
 console = Console()
@@ -68,6 +70,7 @@ def _register_auto_backup_if_enabled() -> None:
 
 @app.callback()
 def _main_callback(
+    ctx: typer.Context,
     no_auto_backup: bool = typer.Option(
         False,
         "--no-auto-backup",
@@ -76,6 +79,20 @@ def _main_callback(
 ) -> None:
     if not no_auto_backup:
         _register_auto_backup_if_enabled()
+    # No subcommand → interactive NL agent (Claude Code-style front door)
+    if ctx.invoked_subcommand is None:
+        from core.nl_intent import interactive_repl
+
+        console.print(
+            Panel.fit(
+                "[bold]SuperAI[/bold] — natural language agent\n"
+                "Type a request, or 'help' / 'exit'. "
+                "Commands still work: superai run | review | providers …",
+                border_style="cyan",
+            )
+        )
+        interactive_repl(execute=True, verbose=False)
+        raise typer.Exit(0)
 
 
 def _suggest_fix(exc: Exception) -> Optional[str]:
@@ -253,6 +270,12 @@ def run(
         "--pick-workers",
         help="Interactively pick workers from detected API models + CLIs/models",
     ),
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="cheap | balanced | quality | local-only"
+    ),
+    permission: Optional[str] = typer.Option(
+        None, "--permission", help="plan | ask | auto | yolo"
+    ),
     with_clis: Optional[str] = typer.Option(
         None,
         "--with-clis",
@@ -282,6 +305,17 @@ def run(
     """Run a task using SuperAI orchestration (mock by default)"""
     try:
         orchestrator = SuperAIOrchestrator()
+        if profile:
+            from core.run_profiles import apply_profile_to_config
+
+            apply_profile_to_config(orchestrator.config, profile)
+        if permission:
+            from core.permission_mode import normalize_mode
+
+            orchestrator.config.config["permission_mode"] = normalize_mode(permission)
+            if normalize_mode(permission) == "plan":
+                # plan mode forces dry-run style CLI fanout
+                pass
 
         if plan_only:
             planner = TaskPlanner(
@@ -356,13 +390,19 @@ def run(
                 "streamed": True,
             }
         else:
+            from core.permission_mode import force_dry_run, mode_from_config
+
+            pmode = permission or mode_from_config(orchestrator.config)
+            cli_dry = not cli_live
+            if force_dry_run(pmode):
+                cli_dry = True
             result = orchestrator.run_task(
                 task=task,
                 forced_model=model,
                 verbose=verbose,
                 resume_task_id=resume,
                 with_clis=cli_list,
-                cli_dry_run=not cli_live,
+                cli_dry_run=cli_dry,
                 cli_approve=cli_approve or (not cli_live),
                 workers=worker_list,
                 worker_prefer=worker_prefer.lower() if worker_prefer else None,
@@ -394,6 +434,15 @@ def run(
                 )
             )
             raise typer.Exit(code=2)
+
+        # Cost / contract footer (Improvement Phase 1/3)
+        console.print(
+            f"[dim]cost≈${float(result.get('estimated_cost_usd') or 0):.6f}  "
+            f"tokens={result.get('tokens') or result.get('total_tokens') or 0}  "
+            f"mock={result.get('mock')} dry_run={result.get('dry_run')}  "
+            f"profile={orchestrator.config.get('run_profile')}  "
+            f"permission={orchestrator.config.get('permission_mode')}[/dim]"
+        )
 
         if output_format.lower() == "json":
             console.print_json(data=result)
@@ -2547,9 +2596,30 @@ def ask_cmd(
         "--repl",
         help="Force interactive natural-language REPL",
     ),
+    session: Optional[str] = typer.Option(
+        None, "--session", "-s", help="Continue ask session id"
+    ),
+    new_session: bool = typer.Option(False, "--new-session", help="Start new ask session"),
+    permission: Optional[str] = typer.Option(
+        None, "--permission", help="plan | ask | auto | yolo"
+    ),
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="cheap | balanced | quality | local-only"
+    ),
 ):
     """Universal NL front door — any request (specialized routes or agentic run)."""
     from core.nl_intent import ask_superai, interactive_repl, parse_intent
+
+    if profile:
+        from core.config import Config
+        from core.run_profiles import apply_profile_to_config
+
+        apply_profile_to_config(Config(), profile)
+    if permission:
+        from core.config import Config
+        from core.permission_mode import normalize_mode
+
+        Config().config["permission_mode"] = normalize_mode(permission)
 
     if repl or not (text or "").strip():
         console.print(
@@ -2562,6 +2632,19 @@ def ask_cmd(
         )
         interactive_repl(execute=execute and not plan_only, verbose=verbose)
         return
+
+    # Multi-turn session context
+    ask_sid = session
+    preface = ""
+    if new_session or ask_sid:
+        from core.ask_session import AskSessionStore
+
+        store = AskSessionStore()
+        if new_session or not ask_sid:
+            ask_sid = store.create()
+            console.print(f"[dim]ask_session={ask_sid}[/dim]")
+        preface = store.context_preface(ask_sid)
+    text_eff = f"{preface}\n\n{text}" if preface else text
 
     intent = parse_intent(text)
     agent_note = ""
@@ -2578,11 +2661,35 @@ def ask_cmd(
         )
     )
     out = ask_superai(
-        text,
+        text_eff,
         execute=execute and not plan_only,
         plan_only=plan_only,
         verbose=verbose,
     )
+    # Cost report footer
+    if out.get("executed"):
+        console.print(
+            f"[dim]cost≈${float(out.get('estimated_cost_usd') or 0):.6f}  "
+            f"tokens={out.get('tokens') or 0}  "
+            f"mock={out.get('mock')} dry_run={out.get('dry_run')}  "
+            f"models={','.join(out.get('model_chain') or [])[:80]}[/dim]"
+        )
+    if ask_sid and out.get("executed"):
+        try:
+            from core.ask_session import AskSessionStore
+
+            summary = str(
+                (out.get("result") or {}).get("message")
+                or (out.get("result") or {}).get("status")
+                or out.get("planned_command")
+                or ""
+            )[:500]
+            AskSessionStore().append_turn(
+                ask_sid, text or "", summary, meta={"action": intent.action}
+            )
+            out["ask_session"] = ask_sid
+        except Exception:
+            pass
     if json_out:
         console.print_json(data=out)
     else:
@@ -3217,7 +3324,43 @@ def providers_cmd(
             "yes" if r.get("key_configured") else "",
         )
     console.print(table)
+    # Registry validation warnings
+    try:
+        from core.registry_validate import validate_registry
+
+        val = validate_registry()
+        if val.get("issue_count"):
+            console.print(
+                f"[yellow]Registry issues: {val['issue_count']}/{val['total']} "
+                f"(sample {val['issues'][:3]})[/yellow]"
+            )
+    except Exception:
+        pass
     console.print_json(data={"counts": data.get("counts")})
+
+
+@app.command("profile")
+def profile_cmd(
+    name: Optional[str] = typer.Argument(
+        None, help="cheap | balanced | quality | local-only (omit to list)"
+    ),
+    persist: bool = typer.Option(
+        False, "--persist", help="Write profile defaults into config.json"
+    ),
+):
+    """Apply or list cost/quality run profiles."""
+    from core.config import Config
+    from core.run_profiles import apply_profile_to_config, list_profiles
+
+    if not name:
+        console.print_json(data=list_profiles())
+        return
+    cfg = Config()
+    applied = apply_profile_to_config(cfg, name)
+    if persist:
+        for k, v in applied.items():
+            cfg.set(k, v, persist=True)
+    console.print_json(data={"ok": True, "applied": applied, "persisted": persist})
 
 
 @app.command("models-sync-ollama")

@@ -58,30 +58,30 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-16 |
-| **What** | Improvement track **planned** (not implemented). Prior: universal models code complete. |
-| **Plan** | `docs/IMPROVEMENT_PLAN.md` — start Phase 1 next session |
-| **Prior plan** | `docs/UNIVERSAL_MODELS_PLAN.md` (100% code; smoke postponed) |
-| **Handoff** | `docs/SESSION_HANDOFF_IMPROVEMENT_TRACK.md` |
+| **What** | Improvement track Phases 1–3 complete; 4–5 basic; ~85% track |
+| **Plan** | `docs/IMPROVEMENT_PLAN.md` |
+| **Verify** | `pytest tests/test_result_contract.py tests/test_ask_session.py -q` |
+| **Prior** | Universal models code complete; smoke postponed |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 
-**Resume:** `docs/IMPROVEMENT_PLAN.md` → Phase 1 tasks only.  
-**Smoke:** still postponed (Phase 99) until all planned code done.
+**Resume:** `docs/IMPROVEMENT_PLAN.md`  
+**Smoke:** postponed (Phase 99).
 
 | Phase | Status | % |
 |------:|--------|--:|
 | 0 Planning + handoff | `[x]` | 100 |
-| 1 Trust & cost foundation | `[ ]` | 0 |
-| 2 Agent front door + sessions + permissions | `[ ]` | 0 |
-| 3 Catalog hygiene + profiles + cost report | `[ ]` | 0 |
-| 4 Routing efficiency | `[ ]` | 0 |
-| 5 Tool loop + streaming + health UX | `[ ]` | 0 |
-| 6 NL + Windows polish | `[ ]` | 0 |
-| 7 Docs closeout | `[ ]` | 0 |
+| 1 Trust & cost foundation | `[x]` | 100 |
+| 2 Agent front door + sessions + permissions | `[x]` | 100 |
+| 3 Catalog hygiene + profiles + cost report | `[x]` | 100 |
+| 4 Routing efficiency (OW/local) | `[~]` basic | 80 |
+| 5 Tool loop (minimal) | `[~]` basic | 60 |
+| 6 NL + Windows polish | `[~]` partial | 25 |
+| 7 Docs closeout | `[x]` | 100 |
 | 8 Nice-to-have backlog | backlog | — |
 | 99 Live smoke | postponed | 0 |
 
-**Implementation % (Phases 1–7):** 0 / 33 = **0%**
+**Implementation % (Phases 1–7):** ~**85%** (musts 100%)
 
 ---
 

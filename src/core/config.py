@@ -96,6 +96,17 @@ class Config:
         "cli_review_preferred": None,
         # Prefer external CLIs as default council members when available
         "council_prefer_clis": True,
+        # Improvement track
+        "enforce_budget": True,
+        "budget_daily_usd": 5.0,
+        "budget_run_usd": 1.0,
+        "budget_daily_tokens": 500_000,
+        # plan | ask | auto | yolo — side-effect permission for tools/CLIs
+        "permission_mode": "ask",
+        # cheap | balanced | quality | local-only
+        "run_profile": "balanced",
+        # Soft-include Ollama tags on members/doctor
+        "auto_ollama_discover": False,
     }
 
     def __init__(self, config_path: Optional[str] = None):

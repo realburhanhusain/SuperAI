@@ -422,8 +422,37 @@ def multi_cli_board(
         for m in raw[: max(1, max_clis)]
     ]
     board = merge_board(opinions)
+    # Cost/token rollup from opinions (mock estimates when dry_run)
+    tokens = 0
+    cost = 0.0
+    model_chain: List[str] = []
+    any_mock = bool(dry_run)
+    for op in opinions:
+        if not isinstance(op, dict):
+            continue
+        mid = op.get("member_id") or op.get("cli") or op.get("model")
+        if mid and str(mid) not in model_chain:
+            model_chain.append(str(mid))
+        if op.get("mock") or op.get("dry_run"):
+            any_mock = True
+        try:
+            tokens += int((op.get("usage") or {}).get("total_tokens") or op.get("tokens") or 0)
+        except (TypeError, ValueError):
+            pass
+        try:
+            cost += float(op.get("estimated_cost_usd") or 0.0)
+        except (TypeError, ValueError):
+            pass
+    if tokens <= 0:
+        # deterministic offline estimate
+        tokens = max(1, len(subject or "") // 4) * max(1, len(opinions))
+    if cost <= 0 and opinions:
+        cost = round(0.00001 * tokens, 6)
+
+    mem_ids: List[str] = []
     result: Dict[str, Any] = {
         "ok": True,
+        "status": "success",
         "mode": mode,
         "role": role,
         "members": raw[: max(1, max_clis)],
@@ -432,6 +461,12 @@ def multi_cli_board(
         "board": board,
         "protocol": "superai.multi_member_review.v2",
         "prefer": prefer,
+        "mock": any_mock,
+        "dry_run": bool(dry_run),
+        "model_chain": model_chain or list(raw[: max(1, max_clis)]),
+        "tokens": tokens,
+        "estimated_cost_usd": cost,
+        "memory_ids": mem_ids,
     }
 
     if write_memory:
@@ -469,6 +504,27 @@ def multi_cli_board(
         )
     except Exception:
         pass
+
+    # Normalize contract (mock/dry_run never ambiguous)
+    try:
+        from .result_contract import apply_contract
+
+        mw = result.get("memory_write")
+        if isinstance(mw, dict):
+            mid = mw.get("id") or mw.get("memory_id") or mw.get("context_id")
+            if mid:
+                result.setdefault("memory_ids", []).append(str(mid))
+        apply_contract(
+            result,
+            mock=any_mock or bool(dry_run),
+            dry_run=bool(dry_run),
+            members=raw[: max(1, max_clis)],
+            ok=True,
+        )
+    except Exception:
+        result.setdefault("contract", "superai.result.v1")
+        result.setdefault("mock", bool(dry_run))
+        result.setdefault("dry_run", bool(dry_run))
 
     return result
 

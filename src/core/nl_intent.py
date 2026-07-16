@@ -557,6 +557,13 @@ def execute_intent(
         "agent_mode": intent.action == "run",
     }
     if not execute:
+        try:
+            from .result_contract import apply_contract
+
+            apply_contract(result, mock=True, dry_run=True, ok=True)
+            result["status"] = "planned"
+        except Exception:
+            pass
         return result
 
     action = intent.action
@@ -571,11 +578,47 @@ def execute_intent(
         result["result"] = out
         result["executed"] = True
         result["agent_mode"] = action == "run" or "universal_agent" in intent.notes
+        # Bubble contract fields from nested result
+        if isinstance(out, dict):
+            for k in (
+                "mock",
+                "dry_run",
+                "tokens",
+                "estimated_cost_usd",
+                "model_chain",
+                "members",
+                "memory_ids",
+                "status",
+            ):
+                if k in out and k not in result:
+                    result[k] = out[k]
+            if "ok" in out:
+                result["ok"] = bool(out["ok"])
+        try:
+            from .config import Config
+            from .result_contract import apply_contract
+
+            cfg = Config()
+            apply_contract(
+                result,
+                mock=bool(result.get("mock", cfg.use_mock)),
+                dry_run=bool(result.get("dry_run", intent.dry_run)),
+                ok=bool(result.get("ok", True)),
+            )
+        except Exception:
+            result.setdefault("contract", "superai.result.v1")
         return result
     except Exception as e:  # noqa: BLE001
         result["ok"] = False
         result["executed"] = False
         result["error"] = str(e)[:500]
+        try:
+            from .result_contract import apply_contract
+
+            apply_contract(result, mock=False, dry_run=False, ok=False)
+            result["status"] = "error"
+        except Exception:
+            pass
         return result
 
 

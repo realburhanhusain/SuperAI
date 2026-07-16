@@ -303,14 +303,32 @@ class ModelCaller:
 
         SuperAI integration (context inject, Memory Palace write-back, audit)
         lives in ExternalCLITool.run — single path for orchestrator / cli_pool / here.
+
+        Supports inner model selectors: cli:gemini@MODEL, gemini@MODEL.
         """
         from .config import Config
-        from .external_cli import ExternalCLIRegistry, ExternalCLITool
+        from .external_cli import ExternalCLIRegistry, ExternalCLITool, split_cli_selector
 
-        cli_name = model.split(":", 1)[-1] if ":" in model else model
-        info = self.registry.get_model(model) if self.registry else None
-        if info and info.model_id:
-            cli_name = info.model_id
+        base, cli_model = split_cli_selector(str(model))
+        # Registry lookup on canonical cli:name (without @model)
+        reg_key = f"cli:{base}" if base else str(model)
+        info = self.registry.get_model(reg_key) if self.registry else None
+        if info is None and self.registry:
+            info = self.registry.get_model(model)
+
+        if base:
+            cli_name = base
+        else:
+            cli_name = model.split(":", 1)[-1] if ":" in str(model) else str(model)
+            if "@" in cli_name:
+                cli_name, right = cli_name.split("@", 1)
+                cli_model = cli_model or (right.strip() or None)
+        if info and info.model_id and not cli_model:
+            # model_id on dual-registered entries is the CLI binary name, not API model
+            if info.model_id != cli_name and info.provider != "external_cli":
+                cli_name = info.model_id
+
+        label = f"cli:{cli_name}" + (f"@{cli_model}" if cli_model else "")
 
         # Honor require_human_approval — never hardcode auto_approve for live CLIs
         require_approval = True
@@ -337,7 +355,8 @@ class ModelCaller:
                 from .approval_tui import prompt_approval
 
                 approved = prompt_approval(
-                    f"External CLI `{cli_name}`",
+                    f"External CLI `{cli_name}`"
+                    + (f" model={cli_model}" if cli_model else ""),
                     detail=prompt[:1500],
                     default=False,
                 )
@@ -352,7 +371,7 @@ class ModelCaller:
                     "status": "error",
                     "response": denial_reason,
                     "provider": "external_cli",
-                    "model": model if str(model).startswith("cli:") else f"cli:{cli_name}",
+                    "model": label,
                     "mock": False,
                     "blocked": True,
                     "usage": {"total_tokens": 0},
@@ -360,6 +379,7 @@ class ModelCaller:
                     "external_cli": {
                         "ok": False,
                         "cli": cli_name,
+                        "cli_model": cli_model,
                         "error": denial_reason,
                         "approved": False,
                     },
@@ -381,28 +401,34 @@ class ModelCaller:
             source="model_caller",
             task_type="coding",
             role="worker",
+            cli_model=cli_model,
         )
         text = env.stdout or env.stderr or env.error or ""
         ctx_id = (env.metadata or {}).get("context_id")
         if tool.dry_run and not text:
             text = (
-                f"[external_cli:{cli_name} dry-run] SuperAI-integrated delegation "
-                f"context={ctx_id}."
+                f"[external_cli:{cli_name}"
+                + (f"@{cli_model}" if cli_model else "")
+                + f" dry-run] SuperAI-integrated delegation context={ctx_id}."
             )
         # Dry-run only counts as success when intentionally mock/unavailable — not after denial
         ok = bool(env.ok) if not tool.dry_run else True
         if tool.dry_run and not env.ok and env.error and not self.use_mock:
             # forced dry because missing binary: still surface as mock success for demos
             ok = True
+        ext = env.to_dict() if hasattr(env, "to_dict") else {}
+        if isinstance(ext, dict) and cli_model:
+            ext.setdefault("cli_model", cli_model)
         return {
             "status": "success" if ok else "error",
             "response": text or env.error,
             "provider": "external_cli",
-            "model": model if str(model).startswith("cli:") else f"cli:{cli_name}",
+            "model": label,
+            "cli_model": cli_model,
             "mock": bool(tool.dry_run),
             "usage": {"total_tokens": max(1, len(prompt) // 4)},
             "estimated_cost_usd": 0.0,
-            "external_cli": env.to_dict() if hasattr(env, "to_dict") else {},
+            "external_cli": ext,
             "context_id": ctx_id,
             "memory_write": (env.metadata or {}).get("memory_write"),
             "integrated": True,

@@ -74,3 +74,12 @@ def test_list_includes_api_when_mock():
     assert data.get("mock_mode") is True or data["counts"]["api_configured"] >= 0
     assert "syntax" in data
     assert "api" in data["syntax"]
+
+
+def test_split_cli_selector_and_parse():
+    from core.external_cli import parse_cli_model, split_cli_selector
+
+    assert split_cli_selector("cli:gemini@flash") == ("gemini", "flash")
+    assert split_cli_selector("cli:codex") == ("codex", None)
+    assert parse_cli_model("cli:gemini@flash") == "gemini"
+    assert parse_cli_model("cli:aider") == "aider"

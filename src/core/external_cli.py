@@ -325,12 +325,13 @@ class ExternalCLITool:
         use_ctx = self.with_context if with_context is None else bool(with_context)
         use_mem = self.write_memory if write_memory is None else bool(write_memory)
 
-        # Allow cli:name@model shorthand
-        if "@" in cli_name and not self.registry.get(cli_name):
-            base, maybe_model = cli_name.split("@", 1)
-            if self.registry.get(base):
-                cli_name = base
-                cli_model = cli_model or maybe_model
+        # Normalize cli:name / name@model / cli:name@model
+        base, maybe_model = split_cli_selector(cli_name)
+        if base:
+            cli_name = base
+            cli_model = cli_model or maybe_model
+        elif cli_name.startswith("cli:"):
+            cli_name = cli_name[4:]
 
         spec = self.registry.get(cli_name)
         if not spec:
@@ -687,9 +688,48 @@ class ExternalCLITool:
         )
 
 
-def parse_cli_model(model: str) -> Optional[str]:
-    """cli:aider → aider; bare name if known."""
-    m = str(model or "")
+def split_cli_selector(model: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Parse a model/member selector into (cli_name, inner_model).
+
+    Accepts:
+      cli:gemini
+      cli:gemini@flash / cli:gemini/flash
+      gemini@flash (when gemini is a registered CLI)
+      gemini (bare known CLI name)
+
+    Returns (None, None) if not recognizable as a CLI selector.
+    """
+    m = str(model or "").strip()
+    if not m:
+        return None, None
+
+    rest = m[4:] if m.startswith("cli:") else m
+    inner: Optional[str] = None
+    if "@" in rest:
+        rest, right = rest.split("@", 1)
+        rest, inner = rest.strip(), (right.strip() or None)
+    elif "/" in rest and m.startswith("cli:"):
+        rest, right = rest.split("/", 1)
+        rest, inner = rest.strip(), (right.strip() or None)
+
+    name = rest.strip()
+    if not name:
+        return None, None
+
     if m.startswith("cli:"):
-        return m[4:]
-    return None
+        return name, inner
+
+    # bare / name@model only if known in registry
+    try:
+        if ExternalCLIRegistry().get(name):
+            return name, inner
+    except Exception:
+        pass
+    return None, None
+
+
+def parse_cli_model(model: str) -> Optional[str]:
+    """cli:aider → aider; cli:gemini@MODEL → gemini; bare known CLI name; else None."""
+    name, _inner = split_cli_selector(model)
+    return name

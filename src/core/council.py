@@ -274,11 +274,14 @@ class Council:
         }
 
     def _default_models(self, n: int) -> List[str]:
-        """Prefer available external AI CLIs (cli:*) as council members."""
+        """Mixed available CLIs + configured API models (cli:name@MODEL allowed)."""
         try:
             from .multi_cli_advisory import default_council_members
 
-            members = default_council_members(n, prefer_clis=True, registry=self.registry)
+            # Prefer mixed so API keys and PATH CLIs both participate
+            members = default_council_members(
+                n, prefer="mixed", prefer_clis=True, registry=self.registry
+            )
             if members:
                 return members
         except Exception:

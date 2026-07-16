@@ -1632,13 +1632,8 @@ def council(
                 ),
                 role="advisor",
             )
-            # Council ModelCaller expects registry names; map cli:x@m → cli:x
-            model_list = []
-            for s in specs:
-                if s.kind == "cli":
-                    model_list.append(f"cli:{s.cli_name}")
-                else:
-                    model_list.append(s.id)
+            # Full selectors (cli:name@MODEL preserved — ModelCaller passes cli_model)
+            model_list = [s.id for s in specs] if specs else None
         except Exception:
             model_list = None
     sup = supervisor or cfg.default_supervisor

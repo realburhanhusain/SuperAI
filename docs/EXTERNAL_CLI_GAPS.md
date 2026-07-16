@@ -17,6 +17,8 @@
 | Freeform review only | **Closed** — structured protocol v1 (verdict/findings/confidence) |
 | CLI-only boards (no API models) | **Closed** — unified `member_selection` + `superai members`; mix API+CLI |
 | No CLI inner model pick | **Closed** — `cli:name@MODEL`, `--cli-model` / `-M`, `model_flag` on specs |
+| ModelCaller/council dropped `@MODEL` | **Closed** — `split_cli_selector` + `cli_model` through ModelCaller/council/orchestrator |
+| Council defaults CLI-only | **Closed** — `default_council_members(prefer=mixed)` + API keys when configured |
 
 ## Unified members (API + CLI)
 

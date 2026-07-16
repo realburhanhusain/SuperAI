@@ -69,6 +69,44 @@ def test_model_caller_cli_integrated(home: Path, monkeypatch):
     assert "context_id" in out or out.get("external_cli")
 
 
+def test_model_caller_cli_inner_model(home: Path, monkeypatch):
+    """cli:name@MODEL must reach ExternalCLITool as cli_model (not strip to bare name)."""
+    reg = ModelRegistry()
+    reg.register_external_clis_as_models()
+    caller = ModelCaller(use_mock=True, registry=reg)
+    captured = {}
+
+    def _fake_run(self, cli_name, prompt, **kwargs):
+        captured["cli_name"] = cli_name
+        captured["cli_model"] = kwargs.get("cli_model")
+        from core.external_cli import CLIResultEnvelope
+
+        return CLIResultEnvelope(
+            ok=True,
+            cli=cli_name,
+            command=["mock"],
+            exit_code=0,
+            stdout="ok",
+            stderr="",
+            duration_sec=0.01,
+            modifies_files=False,
+            approved=True,
+            error=None,
+            metadata={"dry_run": True, "cli_model": kwargs.get("cli_model")},
+        )
+
+    monkeypatch.setattr(ExternalCLITool, "run", _fake_run)
+    out = caller.call(
+        model="cli:gemini@gemini-2.5-pro",
+        prompt="review this",
+    )
+    assert out.get("provider") == "external_cli"
+    assert captured.get("cli_name") == "gemini"
+    assert captured.get("cli_model") == "gemini-2.5-pro"
+    assert out.get("cli_model") == "gemini-2.5-pro"
+    assert "gemini-2.5-pro" in str(out.get("model") or "")
+
+
 def test_orchestrator_cli_delegate_flag(home: Path, monkeypatch):
     cfg_path = home / ".superai" / "config.json"
     cfg = Config(config_path=str(cfg_path))

@@ -1596,10 +1596,10 @@ class SuperAIOrchestrator:
         )
         meta: Dict[str, Any] = {}
 
-        # 1) Multi-CLI reviewer board when enabled
+        # 1) Multi-member reviewer board (API models + CLIs) when enabled
         if bool(self.config.get("cli_delegate_reviewers", True)):
             try:
-                from .multi_cli_advisory import multi_cli_board, pick_advisory_clis
+                from .multi_cli_advisory import multi_cli_board
 
                 pref = self.config.get("cli_review_preferred")
                 preferred = None
@@ -1609,16 +1609,18 @@ class SuperAIOrchestrator:
                         for p in str(pref).split(",")
                         if p.strip()
                     ]
-                clis = preferred or pick_advisory_clis(role="reviewer", max_clis=3)
+                # Explicit list can mix gpt-4o and cli:gemini@MODEL; else auto mixed
                 board = multi_cli_board(
                     topic,
                     mode="review",
-                    clis=clis,
+                    members=preferred,
                     max_clis=3,
                     dry_run=bool(self.config.use_mock),
                     approve=True,
+                    prefer="mixed",
                 )
                 meta["cli_board"] = {
+                    "members": board.get("members"),
                     "clis": board.get("clis"),
                     "verdict": (board.get("board") or {}).get("verdict"),
                     "tally": (board.get("board") or {}).get("tally"),

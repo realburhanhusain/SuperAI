@@ -477,11 +477,15 @@ def default_council_members(
     n: int = 3,
     *,
     prefer_clis: bool = True,
+    prefer: Optional[str] = None,  # mixed | cli | api (overrides prefer_clis)
     registry=None,
 ) -> List[str]:
     """
-    Prefer available external CLIs as council members (cli:name),
-    else fall back to API models from registry.
+    Default council/board members: configured API models + available CLIs.
+
+    prefer / prefer_clis:
+      prefer="mixed" | "cli" | "api" wins when set
+      else prefer_clis=True → "cli", False → "api"
     """
     from .model_registry import ModelRegistry
 
@@ -491,14 +495,37 @@ def default_council_members(
     except Exception:
         pass
 
-    if prefer_clis:
+    pref = (prefer or ("cli" if prefer_clis else "api")).lower()
+    if pref not in {"mixed", "cli", "api"}:
+        pref = "cli" if prefer_clis else "api"
+
+    try:
+        from .member_selection import resolve_members
+
+        specs = resolve_members(None, max_members=n, prefer=pref, role="advisor")
+        if specs:
+            # Preserve full selectors including cli:name@MODEL when present
+            return [s.id for s in specs][:n]
+    except Exception:
+        pass
+
+    # Fallback without member_selection
+    if pref in {"cli", "mixed"}:
         clis = pick_advisory_clis(role="advisor", max_clis=n)
         if clis:
-            return [f"cli:{c}" if not c.startswith("cli:") else c for c in clis]
+            out = [f"cli:{c}" if not c.startswith("cli:") else c for c in clis]
+            if pref == "cli" or len(out) >= n:
+                return out[:n]
+            names = [m for m in reg.list_all_models() if not str(m).startswith("cli:")]
+            for nm in names:
+                if nm not in out:
+                    out.append(nm)
+                if len(out) >= n:
+                    break
+            return out[:n]
 
     names = [m for m in reg.list_all_models() if not str(m).startswith("cli:")]
     if not names:
-        # last resort: any cli registered even if offline (dry-run path)
         clis = [m for m in reg.list_all_models() if str(m).startswith("cli:")]
         if clis:
             return clis[:n]

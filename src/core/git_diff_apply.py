@@ -31,12 +31,38 @@ def propose_unified_diff(path: str, old: str, new: str) -> str:
     )
 
 
+def check_unified_diff(diff_text: str) -> Dict[str, Any]:
+    """git apply --check for conflict preview (V3 M5)."""
+    root = _root()
+    if not (diff_text or "").strip():
+        return {"ok": False, "error": "empty_diff"}
+    try:
+        proc = subprocess.run(
+            ["git", "apply", "--check", "--whitespace=nowarn", "-"],
+            input=diff_text,
+            text=True,
+            cwd=str(root),
+            capture_output=True,
+            timeout=60,
+        )
+        return {
+            "ok": proc.returncode == 0,
+            "check": True,
+            "stderr": (proc.stderr or "")[:800],
+            "stdout": (proc.stdout or "")[:400],
+            "conflicts": proc.returncode != 0,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:300], "check": True}
+
+
 def apply_unified_diff(
     diff_text: str,
     *,
     dry_run: bool = True,
     commit: bool = False,
     message: str = "superai: apply diff",
+    check_first: bool = True,
 ) -> Dict[str, Any]:
     """
     Apply a unified diff via `git apply` when possible; else parse single-file rewrite.
@@ -45,12 +71,21 @@ def apply_unified_diff(
     root = _root()
     if not (diff_text or "").strip():
         return {"ok": False, "error": "empty_diff"}
+    check = check_unified_diff(diff_text) if check_first else {"ok": True}
     if dry_run:
         return {
             "ok": True,
             "dry_run": True,
             "preview": diff_text[:4000],
+            "check": check,
             "hint": "Re-run with dry_run=False to apply",
+        }
+    if check_first and not check.get("ok"):
+        return {
+            "ok": False,
+            "error": "diff_check_failed",
+            "check": check,
+            "hint": "Resolve conflicts or use file rewrite markers",
         }
     # Prefer git apply
     try:
@@ -63,7 +98,7 @@ def apply_unified_diff(
             timeout=60,
         )
         if proc.returncode == 0:
-            out: Dict[str, Any] = {"ok": True, "method": "git_apply"}
+            out: Dict[str, Any] = {"ok": True, "method": "git_apply", "check": check}
             if commit:
                 subprocess.run(["git", "add", "-A"], cwd=str(root), check=False)
                 c = subprocess.run(

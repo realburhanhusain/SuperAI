@@ -74,21 +74,80 @@ class ModelCaller:
         if not model:
             raise ValueError("ModelCaller.call requires a model name")
 
-        # Fail-closed when live and not ready (Sprint A M4)
-        if not self.use_mock:
+        # Build failover list of ready models (V3 A M2)
+        models_to_try: List[str] = [str(model)]
+        if use_fallback and self.registry and not self.use_mock:
             try:
-                from .readiness import assert_ready_or_error
+                from .readiness import check_model_ready
 
-                blocked = assert_ready_or_error(str(model), use_mock=False)
-                if blocked:
-                    blocked["response"] = blocked.get("error")
-                    blocked["provider"] = (blocked.get("readiness") or {}).get(
-                        "provider"
-                    )
-                    return blocked
+                for name in self.registry.list_all_models():
+                    if str(name) == str(model):
+                        continue
+                    if len(models_to_try) >= 4:
+                        break
+                    if check_model_ready(
+                        str(name), use_mock=False, registry=self.registry
+                    ).get("ok"):
+                        models_to_try.append(str(name))
             except Exception:
                 pass
 
+        if not self.use_mock:
+            try:
+                from .readiness import assert_ready_or_error, check_model_ready
+
+                ready = [
+                    m
+                    for m in models_to_try
+                    if check_model_ready(
+                        m, use_mock=False, registry=self.registry
+                    ).get("ok")
+                ]
+                if not ready:
+                    blocked = assert_ready_or_error(str(model), use_mock=False)
+                    if blocked:
+                        blocked["response"] = blocked.get("error")
+                        blocked["provider"] = (blocked.get("readiness") or {}).get(
+                            "provider"
+                        )
+                        blocked["failover_attempted"] = models_to_try
+                        return blocked
+                models_to_try = ready
+            except Exception:
+                pass
+
+        last: Optional[Dict[str, Any]] = None
+        primary_model = models_to_try[0]
+        for mid in models_to_try:
+            last = self._call_one_model(
+                provider=provider if mid == primary_model else None,
+                model=mid,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                use_fallback=use_fallback,
+            )
+            if last and str(last.get("status")) != "error" and not last.get(
+                "blocked"
+            ):
+                if mid != primary_model:
+                    last["failover_from"] = primary_model
+                    last["model"] = mid
+                return last
+        return last or {
+            "status": "error",
+            "response": "all_models_failed",
+            "model": model,
+            "ok": False,
+        }
+
+    def _call_one_model(
+        self,
+        provider: Optional[str],
+        model: str,
+        prompt: str,
+        system_prompt: Optional[str],
+        use_fallback: bool,
+    ) -> Dict[str, Any]:
         # Dual-registered external CLIs: cli:aider, cli:claude, …
         if str(model).startswith("cli:") or (
             self.registry
@@ -102,7 +161,9 @@ class ModelCaller:
         primary = provider or (info.provider if info else self._resolve_provider(model))
 
         if not self.health_store.can_call(primary) and not self.use_mock:
-            logger.warning("Provider %s throttled/circuit-open; trying anyway via LB", primary)
+            logger.warning(
+                "Provider %s throttled/circuit-open; trying anyway via LB", primary
+            )
 
         candidates: List[ProviderCandidate] = [
             ProviderCandidate(
@@ -164,9 +225,12 @@ class ModelCaller:
                 candidates, model, _invoke, max_retries_per_provider=1
             )
         except Exception as e:  # noqa: BLE001
-            logger.error("All providers failed for %s: %s — falling back to mock", model, e)
+            logger.error(
+                "All providers failed for %s: %s — falling back to mock", model, e
+            )
             result = self._mock_call(primary, model, prompt)
             result["fallback_reason"] = str(e)
+            result["status"] = "error"
             return result
 
     def stream(

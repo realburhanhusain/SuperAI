@@ -184,7 +184,17 @@ def write_back(
     try:
         from .learning_engine import LearningEngine
         from .memory_palace import get_shared_palace
+        from .palace_tenant import scope_metadata, tenant_tag
         from .secrets import redact_text
+
+        # Tenant isolation on writes (V3 B M4)
+        meta = scope_metadata(metadata or {})
+        tag_list = list(tags or [])
+        ttag = tenant_tag(meta.get("tenant_id"))
+        if ttag not in tag_list:
+            tag_list.append(ttag)
+        tags = tag_list
+        metadata = meta
 
         safe_task = redact_text(str(task or "")[:500])
         safe_err = redact_text(str(error)) if error else None
@@ -201,6 +211,7 @@ def write_back(
             error_message=safe_err,
         )
         result["learning_id"] = learning_id
+        result["tenant_id"] = meta.get("tenant_id")
     except Exception as e:  # noqa: BLE001
         result["learning_error"] = str(e)
 

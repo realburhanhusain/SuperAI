@@ -130,9 +130,26 @@ class GoalStore:
             return {"ok": True, "sent": 0, "due": due, "notify_error": str(e)[:200]}
 
     def execute_due(self, *, max_goals: int = 3, use_ask: bool = True) -> Dict[str, Any]:
-        """Sprint B M5: run ask/run for due goals (opt-in automation)."""
+        """Sprint B M5 / V3 B M7: run ask/run for due goals with safety caps."""
+        from .permission_mode import mode_from_config
+
+        pmode = mode_from_config()
+        if pmode == "yolo":
+            # Never inherit yolo for automated goals
+            pmode = "ask"
+        try:
+            from .config import Config
+
+            cfg = Config()
+            cfg.config["permission_mode"] = pmode
+            # tight budget for auto goals
+            cfg.config["budget_run_usd"] = min(
+                float(cfg.get("budget_run_usd") or 1.0), 0.5
+            )
+        except Exception:
+            pass
         hb = self.heartbeat()
-        due = (hb.get("due") or [])[:max_goals]
+        due = (hb.get("due") or [])[: max(1, min(int(max_goals), 3))]
         results = []
         for g in due:
             title = g.get("title") or g.get("id")
@@ -146,7 +163,32 @@ class GoalStore:
                     from .orchestrator import SuperAIOrchestrator
 
                     out = SuperAIOrchestrator().run_task(prompt, verbose=False)
-                results.append({"goal_id": g.get("id"), "ok": out.get("ok", True), "result": out})
+                results.append(
+                    {
+                        "goal_id": g.get("id"),
+                        "ok": out.get("ok", True),
+                        "permission_mode": pmode,
+                        "result": {
+                            k: out.get(k)
+                            for k in (
+                                "ok",
+                                "status",
+                                "planned_command",
+                                "estimated_cost_usd",
+                                "mock",
+                            )
+                            if k in out
+                        },
+                    }
+                )
             except Exception as e:
-                results.append({"goal_id": g.get("id"), "ok": False, "error": str(e)[:300]})
-        return {"ok": True, "executed": len(results), "results": results}
+                results.append(
+                    {"goal_id": g.get("id"), "ok": False, "error": str(e)[:300]}
+                )
+        return {
+            "ok": True,
+            "executed": len(results),
+            "results": results,
+            "permission_mode": pmode,
+            "max_goals": max_goals,
+        }

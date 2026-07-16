@@ -1,15 +1,18 @@
 """Sprint A–D improvement tests."""
 
+import pytest
 from pathlib import Path
 
 from core.agent_tools import execute_directives, parse_tool_directives, run_tool
 from core.cost_router import estimate_board_cost, should_skip_or_shrink
-from core.git_diff_apply import apply_unified_diff, propose_unified_diff
+from core.git_diff_apply import apply_unified_diff, check_unified_diff, propose_unified_diff
 from core.readiness import check_model_ready
 from core.session_compact import smart_compact
 from core.palace_tenant import scope_metadata
 from core.model_bakeoff import bakeoff, pin_winner
 from core.path_which import which_cmd
+
+pytestmark = pytest.mark.unit
 
 
 def test_parse_and_run_tool_read(tmp_path, monkeypatch):
@@ -81,3 +84,17 @@ def test_execute_directives_grep(tmp_path, monkeypatch):
     res = execute_directives("/tool grep pattern=TODO path=.", permission_mode="plan")
     assert res
     assert res[0]["result"].get("ok") is True
+
+
+def test_tool_protocol_extract():
+    from core.tool_protocol import extract_tool_calls
+
+    text = 'Here\n{"tool_call": {"name": "read", "arguments": {"path": "a.py"}}}\n'
+    calls = extract_tool_calls(text)
+    assert calls and calls[0]["name"] == "read"
+
+
+def test_diff_check():
+    d = propose_unified_diff("x.py", "a\n", "b\n")
+    c = check_unified_diff(d)
+    assert "ok" in c

@@ -4444,6 +4444,28 @@ def agent_tui_cmd(
     run_agent_tui(session_id=session, permission=permission, profile=profile)
 
 
+@app.command("agent-tools")
+def agent_tools_cmd(
+    prompt: str = typer.Argument(..., help="Task; model may emit tool_call JSON"),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
+    rounds: int = typer.Option(2, "--rounds"),
+):
+    """V3: Model-driven tool protocol (read/write/grep/diff_apply)."""
+    from core.tool_protocol import agent_with_tools
+
+    console.print_json(
+        data=agent_with_tools(prompt, model=model, max_rounds=rounds)
+    )
+
+
+@app.command("side-effects")
+def side_effects_cmd(limit: int = typer.Option(30, "--limit")):
+    """Show recent tool/CLI side-effect audit log."""
+    from core.side_effect_audit import recent
+
+    console.print_json(data={"events": recent(limit)})
+
+
 @app.command("goals")
 def goals_cmd(
     action: str = typer.Argument(

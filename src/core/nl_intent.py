@@ -141,6 +141,11 @@ _ACTION_RULES: List[Tuple[str, float, str]] = [
         r"\b(use profile|set profile|cheap mode|local[- ]only mode|permission (plan|yolo))\b",
     ),
     (
+        "run",
+        0.87,
+        r"\b(goals? execute|run due goals|bakeoff|agent[- ]tui)\b",
+    ),
+    (
         "palace",
         0.88,
         r"\b(memory palace|palace (layout|browse)|wings?|rooms?)\b",
@@ -796,7 +801,39 @@ def _h_cli_run(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
 
 
 def _h_run(intent: SuperAIIntent, *, verbose: bool = False, **_: Any) -> Dict[str, Any]:
-    """Universal agentic path — same spirit as Claude Code / Gemini default chat."""
+    """Universal agentic path — tool protocol first for code-like tasks, else orchestrator."""
+    task = intent.subject or intent.raw
+    # Prefer model tool loop for short coding requests
+    low = (task or "").lower()
+    if any(
+        k in low
+        for k in (
+            "read file",
+            "edit ",
+            "fix ",
+            "implement",
+            "refactor",
+            "write ",
+            "grep ",
+            "diff",
+        )
+    ):
+        try:
+            from .tool_protocol import agent_with_tools
+
+            forced = intent.model or (
+                intent.members[0] if intent.members else None
+            )
+            tool_out = agent_with_tools(
+                task,
+                model=forced,
+                max_rounds=2,
+            )
+            if tool_out.get("tool_rounds", 0) > 0 or tool_out.get("ok"):
+                return tool_out
+        except Exception:
+            pass
+
     from .orchestrator import SuperAIOrchestrator
 
     orch = SuperAIOrchestrator()
@@ -813,7 +850,7 @@ def _h_run(intent: SuperAIIntent, *, verbose: bool = False, **_: Any) -> Dict[st
     if intent.model and not workers:
         forced = intent.model
     return orch.run_task(
-        task=intent.subject or intent.raw,
+        task=task,
         forced_model=forced,
         verbose=verbose,
         workers=workers,

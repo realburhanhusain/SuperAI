@@ -1136,6 +1136,24 @@ class SuperAIOrchestrator:
             router_primary=router_primary,
             router_failover=router_failover,
         )
+        # Cost-aware shrink of worker pool (V3 B M3)
+        try:
+            from .cost_router import should_skip_or_shrink
+
+            dec = should_skip_or_shrink(
+                pool,
+                step_desc,
+                run_usd_limit=float(self.config.get("budget_run_usd") or 1.0),
+                prefer_cheap=str(self.config.get("run_profile") or "")
+                in {"cheap", "local-only"},
+            )
+            if dec.get("action") == "shrunk" and dec.get("members"):
+                pool = list(dec["members"])
+                self._event("cost_router_shrink", pool=pool, meta=dec)
+            elif dec.get("action") == "block":
+                self._event("cost_router_block", meta=dec)
+        except Exception:
+            pass
         return pool
 
     def _failover_candidates_router(

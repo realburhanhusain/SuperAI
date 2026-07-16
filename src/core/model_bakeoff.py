@@ -68,7 +68,7 @@ def bakeoff(
 
 
 def pin_winner(model: Optional[str], *, persist: bool = True) -> Dict[str, Any]:
-    """Persist bakeoff winner as preferred default model."""
+    """Persist bakeoff winner as preferred default model + bandit boost."""
     if not model:
         return {"ok": False, "error": "no_winner"}
     try:
@@ -77,6 +77,22 @@ def pin_winner(model: Optional[str], *, persist: bool = True) -> Dict[str, Any]:
         cfg = Config()
         cfg.set("preferred_model", model, persist=persist)
         cfg.set("default_model", model, persist=persist)
-        return {"ok": True, "preferred_model": model, "persisted": persist}
+        bandit_ok = False
+        try:
+            from .model_registry import ModelRegistry
+            from .model_router import ModelRouter
+
+            router = ModelRouter(ModelRegistry())
+            if hasattr(router, "update_bandit"):
+                router.update_bandit(model, success=True, latency=0.5, cost=0.0)
+                bandit_ok = True
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "preferred_model": model,
+            "persisted": persist,
+            "bandit_updated": bandit_ok,
+        }
     except Exception as e:
         return {"ok": False, "error": str(e)[:300]}

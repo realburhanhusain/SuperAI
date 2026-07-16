@@ -523,6 +523,23 @@ def multi_cli_board(
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def _one(m: str) -> Dict[str, Any]:
+        # Cooperative cancel across board workers (V6 M017)
+        try:
+            from .call_lifecycle import check_cancel
+
+            cancelled = check_cancel()
+            if cancelled:
+                return {
+                    "ok": False,
+                    "member_id": m,
+                    "cli": m,
+                    "verdict": "advise",
+                    "error": "cancelled",
+                    "error_code": "cancelled",
+                    "cancelled": True,
+                }
+        except Exception:
+            pass
         _prog(f"board_member_start:{m}")
         op = run_member_opinion(
             m,
@@ -537,6 +554,27 @@ def multi_cli_board(
 
     opinions: List[Dict[str, Any]] = []
     early_exit = False
+    # Board preflight cost estimate (V6 M003)
+    try:
+        from .board_preflight import enforce_or_allow
+
+        pre = enforce_or_allow(subject, raw)
+        if pre.get("blocked") and not dry_run:
+            from .spend_guard import ensure_public_result
+
+            return ensure_public_result(
+                {
+                    "ok": False,
+                    "blocked": True,
+                    "error": pre.get("error") or "budget_preflight",
+                    "error_code": "budget",
+                    "preflight": pre,
+                    "opinions": [],
+                },
+                ok=False,
+            )
+    except Exception:
+        pass
     # V5 S7: sequential first-2 consensus early-exit when >2 members (saves cost)
     if len(raw) > 2:
         opinions.append(_one(raw[0]))

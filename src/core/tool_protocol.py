@@ -83,6 +83,19 @@ def run_tool_calls(
             args = {}
         bus.emit("tool_call", name=name, args=list(args.keys()))
         r = run_tool(name, permission_mode=permission_mode, **args)
+        # Prompt-injection defense on tool outputs (V6 M015)
+        try:
+            from .injection_defense import sanitize_tool_result
+
+            sanitized = sanitize_tool_result(r)
+            if isinstance(r, dict):
+                r = {**r, "injection": sanitized.get("injection"), "sanitized": True}
+                if sanitized.get("blocked"):
+                    r["ok"] = False
+                    r["error"] = "tool_result_blocked_injection"
+                    r["blocked"] = True
+        except Exception:
+            pass
         bus.emit("tool_result", name=name, ok=r.get("ok"))
         results.append({"tool_call": tc, "result": r})
         try:

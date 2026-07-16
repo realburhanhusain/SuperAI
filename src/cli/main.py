@@ -649,6 +649,18 @@ def status(
             payload["step_cache_entries"] = len((sc._data.get("entries") or {}))
         except Exception:
             payload["step_cache_entries"] = 0
+        try:
+            from core.spend_report import spend_report
+
+            rep = spend_report(days=7)
+            payload["cache_hit_rate"] = rep.get("cache_hit_rate")
+            payload["spend_total_estimated_usd"] = rep.get("total_estimated_usd")
+            payload["mock_vs_live"] = {
+                "mock": bool(config.use_mock),
+                "label": "MOCK" if config.use_mock else "LIVE",
+            }
+        except Exception:
+            pass
         console.print_json(data=payload)
         return
     console.print(
@@ -5286,4 +5298,101 @@ def merge_results_cmd(
         prompt=f"Goal: {task}\n\nMerge these parallel results into one answer:\n{blob}",
     )
     console.print_json(data={"model": model, "merged": r.get("response")})
+
+
+@app.command("history-search")
+def history_search_cmd(
+    task: Optional[str] = typer.Option(None, "--task", help="Substring match task text"),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
+    min_cost: Optional[float] = typer.Option(None, "--min-cost"),
+    max_cost: Optional[float] = typer.Option(None, "--max-cost"),
+    limit: int = typer.Option(20, "--limit", "-n"),
+):
+    """Search run history by task/model/cost (V6 M067)."""
+    from core.history import TaskHistory
+    from core.public_api import wrap_public_result
+
+    rows = TaskHistory().search(
+        task=task, model=model, min_cost=min_cost, max_cost=max_cost, limit=limit
+    )
+    console.print_json(
+        data=wrap_public_result(
+            {"ok": True, "count": len(rows), "results": rows},
+            mock=True,
+            record_spend=False,
+        )
+    )
+
+
+@app.command("board-preflight")
+def board_preflight_cmd(
+    subject: str = typer.Argument(..., help="Board subject"),
+    members: str = typer.Option(
+        "gpt-4o-mini,deepseek-chat", "--members", "-m", help="Comma-separated members"
+    ),
+):
+    """Pre-flight cost estimate before multi-member boards (V6 M003)."""
+    from core.board_preflight import estimate_board
+    from core.public_api import wrap_public_result
+
+    mems = [m.strip() for m in members.split(",") if m.strip()]
+    console.print_json(
+        data=wrap_public_result(estimate_board(subject, mems), mock=True, record_spend=False)
+    )
+
+
+@app.command("spend-report")
+def spend_report_cmd(days: int = typer.Option(7, "--days", "-d")):
+    """Daily/weekly spend report + cache stats (V6 S134/S135)."""
+    from core.public_api import wrap_public_result
+    from core.spend_report import spend_report
+
+    console.print_json(
+        data=wrap_public_result(spend_report(days=days), mock=True, record_spend=False)
+    )
+
+
+@app.command("project-budget")
+def project_budget_cmd(
+    project: str = typer.Option("default", "--project", "-p"),
+    daily: Optional[float] = typer.Option(None, "--daily-usd"),
+    run: Optional[float] = typer.Option(None, "--run-usd"),
+    apply: bool = typer.Option(False, "--apply", help="Apply policy to global BudgetGuard"),
+):
+    """Per-project budget policies (V6 S131)."""
+    from core.project_budget import apply_to_global, get_policy, set_policy
+    from core.public_api import wrap_public_result
+
+    if daily is not None or run is not None:
+        pol = set_policy(project, daily_usd_limit=daily, run_usd_limit=run)
+    else:
+        pol = get_policy(project)
+    out = {"ok": True, "policy": pol}
+    if apply:
+        out["applied"] = apply_to_global(project)
+    console.print_json(data=wrap_public_result(out, mock=True, record_spend=False))
+
+
+@app.command("contract-smoke")
+def contract_smoke_cmd():
+    """Offline contract checks for top public APIs (V6 M090)."""
+    from core.contract_registry import smoke_contracts_offline
+    from core.public_api import wrap_public_result
+
+    console.print_json(
+        data=wrap_public_result(smoke_contracts_offline(), mock=True, record_spend=False)
+    )
+
+
+@app.command("mode")
+def mode_cmd(
+    mode: str = typer.Argument(..., help="architecture|implementation|plan|build|ask"),
+):
+    """Architecture vs implementation mode (V6 S103)."""
+    from core.architecture_mode import resolve_mode
+    from core.public_api import wrap_public_result
+
+    console.print_json(
+        data=wrap_public_result(resolve_mode(mode), mock=True, record_spend=False)
+    )
 

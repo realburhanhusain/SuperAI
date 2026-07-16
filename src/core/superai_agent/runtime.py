@@ -311,14 +311,24 @@ class AgentRuntime:
             if not calls:
                 final_text = text
                 parts.append({"type": "text", "text": text})
-                # V5 S2: adaptive escalate once if empty/error and not already premium
-                weak = (not text.strip()) or str(call.get("status")) == "error"
+                # V5 S2 / V6 S130: adaptive escalate on quality failure
+                try:
+                    from core.adaptive_escalate import quality_failed, pick_premium
+
+                    weak = quality_failed(call) or (not text.strip())
+                except Exception:
+                    weak = (not text.strip()) or str(call.get("status")) == "error"
                 if weak and not self.use_mock and mid not in {
                     "gpt-4o",
                     "claude-4-sonnet",
                     "claude-4-opus",
                 }:
-                    premium = "gpt-4o"
+                    try:
+                        from core.adaptive_escalate import pick_premium
+
+                        premium = pick_premium(mid, registry=None)
+                    except Exception:
+                        premium = "gpt-4o"
                     append_event(run_id, "escalate", detail=f"{mid}->{premium}")
                     call2 = self._call_model(premium, prompt, system)
                     text2 = str(call2.get("response") or "")

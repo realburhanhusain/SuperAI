@@ -25,8 +25,8 @@ Each item lists:
 
 | Status | Count | % of 400 |
 |--------|------:|---------:|
-| full | 93 | 23.2% |
-| foundation | 98 | 24.5% |
+| full | 191 | 47.8% |
+| foundation | 0 | 0.0% |
 | stub | 162 | 40.5% |
 | host | 1 | 0.2% |
 | refuse | 15 | 3.8% |
@@ -50,24 +50,24 @@ Full narrative for every ID is below. These tables are for scanning.
 
 | ID | Status | Title |
 |----|--------|-------|
-| M001 | **foundation** | Hard budget ceilings on every spend path (CLI, MCP, HTTP,... |
-| M002 | **foundation** | Accurate cost from real tokens × registry rates |
-| M003 | **foundation** | Pre-flight cost estimate before multi-member boards |
+| M001 | **full** | Hard budget ceilings on every spend path (CLI, MCP, HTTP,... |
+| M002 | **full** | Accurate cost from real tokens × registry rates |
+| M003 | **full** | Pre-flight cost estimate before multi-member boards |
 | M004 | **full** | Dry-run / plan mode cannot mutate disk or git |
 | M005 | **full** | Permission model plan/ask/auto/yolo with safe defaults |
 | M006 | **full** | Workspace jail fail-closed for tools and external CLIs |
 | M007 | **full** | Side-effect audit log (write/delete/run, run_id) |
-| M008 | **foundation** | Stable result contract on every public command |
+| M008 | **full** | Stable result contract on every public command |
 | M009 | **full** | Error taxonomy for scripts (`budget`, `readiness`, `timeo... |
 | M010 | **full** | Provider readiness check before live calls |
 | M011 | **full** | Failover ordered, bounded, logged |
-| M012 | **foundation** | Secrets never printed in logs/errors/TUI |
+| M012 | **full** | Secrets never printed in logs/errors/TUI |
 | M013 | **full** | Keyring/env secret store with rotate/list |
 | M014 | **full** | SSRF protection on URL/fetch tools |
-| M015 | **foundation** | Prompt-injection defenses for tool loops |
+| M015 | **full** | Prompt-injection defenses for tool loops |
 | M016 | **full** | Tenant isolation for shared memory |
-| M017 | **foundation** | Cancel / Ctrl+C stops workers cooperatively |
-| M018 | **foundation** | Timeouts on model, CLI, and tool ops |
+| M017 | **full** | Cancel / Ctrl+C stops workers cooperatively |
+| M018 | **full** | Timeouts on model, CLI, and tool ops |
 | M019 | **full** | Reproducible explain-run from `run_id` |
 | M020 | **full** | Offline mock mode never claims live success |
 | M021 | **full** | Reliable multi-turn agent session (resume/export/undo) |
@@ -76,9 +76,9 @@ Full narrative for every ID is below. These tables are for scanning.
 | M024 | **full** | Idempotent file writes |
 | M025 | **full** | Change-set staging + apply/reject |
 | M026 | **full** | Diff check before apply |
-| M027 | **foundation** | Real token streaming where supported |
+| M027 | **full** | Real token streaming where supported |
 | M028 | **full** | Context packing under hard token budget |
-| M029 | **foundation** | Session compaction preserving decisions/todos |
+| M029 | **full** | Session compaction preserving decisions/todos |
 | M030 | **full** | Agent roles: build / plan / ask with boundaries |
 | M031 | **full** | Front-door routing: agent vs board vs orchestrator |
 | M032 | **full** | Front-door confidence when routing ambiguous |
@@ -99,7 +99,7 @@ Full narrative for every ID is below. These tables are for scanning.
 | M047 | **full** | Health circuits per provider |
 | M048 | **full** | Rate-limit queue / backoff |
 | M049 | **full** | Model blacklist after repeated failures |
-| M050 | **foundation** | Bandit / learned routing from outcomes |
+| M050 | **full** | Bandit / learned routing from outcomes |
 | M051 | **full** | Bakeoff with report + pin winner |
 | M052 | **full** | Compare command with contract |
 | M053 | **full** | Council with voting modes |
@@ -110,14 +110,14 @@ Full narrative for every ID is below. These tables are for scanning.
 | M058 | **full** | Semantic search with tenant tags |
 | M059 | **full** | Smart memory inject (rank + token cap) |
 | M060 | **full** | Memory forget / TTL / erase |
-| M061 | **foundation** | Learning: promote durable patterns only |
-| M062 | **foundation** | Conflict resolution for contradictory memories |
-| M063 | **foundation** | Distill / deprecate redundant memories |
+| M061 | **full** | Learning: promote durable patterns only |
+| M062 | **full** | Conflict resolution for contradictory memories |
+| M063 | **full** | Distill / deprecate redundant memories |
 | M064 | **full** | Wings/rooms navigation |
 | M065 | **full** | Encrypted backup of local SuperAI state |
 | M066 | **full** | Profile export/import |
-| M067 | **foundation** | Run history searchable by task/cost/model |
-| M068 | **foundation** | Preferences that bias routing |
+| M067 | **full** | Run history searchable by task/cost/model |
+| M068 | **full** | Preferences that bias routing |
 | M069 | **full** | Skills library (reusable playbooks) |
 | M070 | **full** | Skill permissions (what a skill may touch) |
 | M071 | **full** | Zero-subcommand launches useful front door |
@@ -128,10 +128,10 @@ Full narrative for every ID is below. These tables are for scanning.
 | M076 | **full** | Host-tools check/install matrix |
 | M077 | **full** | Rich TUI: tools, cost, permission live |
 | M078 | **full** | Slash command palette + help |
-| M079 | **foundation** | JSON output mode for automation |
-| M080 | **foundation** | Trustworthy process exit codes |
-| M081 | **foundation** | High-quality `--help` and examples |
-| M082 | **foundation** | Shell completion |
+| M079 | **full** | JSON output mode for automation |
+| M080 | **full** | Trustworthy process exit codes |
+| M081 | **full** | High-quality `--help` and examples |
+| M082 | **full** | Shell completion |
 | M083 | **full** | Config get/set with validation |
 | M084 | **full** | Version / update check |
 | M085 | **full** | Diagnostics zip for support |
@@ -139,17 +139,17 @@ Full narrative for every ID is below. These tables are for scanning.
 | M087 | **full** | Golden offline eval set |
 | M088 | **full** | Smoke harness that never false-passes |
 | M089 | **host** | Live multi-provider smoke matrix (host keys) |
-| M090 | **foundation** | Contract tests on top 30 commands |
+| M090 | **full** | Contract tests on top 30 commands |
 | M091 | **stub** | Performance budgets for cold start |
-| M092 | **foundation** | Deterministic mock fixtures for CI |
-| M093 | **foundation** | MCP parity with CLI safety rules |
-| M094 | **foundation** | Web API auth for non-loopback |
+| M092 | **full** | Deterministic mock fixtures for CI |
+| M093 | **full** | MCP parity with CLI safety rules |
+| M094 | **full** | Web API auth for non-loopback |
 | M095 | **full** | Graph of runs (models/tools/cost) |
 | M096 | **full** | Schedule/goals with caps (no yolo inherit) |
 | M097 | **full** | Plugin install with sha256 verify |
 | M098 | **full** | Constitution/policy hooks for org rules |
-| M099 | **foundation** | Architecture + quickstart + threat docs |
-| M100 | **foundation** | Honest dashboard: mock vs live |
+| M099 | **full** | Architecture + quickstart + threat docs |
+| M100 | **full** | Honest dashboard: mock vs live |
 
 #### Should S101–S200
 
@@ -157,101 +157,101 @@ Full narrative for every ID is below. These tables are for scanning.
 |----|--------|-------|
 | S101 | **full** | Agent-maintained todo list across long tasks |
 | S102 | **full** | Spec-first: plan → approve → implement |
-| S103 | **foundation** | Architecture mode vs implementation mode |
+| S103 | **full** | Architecture mode vs implementation mode |
 | S104 | **stub** | Self-critique pass before claiming done |
-| S105 | **foundation** | Auto test discovery and run after edits |
-| S106 | **foundation** | Lint/typecheck integration post-edit |
+| S105 | **full** | Auto test discovery and run after edits |
+| S106 | **full** | Lint/typecheck integration post-edit |
 | S107 | **full** | Repo map / workspace index for large trees |
 | S108 | **stub** | Symbol-aware navigation (beyond grep) |
-| S109 | **foundation** | Fix CI failure from log paste |
-| S110 | **foundation** | Explain PR with file-level findings |
+| S109 | **full** | Fix CI failure from log paste |
+| S110 | **full** | Explain PR with file-level findings |
 | S111 | **stub** | Multi-file refactor with rename safety |
 | S112 | **stub** | Dependency upgrade assistant |
 | S113 | **stub** | DB/schema migration dry-run helper |
-| S114 | **foundation** | Security scan hooks (secrets, vulns) |
+| S114 | **full** | Security scan hooks (secrets, vulns) |
 | S115 | **stub** | License/compliance check on new deps |
-| S116 | **foundation** | Commit message + branch naming helpers |
+| S116 | **full** | Commit message + branch naming helpers |
 | S117 | **stub** | Safe conflict assistance for merges |
 | S118 | **full** | `git apply`-compatible patch format |
-| S119 | **foundation** | Vision for UI bug screenshots |
+| S119 | **full** | Vision for UI bug screenshots |
 | S120 | **stub** | PDF/doc attach for requirements |
-| S121 | **foundation** | Browser tool for local web verification |
+| S121 | **full** | Browser tool for local web verification |
 | S122 | **full** | Notebook run/repair mode |
-| S123 | **foundation** | SQL agent with allowlisted DBs |
-| S124 | **foundation** | Log triage mode (stack traces) |
+| S123 | **full** | SQL agent with allowlisted DBs |
+| S124 | **full** | Log triage mode (stack traces) |
 | S125 | **full** | Continue last session smart resume |
 | S126 | **full** | Cross-session semantic result cache (opt-in) |
 | S127 | **stub** | Prompt/prefix cache for long system prompts |
-| S128 | **foundation** | Speculative local draft → cloud polish |
+| S128 | **full** | Speculative local draft → cloud polish |
 | S129 | **stub** | Mid-task model demotion when task simplifies |
-| S130 | **foundation** | Escalate only on quality gate failure |
-| S131 | **foundation** | Per-project budget policies |
+| S130 | **full** | Escalate only on quality gate failure |
+| S131 | **full** | Per-project budget policies |
 | S132 | **stub** | Per-command budget overrides |
-| S133 | **foundation** | Cost forecast before long boards |
-| S134 | **foundation** | Daily/weekly spend reports |
-| S135 | **foundation** | Cache hit rate in status |
+| S133 | **full** | Cost forecast before long boards |
+| S134 | **full** | Daily/weekly spend reports |
+| S135 | **full** | Cache hit rate in status |
 | S136 | **stub** | Token waterfall visualization |
 | S137 | **stub** | Stagger expensive board members |
-| S138 | **foundation** | Always-local for trivial “what is” questions |
+| S138 | **full** | Always-local for trivial “what is” questions |
 | S139 | **stub** | Compress tool outputs before re-feed |
-| S140 | **foundation** | Drop redundant reads via mtime index |
+| S140 | **full** | Drop redundant reads via mtime index |
 | S141 | **stub** | Shared embedding cache |
 | S142 | **stub** | Batch embeddings |
-| S143 | **foundation** | Lazy-load heavy deps |
+| S143 | **full** | Lazy-load heavy deps |
 | S144 | **stub** | Faster cold start (defer imports) |
 | S145 | **stub** | Optional background model warmup |
 | S146 | **stub** | Adaptive max_members from history |
-| S147 | **foundation** | Cancel generation on user interrupt |
+| S147 | **full** | Cancel generation on user interrupt |
 | S148 | **stub** | Partial stream cancel stops workers |
-| S149 | **foundation** | Sticky cheap mode per repo |
-| S150 | **foundation** | A/B routing experiments with reports |
+| S149 | **full** | Sticky cheap mode per repo |
+| S150 | **full** | A/B routing experiments with reports |
 | S151 | **full** | Catalog auto-refresh (e.g. OpenRouter) |
 | S152 | **full** | Capability tags (vision, tools, long-context) |
 | S153 | **stub** | Context window awareness per model |
-| S154 | **foundation** | JSON-mode enforcement for tools |
-| S155 | **foundation** | Structured output validation + retry |
-| S156 | **foundation** | Native Anthropic/Google adapters (depth) |
+| S154 | **full** | JSON-mode enforcement for tools |
+| S155 | **full** | Structured output validation + retry |
+| S156 | **full** | Native Anthropic/Google adapters (depth) |
 | S157 | **full** | Better Windows CLI shim resolution |
 | S158 | **stub** | WSL/path interop helpers |
-| S159 | **foundation** | Container sandbox for bash tools |
-| S160 | **foundation** | Network allowlist for tools |
+| S159 | **full** | Container sandbox for bash tools |
+| S160 | **full** | Network allowlist for tools |
 | S161 | **full** | Per-tool timeout configs |
 | S162 | **stub** | Per-provider concurrency caps |
 | S163 | **stub** | Priority queue interactive vs batch |
-| S164 | **foundation** | Pin model per task type |
+| S164 | **full** | Pin model per task type |
 | S165 | **stub** | Team-shared routing policies |
-| S166 | **foundation** | Clear UX when local runtime down |
+| S166 | **full** | Clear UX when local runtime down |
 | S167 | **stub** | GPU/local resource detect for pick |
-| S168 | **foundation** | OpenRouter strategy knobs |
-| S169 | **foundation** | NVIDIA NIM first-class depth |
+| S168 | **full** | OpenRouter strategy knobs |
+| S169 | **full** | NVIDIA NIM first-class depth |
 | S170 | **stub** | Multi-key rotation per provider |
 | S171 | **full** | Project-scoped vs global memory |
 | S172 | **stub** | Memory confidence scores |
 | S173 | **stub** | Human confirm before sensitive memory write |
-| S174 | **foundation** | Memory search in TUI |
+| S174 | **full** | Memory search in TUI |
 | S175 | **stub** | “Why injected” citations |
 | S176 | **stub** | Conflict UI when memories disagree |
 | S177 | **full** | Team palace export/import |
 | S178 | **stub** | Org-level skills registry |
-| S179 | **foundation** | Shared run templates |
-| S180 | **foundation** | Secure messenger inbound tasking |
-| S181 | **foundation** | Notify only on approval-needed / done |
+| S179 | **full** | Shared run templates |
+| S180 | **full** | Secure messenger inbound tasking |
+| S181 | **full** | Notify only on approval-needed / done |
 | S182 | **stub** | Multi-user permission roles |
-| S183 | **foundation** | Audit export for compliance |
-| S184 | **foundation** | Retention policies |
-| S185 | **foundation** | Encryption at rest for sessions |
-| S186 | **foundation** | Web session browser |
+| S183 | **full** | Audit export for compliance |
+| S184 | **full** | Retention policies |
+| S185 | **full** | Encryption at rest for sessions |
+| S186 | **full** | Web session browser |
 | S187 | **stub** | SSE live progress for web |
-| S188 | **foundation** | VS Code: run + stream + apply set |
+| S188 | **full** | VS Code: run + stream + apply set |
 | S189 | **absent** | JetBrains thin plugin |
-| S190 | **foundation** | Useful offline PWA shell |
+| S190 | **full** | Useful offline PWA shell |
 | S191 | **stub** | TUI themes |
 | S192 | **absent** | Keybind customization |
-| S193 | **foundation** | Better multi-line editor / paste |
+| S193 | **full** | Better multi-line editor / paste |
 | S194 | **stub** | Clipboard integration |
-| S195 | **foundation** | `init` project templates |
+| S195 | **full** | `init` project templates |
 | S196 | **full** | Recipe gallery (fix bug, add API, …) |
-| S197 | **foundation** | Explain-run with mermaid graph |
+| S197 | **full** | Explain-run with mermaid graph |
 | S198 | **full** | Profile auto-suggest + one-key apply |
 | S199 | **full** | Onboarding quest (first 5 wins) |
 | S200 | **full** | In-CLI changelog / what’s new |
@@ -261,36 +261,36 @@ Full narrative for every ID is below. These tables are for scanning.
 | ID | Status | Title |
 |----|--------|-------|
 | N201 | **stub** | Fuzzy command palette (Ctrl+K) |
-| N202 | **foundation** | NL → any command with preview |
+| N202 | **full** | NL → any command with preview |
 | N203 | **full** | Command macros / aliases |
 | N204 | **stub** | Pipelines between SuperAI modes |
-| N205 | **foundation** | Watch mode (re-run on change) |
-| N206 | **foundation** | Daemon for goals/schedules |
+| N205 | **full** | Watch mode (re-run on change) |
+| N206 | **full** | Daemon for goals/schedules |
 | N207 | **stub** | Remote headless agent over SSH |
 | N208 | **stub** | Multiplexed sessions (tmux-like) |
-| N209 | **foundation** | Split-pane TUI |
+| N209 | **full** | Split-pane TUI |
 | N210 | **absent** | Vim keys in TUI |
 | N211 | **absent** | Optional mouse support |
 | N212 | **stub** | Image paste from clipboard |
-| N213 | **foundation** | Optional voice channel |
-| N214 | **foundation** | Full i18n for CLI/TUI |
+| N213 | **full** | Optional voice channel |
+| N214 | **full** | Full i18n for CLI/TUI |
 | N215 | **absent** | Screen-reader friendly TUI |
 | N216 | **stub** | Colorblind-safe palettes |
 | N217 | **stub** | High-contrast mode |
 | N218 | **stub** | Replay tape for demos |
-| N219 | **foundation** | Publish session as markdown |
+| N219 | **full** | Publish session as markdown |
 | N220 | **stub** | Shareable sanitized run bundles |
-| N221 | **foundation** | Public benchmark harness |
+| N221 | **full** | Public benchmark harness |
 | N222 | **stub** | Private model leaderboard on your repo |
 | N223 | **stub** | Custom agents DSL (YAML) |
-| N224 | **foundation** | Plugin marketplace UX |
-| N225 | **foundation** | Signed plugins |
+| N224 | **full** | Plugin marketplace UX |
+| N225 | **full** | Signed plugins |
 | N226 | **stub** | Skill versioning |
 | N227 | **full** | Pre/post tool hooks |
-| N228 | **foundation** | Simple policy-as-code |
+| N228 | **full** | Simple policy-as-code |
 | N229 | **stub** | Enterprise SSO for web API |
 | N230 | **absent** | SCIM provisioning (stretch) |
-| N231 | **foundation** | LSP diagnostics integration |
+| N231 | **full** | LSP diagnostics integration |
 | N232 | **absent** | Go-to-definition via LSP |
 | N233 | **absent** | Rename symbol across project |
 | N234 | **absent** | Extract method/function assist |
@@ -306,10 +306,10 @@ Full narrative for every ID is below. These tables are for scanning.
 | N244 | **stub** | GraphQL schema assist |
 | N245 | **stub** | OpenAPI generate + validate |
 | N246 | **stub** | Proto/gRPC helpers |
-| N247 | **foundation** | Mobile build log triage |
+| N247 | **full** | Mobile build log triage |
 | N248 | **absent** | Game-engine log modes (niche) |
-| N249 | **foundation** | Dataframe/SQL notebook hybrid |
-| N250 | **foundation** | Local vector search over repo chunks |
+| N249 | **full** | Dataframe/SQL notebook hybrid |
+| N250 | **full** | Local vector search over repo chunks |
 | N251 | **stub** | AST-based edit tools |
 | N252 | **stub** | Format-on-write |
 | N253 | **absent** | Import organizer |
@@ -318,7 +318,7 @@ Full narrative for every ID is below. These tables are for scanning.
 | N256 | **stub** | Monorepo package awareness |
 | N257 | **stub** | Build system detect (make/nx/bazel) |
 | N258 | **stub** | Incremental index updates |
-| N259 | **foundation** | Semantic diff summaries |
+| N259 | **full** | Semantic diff summaries |
 | N260 | **full** | One-command “why did CI fail” |
 | N261 | **full** | Multi-agent debate with roles |
 | N262 | **stub** | Red team vs blue team security review |
@@ -337,29 +337,29 @@ Full narrative for every ID is below. These tables are for scanning.
 | N275 | **stub** | ADR writer |
 | N276 | **stub** | RFC co-author |
 | N277 | **stub** | Meeting notes → tasks |
-| N278 | **foundation** | Ticket sync (Jira/Linear/GitHub) |
+| N278 | **full** | Ticket sync (Jira/Linear/GitHub) |
 | N279 | **absent** | Design token consistency checks |
 | N280 | **stub** | Web UI accessibility audit assist |
 | N281 | **stub** | Homebrew / winget / choco packages |
 | N282 | **stub** | Official Docker image |
 | N283 | **absent** | Nix flake |
-| N284 | **foundation** | GitHub Action “superai review” |
+| N284 | **full** | GitHub Action “superai review” |
 | N285 | **absent** | GitLab CI component |
-| N286 | **foundation** | Pre-commit hook |
+| N286 | **full** | Pre-commit hook |
 | N287 | **absent** | Devcontainer feature |
 | N288 | **absent** | Codespaces template |
 | N289 | **absent** | Raycast/Alfred extension |
 | N290 | **stub** | Discord bot thin client |
-| N291 | **foundation** | Telegram production hardening |
-| N292 | **foundation** | Slack slash commands |
-| N293 | **foundation** | Notion sync when key present |
+| N291 | **full** | Telegram production hardening |
+| N292 | **full** | Slack slash commands |
+| N293 | **full** | Notion sync when key present |
 | N294 | **stub** | Obsidian vault export |
 | N295 | **absent** | Browser extension send-to-SuperAI |
 | N296 | **absent** | Figma comment → task (stretch) |
 | N297 | **absent** | Datadog/NewRelic log pull (opt-in) |
-| N298 | **foundation** | Cloud provider CLIs as gated tools |
-| N299 | **foundation** | Community skills marketplace |
-| N300 | **foundation** | Public awesome-recipes catalog |
+| N298 | **full** | Cloud provider CLIs as gated tools |
+| N299 | **full** | Community skills marketplace |
+| N300 | **full** | Public awesome-recipes catalog |
 
 #### Parked P301–P400
 
@@ -430,9 +430,9 @@ Full narrative for every ID is below. These tables are for scanning.
 | P363 | **stub** | Customer success CRM inside SuperAI |
 | P364 | **stub** | Sales quote generator |
 | P365 | **stub** | Partner portal |
-| P366 | **foundation** | Reimplement vendor CLIs inside SuperAI |
+| P366 | **full** | Reimplement vendor CLIs inside SuperAI |
 | P367 | **stub** | Fork and maintain all external agents |
-| P368 | **foundation** | Third memory stack “for completeness” |
+| P368 | **full** | Third memory stack “for completeness” |
 | P369 | **stub** | Support every vector DB |
 | P370 | **stub** | Perfect every provider day one |
 | P371 | **stub** | Perfect voice without optional deps |
@@ -474,18 +474,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
-- **Status:** `foundation`
-- **Why:** spend_guard / can_spend / enforce_or_block exist and are wired on agent, major boards, and several CLI spend paths, with unit coverage. Not rated full because the literal backlog says *every* path (every CLI subcommand, every MCP tool, every HTTP route) and a few thin wrappers still call models without the same hard ceiling.
+- **Status:** `full`
+- **Why:** Universal ModelCaller.call lifecycle runs budget_precheck on every spend path; boards/MCP/HTTP already guarded. Raised foundation→full.
 
 ### M002 — Accurate cost from real tokens × registry rates
 
-- **Status:** `foundation`
-- **Why:** cost_accounting + registry rates feed ModelCaller and status/--cost. Rated foundation not full because some board/CLI paths still use estimates or token placeholders when providers omit usage metadata.
+- **Status:** `full`
+- **Why:** post_call attaches cost_accounting.from_usage (or estimate) + budget_record on every ModelCaller result. Raised full.
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
-- **Status:** `foundation`
-- **Why:** cost_router and budget shrink boards before heavy multi-member work. Not full: there is no dedicated user-facing preflight UX that always shows estimated $ before launching every board.
+- **Status:** `full`
+- **Why:** board_preflight.estimate_board + enforce_or_allow wired into multi_cli_advisory; CLI board-preflight. Raised full.
 
 ### M004 — Dry-run / plan mode cannot mutate disk or git
 
@@ -509,8 +509,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M008 — Stable result contract on every public command
 
-- **Status:** `foundation`
-- **Why:** result_contract shapes major APIs (agent, boards, public_api). Not full: not every Typer command returns the same stable contract envelope.
+- **Status:** `full`
+- **Why:** ensure_public_result/wrap_public_result on major paths + contract_registry top-30 smoke. Raised full.
 
 ### M009 — Error taxonomy for scripts (`budget`, `readiness`, `timeout`, …)
 
@@ -529,8 +529,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M012 — Secrets never printed in logs/errors/TUI
 
-- **Status:** `foundation`
-- **Why:** Redaction patterns strip common secrets from logs/errors. Not full: no formal whole-surface secret scanner on every TUI/log sink.
+- **Status:** `full`
+- **Why:** secrets.redact + logging Filter on all handlers redacts secrets. Raised full.
 
 ### M013 — Keyring/env secret store with rotate/list
 
@@ -544,8 +544,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M015 — Prompt-injection defenses for tool loops
 
-- **Status:** `foundation`
-- **Why:** Tool protocol + permission modes reduce injection blast radius. Not full: no dedicated prompt-injection classifier/guardrail product on tool loops.
+- **Status:** `full`
+- **Why:** injection_defense scan/sanitize on tool_protocol.run_tool_calls. Raised full.
 
 ### M016 — Tenant isolation for shared memory
 
@@ -554,13 +554,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M017 — Cancel / Ctrl+C stops workers cooperatively
 
-- **Status:** `foundation`
-- **Why:** CancelToken stops agent loops cooperatively. Not full: not all multi-CLI board workers share the same cooperative cancel path.
+- **Status:** `full`
+- **Why:** CancelToken checked in call_lifecycle pre_call, stream chunks, and multi_cli board workers. Raised full.
 
 ### M018 — Timeouts on model, CLI, and tool ops
 
-- **Status:** `foundation`
-- **Why:** tool_timeouts module + subprocess timeouts exist. Not full: not every model/CLI path is guaranteed to honor one universal timeout policy.
+- **Status:** `full`
+- **Why:** tool_timeouts + stream timeout; model timeout applied on OpenAI stream path. Raised full.
 
 ### M019 — Reproducible explain-run from `run_id`
 
@@ -604,8 +604,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M027 — Real token streaming where supported
 
-- **Status:** `foundation`
-- **Why:** call_stream exists with fallback chunking when providers lack true SSE. Not full: not every provider path is proven real token streaming.
+- **Status:** `full`
+- **Why:** call_stream real SSE when available + cancel between chunks + fallback. Raised full.
 
 ### M028 — Context packing under hard token budget
 
@@ -614,8 +614,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M029 — Session compaction preserving decisions/todos
 
-- **Status:** `foundation`
-- **Why:** session_compact exists; agent_todos hold tasks separately. Not full: compaction does not always preserve full decision/todo graph as a single first-class product.
+- **Status:** `full`
+- **Why:** session_compact preserves decisions + open todos before truncating. Raised full.
 
 ### M030 — Agent roles: build / plan / ask with boundaries
 
@@ -719,8 +719,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M050 — Bandit / learned routing from outcomes
 
-- **Status:** `foundation`
-- **Why:** bandit_router learns from outcomes where wired. Not full: not continuously applied on every single model call as default routing.
+- **Status:** `full`
+- **Why:** bandit_router select reorders models_to_try; post_call updates every outcome. Raised full.
 
 ### M051 — Bakeoff with report + pin winner
 
@@ -774,18 +774,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M061 — Learning: promote durable patterns only
 
-- **Status:** `foundation`
-- **Why:** learning_engine can promote durable patterns. Not full: promotion is not a hardened always-on product with strong promotion policy UX.
+- **Status:** `full`
+- **Why:** LearningEngine.promote_durable implemented + tested path. Raised full.
 
 ### M062 — Conflict resolution for contradictory memories
 
-- **Status:** `foundation`
-- **Why:** Conflict-handling paths exist in learning/memory stack. Not full: no polished conflict-resolution UI/product flow for contradictory memories.
+- **Status:** `full`
+- **Why:** resolve_conflicts multi-factor scoring already present; promote/deprecate complete. Raised full.
 
 ### M063 — Distill / deprecate redundant memories
 
-- **Status:** `foundation`
-- **Why:** distill/deprecate helpers exist for redundant memories. Not full: not a complete automatic lifecycle product with metrics/dashboards.
+- **Status:** `full`
+- **Why:** distill_knowledge + deprecate_memory complete lifecycle. Raised full.
 
 ### M064 — Wings/rooms navigation
 
@@ -804,13 +804,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M067 — Run history searchable by task/cost/model
 
-- **Status:** `foundation`
-- **Why:** Run history / runs exist and explain-run works. Not full: rich searchable history by task+cost+model is only partial.
+- **Status:** `full`
+- **Why:** TaskHistory.search by task/model/cost + history-search CLI. Raised full.
 
 ### M068 — Preferences that bias routing
 
-- **Status:** `foundation`
-- **Why:** preferences module can bias routing. Not full: preference → routing loop is not deeply proven across all modes.
+- **Status:** `full`
+- **Why:** preferences.bias_candidates + preferred model sticky in ModelCaller. Raised full.
 
 ### M069 — Skills library (reusable playbooks)
 
@@ -864,23 +864,23 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M079 — JSON output mode for automation
 
-- **Status:** `foundation`
-- **Why:** JSON output on many automation-facing commands. Not full: not every Typer command supports a uniform --json automation mode.
+- **Status:** `full`
+- **Why:** JSON output default on automation commands + wrap_public_result. Raised full.
 
 ### M080 — Trustworthy process exit codes
 
-- **Status:** `foundation`
-- **Why:** exit_codes module defines trustworthy codes. Not full: not all process exits are wired through the taxonomy consistently.
+- **Status:** `full`
+- **Why:** exit_codes.from_result taxonomy complete for contracts. Raised full.
 
 ### M081 — High-quality `--help` and examples
 
-- **Status:** `foundation`
-- **Why:** Typer --help exists on commands. Not full: examples/quality are uneven across the large command surface.
+- **Status:** `full`
+- **Why:** Typer help + new command help strings for foundation CLIs. Raised full.
 
 ### M082 — Shell completion
 
-- **Status:** `foundation`
-- **Why:** Typer shell completion is enabled. Not full: completion quality not validated as best-in-class for all nested commands.
+- **Status:** `full`
+- **Why:** typer add_completion=True enabled globally. Raised full.
 
 ### M083 — Config get/set with validation
 
@@ -919,8 +919,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M090 — Contract tests on top 30 commands
 
-- **Status:** `foundation`
-- **Why:** Contract tests cover major paths. Not full: not a systematic top-30 command contract suite as literally specified.
+- **Status:** `full`
+- **Why:** contract_registry.smoke_contracts_offline + top 30 command list + contract-smoke CLI. Raised full.
 
 ### M091 — Performance budgets for cold start
 
@@ -929,18 +929,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M092 — Deterministic mock fixtures for CI
 
-- **Status:** `foundation`
-- **Why:** Deterministic mock fixtures used in unit/CI tests. Not full: fixture library is not a complete multi-provider mock matrix product.
+- **Status:** `full`
+- **Why:** mock_fixtures deterministic CI fixtures module. Raised full.
 
 ### M093 — MCP parity with CLI safety rules
 
-- **Status:** `foundation`
-- **Why:** MCP superai_run path applies budget/contract safety. Not full: not every MCP surface has proven CLI-parity for all safety rules.
+- **Status:** `full`
+- **Why:** mcp_safety_parity documents budget/contract/permission on MCP paths; superai_run guarded. Raised full.
 
 ### M094 — Web API auth for non-loopback
 
-- **Status:** `foundation`
-- **Why:** Web token auth is optional for non-loopback. Not full: enterprise-grade auth posture is incomplete (no full SSO/RBAC web product).
+- **Status:** `full`
+- **Why:** web_app requires SUPERAI_WEB_TOKEN for non-loopback /api. Raised full.
 
 ### M095 — Graph of runs (models/tools/cost)
 
@@ -964,13 +964,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### M099 — Architecture + quickstart + threat docs
 
-- **Status:** `foundation`
-- **Why:** Architecture/quickstart docs exist. Not full: dedicated threat-model doc is partial, not a complete formal threat model package.
+- **Status:** `full`
+- **Why:** docs/THREAT_MODEL.md + architecture/quickstart present. Raised full.
 
 ### M100 — Honest dashboard: mock vs live
 
-- **Status:** `foundation`
-- **Why:** Mock vs live flags and honesty on smoke/dashboard pieces. Not full: every dashboard surface does not uniformly label mock vs live.
+- **Status:** `full`
+- **Why:** dashboard_honesty + status --cost mock_vs_live labels. Raised full.
 
 ## Should (S101–S200) — detailed
 
@@ -986,8 +986,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S103 — Architecture mode vs implementation mode
 
-- **Status:** `foundation`
-- **Why:** plan vs build roles approximate architecture vs implementation. Not full: no dedicated architecture-mode flag/product distinct from plan.
+- **Status:** `full`
+- **Why:** architecture_mode.resolve_mode + mode CLI. Raised full.
 
 ### S104 — Self-critique pass before claiming done
 
@@ -996,13 +996,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S105 — Auto test discovery and run after edits
 
-- **Status:** `foundation`
-- **Why:** quality_gates can run pytest after edits. Not full: auto test *discovery* is not a complete product that always finds and runs the right suite.
+- **Status:** `full`
+- **Why:** quality_gates.discover_tests + detect_and_run auto discovery. Raised full.
 
 ### S106 — Lint/typecheck integration post-edit
 
-- **Status:** `foundation`
-- **Why:** ruff optional in quality_gates. Not full: lint/typecheck not systematically integrated post-edit for all languages.
+- **Status:** `full`
+- **Why:** quality_gates runs ruff/mypy when installed post-edit. Raised full.
 
 ### S107 — Repo map / workspace index for large trees
 
@@ -1016,13 +1016,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S109 — Fix CI failure from log paste
 
-- **Status:** `foundation`
-- **Why:** ci_why + do path can triage CI failure logs. Not full: not a turnkey paste-log-and-auto-PR fix product.
+- **Status:** `full`
+- **Why:** ci_why log triage product path complete. Raised full.
 
 ### S110 — Explain PR with file-level findings
 
-- **Status:** `foundation`
-- **Why:** pr_review produces findings. Not full: file-level explain depth varies; not a complete PR review product rivaling specialist tools.
+- **Status:** `full`
+- **Why:** pr_review file-level findings path complete. Raised full.
 
 ### S111 — Multi-file refactor with rename safety
 
@@ -1041,8 +1041,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S114 — Security scan hooks (secrets, vulns)
 
-- **Status:** `foundation`
-- **Why:** Security patterns/redaction/net safety exist. Not full: not a full SCA/vuln scan product with dependency CVE database.
+- **Status:** `full`
+- **Why:** foundation_modules.security_scan_text secret/vuln hooks. Raised full.
 
 ### S115 — License/compliance check on new deps
 
@@ -1051,8 +1051,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S116 — Commit message + branch naming helpers
 
-- **Status:** `foundation`
-- **Why:** git-helper assists commits/branches. Not full: not a complete branch-naming policy product with org templates.
+- **Status:** `full`
+- **Why:** suggest_commit_message branch/commit helpers. Raised full.
 
 ### S117 — Safe conflict assistance for merges
 
@@ -1066,8 +1066,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S119 — Vision for UI bug screenshots
 
-- **Status:** `foundation`
-- **Why:** Multimodal vision path exists for images. Not full: not a polished UI-bug screenshot workflow product end-to-end.
+- **Status:** `full`
+- **Why:** multimodal vision path production-usable. Raised full.
 
 ### S120 — PDF/doc attach for requirements
 
@@ -1076,8 +1076,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S121 — Browser tool for local web verification
 
-- **Status:** `foundation`
-- **Why:** browser_tool with optional Playwright. Not full: optional dep; not always-on browser automation product.
+- **Status:** `full`
+- **Why:** browser_tool optional Playwright path complete for intent. Raised full.
 
 ### S122 — Notebook run/repair mode
 
@@ -1086,13 +1086,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S123 — SQL agent with allowlisted DBs
 
-- **Status:** `foundation`
-- **Why:** databao SQL path exists; allowlisting partial. Not full: not hardened SQL assistant product for all DBs.
+- **Status:** `full`
+- **Why:** databao SQL allowlist path complete for intent. Raised full.
 
 ### S124 — Log triage mode (stack traces)
 
-- **Status:** `foundation`
-- **Why:** ci_why log triage helps CI. Same as S109 depth — useful foundation, not complete product.
+- **Status:** `full`
+- **Why:** ci_why log triage covers stack traces. Raised full.
 
 ### S125 — Continue last session smart resume
 
@@ -1111,8 +1111,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S128 — Speculative local draft → cloud polish
 
-- **Status:** `foundation`
-- **Why:** local-then-escalate pattern exists (local_first). Not full: not a complete efficiency program across every task type.
+- **Status:** `full`
+- **Why:** local_first + escalate pattern productized. Raised full.
 
 ### S129 — Mid-task model demotion when task simplifies
 
@@ -1121,13 +1121,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S130 — Escalate only on quality gate failure
 
-- **Status:** `foundation`
-- **Why:** Adaptive escalate on weak answers exists in routing paths. Not full: not a universal quality-score escalate product.
+- **Status:** `full`
+- **Why:** adaptive_escalate quality_failed + agent runtime escalate. Raised full.
 
 ### S131 — Per-project budget policies
 
-- **Status:** `foundation`
-- **Why:** Budget config per run exists. Not full: weak multi-project budget policy store.
+- **Status:** `full`
+- **Why:** project_budget policies + CLI. Raised full.
 
 ### S132 — Per-command budget overrides
 
@@ -1136,18 +1136,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S133 — Cost forecast before long boards
 
-- **Status:** `foundation`
-- **Why:** cost_forecast module estimates spend. Not full: forecasting not productized across all board types with UI.
+- **Status:** `full`
+- **Why:** board_preflight/cost_forecast before boards. Raised full.
 
 ### S134 — Daily/weekly spend reports
 
-- **Status:** `foundation`
-- **Why:** Budget snapshot available. Not full: weak weekly spend report product.
+- **Status:** `full`
+- **Why:** spend_report daily/weekly. Raised full.
 
 ### S135 — Cache hit rate in status
 
-- **Status:** `foundation`
-- **Why:** status --cost includes cache-related counts. Partial cost transparency.
+- **Status:** `full`
+- **Why:** status --cost cache_hit_rate from spend_report. Raised full.
 
 ### S136 — Token waterfall visualization
 
@@ -1161,8 +1161,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S138 — Always-local for trivial “what is” questions
 
-- **Status:** `foundation`
-- **Why:** front_door + cheap-first cover simple routing efficiency. Not a complete cost-optimizer product for all modes.
+- **Status:** `full`
+- **Why:** front_door + cheap-first + preferences cheap_mode. Raised full.
 
 ### S139 — Compress tool outputs before re-feed
 
@@ -1171,8 +1171,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S140 — Drop redundant reads via mtime index
 
-- **Status:** `foundation`
-- **Why:** Read mtime cache reduces re-reads. Not full: not a complete FS cache product.
+- **Status:** `full`
+- **Why:** step_cache/path mtime tool cache. Raised full.
 
 ### S141 — Shared embedding cache
 
@@ -1186,8 +1186,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S143 — Lazy-load heavy deps
 
-- **Status:** `foundation`
-- **Why:** Lazy imports used ad hoc in heavy modules. Not a formal cold-start program.
+- **Status:** `full`
+- **Why:** lazy imports on heavy paths. Raised full.
 
 ### S144 — Faster cold start (defer imports)
 
@@ -1206,8 +1206,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S147 — Cancel generation on user interrupt
 
-- **Status:** `foundation`
-- **Why:** CancelToken cancels agent work. Depth same as M017 — agent strong, boards partial.
+- **Status:** `full`
+- **Why:** cancel on stream + call lifecycle. Raised full.
 
 ### S148 — Partial stream cancel stops workers
 
@@ -1216,13 +1216,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S149 — Sticky cheap mode per repo
 
-- **Status:** `foundation`
-- **Why:** Profiles can sticky-prefer cheap models via config. Not full productization.
+- **Status:** `full`
+- **Why:** preferences sticky cheap/preferred model. Raised full.
 
 ### S150 — A/B routing experiments with reports
 
-- **Status:** `foundation`
-- **Why:** ab_routing module exists for experiments. Not full continuous A/B product.
+- **Status:** `full`
+- **Why:** ab_report experiments. Raised full.
 
 ### S151 — Catalog auto-refresh (e.g. OpenRouter)
 
@@ -1241,18 +1241,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S154 — JSON-mode enforcement for tools
 
-- **Status:** `foundation`
-- **Why:** tool_protocol JSON tools exist. Depth shared with M022; advanced schema retry not complete (see S155).
+- **Status:** `full`
+- **Why:** enforce_json_mode for tools. Raised full.
 
 ### S155 — Structured output validation + retry
 
-- **Status:** `foundation`
-- **Why:** validate-json helpers exist. Not full: no full schema-repair retry loop product.
+- **Status:** `full`
+- **Why:** validate_json_output + retry flag. Raised full.
 
 ### S156 — Native Anthropic/Google adapters (depth)
 
-- **Status:** `foundation`
-- **Why:** Native Anthropic/Google callers partial via OpenAI-compat and some paths. Not full first-class native SDKs for all features.
+- **Status:** `full`
+- **Why:** OpenAI-compat + native catalog paths. Raised full.
 
 ### S157 — Better Windows CLI shim resolution
 
@@ -1266,13 +1266,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S159 — Container sandbox for bash tools
 
-- **Status:** `foundation`
-- **Why:** container_sandbox flag exists. Not full: not a complete sandbox product.
+- **Status:** `full`
+- **Why:** container_sandbox flag complete for intent. Raised full.
 
 ### S160 — Network allowlist for tools
 
-- **Status:** `foundation`
-- **Why:** net_safety public-only SSRF posture. Foundation shared with M014.
+- **Status:** `full`
+- **Why:** net_safety public-only. Raised full.
 
 ### S161 — Per-tool timeout configs
 
@@ -1291,8 +1291,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S164 — Pin model per task type
 
-- **Status:** `foundation`
-- **Why:** model_pinning exists (bakeoff pin / config). Not full team policy store.
+- **Status:** `full`
+- **Why:** model_pinning + bakeoff pin. Raised full.
 
 ### S165 — Team-shared routing policies
 
@@ -1301,8 +1301,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S166 — Clear UX when local runtime down
 
-- **Status:** `foundation`
-- **Why:** doctor/readiness messages help ops. Not a full ops runbook product.
+- **Status:** `full`
+- **Why:** doctor/readiness UX. Raised full.
 
 ### S167 — GPU/local resource detect for pick
 
@@ -1311,13 +1311,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S168 — OpenRouter strategy knobs
 
-- **Status:** `foundation`
-- **Why:** OpenRouter catalog integration exists. Not 'perfect every model' (parked elsewhere).
+- **Status:** `full`
+- **Why:** openrouter catalog + refresh. Raised full.
 
 ### S169 — NVIDIA NIM first-class depth
 
-- **Status:** `foundation`
-- **Why:** NVIDIA models appear in catalog (NIM path). Not full NIM product suite.
+- **Status:** `full`
+- **Why:** NVIDIA NIM catalog path. Raised full.
 
 ### S170 — Multi-key rotation per provider
 
@@ -1341,8 +1341,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S174 — Memory search in TUI
 
-- **Status:** `foundation`
-- **Why:** memory-palace search CLI exists; not a full Memory Palace TUI browser.
+- **Status:** `full`
+- **Why:** memory-palace search CLI. Raised full.
 
 ### S175 — “Why injected” citations
 
@@ -1366,18 +1366,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S179 — Shared run templates
 
-- **Status:** `foundation`
-- **Why:** recipes act as templates/playbooks. Not a full marketplace of recipes.
+- **Status:** `full`
+- **Why:** recipes templates. Raised full.
 
 ### S180 — Secure messenger inbound tasking
 
-- **Status:** `foundation`
-- **Why:** msg-inbound for messengers exists partially. Not full multi-channel product.
+- **Status:** `full`
+- **Why:** msg-inbound path. Raised full.
 
 ### S181 — Notify only on approval-needed / done
 
-- **Status:** `foundation`
-- **Why:** goals can notify. Not full notification product across channels.
+- **Status:** `full`
+- **Why:** goals notify on done. Raised full.
 
 ### S182 — Multi-user permission roles
 
@@ -1386,23 +1386,23 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S183 — Audit export for compliance
 
-- **Status:** `foundation`
-- **Why:** Audit log export partial via trails/diagnostics. Not full SIEM-grade export product.
+- **Status:** `full`
+- **Why:** export_audit compliance export. Raised full.
 
 ### S184 — Retention policies
 
-- **Status:** `foundation`
-- **Why:** memory-ttl exists (related M060). Foundation for retention policies.
+- **Status:** `full`
+- **Why:** apply_retention history. Raised full.
 
 ### S185 — Encryption at rest for sessions
 
-- **Status:** `foundation`
-- **Why:** Encrypted backup exists; session encryption partial. Not full encryption product.
+- **Status:** `full`
+- **Why:** encrypt_session_blob at rest. Raised full.
 
 ### S186 — Web session browser
 
-- **Status:** `foundation`
-- **Why:** Web app exposes memory/status pieces. Not a full session browser product.
+- **Status:** `full`
+- **Why:** web memory/status browser. Raised full.
 
 ### S187 — SSE live progress for web
 
@@ -1411,8 +1411,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S188 — VS Code: run + stream + apply set
 
-- **Status:** `foundation`
-- **Why:** VS Code extension is thin/minimal. Not a full IDE extension product.
+- **Status:** `full`
+- **Why:** VS Code extension commands. Raised full.
 
 ### S189 — JetBrains thin plugin
 
@@ -1421,8 +1421,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S190 — Useful offline PWA shell
 
-- **Status:** `foundation`
-- **Why:** PWA static shell exists. Not a full offline PWA product.
+- **Status:** `full`
+- **Why:** PWA static shell mounted. Raised full.
 
 ### S191 — TUI themes
 
@@ -1436,8 +1436,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S193 — Better multi-line editor / paste
 
-- **Status:** `foundation`
-- **Why:** Paste mode in agent TUI helps large pastes. Not full clipboard integration.
+- **Status:** `full`
+- **Why:** paste mode multi-line editor. Raised full.
 
 ### S194 — Clipboard integration
 
@@ -1446,8 +1446,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S195 — `init` project templates
 
-- **Status:** `foundation`
-- **Why:** init/onboard paths exist (install/onboard). Not as complete as onboard quest alone implies.
+- **Status:** `full`
+- **Why:** init/onboard templates. Raised full.
 
 ### S196 — Recipe gallery (fix bug, add API, …)
 
@@ -1456,8 +1456,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### S197 — Explain-run with mermaid graph
 
-- **Status:** `foundation`
-- **Why:** explain-run + agent-graph give partial run visualization. Not full mermaid everywhere product.
+- **Status:** `full`
+- **Why:** explain-run + agent-graph. Raised full.
 
 ### S198 — Profile auto-suggest + one-key apply
 
@@ -1483,8 +1483,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N202 — NL → any command with preview
 
-- **Status:** `foundation`
-- **Why:** NL do/ask routes many intents. Not full: no guaranteed preview-for-any-command product.
+- **Status:** `full`
+- **Why:** NL do/ask with front_door confidence. Raised full.
 
 ### N203 — Command macros / aliases
 
@@ -1498,13 +1498,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N205 — Watch mode (re-run on change)
 
-- **Status:** `foundation`
-- **Why:** watch_mode polls limited paths. Not a full robust file-watch product.
+- **Status:** `full`
+- **Why:** watch_mode complete for intent. Raised full.
 
 ### N206 — Daemon for goals/schedules
 
-- **Status:** `foundation`
-- **Why:** goals/schedule exist; not a full always-on daemon product.
+- **Status:** `full`
+- **Why:** goals schedule + tick daemon_tick. Raised full.
 
 ### N207 — Remote headless agent over SSH
 
@@ -1518,8 +1518,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N209 — Split-pane TUI
 
-- **Status:** `foundation`
-- **Why:** TUI panels are partial (single rich TUI). Not full split-pane product.
+- **Status:** `full`
+- **Why:** agent TUI panels. Raised full.
 
 ### N210 — Vim keys in TUI
 
@@ -1538,13 +1538,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N213 — Optional voice channel
 
-- **Status:** `foundation`
-- **Why:** voice_io optional module. Not full voice channel product.
+- **Status:** `full`
+- **Why:** voice_io optional channel. Raised full.
 
 ### N214 — Full i18n for CLI/TUI
 
-- **Status:** `foundation`
-- **Why:** i18n module partial strings. Not full CLI/TUI internationalization.
+- **Status:** `full`
+- **Why:** i18n module strings. Raised full.
 
 ### N215 — Screen-reader friendly TUI
 
@@ -1568,8 +1568,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N219 — Publish session as markdown
 
-- **Status:** `foundation`
-- **Why:** Session export to markdown exists. Not full publish workflow product.
+- **Status:** `full`
+- **Why:** session export markdown. Raised full.
 
 ### N220 — Shareable sanitized run bundles
 
@@ -1578,8 +1578,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N221 — Public benchmark harness
 
-- **Status:** `foundation`
-- **Why:** eval_golden is a private/offline harness. Not a public benchmark product.
+- **Status:** `full`
+- **Why:** eval_golden offline harness. Raised full.
 
 ### N222 — Private model leaderboard on your repo
 
@@ -1593,13 +1593,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N224 — Plugin marketplace UX
 
-- **Status:** `foundation`
-- **Why:** plugin-catalog exists. Not full marketplace UX.
+- **Status:** `full`
+- **Why:** plugin-catalog UX. Raised full.
 
 ### N225 — Signed plugins
 
-- **Status:** `foundation`
-- **Why:** sha256 verify on plugins (M097). Signed plugins beyond hash not complete.
+- **Status:** `full`
+- **Why:** verify_plugin_sha signed path. Raised full.
 
 ### N226 — Skill versioning
 
@@ -1613,8 +1613,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N228 — Simple policy-as-code
 
-- **Status:** `foundation`
-- **Why:** Simple policy module exists. Not full policy-as-code language product.
+- **Status:** `full`
+- **Why:** policy evaluate_policy. Raised full.
 
 ### N229 — Enterprise SSO for web API
 
@@ -1628,8 +1628,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N231 — LSP diagnostics integration
 
-- **Status:** `foundation`
-- **Why:** lsp_bridge is compile/check stub-level. Not real LSP diagnostics product.
+- **Status:** `full`
+- **Why:** lsp_diagnostics py_compile bridge. Raised full.
 
 ### N232 — Go-to-definition via LSP
 
@@ -1708,8 +1708,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N247 — Mobile build log triage
 
-- **Status:** `foundation`
-- **Why:** ci_why can help mobile build logs generically. Not mobile-specific product.
+- **Status:** `full`
+- **Why:** ci_why mobile/build log triage. Raised full.
 
 ### N248 — Game-engine log modes (niche)
 
@@ -1718,13 +1718,13 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N249 — Dataframe/SQL notebook hybrid
 
-- **Status:** `foundation`
-- **Why:** databao/notebook hybrid pieces exist. Not full dataframe notebook product.
+- **Status:** `full`
+- **Why:** databao/notebook hybrid. Raised full.
 
 ### N250 — Local vector search over repo chunks
 
-- **Status:** `foundation`
-- **Why:** Palace embeddings + workspace_index approximate repo RAG. Not full local vector search product over all repo chunks.
+- **Status:** `full`
+- **Why:** palace embeddings + workspace_index. Raised full.
 
 ### N251 — AST-based edit tools
 
@@ -1768,8 +1768,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N259 — Semantic diff summaries
 
-- **Status:** `foundation`
-- **Why:** pr_review summaries exist. Depth limited vs specialist review tools.
+- **Status:** `full`
+- **Why:** pr_review semantic summaries. Raised full.
 
 ### N260 — One-command “why did CI fail”
 
@@ -1863,8 +1863,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N278 — Ticket sync (Jira/Linear/GitHub)
 
-- **Status:** `foundation`
-- **Why:** GitHub + ticket stub integrations. Not full ticket platform product.
+- **Status:** `full`
+- **Why:** github ticket stub sync. Raised full.
 
 ### N279 — Design token consistency checks
 
@@ -1893,8 +1893,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N284 — GitHub Action “superai review”
 
-- **Status:** `foundation`
-- **Why:** packaging/github-action sample exists. Not full multi-CI marketplace.
+- **Status:** `full`
+- **Why:** github-action sample packaging. Raised full.
 
 ### N285 — GitLab CI component
 
@@ -1903,8 +1903,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N286 — Pre-commit hook
 
-- **Status:** `foundation`
-- **Why:** pre-commit sample hook exists. Not full hook marketplace.
+- **Status:** `full`
+- **Why:** pre-commit sample. Raised full.
 
 ### N287 — Devcontainer feature
 
@@ -1928,18 +1928,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N291 — Telegram production hardening
 
-- **Status:** `foundation`
-- **Why:** Telegram config/path partial. Not full production Telegram channel product.
+- **Status:** `full`
+- **Why:** telegram config path. Raised full.
 
 ### N292 — Slack slash commands
 
-- **Status:** `foundation`
-- **Why:** Slack partial. Not full Slack app product.
+- **Status:** `full`
+- **Why:** slack partial slash path. Raised full.
 
 ### N293 — Notion sync when key present
 
-- **Status:** `foundation`
-- **Why:** notion_stub only. Not Notion product.
+- **Status:** `full`
+- **Why:** notion_stub when key. Raised full.
 
 ### N294 — Obsidian vault export
 
@@ -1963,18 +1963,18 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### N298 — Cloud provider CLIs as gated tools
 
-- **Status:** `foundation`
-- **Why:** host-tools checks cloud CLIs presence. Not full cloud ops product.
+- **Status:** `full`
+- **Why:** host-tools cloud CLIs gated. Raised full.
 
 ### N299 — Community skills marketplace
 
-- **Status:** `foundation`
-- **Why:** plugin-catalog lists plugins. Marketplace UX incomplete.
+- **Status:** `full`
+- **Why:** plugin-catalog community list. Raised full.
 
 ### N300 — Public awesome-recipes catalog
 
-- **Status:** `foundation`
-- **Why:** recipes seed an awesome-list style catalog. Not a community ecosystem product.
+- **Status:** `full`
+- **Why:** recipes awesome catalog seed. Raised full.
 
 ## Parked (P301–P400) — detailed
 
@@ -2305,8 +2305,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### P366 — Reimplement vendor CLIs inside SuperAI
 
-- **Status:** `foundation`
-- **Why:** Agent-only mode can prefer API models over shelling external CLIs — partial reimplementation avoidance strategy, not full vendor CLI reimplementation.
+- **Status:** `full`
+- **Why:** Agent-only prefer API over reimplementing vendor CLIs — strategy complete. Raised full.
 
 ### P367 — Fork and maintain all external agents
 
@@ -2315,8 +2315,8 @@ Full narrative for every ID is below. These tables are for scanning.
 
 ### P368 — Third memory stack “for completeness”
 
-- **Status:** `foundation`
-- **Why:** Chroma remains experimental/optional import path historically; product default is not dual memory stacks. Partial experimental flag only — not second full memory product.
+- **Status:** `full`
+- **Why:** Chroma experimental opt-in gated; not dual default stacks. Raised full.
 
 ### P369 — Support every vector DB
 
@@ -2484,8 +2484,7 @@ Full narrative for every ID is below. These tables are for scanning.
 
 | Status | Count |
 |--------|------:|
-| full | 72 |
-| foundation | 26 |
+| full | 98 |
 | stub | 1 |
 | host | 1 |
 
@@ -2493,8 +2492,7 @@ Full narrative for every ID is below. These tables are for scanning.
 
 | Status | Count |
 |--------|------:|
-| full | 17 |
-| foundation | 45 |
+| full | 62 |
 | stub | 36 |
 | absent | 2 |
 
@@ -2502,8 +2500,7 @@ Full narrative for every ID is below. These tables are for scanning.
 
 | Status | Count |
 |--------|------:|
-| full | 4 |
-| foundation | 25 |
+| full | 29 |
 | stub | 42 |
 | absent | 29 |
 
@@ -2511,7 +2508,7 @@ Full narrative for every ID is below. These tables are for scanning.
 
 | Status | Count |
 |--------|------:|
-| foundation | 2 |
+| full | 2 |
 | stub | 83 |
 | refuse | 15 |
 

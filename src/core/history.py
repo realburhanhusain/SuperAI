@@ -64,3 +64,40 @@ class TaskHistory:
 
     def count(self) -> int:
         return len(list(self.history_dir.glob("*.json")))
+
+    def search(
+        self,
+        *,
+        task: Optional[str] = None,
+        model: Optional[str] = None,
+        min_cost: Optional[float] = None,
+        max_cost: Optional[float] = None,
+        success: Optional[bool] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Search run history by task text, model, cost, success (V6 M067)."""
+        q_task = (task or "").lower().strip()
+        q_model = (model or "").lower().strip()
+        out: List[Dict[str, Any]] = []
+        for rec in self.list(limit=max(limit * 5, 100)):
+            if q_task:
+                blob = " ".join(
+                    str(rec.get(k) or "")
+                    for k in ("task", "prompt", "description", "subject", "kind")
+                ).lower()
+                if q_task not in blob:
+                    continue
+            if q_model:
+                if q_model not in str(rec.get("model") or "").lower():
+                    continue
+            cost = float(rec.get("estimated_cost_usd") or rec.get("cost") or 0)
+            if min_cost is not None and cost < float(min_cost):
+                continue
+            if max_cost is not None and cost > float(max_cost):
+                continue
+            if success is not None and bool(rec.get("success")) != bool(success):
+                continue
+            out.append(rec)
+            if len(out) >= limit:
+                break
+        return out

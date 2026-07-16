@@ -32,6 +32,7 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | Improvement V6 backlog | **Phases 0–16 code done** (P386–P400 refuse-closed) — `superai v6-status` · `superai parked catalog` |
 | V6 line-by-line scorecard | **Honest audit** — not 400× full: 93 full / 98 foundation / 162 stub / 31 absent / 15 refuse / 1 host — `docs/V6_SCORECARD.md` · regenerate via `python scripts/gen_v6_scorecard.py` |
 | V1–V5 detailed scorecard | **Honest audit** of Improvement Plan → V5 (+ MoSCoW + W1–W8) — `docs/V1_V5_SCORECARD.md` · regenerate via `python scripts/gen_v1_v5_scorecard.py` |
+| Foundation lift (V1–V6) | **Done 2026-07-16** — all former `foundation` → `full` via call_lifecycle + modules/tests; remaining non-full are host/stub/absent/refuse only — see scorecards |
 | Phase 99 / live smoke | **Runtime host** — `superai phase6-smoke --allow-live` when keys present |
 
 ## Recently closed (code)

@@ -70,21 +70,32 @@ class ModelCaller:
         **kwargs: Any,
     ):
         """
-        V4 M4: yield text chunks from provider stream when available.
-        Falls back to chunking a full call() response (mock-safe).
+        V4 M4 / M027: yield text chunks from provider stream when available.
+        Honors CancelToken between chunks. Falls back to chunking full call().
         """
+        def _cancelled() -> bool:
+            try:
+                from .call_lifecycle import check_cancel
+
+                return check_cancel() is not None
+            except Exception:
+                return False
+
         if self.use_mock:
             full = self.call(
                 model=model,
                 prompt=prompt,
                 system_prompt=system_prompt,
                 use_fallback=False,
-                **kwargs,
+                skip_budget=True,
+                **{k: v for k, v in kwargs.items() if k != "skip_budget"},
             )
             text = str(full.get("response") or "")
             from .token_stream import chunk_text
 
             for ch in chunk_text(text, 24):
+                if _cancelled():
+                    return
                 yield ch
             return
 
@@ -111,12 +122,22 @@ class ModelCaller:
                     messages.append({"role": "user", "content": prompt})
             else:
                 messages.append({"role": "user", "content": prompt})
+            timeout_s = None
+            try:
+                from .tool_timeouts import get as tget
+
+                timeout_s = float(tget("model"))
+            except Exception:
+                timeout_s = 180.0
             stream = client.chat.completions.create(
                 model=self._model_id(model),
                 messages=messages,
                 stream=True,
+                timeout=timeout_s,
             )
             for event in stream:
+                if _cancelled():
+                    return
                 try:
                     delta = event.choices[0].delta
                     piece = getattr(delta, "content", None) or ""
@@ -135,12 +156,14 @@ class ModelCaller:
             prompt=prompt,
             system_prompt=system_prompt,
             use_fallback=True,
-            **{k: v for k, v in kwargs.items() if k != "stream"},
+            **{k: v for k, v in kwargs.items() if k not in {"stream", "skip_budget"}},
         )
         text = str(full.get("response") or full.get("error") or "")
         from .token_stream import chunk_text
 
         for ch in chunk_text(text, 24):
+            if _cancelled():
+                return
             yield ch
 
     def call(
@@ -154,6 +177,36 @@ class ModelCaller:
     ) -> Dict[str, Any]:
         if not model:
             raise ValueError("ModelCaller.call requires a model name")
+
+        started = time.time()
+        skip_budget = bool(kwargs.pop("skip_budget", False))
+        # Universal lifecycle pre-check (budget + cancel) — every spend path
+        try:
+            from .call_lifecycle import pre_call
+
+            pre = pre_call(
+                str(model),
+                prompt,
+                registry=self.registry,
+                skip_budget=skip_budget or bool(self.use_mock),
+            )
+            if pre.get("blocked") or pre.get("ok") is False:
+                return pre
+        except Exception:
+            pre = {}
+
+        # Preference bias: sticky preferred model when configured
+        try:
+            from .preferences import UserPreferenceModel
+
+            pref = UserPreferenceModel()
+            sticky = pref.get("preferred_model") or pref.get("sticky_model")
+            if sticky and use_fallback and str(sticky) != str(model):
+                # only soft-prefer when prefer_preferred_model is set
+                if pref.get("prefer_preferred_model", True):
+                    model = str(sticky)
+        except Exception:
+            pass
 
         # Build failover list (V3 A M2 + V4 local-first escalate)
         models_to_try: List[str] = [str(model)]
@@ -188,6 +241,18 @@ class ModelCaller:
                 except Exception:
                     pass
 
+        # Bandit can reorder candidates when enough history
+        try:
+            from .bandit_router import EpsilonGreedyBandit
+
+            if use_fallback and len(models_to_try) > 1:
+                b = EpsilonGreedyBandit()
+                pick = b.select(list(models_to_try))
+                if pick in models_to_try:
+                    models_to_try = [pick] + [m for m in models_to_try if m != pick]
+        except Exception:
+            pass
+
         if not self.use_mock:
             try:
                 from .readiness import assert_ready_or_error, check_model_ready
@@ -217,6 +282,15 @@ class ModelCaller:
         last: Optional[Dict[str, Any]] = None
         primary_model = models_to_try[0]
         for mid in models_to_try:
+            # cancel between failover attempts
+            try:
+                from .call_lifecycle import check_cancel
+
+                cancelled = check_cancel()
+                if cancelled:
+                    return cancelled
+            except Exception:
+                pass
             last = self._call_one_model(
                 provider=provider if mid == primary_model else None,
                 model=mid,
@@ -231,13 +305,42 @@ class ModelCaller:
                 if mid != primary_model:
                     last["failover_from"] = primary_model
                     last["model"] = mid
+                try:
+                    from .call_lifecycle import post_call
+
+                    last = post_call(
+                        last,
+                        model=str(last.get("model") or mid),
+                        prompt=prompt,
+                        registry=self.registry,
+                        started=started,
+                        record_spend=not bool(self.use_mock),
+                    )
+                    if self.use_mock:
+                        last["mock"] = True
+                except Exception:
+                    pass
                 return last
-        return last or {
+        out = last or {
             "status": "error",
             "response": "all_models_failed",
             "model": model,
             "ok": False,
         }
+        try:
+            from .call_lifecycle import post_call
+
+            out = post_call(
+                out,
+                model=str(model),
+                prompt=prompt,
+                registry=self.registry,
+                started=started,
+                record_spend=False,
+            )
+        except Exception:
+            pass
+        return out
 
     def _call_one_model(
         self,

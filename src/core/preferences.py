@@ -113,6 +113,34 @@ class UserPreferenceModel:
     def preferred_strategy(self) -> Optional[str]:
         return self.get("preferred_strategy") or self.get("load_balancing_strategy")
 
+    def bias_candidates(self, candidates: List[str]) -> List[str]:
+        """Reorder model candidates using preferences (V6 M068) — sticky + success."""
+        if not candidates:
+            return []
+        cands = [str(c) for c in candidates]
+        preferred = self.preferred_model_for()
+        cheap = bool(self.get("cheap_mode") or self.get("prefer_cheap"))
+        out: List[str] = []
+        if preferred and preferred in cands:
+            out.append(preferred)
+        if cheap:
+            cheap_names = [
+                c
+                for c in cands
+                if any(x in c.lower() for x in ("mini", "flash", "haiku", "local", "ollama", "cheap"))
+            ]
+            for c in cheap_names:
+                if c not in out:
+                    out.append(c)
+        for c in cands:
+            if c not in out:
+                out.append(c)
+        return out
+
+    def set_sticky_cheap(self, enabled: bool = True) -> None:
+        self.set("cheap_mode", bool(enabled))
+        self.set("prefer_cheap", bool(enabled))
+
     def profile_summary(self) -> Dict[str, Any]:
         sig = self.data.get("signals") or {}
         models = sig.get("models") or {}

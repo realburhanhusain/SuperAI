@@ -35,6 +35,32 @@ def get_logger(name: str = "superai", level: Optional[str] = None) -> logging.Lo
     logger.setLevel(log_level)
     logger.propagate = False
 
+    class _SecretRedactFilter(logging.Filter):
+        """Never print secrets in logs/errors/TUI (V6 M012)."""
+
+        def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+            try:
+                from .secrets import redact_text
+
+                if isinstance(record.msg, str):
+                    record.msg = redact_text(record.msg)
+                if record.args:
+                    if isinstance(record.args, dict):
+                        record.args = {
+                            k: redact_text(str(v)) if isinstance(v, str) else v
+                            for k, v in record.args.items()
+                        }
+                    elif isinstance(record.args, tuple):
+                        record.args = tuple(
+                            redact_text(a) if isinstance(a, str) else a
+                            for a in record.args
+                        )
+            except Exception:
+                pass
+            return True
+
+    redact_filter = _SecretRedactFilter()
+
     console_handler = RichHandler(
         rich_tracebacks=True,
         show_time=True,
@@ -42,6 +68,7 @@ def get_logger(name: str = "superai", level: Optional[str] = None) -> logging.Lo
         console=Console(stderr=True),
     )
     console_handler.setLevel(log_level)
+    console_handler.addFilter(redact_filter)
     logger.addHandler(console_handler)
 
     log_dir = Path.home() / ".superai" / "logs"
@@ -60,6 +87,7 @@ def get_logger(name: str = "superai", level: Optional[str] = None) -> logging.Lo
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
     )
+    file_handler.addFilter(redact_filter)
     logger.addHandler(file_handler)
     # Also keep a dated snapshot log for the session day
     daily = log_dir / f"superai_{datetime.now().strftime('%Y%m%d')}.log"
@@ -68,6 +96,7 @@ def get_logger(name: str = "superai", level: Optional[str] = None) -> logging.Lo
     daily_handler.setFormatter(
         logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
     )
+    daily_handler.addFilter(redact_filter)
     logger.addHandler(daily_handler)
 
     _LOGGERS[name] = logger

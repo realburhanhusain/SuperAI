@@ -47,17 +47,35 @@ def create_app() -> Any:
     if pwa_dir.is_dir():
         app.mount("/pwa", StaticFiles(directory=str(pwa_dir), html=True), name="pwa")
 
+    def _client_is_loopback(request: Request) -> bool:
+        host = (request.client.host if request.client else "") or ""
+        return host in {"127.0.0.1", "::1", "localhost", "testclient"}
+
     def _check_auth(request: Request) -> None:
-        """Optional bearer auth via SUPERAI_WEB_TOKEN (required if set)."""
+        """
+        Web API auth (V6 M094):
+        - SUPERAI_WEB_TOKEN required for non-loopback API access
+        - Loopback may run without token for local dev
+        - When token set, always required for /api/*
+        """
         token = (os.getenv("SUPERAI_WEB_TOKEN") or "").strip()
-        if not token:
+        require = bool(token) or not _client_is_loopback(request)
+        # Allow loopback without token only when SUPERAI_WEB_TOKEN unset
+        if not token and _client_is_loopback(request):
             return
+        if not token and require:
+            raise HTTPException(
+                status_code=401,
+                detail="SUPERAI_WEB_TOKEN required for non-loopback API access",
+            )
         auth = request.headers.get("authorization") or ""
         if auth.lower().startswith("bearer "):
             got = auth[7:].strip()
         else:
             got = request.headers.get("x-superai-token") or ""
-        if got != token:
+        if token and got != token:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        if not token and not _client_is_loopback(request):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
     @app.middleware("http")

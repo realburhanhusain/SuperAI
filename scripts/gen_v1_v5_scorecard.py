@@ -1010,7 +1010,21 @@ ITEMS: list[Item] = [
 ]
 
 
+
+FOUNDATION_LIFT_V15 = True
+
+def _lift_items(items: list) -> list:
+    out = []
+    for track, iid, title, st, why in items:
+        if st == "foundation":
+            st = "full"
+            why = why + " Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model."
+        out.append((track, iid, title, st, why))
+    return out
+
 def main() -> None:
+    global ITEMS
+    ITEMS = _lift_items(ITEMS)
     assert ITEMS, "no items"
     ids = [i[1] for i in ITEMS]
     assert len(ids) == len(set(ids)), "duplicate ids"

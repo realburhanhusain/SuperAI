@@ -450,6 +450,84 @@ class LearningEngine:
         conflicts.sort(key=lambda c: (order.get(c["severity"], 9), -c["entropy"]))
         return conflicts
 
+    def promote_durable(
+        self,
+        memory_id: Optional[str] = None,
+        *,
+        min_importance: float = 0.75,
+        limit: int = 20,
+    ) -> Dict[str, Any]:
+        """
+        Promote high-value learnings to durable patterns (V6 M061).
+        Tags promoted memories with durable=true and importance boost.
+        """
+        promoted: List[str] = []
+        if memory_id:
+            candidates = [{"id": memory_id}]
+            try:
+                m = self.memory.get(memory_id) if hasattr(self.memory, "get") else None
+                if m:
+                    candidates = [m]
+            except Exception:
+                pass
+        else:
+            try:
+                candidates = self.memory.retrieve_by_tags(["learning"], limit=200)
+            except Exception:
+                candidates = []
+        for mem in candidates[: max(1, limit)]:
+            mid = str(mem.get("id") or memory_id or "")
+            if not mid:
+                continue
+            meta = dict(mem.get("metadata") or {})
+            imp = float(meta.get("importance") or mem.get("importance") or 0.5)
+            if not meta.get("success") and memory_id is None and imp < min_importance:
+                continue
+            if imp < min_importance and memory_id is None:
+                continue
+            meta["durable"] = True
+            meta["promoted_at"] = datetime.now().isoformat()
+            meta["importance"] = max(imp, min(1.0, imp + 0.1))
+            tags = list(mem.get("tags") or [])
+            if "durable" not in tags:
+                tags.append("durable")
+            try:
+                if hasattr(self.memory, "update"):
+                    self.memory.update(mid, metadata=meta, tags=tags)
+                elif hasattr(self.memory, "store"):
+                    # re-store with durable tag when update unavailable
+                    self.memory.store(
+                        content=str(mem.get("content") or f"durable:{mid}"),
+                        tags=tags,
+                        metadata=meta,
+                        importance=meta["importance"],
+                    )
+                promoted.append(mid)
+            except Exception:
+                continue
+        return {
+            "ok": True,
+            "promoted": promoted,
+            "count": len(promoted),
+            "min_importance": min_importance,
+        }
+
+    def deprecate_memory(self, memory_id: str, reason: str = "deprecated") -> Dict[str, Any]:
+        """Mark a memory deprecated (V6 M063 companion)."""
+        try:
+            mem = None
+            if hasattr(self.memory, "get"):
+                mem = self.memory.get(memory_id)
+            meta = dict((mem or {}).get("metadata") or {})
+            meta["deprecated"] = True
+            meta["deprecate_reason"] = reason
+            meta["deprecated_at"] = datetime.now().isoformat()
+            if hasattr(self.memory, "update"):
+                self.memory.update(memory_id, metadata=meta)
+            return {"ok": True, "memory_id": memory_id, "deprecated": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200], "memory_id": memory_id}
+
     def resolve_conflicts(self, auto_resolve: bool = True) -> Dict[str, Any]:
         """
         Resolve conflicts by multi-factor scoring:

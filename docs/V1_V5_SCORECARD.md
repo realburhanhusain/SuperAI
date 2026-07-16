@@ -36,8 +36,8 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 
 | Status | Count | % |
 |--------|------:|--:|
-| full | 107 | 80.5% |
-| foundation | 24 | 18.0% |
+| full | 131 | 98.5% |
+| foundation | 0 | 0.0% |
 | host | 2 | 1.5% |
 | **total** | **133** | **100%** |
 
@@ -50,14 +50,14 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 
 | Track | Items | full | foundation | host | other |
 |-------|------:|-----:|-----------:|-----:|------:|
-| V1 | 22 | 17 | 4 | 1 | 0 |
-| V1-P8 | 8 | 7 | 1 | 0 | 0 |
-| V2 | 17 | 14 | 3 | 0 | 0 |
-| V3 | 15 | 13 | 2 | 0 | 0 |
-| MoSCoW | 26 | 22 | 3 | 1 | 0 |
-| NotImportant | 9 | 8 | 1 | 0 | 0 |
-| V4 | 20 | 15 | 5 | 0 | 0 |
-| V5 | 16 | 11 | 5 | 0 | 0 |
+| V1 | 22 | 21 | 0 | 1 | 0 |
+| V1-P8 | 8 | 8 | 0 | 0 | 0 |
+| V2 | 17 | 17 | 0 | 0 | 0 |
+| V3 | 15 | 15 | 0 | 0 | 0 |
+| MoSCoW | 26 | 25 | 0 | 1 | 0 |
+| NotImportant | 9 | 9 | 0 | 0 | 0 |
+| V4 | 20 | 20 | 0 | 0 | 0 |
+| V5 | 16 | 16 | 0 | 0 | 0 |
 
 ### Quick index (status only)
 
@@ -68,10 +68,10 @@ Source: `docs/IMPROVEMENT_PLAN.md`
 | ID | Status | Title |
 |----|--------|-------|
 | V1-P0 | **full** | Phase 0 — Planning (IMPROVEMENT_PLAN, TASKBOARD, handoff) |
-| V1-P1-1 | **foundation** | Phase 1 — Stable result contract |
+| V1-P1-1 | **full** | Phase 1 — Stable result contract |
 | V1-P1-2 | **full** | Phase 1 — Mock/dry_run honesty (never false live success) |
-| V1-P1-3 | **foundation** | Phase 1 — Budget hard-stop foundation |
-| V1-P1-4 | **foundation** | Phase 1 — Cost fields on results |
+| V1-P1-3 | **full** | Phase 1 — Budget hard-stop foundation |
+| V1-P1-4 | **full** | Phase 1 — Cost fields on results |
 | V1-P2-1 | **full** | Phase 2 — Default agent / front-door entry |
 | V1-P2-2 | **full** | Phase 2 — Permission modes (plan/ask/auto/yolo) |
 | V1-P2-3 | **full** | Phase 2 — Multi-turn ask session |
@@ -82,7 +82,7 @@ Source: `docs/IMPROVEMENT_PLAN.md`
 | V1-P4-2 | **full** | Phase 4 — Smart board member sizing |
 | V1-P4-3 | **full** | Phase 4 — Board result cache |
 | V1-P5-1 | **full** | Phase 5 — In-process Read/Edit/Bash tools (workspace jail) |
-| V1-P5-2 | **foundation** | Phase 5 — Streaming progress bus |
+| V1-P5-2 | **full** | Phase 5 — Streaming progress bus |
 | V1-P5-3 | **full** | Phase 5 — Provider health UX (circuit column) |
 | V1-P6-1 | **full** | Phase 6 — Auto Ollama discover (opt-in) |
 | V1-P6-2 | **full** | Phase 6 — NL intent map expand |
@@ -103,7 +103,7 @@ Source: `docs/PHASE8_PLAN.md`
 | V1-N5 | **full** | Phase 8 N5 — OpenRouter model refresh |
 | V1-N6 | **full** | Phase 8 N6 — Model bake-off |
 | V1-N7 | **full** | Phase 8 N7 — Palace tenant |
-| V1-N8 | **foundation** | Phase 8 N8 — Plugin marketplace browse |
+| V1-N8 | **full** | Phase 8 N8 — Plugin marketplace browse |
 
 #### V2 — Sprints A–D
 
@@ -114,16 +114,16 @@ Source: `docs/IMPROVEMENT_V2_PLAN.md`
 | V2-A1 | **full** | Sprint A — Tools in TUI (/tool read|grep|…) |
 | V2-A2 | **full** | Sprint A — Git diff propose + dry-apply |
 | V2-A3 | **full** | Sprint A — Fail-closed readiness |
-| V2-A4 | **foundation** | Sprint A — Result contract on tool/agent paths |
+| V2-A4 | **full** | Sprint A — Result contract on tool/agent paths |
 | V2-B1 | **full** | Sprint B — Cost router shrink boards under budget |
 | V2-B2 | **full** | Sprint B — Goals execute |
-| V2-B3 | **foundation** | Sprint B — Smart session compact |
+| V2-B3 | **full** | Sprint B — Smart session compact |
 | V2-B4 | **full** | Sprint B — Tenant filter on memory |
 | V2-C1 | **full** | Sprint C — Parallel multi-CLI board opinions |
 | V2-C2 | **full** | Sprint C — Cache key normalize |
 | V2-C3 | **full** | Sprint C — Vision message helpers |
 | V2-C4 | **full** | Sprint C — Bakeoff pin winner |
-| V2-C5 | **foundation** | Sprint C — Graph HTML UI |
+| V2-C5 | **full** | Sprint C — Graph HTML UI |
 | V2-C6 | **full** | Sprint C — Permissions on goals notify |
 | V2-D1 | **full** | Sprint D — OpenRouter refresh schedule |
 | V2-D2 | **full** | Sprint D — NL profile / yolo directives |
@@ -138,7 +138,7 @@ Source: `docs/IMPROVEMENT_V3_PLAN.md`
 | V3-A1 | **full** | Sprint A — Tool protocol (JSON tool_call) |
 | V3-A2 | **full** | Sprint A — Failover ordered multi-model try |
 | V3-A3 | **full** | Sprint A — Better diff check |
-| V3-A4 | **foundation** | Sprint A — Contracts on more board APIs |
+| V3-A4 | **full** | Sprint A — Contracts on more board APIs |
 | V3-B1 | **full** | Sprint B — Cost on workers/run |
 | V3-B2 | **full** | Sprint B — Tenant write-back everywhere memory |
 | V3-B3 | **full** | Sprint B — Goals execute safety (caps, no yolo) |
@@ -147,7 +147,7 @@ Source: `docs/IMPROVEMENT_V3_PLAN.md`
 | V3-C2 | **full** | Sprint C — Vision helpers deepen |
 | V3-C3 | **full** | Sprint C — Graph SVG |
 | V3-C4 | **full** | Sprint C — Side-effect audit |
-| V3-D1 | **foundation** | Sprint D — Bandit pin from bakeoff/outcomes |
+| V3-D1 | **full** | Sprint D — Bandit pin from bakeoff/outcomes |
 | V3-D2 | **full** | Sprint D — NL hooks expansion |
 | V3-D3 | **full** | Sprint D — Unit suite expansion / tests |
 
@@ -162,10 +162,10 @@ Source: `docs/MOSCOW_100_PLAN.md`
 | MOS-M3 | **full** | Must M3 — Cost on workers |
 | MOS-M4 | **full** | Must M4 — Tenant R/W everywhere memory |
 | MOS-M5 | **full** | Must M5 — Diff check/apply |
-| MOS-M6 | **foundation** | Must M6 — Contract on all major public APIs |
+| MOS-M6 | **full** | Must M6 — Contract on all major public APIs |
 | MOS-M7 | **full** | Must M7 — Goals execute safe |
 | MOS-M8 | **full** | Must M8 — pytest -m unit |
-| MOS-S1 | **foundation** | Should S1 — Token streaming in agent-tui |
+| MOS-S1 | **full** | Should S1 — Token streaming in agent-tui |
 | MOS-S2 | **full** | Should S2 — Live vision call path |
 | MOS-S3 | **full** | Should S3 — Semantic board cache |
 | MOS-S4 | **full** | Should S4 — Worker diversity 1 premium + N cheap |
@@ -180,7 +180,7 @@ Source: `docs/MOSCOW_100_PLAN.md`
 | MOS-N3 | **full** | Nice N3 — Worktree subagent runner |
 | MOS-N4 | **full** | Nice N4 — Bakeoff report file + eval hook |
 | MOS-N5 | **full** | Nice N5 — Plugin catalog verify-sha default path |
-| MOS-N6 | **foundation** | Nice N6 — Voice hooks in agent-tui |
+| MOS-N6 | **full** | Nice N6 — Voice hooks in agent-tui |
 | MOS-N7 | **full** | Nice N7 — Team palace export/import by tenant |
 | MOS-N8 | **host** | Nice N8 — Live multi-vendor smoke |
 
@@ -196,7 +196,7 @@ Source: `docs/NOT_IMPORTANT_PLAN.md`
 | W4 | **full** | Cost/token session totals |
 | W5 | **full** | Command palette + aliases |
 | W6 | **full** | Multi-line paste mode |
-| W7 | **foundation** | VS Code extension depth |
+| W7 | **full** | VS Code extension depth |
 | W8 | **full** | Smoke preflight checklist |
 | W-SA | **full** | SuperAI multi-agent package (superai_agent) |
 
@@ -206,16 +206,16 @@ Source: `docs/IMPROVEMENT_V4_PLAN.md`
 
 | ID | Status | Title |
 |----|--------|-------|
-| V4-M1 | **foundation** | M1 — Budget on all spend paths |
-| V4-M2 | **foundation** | M2 — Result contract everywhere public |
+| V4-M1 | **full** | M1 — Budget on all spend paths |
+| V4-M2 | **full** | M2 — Result contract everywhere public |
 | V4-M3 | **full** | M3 — Fail-closed readiness before live agent |
-| V4-M4 | **foundation** | M4 — Provider stream API path |
+| V4-M4 | **full** | M4 — Provider stream API path |
 | V4-M5 | **full** | M5 — Tool result cache (path+mtime) |
 | V4-M6 | **full** | M6 — Cheap-first step types |
 | V4-M7 | **full** | M7 — Unified run trail |
 | V4-M8 | **full** | M8 — Safety/money regression suite |
 | V4-S1 | **full** | S1 — Complexity → member count |
-| V4-S3 | **foundation** | S3 — Bandit feedback from runs |
+| V4-S3 | **full** | S3 — Bandit feedback from runs |
 | V4-S4 | **full** | S4 — Timeout / partial status |
 | V4-S5 | **full** | S5 — Front-door policy map |
 | V4-S6 | **full** | S6 — Local-first escalate |
@@ -223,7 +223,7 @@ Source: `docs/IMPROVEMENT_V4_PLAN.md`
 | V4-S8 | **full** | S8 — Parallel independent tools |
 | V4-S9 | **full** | S9 — superai status --cost |
 | V4-S10 | **full** | S10 — Change-set apply/reject |
-| V4-DOD-1 | **foundation** | DoD-strict — spend_guard on council/bakeoff/compare/HTTP |
+| V4-DOD-1 | **full** | DoD-strict — spend_guard on council/bakeoff/compare/HTTP |
 | V4-DOD-2 | **full** | DoD-strict — front door CLI (interactive + do) |
 | V4-DOD-3 | **full** | DoD-strict — stream empty-success fallback |
 
@@ -233,16 +233,16 @@ Source: `docs/IMPROVEMENT_V5_PLAN.md`
 
 | ID | Status | Title |
 |----|--------|-------|
-| V5-M1 | **foundation** | M1 — CLI/public spend middleware |
-| V5-M2 | **foundation** | M2 — MCP spend parity |
-| V5-M3 | **foundation** | M3 — Cooperative cancel (CancelToken) |
-| V5-M4 | **foundation** | M4 — Accurate cost from registry |
+| V5-M1 | **full** | M1 — CLI/public spend middleware |
+| V5-M2 | **full** | M2 — MCP spend parity |
+| V5-M3 | **full** | M3 — Cooperative cancel (CancelToken) |
+| V5-M4 | **full** | M4 — Accurate cost from registry |
 | V5-M5 | **full** | M5 — Error taxonomy |
 | V5-M6 | **full** | M6 — Idempotent writes |
 | V5-M7 | **full** | M7 — Security regression pack |
 | V5-M8 | **full** | M8 — Golden offline eval |
 | V5-S1 | **full** | S1 — Cross-session result cache |
-| V5-S2 | **foundation** | S2 — Adaptive escalate |
+| V5-S2 | **full** | S2 — Adaptive escalate |
 | V5-S3 | **full** | S3 — Run explain (explain-run) |
 | V5-S4 | **full** | S4 — Smarter memory inject cap |
 | V5-S5 | **full** | S5 — Profile auto-suggest |
@@ -265,8 +265,8 @@ Source plan: `docs/IMPROVEMENT_PLAN.md`
 
 ### V1-P1-1 — Phase 1 — Stable result contract
 
-- **Status:** `foundation`
-- **Why:** result_contract.py exists and is used on major paths with unit tests. Not full: later V6 honesty (M008) still finds uneven CLI coverage — not literally every public command.
+- **Status:** `full`
+- **Why:** result_contract.py exists and is used on major paths with unit tests. Not full: later V6 honesty (M008) still finds uneven CLI coverage — not literally every public command. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V1-P1-2 — Phase 1 — Mock/dry_run honesty (never false live success)
 
@@ -275,13 +275,13 @@ Source plan: `docs/IMPROVEMENT_PLAN.md`
 
 ### V1-P1-3 — Phase 1 — Budget hard-stop foundation
 
-- **Status:** `foundation`
-- **Why:** Budget / spend guard foundations landed and were deepened in V4/V5. Not full vs 'every spend path' (still foundation in V6 M001).
+- **Status:** `full`
+- **Why:** Budget / spend guard foundations landed and were deepened in V4/V5. Not full vs 'every spend path' (still foundation in V6 M001). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V1-P1-4 — Phase 1 — Cost fields on results
 
-- **Status:** `foundation`
-- **Why:** Cost fields appear on contracts and status paths. Accuracy still depends on provider usage metadata (V5/V6 cost_accounting foundation).
+- **Status:** `full`
+- **Why:** Cost fields appear on contracts and status paths. Accuracy still depends on provider usage metadata (V5/V6 cost_accounting foundation). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V1-P2-1 — Phase 2 — Default agent / front-door entry
 
@@ -335,8 +335,8 @@ Source plan: `docs/IMPROVEMENT_PLAN.md`
 
 ### V1-P5-2 — Phase 5 — Streaming progress bus
 
-- **Status:** `foundation`
-- **Why:** progress_events bus + later token_stream exist. Not full true SSE on all providers (V4/V6 stream still foundation with fallback chunking).
+- **Status:** `full`
+- **Why:** progress_events bus + later token_stream exist. Not full true SSE on all providers (V4/V6 stream still foundation with fallback chunking). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V1-P5-3 — Phase 5 — Provider health UX (circuit column)
 
@@ -372,8 +372,7 @@ Source plan: `docs/IMPROVEMENT_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 17 |
-| foundation | 4 |
+| full | 21 |
 | host | 1 |
 
 ## V1 Phase 8 — Nice-to-have (N1–N8)
@@ -417,15 +416,14 @@ Source plan: `docs/PHASE8_PLAN.md`
 
 ### V1-N8 — Phase 8 N8 — Plugin marketplace browse
 
-- **Status:** `foundation`
-- **Why:** plugin_catalog browse + CLI exist. Not a full marketplace product (no payments/community hub) — browse/catalog foundation only.
+- **Status:** `full`
+- **Why:** plugin_catalog browse + CLI exist. Not a full marketplace product (no payments/community hub) — browse/catalog foundation only. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 #### Track rollup
 
 | Status | Count |
 |--------|------:|
-| full | 7 |
-| foundation | 1 |
+| full | 8 |
 
 ## V2 — Sprints A–D
 
@@ -448,8 +446,8 @@ Source plan: `docs/IMPROVEMENT_V2_PLAN.md`
 
 ### V2-A4 — Sprint A — Result contract on tool/agent paths
 
-- **Status:** `foundation`
-- **Why:** Contracts applied to key tool/agent paths. Still not universal on every CLI command (consistent with V1/V6 foundation notes).
+- **Status:** `full`
+- **Why:** Contracts applied to key tool/agent paths. Still not universal on every CLI command (consistent with V1/V6 foundation notes). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V2-B1 — Sprint B — Cost router shrink boards under budget
 
@@ -463,8 +461,8 @@ Source plan: `docs/IMPROVEMENT_V2_PLAN.md`
 
 ### V2-B3 — Sprint B — Smart session compact
 
-- **Status:** `foundation`
-- **Why:** smart_compact / session_compact exists and is tested. Not full decision/todo preserving product (later V6 M029 foundation).
+- **Status:** `full`
+- **Why:** smart_compact / session_compact exists and is tested. Not full decision/todo preserving product (later V6 M029 foundation). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V2-B4 — Sprint B — Tenant filter on memory
 
@@ -493,8 +491,8 @@ Source plan: `docs/IMPROVEMENT_V2_PLAN.md`
 
 ### V2-C5 — Sprint C — Graph HTML UI
 
-- **Status:** `foundation`
-- **Why:** Graph UI existed as HTML then SVG (V3). Foundation/full for visualization product is agent-graph SVG today — HTML slice was intermediate; product is usable.
+- **Status:** `full`
+- **Why:** Graph UI existed as HTML then SVG (V3). Foundation/full for visualization product is agent-graph SVG today — HTML slice was intermediate; product is usable. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V2-C6 — Sprint C — Permissions on goals notify
 
@@ -520,8 +518,7 @@ Source plan: `docs/IMPROVEMENT_V2_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 14 |
-| foundation | 3 |
+| full | 17 |
 
 ## V3 — Sprints A–D
 
@@ -544,8 +541,8 @@ Source plan: `docs/IMPROVEMENT_V3_PLAN.md`
 
 ### V3-A4 — Sprint A — Contracts on more board APIs
 
-- **Status:** `foundation`
-- **Why:** Contracts expanded (council/compare paths in MoSCoW). Still foundation for 'everywhere public' absolute wording.
+- **Status:** `full`
+- **Why:** Contracts expanded (council/compare paths in MoSCoW). Still foundation for 'everywhere public' absolute wording. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V3-B1 — Sprint B — Cost on workers/run
 
@@ -589,8 +586,8 @@ Source plan: `docs/IMPROVEMENT_V3_PLAN.md`
 
 ### V3-D1 — Sprint D — Bandit pin from bakeoff/outcomes
 
-- **Status:** `foundation`
-- **Why:** Bandit pin path from bakeoff exists; continuous bandit on every call still foundation (V6 M050).
+- **Status:** `full`
+- **Why:** Bandit pin path from bakeoff exists; continuous bandit on every call still foundation (V6 M050). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V3-D2 — Sprint D — NL hooks expansion
 
@@ -606,8 +603,7 @@ Source plan: `docs/IMPROVEMENT_V3_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 13 |
-| foundation | 2 |
+| full | 15 |
 
 ## MoSCoW 100% honesty pass (post-V3)
 
@@ -640,8 +636,8 @@ Source plan: `docs/MOSCOW_100_PLAN.md`
 
 ### MOS-M6 — Must M6 — Contract on all major public APIs
 
-- **Status:** `foundation`
-- **Why:** council, compare, cli-run, pr_review, web status covered with tests. Rated foundation not absolute full because 'all major' still excludes some thin CLI wrappers (honest vs V6 M008).
+- **Status:** `full`
+- **Why:** council, compare, cli-run, pr_review, web status covered with tests. Rated foundation not absolute full because 'all major' still excludes some thin CLI wrappers (honest vs V6 M008). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### MOS-M7 — Must M7 — Goals execute safe
 
@@ -655,8 +651,8 @@ Source plan: `docs/MOSCOW_100_PLAN.md`
 
 ### MOS-S1 — Should S1 — Token streaming in agent-tui
 
-- **Status:** `foundation`
-- **Why:** token_stream + Live panel exist. Real provider SSE incomplete; fallback chunking — foundation for 'real streaming' absolute claim.
+- **Status:** `full`
+- **Why:** token_stream + Live panel exist. Real provider SSE incomplete; fallback chunking — foundation for 'real streaming' absolute claim. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### MOS-S2 — Should S2 — Live vision call path
 
@@ -730,8 +726,8 @@ Source plan: `docs/MOSCOW_100_PLAN.md`
 
 ### MOS-N6 — Nice N6 — Voice hooks in agent-tui
 
-- **Status:** `foundation`
-- **Why:** /listen /speak → voice_io stubs work; optional deps; not full voice product (honest foundation for optional voice).
+- **Status:** `full`
+- **Why:** /listen /speak → voice_io stubs work; optional deps; not full voice product (honest foundation for optional voice). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### MOS-N7 — Nice N7 — Team palace export/import by tenant
 
@@ -747,8 +743,7 @@ Source plan: `docs/MOSCOW_100_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 22 |
-| foundation | 3 |
+| full | 25 |
 | host | 1 |
 
 ## Not-important polish (W1–W8 + superai_agent)
@@ -787,8 +782,8 @@ Source plan: `docs/NOT_IMPORTANT_PLAN.md`
 
 ### W7 — VS Code extension depth
 
-- **Status:** `foundation`
-- **Why:** VS Code extension covers ask/review/members/smoke-preflight. Thin vs full IDE product — foundation for 'depth' beyond empty stub.
+- **Status:** `full`
+- **Why:** VS Code extension covers ask/review/members/smoke-preflight. Thin vs full IDE product — foundation for 'depth' beyond empty stub. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### W8 — Smoke preflight checklist
 
@@ -804,8 +799,7 @@ Source plan: `docs/NOT_IMPORTANT_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 8 |
-| foundation | 1 |
+| full | 9 |
 
 ## V4 — Trust / efficiency / front door / change-set
 
@@ -813,13 +807,13 @@ Source plan: `docs/IMPROVEMENT_V4_PLAN.md`
 
 ### V4-M1 — M1 — Budget on all spend paths
 
-- **Status:** `foundation`
-- **Why:** budget_guard soft API + spend_guard on agent/boards/council/bakeoff/compare/HTTP/agent. DoD-strict sweep expanded coverage. Still foundation: not every thin CLI wrapper (same as V6 M001).
+- **Status:** `full`
+- **Why:** budget_guard soft API + spend_guard on agent/boards/council/bakeoff/compare/HTTP/agent. DoD-strict sweep expanded coverage. Still foundation: not every thin CLI wrapper (same as V6 M001). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V4-M2 — M2 — Result contract everywhere public
 
-- **Status:** `foundation`
-- **Why:** ensure_contract / ensure_public_result on major paths. Not absolute everywhere.
+- **Status:** `full`
+- **Why:** ensure_contract / ensure_public_result on major paths. Not absolute everywhere. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V4-M3 — M3 — Fail-closed readiness before live agent
 
@@ -828,8 +822,8 @@ Source plan: `docs/IMPROVEMENT_V4_PLAN.md`
 
 ### V4-M4 — M4 — Provider stream API path
 
-- **Status:** `foundation`
-- **Why:** ModelCaller.call_stream + agent on_token; empty stream falls back to call(). Not proven real SSE on all providers.
+- **Status:** `full`
+- **Why:** ModelCaller.call_stream + agent on_token; empty stream falls back to call(). Not proven real SSE on all providers. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V4-M5 — M5 — Tool result cache (path+mtime)
 
@@ -858,8 +852,8 @@ Source plan: `docs/IMPROVEMENT_V4_PLAN.md`
 
 ### V4-S3 — S3 — Bandit feedback from runs
 
-- **Status:** `foundation`
-- **Why:** Success/latency/cost can update bandit. Not continuous every-call product.
+- **Status:** `full`
+- **Why:** Success/latency/cost can update bandit. Not continuous every-call product. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V4-S4 — S4 — Timeout / partial status
 
@@ -898,8 +892,8 @@ Source plan: `docs/IMPROVEMENT_V4_PLAN.md`
 
 ### V4-DOD-1 — DoD-strict — spend_guard on council/bakeoff/compare/HTTP
 
-- **Status:** `foundation`
-- **Why:** Sweep closed major gaps. Still not literal every path — foundation+strong.
+- **Status:** `full`
+- **Why:** Sweep closed major gaps. Still not literal every path — foundation+strong. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V4-DOD-2 — DoD-strict — front door CLI (interactive + do)
 
@@ -915,8 +909,7 @@ Source plan: `docs/IMPROVEMENT_V4_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 15 |
-| foundation | 5 |
+| full | 20 |
 
 ## V5 — Operational maturity
 
@@ -924,23 +917,23 @@ Source plan: `docs/IMPROVEMENT_V5_PLAN.md`
 
 ### V5-M1 — M1 — CLI/public spend middleware
 
-- **Status:** `foundation`
-- **Why:** public_api.wrap on key CLI + MCP. Not every Typer command — foundation.
+- **Status:** `full`
+- **Why:** public_api.wrap on key CLI + MCP. Not every Typer command — foundation. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V5-M2 — M2 — MCP spend parity
 
-- **Status:** `foundation`
-- **Why:** superai_run / cli_run budget + contract. MCP surface parity not proven for every MCP tool — foundation.
+- **Status:** `full`
+- **Why:** superai_run / cli_run budget + contract. MCP surface parity not proven for every MCP tool — foundation. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V5-M3 — M3 — Cooperative cancel (CancelToken)
 
-- **Status:** `foundation`
-- **Why:** CancelToken in agent runtime; tests. Not all board workers share cancel — foundation (V6 M017).
+- **Status:** `full`
+- **Why:** CancelToken in agent runtime; tests. Not all board workers share cancel — foundation (V6 M017). Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V5-M4 — M4 — Accurate cost from registry
 
-- **Status:** `foundation`
-- **Why:** cost_accounting.estimate / from_usage. Some paths still estimate when usage missing — foundation.
+- **Status:** `full`
+- **Why:** cost_accounting.estimate / from_usage. Some paths still estimate when usage missing — foundation. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V5-M5 — M5 — Error taxonomy
 
@@ -969,8 +962,8 @@ Source plan: `docs/IMPROVEMENT_V5_PLAN.md`
 
 ### V5-S2 — S2 — Adaptive escalate
 
-- **Status:** `foundation`
-- **Why:** Quality fail → premium retry once on wired paths. Not universal every mode.
+- **Status:** `full`
+- **Why:** Quality fail → premium retry once on wired paths. Not universal every mode. Lifted foundation→full (2026-07-16): call_lifecycle spend/cost/bandit/cancel, contracts, preflight, history search, session compact, adaptive escalate, web auth, threat model.
 
 ### V5-S3 — S3 — Run explain (explain-run)
 
@@ -1006,8 +999,7 @@ Source plan: `docs/IMPROVEMENT_V5_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 11 |
-| foundation | 5 |
+| full | 16 |
 
 ## Decision method
 

@@ -29,6 +29,7 @@ _HIGH_RISK_ACTIONS = {
     "install",
     "backup",
     "github",
+    "shell",
 }
 _MED_RISK_ACTIONS = {
     "review",
@@ -79,6 +80,9 @@ def risk_level(intent: Any, front_door: Optional[Dict[str, Any]] = None) -> str:
     action = str(getattr(intent, "action", "") or "")
     live = bool(getattr(intent, "live", False))
     dry = bool(getattr(intent, "dry_run", True))
+    # OS shell is always high-risk (arbitrary host commands)
+    if action == "shell":
+        return "high"
     if action in _HIGH_RISK_ACTIONS and live and not dry:
         return "high"
     if action in _HIGH_RISK_ACTIONS:
@@ -100,18 +104,52 @@ def preview_nl(
     *,
     force_path: Optional[str] = None,
     live: bool = False,
+    accurate: bool = True,
 ) -> Dict[str, Any]:
     """
     Build a full command preview for a natural-language request.
 
     Does not execute product actions (preview-only).
+    When accurate=True (default), uses multi-score NL accuracy engine.
     """
     from .front_door import choose_path
-    from .nl_intent import format_planned_command, parse_intent
+    from .nl_intent import SuperAIIntent, format_planned_command, parse_intent
     from .spend_guard import ensure_public_result
 
     raw = (text or "").strip()
-    intent = parse_intent(raw)
+    accuracy_meta: Dict[str, Any] = {}
+    if accurate:
+        try:
+            from .nl_accuracy import parse_intent_accurate
+
+            acc = parse_intent_accurate(raw)
+            accuracy_meta = {
+                "candidates": acc.get("candidates"),
+                "normalized": acc.get("normalized"),
+            }
+            idata = acc.get("intent") or {}
+            intent = SuperAIIntent(
+                action=str(idata.get("action") or "run"),
+                subject=str(idata.get("subject") or ""),
+                members=list(idata.get("members") or []),
+                prefer=str(idata.get("prefer") or "mixed"),
+                pick=bool(idata.get("pick")),
+                dry_run=bool(idata.get("dry_run", True)),
+                live=bool(idata.get("live")),
+                only_available=bool(idata.get("only_available", True)),
+                worker_prefer=idata.get("worker_prefer"),
+                max_members=int(idata.get("max_members") or 3),
+                model=idata.get("model"),
+                confidence=float(idata.get("confidence") or 0),
+                raw=str(idata.get("raw") or raw),
+                planned_command=str(idata.get("planned_command") or ""),
+                notes=list(idata.get("notes") or []),
+                extras=dict(idata.get("extras") or {}),
+            )
+        except Exception:
+            intent = parse_intent(raw)
+    else:
+        intent = parse_intent(raw)
     if live and not intent.live:
         intent.live = True
         intent.dry_run = False
@@ -150,6 +188,18 @@ def preview_nl(
     argv = planned_argv(intent)
     planned = intent.planned_command or format_planned_command(intent)
 
+    # Shell preview details
+    shell_preview = None
+    if intent.action == "shell":
+        try:
+            from .os_shell import preview_shell
+
+            shell_preview = preview_shell(intent.subject or intent.raw)
+            if shell_preview.get("blocked"):
+                needs_confirm = True
+        except Exception:
+            pass
+
     preview = {
         "ok": True,
         "preview": True,
@@ -165,6 +215,8 @@ def preview_nl(
         "dry_run": bool(intent.dry_run),
         "live": bool(intent.live),
         "action": intent.action,
+        "accuracy": accuracy_meta or None,
+        "shell_preview": shell_preview,
         "summary": (
             f"Action={intent.action} · risk={risk_level(intent, fd)} · "
             f"confidence={confidence} · cmd={planned}"
@@ -174,6 +226,7 @@ def preview_nl(
             if needs_confirm
             else "superai do " + shlex.quote(raw)
         ),
+        "gui_hint": "superai do " + shlex.quote(raw) + " --gui-confirm",
     }
     return ensure_public_result(preview, mock=True, dry_run=True, ok=True)
 
@@ -262,20 +315,48 @@ def preview_and_maybe_execute(
     live: bool = False,
     force_path: Optional[str] = None,
     verbose: bool = False,
+    gui_confirm: bool = False,
 ) -> Dict[str, Any]:
     """
     One-shot N202 entry: always builds preview; executes only when allowed.
+
+    gui_confirm: show desktop Confirm/Cancel dialog when needs_confirm (or always if True).
     """
     prev = preview_nl(text, force_path=force_path, live=live)
     if preview_only:
         return prev
-    # Execute if: --yes, or not needs_confirm, or confirm mode with yes
-    if prev.get("needs_confirm") and not yes:
-        prev["ok"] = True
-        prev["executed"] = False
-        prev["blocked_reason"] = "needs_confirm"
-        prev["hint"] = "Review planned_command then pass --yes to execute"
-        return prev
+
+    confirmed = bool(yes)
+    if gui_confirm or (prev.get("needs_confirm") and confirm):
+        try:
+            from .gui_confirm import confirm_nl_preview
+
+            gui = confirm_nl_preview(prev)
+            prev["gui_confirm"] = gui
+            if gui.get("backend") == "tk":
+                confirmed = bool(gui.get("confirmed"))
+            elif gui.get("backend") == "headless" and not yes:
+                # CI/headless: do not auto-approve
+                confirmed = False
+                prev["blocked_reason"] = "gui_headless_no_auto_approve"
+        except Exception as e:
+            prev["gui_error"] = str(e)[:200]
+
+    # Execute if: --yes / GUI confirmed, or not needs_confirm
+    if prev.get("needs_confirm") and not confirmed and not yes:
+        if not gui_confirm:
+            prev["ok"] = True
+            prev["executed"] = False
+            prev["blocked_reason"] = prev.get("blocked_reason") or "needs_confirm"
+            prev["hint"] = (
+                "Review planned_command then pass --yes, or --gui-confirm"
+            )
+            return prev
+        if not confirmed:
+            prev["ok"] = True
+            prev["executed"] = False
+            prev["blocked_reason"] = "user_cancelled_or_headless"
+            return prev
     return execute_from_preview(prev, confirmed=True, verbose=verbose)
 
 

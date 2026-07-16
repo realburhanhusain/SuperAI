@@ -4965,6 +4965,49 @@ def preview_cmd(
     console.print_json(data=preview_nl(task, force_path=path, live=live))
 
 
+@app.command("shell")
+def shell_cmd(
+    command: str = typer.Argument(..., help="OS shell command to run"),
+    cwd: Optional[str] = typer.Option(None, "--cwd", help="Working directory (workspace-jailed)"),
+    timeout: float = typer.Option(120.0, "--timeout", "-t"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview only (also default under plan permission)"
+    ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Allow real execution (not dry-run) when permitted"
+    ),
+):
+    """Run an arbitrary OS shell command with SuperAI safety policy."""
+    from core.os_shell import preview_shell, run_shell
+    from core.permission_mode import force_dry_run, mode_from_config
+
+    mode = mode_from_config()
+    do_dry = dry_run or (force_dry_run(mode) and not yes)
+    if do_dry and not yes:
+        console.print_json(data=preview_shell(command, cwd=cwd))
+        if force_dry_run(mode):
+            console.print(
+                "[yellow]plan/ask permission: dry-run only. Use --yes with auto/yolo to execute.[/yellow]"
+            )
+        return
+    console.print_json(
+        data=run_shell(
+            command,
+            cwd=cwd,
+            timeout=timeout,
+            dry_run=False if yes else do_dry,
+        )
+    )
+
+
+@app.command("nl-eval")
+def nl_eval_cmd():
+    """Run English NL accuracy eval suite (target: 100% on SuperAI paraphrases)."""
+    from core.nl_accuracy import run_eval
+
+    console.print_json(data=run_eval())
+
+
 @app.command("do")
 def do_cmd(
     task: str = typer.Argument(..., help="Task — routed by front-door policy"),
@@ -4981,11 +5024,17 @@ def do_cmd(
         "-y",
         help="N202: execute even when needs_confirm (after reviewing preview)",
     ),
+    gui_confirm: bool = typer.Option(
+        False,
+        "--gui-confirm",
+        help="N202: show desktop Confirm/Cancel dialog before execute",
+    ),
 ):
     """
     One-shot SuperAI task with front-door routing (agent / board / run / ask).
 
-    N202: use --preview for planned command; low-confidence routes need --yes.
+    N202: use --preview for planned command; low-confidence routes need --yes
+    or --gui-confirm.
     """
     from core.nl_preview import preview_and_maybe_execute, preview_nl
     from core.spend_guard import ensure_public_result
@@ -5001,6 +5050,8 @@ def do_cmd(
         live=live,
         force_path=path,
         verbose=False,
+        gui_confirm=gui_confirm,
+        confirm=gui_confirm,
     )
     if isinstance(out, dict):
         # Always show planned command for transparency
@@ -5008,7 +5059,7 @@ def do_cmd(
             console.print(f"[dim]preview → {out.get('planned_command')}[/dim]")
         if out.get("needs_confirm") and not out.get("executed") and not yes:
             console.print(
-                "[yellow]needs_confirm: re-run with --yes after reviewing planned_command[/yellow]"
+                "[yellow]needs_confirm: re-run with --yes or --gui-confirm[/yellow]"
             )
         console.print_json(data=ensure_public_result(out, ok=bool(out.get("ok", True))))
     else:

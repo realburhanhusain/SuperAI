@@ -134,11 +134,15 @@ Coverage:
 | Thorough documentation | This file |
 | Fully tested | `tests/test_nl_preview_n202.py` |
 
-### Out of scope
+### Extended (2026-07-17)
 
-- Free-form shell OS commands outside SuperAI CLI
-- Guaranteed 100% intent accuracy on all English
-- GUI preview dialog (CLI/JSON is the contract)
+Former “out of scope” items are now implemented — see **`docs/NL_SHELL_GUI.md`**:
+
+| Feature | Module / CLI |
+|---------|----------------|
+| Arbitrary OS shell (safe) | `os_shell.py` · `superai shell` · NL `run shell: …` |
+| High-accuracy English NL | `nl_accuracy.py` · `superai nl-eval` (100% on eval suite) |
+| GUI confirm dialog | `gui_confirm.py` · `superai do … --gui-confirm` |
 
 ---
 
@@ -147,4 +151,5 @@ Coverage:
 - Front door: `front_door.py` (M031/M032)
 - Ask entry: `superai ask`
 - Do entry: `superai do`
+- Shell / NL accuracy / GUI: `docs/NL_SHELL_GUI.md`
 - Agent TUI prints planned route dimly after parse

@@ -125,7 +125,7 @@ def tool_grep(pattern: str, path: str = ".", limit: int = 40) -> Dict[str, Any]:
 
 
 def list_tools() -> List[str]:
-    return ["read", "write", "glob", "grep", "diff_apply"]
+    return ["read", "write", "glob", "grep", "diff_apply", "bash", "shell"]
 
 
 def run_tool(name: str, **kwargs: Any) -> Dict[str, Any]:
@@ -148,6 +148,16 @@ def run_tool(name: str, **kwargs: Any) -> Dict[str, Any]:
             return tool_glob(kwargs.get("pattern") or "**/*")
         if n == "grep":
             return tool_grep(kwargs.get("pattern") or "", kwargs.get("path") or ".")
+        if n in {"bash", "shell"}:
+            from .os_shell import run_shell
+
+            return run_shell(
+                str(kwargs.get("command") or kwargs.get("cmd") or ""),
+                cwd=kwargs.get("cwd"),
+                timeout=float(kwargs.get("timeout") or 120),
+                dry_run=dry,
+                permission_mode=mode,
+            )
         if n in {"diff_apply", "apply_diff", "git_apply"}:
             from .git_diff_apply import apply_unified_diff
 

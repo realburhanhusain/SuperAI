@@ -51,6 +51,7 @@ ACTIONS = (
     "voice",
     "progress",
     "v6_status",
+    "shell",
     "help",
     "unknown",
 )
@@ -265,6 +266,22 @@ def parse_intent(text: str) -> SuperAIIntent:
         intent.notes = []
         intent.planned_command = "superai ask --help"
         return intent
+
+    # Arbitrary OS shell (explicit NL markers) — high priority
+    try:
+        from .os_shell import parse_shell_from_nl
+
+        shell_cmd = parse_shell_from_nl(raw)
+        if shell_cmd:
+            intent.action = "shell"
+            intent.subject = shell_cmd
+            intent.confidence = 0.96
+            intent.notes = ["os_shell"]
+            intent.dry_run = True
+            intent.planned_command = format_planned_command(intent)
+            return intent
+    except Exception:
+        pass
 
     intent.pick = bool(
         re.search(
@@ -636,6 +653,8 @@ def format_planned_command(intent: SuperAIIntent) -> str:
     if a == "superai_agent":
         role = intent.extras.get("agent_role") or "build"
         return f"superai agent {q(intent.subject or intent.raw)} --agent {role} --permission plan"
+    if a == "shell":
+        return f"superai shell {q(intent.subject or intent.raw)}"
     if a == "review":
         cmd = ["superai", "review", q(intent.subject)]
         if intent.members:
@@ -1322,6 +1341,13 @@ def _h_v6_status(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
     return phase_report()
 
 
+def _h_shell(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .os_shell import run_shell
+
+    cmd = intent.subject or intent.raw
+    return run_shell(cmd, dry_run=bool(intent.dry_run) and not intent.live)
+
+
 _HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "help": _h_help,
     "members": _h_members,
@@ -1355,6 +1381,7 @@ _HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "voice": _h_voice,
     "progress": _h_progress,
     "v6_status": _h_v6_status,
+    "shell": _h_shell,
 }
 
 

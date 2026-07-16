@@ -45,6 +45,12 @@ ACTIONS = (
     "bakeoff",
     "agent_tui",
     "profile",
+    "plugin_catalog",
+    "status",
+    "smoke_preflight",
+    "voice",
+    "progress",
+    "v6_status",
     "help",
     "unknown",
 )
@@ -138,6 +144,39 @@ _ACTION_RULES: List[Tuple[str, float, str]] = [
     ("host_tools", 0.88, r"\b(host[- ]tools|check (git|docker|rclone)|tool matrix)\b"),
     ("budget", 0.9, r"\b(budget|spend limit|cost limit|how much (have i|did i) spend)\b"),
     ("backup", 0.9, r"\b(backup|restore|export (my )?profile)\b"),
+    # N202 expanded command map
+    (
+        "plugin_catalog",
+        0.93,
+        r"\b(plugin[- ]catalog|plugin marketplace|browse plugins?|list plugins?|"
+        r"marketplace plugins?)\b",
+    ),
+    (
+        "voice",
+        0.94,
+        r"\b(voice status|voice (on|off)|voice (tts|stt)|/speak|/listen)\b",
+    ),
+    (
+        "smoke_preflight",
+        0.93,
+        r"\b(smoke[- ]preflight|preflight|ready for live smoke)\b",
+    ),
+    (
+        "v6_status",
+        0.93,
+        r"\b(v6[- ]status|improvement v6 status)\b",
+    ),
+    (
+        "status",
+        0.92,
+        r"\b(show status|system status|spend status|cost status|"
+        r"status with cost|status --cost|^status$)\b",
+    ),
+    (
+        "progress",
+        0.9,
+        r"\b(show progress|progress snapshot|recent progress)\b",
+    ),
     # S9: dedicated goals / bakeoff / agent-tui / profile intents
     (
         "goals",
@@ -572,6 +611,31 @@ def format_planned_command(intent: SuperAIIntent) -> str:
     if a == "profile":
         prof = intent.extras.get("run_profile") or "balanced"
         return f"superai profile use {prof}"
+    if a == "plugin_catalog":
+        subj = (intent.subject or "").strip()
+        if subj:
+            return f"superai plugin-catalog -q {q(subj)}"
+        # allow "plugin catalog memory" subject via raw
+        raw_l = (intent.raw or "").lower()
+        for token in ("memory", "security", "voice", "data"):
+            if token in raw_l:
+                return f"superai plugin-catalog -q {token}"
+        return "superai plugin-catalog --status"
+    if a == "status":
+        if "cost" in (intent.raw or "").lower() or "spend" in (intent.raw or "").lower():
+            return "superai status --cost"
+        return "superai status --cost"
+    if a == "smoke_preflight":
+        return "superai smoke-preflight"
+    if a == "voice":
+        return "superai voice status"
+    if a == "progress":
+        return "superai progress"
+    if a == "v6_status":
+        return "superai v6-status"
+    if a == "superai_agent":
+        role = intent.extras.get("agent_role") or "build"
+        return f"superai agent {q(intent.subject or intent.raw)} --agent {role} --permission plan"
     if a == "review":
         cmd = ["superai", "review", q(intent.subject)]
         if intent.members:
@@ -1203,6 +1267,61 @@ def _h_profile(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
     }
 
 
+def _h_plugin_catalog(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .plugin_catalog import browse_catalog, marketplace_status
+
+    raw = (intent.raw or "").lower()
+    for token in ("memory", "security", "voice", "data", "messaging"):
+        if token in raw:
+            return browse_catalog(query=token)
+    if intent.subject:
+        return browse_catalog(query=intent.subject)
+    return marketplace_status()
+
+
+def _h_status(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .budget import BudgetGuard
+    from .config import Config
+
+    cfg = Config()
+    return {
+        "ok": True,
+        "mock_mode": cfg.use_mock,
+        "budget": BudgetGuard().snapshot(),
+        "planned": format_planned_command(intent),
+    }
+
+
+def _h_smoke_preflight(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .smoke_preflight import smoke_preflight
+
+    return smoke_preflight()
+
+
+def _h_voice(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .voice_io import status as voice_status
+
+    return voice_status()
+
+
+def _h_progress(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    try:
+        from .progress_events import get_progress_bus
+
+        bus = get_progress_bus()
+        if hasattr(bus, "recent"):
+            return {"ok": True, "events": bus.recent(20)}
+    except Exception:
+        pass
+    return {"ok": True, "events": [], "hint": "superai progress"}
+
+
+def _h_v6_status(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .v6_phase_status import phase_report
+
+    return phase_report()
+
+
 _HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "help": _h_help,
     "members": _h_members,
@@ -1230,6 +1349,12 @@ _HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "agent_tui": _h_agent_tui,
     "superai_agent": _h_superai_agent,
     "profile": _h_profile,
+    "plugin_catalog": _h_plugin_catalog,
+    "status": _h_status,
+    "smoke_preflight": _h_smoke_preflight,
+    "voice": _h_voice,
+    "progress": _h_progress,
+    "v6_status": _h_v6_status,
 }
 
 

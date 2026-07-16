@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **219** |
-| **INCOMPLETE** | **296** |
+| **COMPLETE (production + docs + tests)** | **220** |
+| **INCOMPLETE** | **295** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **42.3%**
-- **Average percent (incomplete only):** **30.4%**
-- **Average percent (all non-refuse):** **60.2%**
+- **Strict completion rate (complete / (total − refuse)):** **42.5%**
+- **Average percent (incomplete only):** **30.5%**
+- **Average percent (all non-refuse):** **60.3%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 219
+**Count:** 220
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
@@ -1074,6 +1074,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S9 — NL for goals/bakeoff/agent-tui/profile
 - **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### N202 — NL → any command with preview
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: NL → any command with preview
+- **Documentation (thorough):** YES — docs/NL_PREVIEW.md + V6 backlog N202
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2241,7 +2251,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 296
+**Count:** 295
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -3780,19 +3790,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Not production dual-stack / CLI reimplementation
 
 ### N201 — Fuzzy command palette (Ctrl+K)
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
-### N202 — NL → any command with preview
 
 - **Track:** V6
 - **Complete?** **NO**

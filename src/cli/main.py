@@ -2752,7 +2752,8 @@ def ask_cmd(
     plan_only: bool = typer.Option(
         False,
         "--plan-only",
-        help="Only parse intent and show planned SuperAI command (no execute)",
+        "--preview",
+        help="N202: only parse intent and show planned SuperAI command (no execute)",
     ),
     execute: bool = typer.Option(
         True,
@@ -4950,6 +4951,20 @@ def timeouts_cmd(
     console.print_json(data={"ok": True, "timeouts": load()})
 
 
+@app.command("preview")
+def preview_cmd(
+    task: str = typer.Argument(..., help="Natural language — preview planned command only"),
+    path: Optional[str] = typer.Option(
+        None, "--path", help="Force front-door path: agent|board|run|ask"
+    ),
+    live: bool = typer.Option(False, "--live", help="Preview as live (not dry-run)"),
+):
+    """N202: NL → any command with preview (does not execute)."""
+    from core.nl_preview import preview_nl
+
+    console.print_json(data=preview_nl(task, force_path=path, live=live))
+
+
 @app.command("do")
 def do_cmd(
     task: str = typer.Argument(..., help="Task — routed by front-door policy"),
@@ -4957,27 +4972,47 @@ def do_cmd(
     path: Optional[str] = typer.Option(
         None, "--path", help="Force path: agent|board|run|ask"
     ),
+    preview: bool = typer.Option(
+        False, "--preview", help="N202: show planned command only (no execute)"
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="N202: execute even when needs_confirm (after reviewing preview)",
+    ),
 ):
     """
     One-shot SuperAI task with front-door routing (agent / board / run / ask).
+
+    N202: use --preview for planned command; low-confidence routes need --yes.
     """
-    from core.front_door import choose_path
-    from core.nl_intent import ask_superai
+    from core.nl_preview import preview_and_maybe_execute, preview_nl
     from core.spend_guard import ensure_public_result
 
-    route = choose_path(task, force=path)
-    console.print(
-        f"[dim]front_door → {route.get('path')} ({route.get('reason')})[/dim]"
+    if preview:
+        console.print_json(data=preview_nl(task, force_path=path, live=live))
+        return
+
+    out = preview_and_maybe_execute(
+        task,
+        preview_only=False,
+        yes=yes,
+        live=live,
+        force_path=path,
+        verbose=False,
     )
-    text = task
-    if live and "live" not in text.lower():
-        text = f"{task} (live)"
-    out = ask_superai(text, execute=True, verbose=False)
     if isinstance(out, dict):
-        out.setdefault("front_door", route)
+        # Always show planned command for transparency
+        if out.get("planned_command"):
+            console.print(f"[dim]preview → {out.get('planned_command')}[/dim]")
+        if out.get("needs_confirm") and not out.get("executed") and not yes:
+            console.print(
+                "[yellow]needs_confirm: re-run with --yes after reviewing planned_command[/yellow]"
+            )
         console.print_json(data=ensure_public_result(out, ok=bool(out.get("ok", True))))
     else:
-        console.print_json(data={"result": out, "front_door": route})
+        console.print_json(data={"result": out})
 
 
 @app.command("agent")

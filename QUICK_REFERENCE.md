@@ -39,6 +39,10 @@ superai run "hello" --format json
 | `cli-run` … `--context/--no-context` · `--memory/--no-memory` | Central Memory Palace inject + write-back (default on) |
 | `members [--available] [--with-models] [--live-probe] [--pick]` | API + CLIs + inner models; optional interactive pick |
 | Config `central_memory` / env `SUPERAI_CENTRAL_MEMORY` | Master switch for shared Memory Palace |
+| `providers [--ready]` | List cloud/local/gateway LLM providers + key env |
+| `models-sync-ollama` | Import Ollama tags into user models.json |
+| `models-register --name … --model-id … --base-url …` | Any OpenAI-compatible vendor/server |
+| `list-models [--refresh]` | Registry models (DeepSeek, Kimi, GLM, NVIDIA, local, …) |
 | `ask "…"` / `ask` (REPL) | **Universal NL agent** — any request (routes or orchestrates) |
 | `ask "review auth with gpt-4o" --plan-only` | Show planned command only |
 | `chat "…"` | Routes NL via `ask` (use `--no-intent` for pure chat) |

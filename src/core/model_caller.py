@@ -18,21 +18,14 @@ from .provider_health import ProviderHealthStore
 logger = logging.getLogger(__name__)
 
 
-_MODEL_PROVIDER_HINTS = {
-    "grok": "xai",
-    "claude": "anthropic",
-    "gpt": "openai",
-    "o3": "openai",
-    "o1": "openai",
-    "gemini": "google",
-    "deepseek": "deepseek",
-    "qwen": "qwen",
-    "llama": "groq",
-    "mistral": "mistral",
-    "kimi": "moonshot",
-    "glm": "zhipu",
-    "nemotron": "nvidia",
-}
+from .provider_catalog import (
+    NATIVE_PROVIDERS,
+    OPENAI_COMPAT_PROVIDERS,
+    PROVIDER_HINTS as _MODEL_PROVIDER_HINTS,
+    api_key_env_names,
+    get_openai_compat_config,
+    resolve_compat_provider,
+)
 
 
 class ModelCaller:
@@ -56,37 +49,15 @@ class ModelCaller:
             pass
 
         self.providers = {
-            "openai": "OpenAI",
-            "anthropic": "Anthropic Claude",
-            "google": "Google Gemini",
-            "ollama": "Local Ollama",
-            "xai": "xAI Grok",
-            "deepseek": "DeepSeek",
-            "qwen": "Qwen / DashScope",
-            "groq": "Groq",
-            "together": "Together",
-            "mistral": "Mistral",
-            "moonshot": "Moonshot",
-            "zhipu": "Zhipu",
-            "nvidia": "NVIDIA",
+            **{k: str(v.get("label") or k) for k, v in OPENAI_COMPAT_PROVIDERS.items()},
+            **{k: str(v.get("label") or k) for k, v in NATIVE_PROVIDERS.items()},
         }
 
     def _has_any_api_key(self) -> bool:
-        keys = [
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "GOOGLE_API_KEY",
-            "XAI_API_KEY",
-            "DEEPSEEK_API_KEY",
-            "TOGETHER_API_KEY",
-            "GROQ_API_KEY",
-            "DASHSCOPE_API_KEY",
-            "MISTRAL_API_KEY",
-            "MOONSHOT_API_KEY",
-            "ZHIPU_API_KEY",
-            "NVIDIA_API_KEY",
-        ]
-        return any(os.getenv(k) for k in keys)
+        if any(os.getenv(k) for k in api_key_env_names()):
+            return True
+        # Local OpenAI-compatible servers often need no key
+        return False
 
     def list_supported_providers(self) -> Dict[str, str]:
         return self.providers
@@ -208,24 +179,12 @@ class ModelCaller:
                 yield text[i : i + step]
             return
 
-        # Live streaming for OpenAI-compatible providers
-        open_compat = {
-            "openai",
-            "xai",
-            "deepseek",
-            "qwen",
-            "groq",
-            "together",
-            "mistral",
-            "moonshot",
-            "zhipu",
-            "nvidia",
-            "meta",
-        }
-        if prov.lower() in open_compat:
+        # Live streaming for OpenAI-compatible providers (catalog + registry base_url)
+        prov_l = resolve_compat_provider(prov)
+        if get_openai_compat_config(prov_l) or self._registry_openai_endpoint(model):
             try:
                 yield from self._stream_openai_compatible(
-                    "together" if prov.lower() == "meta" else prov.lower(),
+                    prov_l,
                     model,
                     prompt,
                     system_prompt,
@@ -249,31 +208,8 @@ class ModelCaller:
     ):
         from openai import OpenAI
 
-        config_map = {
-            "openai": {"base_url": "https://api.openai.com/v1", "env": "OPENAI_API_KEY"},
-            "xai": {"base_url": "https://api.x.ai/v1", "env": "XAI_API_KEY"},
-            "deepseek": {"base_url": "https://api.deepseek.com/v1", "env": "DEEPSEEK_API_KEY"},
-            "qwen": {
-                "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                "env": "DASHSCOPE_API_KEY",
-            },
-            "groq": {"base_url": "https://api.groq.com/openai/v1", "env": "GROQ_API_KEY"},
-            "together": {"base_url": "https://api.together.xyz/v1", "env": "TOGETHER_API_KEY"},
-            "mistral": {"base_url": "https://api.mistral.ai/v1", "env": "MISTRAL_API_KEY"},
-            "moonshot": {"base_url": "https://api.moonshot.cn/v1", "env": "MOONSHOT_API_KEY"},
-            "zhipu": {"base_url": "https://open.bigmodel.cn/api/paas/v4/", "env": "ZHIPU_API_KEY"},
-            "nvidia": {
-                "base_url": "https://integrate.api.nvidia.com/v1",
-                "env": "NVIDIA_API_KEY",
-            },
-        }
-        if provider not in config_map:
-            raise RuntimeError(f"No streaming map for {provider}")
-        cfg = config_map[provider]
-        api_key = os.getenv(cfg["env"])
-        if not api_key:
-            raise RuntimeError(f"No API key for {provider}")
-        client = OpenAI(api_key=api_key, base_url=cfg["base_url"])
+        base_url, api_key, _ = self._resolve_openai_endpoint(provider, model)
+        client = OpenAI(api_key=api_key, base_url=base_url)
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -444,34 +380,19 @@ class ModelCaller:
         if self.use_mock:
             return self._mock_call(provider, model, prompt)
 
-        provider_l = provider.lower()
-        if provider_l in [
-            "openai",
-            "xai",
-            "deepseek",
-            "qwen",
-            "groq",
-            "together",
-            "meta",
-            "mistral",
-            "moonshot",
-            "zhipu",
-            "nvidia",
-        ]:
-            mapped = {
-                "meta": "together",
-                "moonshot": "moonshot",
-                "zhipu": "zhipu",
-                "nvidia": "nvidia",
-                "mistral": "mistral",
-            }.get(provider_l, provider_l)
-            return self._call_openai_compatible(mapped, model, prompt, system_prompt)
+        provider_l = resolve_compat_provider(provider)
+        # Any known OpenAI-compat provider OR registry entry with base_url
+        if get_openai_compat_config(provider_l) or self._registry_openai_endpoint(model):
+            return self._call_openai_compatible(provider_l, model, prompt, system_prompt)
         if provider_l == "anthropic":
             return self._call_anthropic(model, prompt, system_prompt)
         if provider_l == "google":
             return self._call_google(model, prompt, system_prompt)
         if provider_l == "ollama":
             return self._call_ollama(model, prompt, system_prompt)
+        # Unknown provider with base_url on model still attempted via openai client
+        if self._registry_openai_endpoint(model):
+            return self._call_openai_compatible(provider_l, model, prompt, system_prompt)
         return self._mock_call(provider, model, prompt)
 
     def _resolve_provider(self, model: str) -> str:
@@ -517,6 +438,66 @@ class ModelCaller:
         payload["estimated_cost_usd"] = self._estimate_cost(model, total)
         return payload
 
+    def _registry_openai_endpoint(self, model: str) -> bool:
+        """True if registry model has a base_url (treat as OpenAI-compatible)."""
+        if not self.registry:
+            return False
+        info = self.registry.get_model(model)
+        return bool(info and info.base_url)
+
+    def _resolve_openai_endpoint(
+        self, provider: str, model: str
+    ) -> tuple[str, str, Optional[str]]:
+        """
+        Resolve (base_url, api_key, env_name).
+
+        Priority: ModelInfo.base_url + api_key_env > provider catalog.
+        """
+        provider = resolve_compat_provider(provider)
+        base_url: Optional[str] = None
+        env_name: Optional[str] = None
+        allow_empty = False
+        default_key = "sk-local"
+
+        info = self.registry.get_model(model) if self.registry else None
+        if info:
+            if info.base_url:
+                base_url = str(info.base_url).rstrip("/")
+            if info.api_key_env:
+                env_name = info.api_key_env
+
+        cat = get_openai_compat_config(provider)
+        if cat:
+            if not base_url:
+                base_url = str(cat.get("base_url") or "").rstrip("/")
+            if not env_name:
+                env_name = cat.get("env")
+            allow_empty = bool(cat.get("allow_empty_key"))
+            default_key = str(cat.get("default_key") or default_key)
+
+        if not base_url:
+            raise RuntimeError(
+                f"No base_url for provider={provider} model={model}. "
+                "Register with: superai models-register --name … --base-url …"
+            )
+
+        api_key = (os.getenv(env_name) or "").strip() if env_name else ""
+        if not api_key:
+            if allow_empty or provider in {
+                "lmstudio",
+                "vllm",
+                "ollama_openai",
+                "custom",
+            }:
+                api_key = default_key
+            else:
+                raise RuntimeError(
+                    f"No API key for {provider}"
+                    + (f" ({env_name})" if env_name else "")
+                    + ". Set the env var or superai secrets set."
+                )
+        return base_url, api_key, env_name
+
     def _call_openai_compatible(
         self,
         provider: str,
@@ -529,34 +510,8 @@ class ModelCaller:
         except ImportError:
             raise RuntimeError("Please install: pip install openai") from None
 
-        config_map = {
-            "openai": {"base_url": "https://api.openai.com/v1", "env": "OPENAI_API_KEY"},
-            "xai": {"base_url": "https://api.x.ai/v1", "env": "XAI_API_KEY"},
-            "deepseek": {"base_url": "https://api.deepseek.com/v1", "env": "DEEPSEEK_API_KEY"},
-            "qwen": {
-                "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                "env": "DASHSCOPE_API_KEY",
-            },
-            "groq": {"base_url": "https://api.groq.com/openai/v1", "env": "GROQ_API_KEY"},
-            "together": {"base_url": "https://api.together.xyz/v1", "env": "TOGETHER_API_KEY"},
-            "mistral": {"base_url": "https://api.mistral.ai/v1", "env": "MISTRAL_API_KEY"},
-            "moonshot": {"base_url": "https://api.moonshot.cn/v1", "env": "MOONSHOT_API_KEY"},
-            "zhipu": {"base_url": "https://open.bigmodel.cn/api/paas/v4/", "env": "ZHIPU_API_KEY"},
-            "nvidia": {
-                "base_url": "https://integrate.api.nvidia.com/v1",
-                "env": "NVIDIA_API_KEY",
-            },
-        }
-
-        if provider not in config_map:
-            raise RuntimeError(f"Unsupported OpenAI-compatible provider: {provider}")
-
-        cfg = config_map[provider]
-        api_key = os.getenv(cfg["env"])
-        if not api_key:
-            raise RuntimeError(f"No API key for {provider} ({cfg['env']})")
-
-        client = OpenAI(api_key=api_key, base_url=cfg["base_url"])
+        base_url, api_key, _ = self._resolve_openai_endpoint(provider, model)
+        client = OpenAI(api_key=api_key, base_url=base_url)
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -576,6 +531,7 @@ class ModelCaller:
         payload = {
             "provider": provider,
             "model": model,
+            "base_url": base_url,
             "response": response.choices[0].message.content,
             "status": "success",
             "mock": False,

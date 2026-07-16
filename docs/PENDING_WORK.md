@@ -31,6 +31,7 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | Unified members | API models + CLIs + inner models on review/advise/council |
 | Unified workers | Same catalog for orchestrator worker pool + failover |
 | Universal NL agent | `superai ask` / REPL — product routes + agentic fallback for everything |
+| Universal models Phase 1 | Multi-vendor + open-weight + NVIDIA + Ollama sync (see UNIVERSAL_MODELS.md) |
 
 ## Not pending
 

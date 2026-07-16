@@ -3157,6 +3157,96 @@ def list_models(
     console.print(table)
 
 
+@app.command("providers")
+def providers_cmd(
+    only_ready: bool = typer.Option(
+        False, "--ready", help="Only providers with keys / local"
+    ),
+):
+    """List LLM providers (cloud, local open-weight, gateways, CLIs)."""
+    from core.model_discovery import provider_status
+
+    data = provider_status()
+    rows = data.get("providers") or []
+    if only_ready:
+        rows = [r for r in rows if r.get("key_configured")]
+    table = Table(title="SuperAI providers")
+    table.add_column("ID")
+    table.add_column("Label")
+    table.add_column("Kind")
+    table.add_column("Protocol")
+    table.add_column("Key env")
+    table.add_column("Ready")
+    for r in rows:
+        table.add_row(
+            str(r.get("id")),
+            str(r.get("label") or ""),
+            str(r.get("kind") or ""),
+            str(r.get("protocol") or ""),
+            str(r.get("api_key_env") or "—"),
+            "yes" if r.get("key_configured") else "",
+        )
+    console.print(table)
+    console.print_json(data={"counts": data.get("counts")})
+
+
+@app.command("models-sync-ollama")
+def models_sync_ollama_cmd(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Discover only, do not write"),
+    native: bool = typer.Option(
+        False,
+        "--native",
+        help="Use native Ollama generate API provider instead of OpenAI /v1",
+    ),
+):
+    """Import local Ollama tags into ~/.superai/config/models.json."""
+    from core.model_discovery import sync_ollama_to_user_registry
+
+    meta = sync_ollama_to_user_registry(
+        write=not dry_run, use_openai_compat=not native
+    )
+    console.print_json(data=meta)
+    if not meta.get("ok") and not dry_run:
+        raise typer.Exit(code=1)
+
+
+@app.command("models-register")
+def models_register_cmd(
+    name: str = typer.Option(..., "--name", help="SuperAI registry name"),
+    model_id: str = typer.Option(..., "--model-id", help="Upstream model id"),
+    base_url: str = typer.Option(
+        ..., "--base-url", help="OpenAI-compatible base URL ending in /v1"
+    ),
+    provider: str = typer.Option(
+        "custom",
+        "--provider",
+        help="Provider id (openrouter, lmstudio, vllm, nvidia, custom, …)",
+    ),
+    api_key_env: Optional[str] = typer.Option(
+        None, "--api-key-env", help="Env var for API key (optional for local)"
+    ),
+    strengths: str = typer.Option(
+        "User-registered OpenAI-compatible model", "--strengths"
+    ),
+):
+    """Register any OpenAI-compatible endpoint (any vendor / open-weight server)."""
+    from core.model_discovery import register_openai_compatible_model
+
+    out = register_openai_compatible_model(
+        name,
+        model_id,
+        provider=provider,
+        base_url=base_url,
+        api_key_env=api_key_env,
+        strengths=strengths,
+        write=True,
+    )
+    console.print_json(data=out)
+    console.print(
+        f"[green]Registered[/green] {name}. Use: superai run \"…\" -m {name}"
+    )
+
+
 @app.command("smoke-providers")
 def smoke_providers(
     mock: bool = typer.Option(

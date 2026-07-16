@@ -55,7 +55,39 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-16 |
-| **What** | Multi-CLI review/advisor board — fill 5 gaps (council CLIs, delegate reviewers, advisor role, templates, structured protocol) |
+| **What** | Universal models Phase 1 — multi-vendor + open-weight + NVIDIA + Ollama sync |
+| **Charter** | `docs/UNIVERSAL_MODELS.md` |
+| **Verify** | `pytest tests/test_provider_catalog.py tests/test_model_discovery.py -q` |
+
+### Universal models (multi-vendor / open-weight)
+
+**Resume:** read `docs/UNIVERSAL_MODELS.md` + this section.
+
+| Phase | Status |
+|-------|--------|
+| 0 Charter + taskboard | `[x]` |
+| 1 Provider catalog, registry-aware caller, expanded models, Ollama sync, register CLI | `[x]` basic |
+| 2 Richer catalogs / gateway polish | `[ ]` next |
+| 3 Auto-discover on doctor/members; live smoke | `[ ]` / smoke postponed |
+| 4 Interactive pick by provider in ask/REPL | `[ ]` |
+
+**Phase 1 deliverables**
+
+- `[x]` `src/core/provider_catalog.py` — single provider map (NVIDIA, MiniMax, OpenRouter, LM Studio, vLLM, …)  
+- `[x]` `ModelCaller` uses catalog + **per-model `base_url` / `api_key_env`**  
+- `[x]` `src/core/model_discovery.py` — Ollama tags sync + register OpenAI-compat  
+- `[x]` `config/models.json` expanded (DeepSeek, Kimi, GLM, MiniMax, Gemma, NVIDIA hosted OW, OpenRouter, local)  
+- `[x]` CLI: `providers`, `models-sync-ollama`, `models-register`  
+- `[x]` Tests: `test_provider_catalog.py`, `test_model_discovery.py`  
+
+---
+
+## Prior last session (multi-CLI board)
+
+| Field | Value |
+|-------|--------|
+| **When** | 2026-07-16 |
+| **What** | Multi-CLI review/advisor board — fill 5 gaps |
 | **Verify** | `pytest tests/test_multi_cli_advisory.py -q` |
 
 ### Multi-CLI review & advisors

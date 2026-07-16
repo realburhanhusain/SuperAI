@@ -9,7 +9,8 @@
 **Prior completed tracks:** V1–V5 plans, MoSCoW 100, not-important W1–W8, `core.superai_agent`, DoD-strict sweeps.
 
 **Honesty:** Live multi-provider smoke (M089 / Phase 99) remains a **host gate**.  
-**Report:** `superai v6-status`
+Phases 0–16 “code done” means planned foundations/stubs/refuses shipped — **not** 400 full production features.  
+**Report:** `superai v6-status` · **Scorecard:** `docs/V6_SCORECARD.md` (regenerate: `python scripts/gen_v6_scorecard.py`)
 
 ---
 

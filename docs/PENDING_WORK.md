@@ -6,9 +6,11 @@ Implementation of planned features, backlog waves, deferred code gaps
 (G13–G15), concurrent Memory Palace, review hardening, **pgvector default**,
 and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 
-## Postponed (host / external smoke only)
+## Postponed (host / external smoke — only after all planned code is done)
 
-1. Live multi-provider smoke with real API keys  
+**Policy:** do not run live smoke mid-development. Complete planned features first; smoke is the final host gate.
+
+1. Live multi-provider smoke with real API keys (Phase 99 / UNIVERSAL_MODELS_PLAN)  
 2. Live Telegram/Slack E2E  
 3. rclone cloud remote E2E  
 4. GitHub Pages enablement in repo settings  

@@ -3,7 +3,8 @@
 **Created:** 2026-07-16  
 **Updated:** 2026-07-16 (phases 0–5 code complete; smoke postponed)  
 **Track:** `TASKBOARD.md` · **Charter:** `docs/UNIVERSAL_MODELS.md`  
-**Rule:** implement phase tasks in order; commit+push after phases; smoke **only at end**.  
+**Rule:** implement phase tasks in order; commit+push after phases.  
+**Smoke rule (standing):** **no live multi-provider / host smoke until ALL planned product work is implemented** — not after each feature. Phase 99 runs only then.  
 **Resume:** read this file + TASKBOARD only.
 
 ## Progress dashboard
@@ -68,9 +69,12 @@
 - [x] P5.2 QUICK_REFERENCE + TASKBOARD
 - [x] P5.3 Final checkpoint + commit/push
 
-## Phase 99 — Live smoke `[POSTPONED]`
+## Phase 99 — Live smoke `[POSTPONED — after all planned work]`
 
-- [ ] P99.1 Live multi-provider smoke matrix (DeepSeek, Moonshot, Zhipu, NVIDIA, OpenRouter, Ollama, MiniMax) — **after complete development**
+Do **not** run until SuperAI planned tracks (agent vision, universal models, remaining product phases) are code-complete per TASKBOARD.
+
+- [ ] P99.1 Live multi-provider smoke matrix (DeepSeek, Moonshot, Zhipu, NVIDIA, OpenRouter, Ollama, MiniMax, major labs)  
+- [ ] P99.2 Document results; only then mark smoke complete
 
 ---
 

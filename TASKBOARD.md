@@ -35,12 +35,15 @@
 
 ---
 
-## External smoke (POSTPONED — not code)
+## External smoke (POSTPONED — after all planned implementation)
 
-- [!] Live multi-provider keys  
+**Policy:** finish planned product work first; smoke is last. See `docs/UNIVERSAL_MODELS_PLAN.md` Phase 99.
+
+- [!] Live multi-provider keys (all vendors / open-weight / NVIDIA / Ollama)  
 - [!] Live Telegram/Slack  
 - [!] rclone remote E2E  
 - [!] GitHub Pages enable  
+- [!] Live Postgres + pgvector server  
 
 ## Code gaps closed (no smoke required)
 

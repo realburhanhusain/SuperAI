@@ -91,6 +91,23 @@ class ScheduleStore:
                     task = cmd[4:].strip()
                     r = SuperAIOrchestrator().run_task(task)
                     outcome["result"] = r.get("status")
+                elif cmd.startswith("ask:"):
+                    from .nl_intent import ask_superai
+
+                    task = cmd[4:].strip()
+                    r = ask_superai(task, execute=True)
+                    outcome["result"] = {
+                        "ok": r.get("ok"),
+                        "planned": r.get("planned_command"),
+                    }
+                elif cmd in {"goals-tick", "goals_tick", "daemon-tick"}:
+                    from .goals_daemon import tick
+
+                    r = tick(execute_goals=False, notify=True, schedule_due=False)
+                    outcome["result"] = {
+                        "ok": r.get("ok"),
+                        "due_count": r.get("due_count"),
+                    }
                 else:
                     outcome["result"] = f"unknown command: {cmd}"
                     outcome["ok"] = False

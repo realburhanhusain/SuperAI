@@ -5163,11 +5163,108 @@ def side_effects_cmd(limit: int = typer.Option(30, "--limit")):
     console.print_json(data={"events": recent(limit)})
 
 
+@app.command("daemon")
+def daemon_cmd(
+    action: str = typer.Argument(
+        "status",
+        help="status | start | stop | tick | run (foreground loop)",
+    ),
+    interval: float = typer.Option(
+        60.0, "--interval", "-i", help="Seconds between ticks"
+    ),
+    execute_goals: bool = typer.Option(
+        False,
+        "--execute-goals",
+        help="Also execute due goals each tick (safe caps, never yolo)",
+    ),
+    notify: bool = typer.Option(True, "--notify/--no-notify"),
+    schedule_due: bool = typer.Option(True, "--schedule/--no-schedule"),
+    max_goals: int = typer.Option(2, "--max-goals"),
+    max_ticks: int = typer.Option(
+        0, "--max-ticks", help="Stop after N ticks (0=infinite); useful for tests"
+    ),
+    foreground: bool = typer.Option(
+        False, "--foreground", "-f", help="With start: run loop in this process"
+    ),
+):
+    """N206: Goals/schedules daemon — start/stop/status/tick/run."""
+    from core.goals_daemon import (
+        run_loop,
+        start_background,
+        status,
+        stop,
+        tick,
+    )
+
+    act = (action or "status").lower().strip()
+    if act == "status":
+        console.print_json(data=status())
+        return
+    if act == "tick":
+        console.print_json(
+            data=tick(
+                execute_goals=execute_goals,
+                notify=notify,
+                schedule_due=schedule_due,
+                max_goals=max_goals,
+            )
+        )
+        return
+    if act == "stop":
+        console.print_json(data=stop())
+        return
+    if act == "run":
+        # Foreground loop (blocking)
+        console.print(
+            f"[dim]daemon run interval={interval}s execute_goals={execute_goals} "
+            f"max_ticks={max_ticks or '∞'}[/dim]"
+        )
+        console.print_json(
+            data=run_loop(
+                interval_sec=interval,
+                execute_goals=execute_goals,
+                notify=notify,
+                schedule_due=schedule_due,
+                max_goals=max_goals,
+                max_ticks=max_ticks,
+                write_pid_file=True,
+            )
+        )
+        return
+    if act == "start":
+        if foreground:
+            console.print_json(
+                data=run_loop(
+                    interval_sec=interval,
+                    execute_goals=execute_goals,
+                    notify=notify,
+                    schedule_due=schedule_due,
+                    max_goals=max_goals,
+                    max_ticks=max_ticks,
+                    write_pid_file=True,
+                )
+            )
+            return
+        console.print_json(
+            data=start_background(
+                interval_sec=interval,
+                execute_goals=execute_goals,
+                notify=notify,
+                schedule_due=schedule_due,
+                max_goals=max_goals,
+                max_ticks=max_ticks,
+            )
+        )
+        return
+    console.print("[red]Unknown action. Use: status|start|stop|tick|run[/red]")
+    raise typer.Exit(1)
+
+
 @app.command("goals")
 def goals_cmd(
     action: str = typer.Argument(
         "list",
-        help="list | add | done | heartbeat | notify | schedule | execute | tick",
+        help="list | add | done | heartbeat | notify | schedule | execute | tick | daemon",
     ),
     title: Optional[str] = typer.Argument(None, help="Goal title (for add)"),
     goal_id: Optional[str] = typer.Option(None, "--id"),
@@ -5177,6 +5274,7 @@ def goals_cmd(
     execute_tick: bool = typer.Option(
         False, "--execute", help="With tick: also run due goals (safe caps)"
     ),
+    interval: float = typer.Option(60.0, "--interval", "-i", help="Daemon interval sec"),
 ):
     """Phase 8 N2: Personal assistant goals + heartbeat + messenger + execute + tick."""
     from core.assistant_goals import GoalStore
@@ -5216,15 +5314,23 @@ def goals_cmd(
         console.print_json(data=store.execute_due(max_goals=max_goals, use_ask=True))
         return
     if act == "tick":
-        # N2: daemon tick (schedule + heartbeat; optional execute)
+        # N2/N206: daemon tick (schedule + heartbeat; optional execute)
+        from core.goals_daemon import tick as daemon_tick
+
         console.print_json(
-            data=store.daemon_tick(
+            data=daemon_tick(
                 max_goals=max_goals,
-                execute=execute_tick,
+                execute_goals=execute_tick,
                 notify=True,
                 schedule_due=True,
             )
         )
+        return
+    if act == "daemon":
+        # Alias: goals daemon → daemon status
+        from core.goals_daemon import status as daemon_status
+
+        console.print_json(data=daemon_status())
         return
     raise typer.Exit(1)
 

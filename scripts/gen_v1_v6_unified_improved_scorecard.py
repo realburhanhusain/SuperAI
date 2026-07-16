@@ -143,6 +143,7 @@ V6_N_COMPLETE = {
     "N203", "N227", "N260", "N261",
     "N213",  # voice — code+tests+MOSCOW N6 docs
     "N202",  # NL → any command with preview — nl_preview + docs + tests
+    "N206",  # goals/schedules daemon — goals_daemon + docs + tests
 }
 
 COMPLETE_IDS = (
@@ -294,6 +295,9 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
         elif iid == "N202":
             docs_note = "docs/NL_PREVIEW.md + V6 backlog N202"
             tests_note = "tests/test_nl_preview_n202.py"
+        elif iid == "N206":
+            docs_note = "docs/GOALS_DAEMON.md + V6 backlog N206"
+            tests_note = "tests/test_goals_daemon_n206.py"
         elif iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
             docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs"
         tests_note = "unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)"

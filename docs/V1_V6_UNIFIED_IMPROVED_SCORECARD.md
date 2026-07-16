@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **220** |
-| **INCOMPLETE** | **295** |
+| **COMPLETE (production + docs + tests)** | **221** |
+| **INCOMPLETE** | **294** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **42.5%**
+- **Strict completion rate (complete / (total − refuse)):** **42.7%**
 - **Average percent (incomplete only):** **30.5%**
-- **Average percent (all non-refuse):** **60.3%**
+- **Average percent (all non-refuse):** **60.5%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 220
+**Count:** 221
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
@@ -1094,6 +1094,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Command macros / aliases
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### N206 — Daemon for goals/schedules
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Daemon for goals/schedules
+- **Documentation (thorough):** YES — docs/GOALS_DAEMON.md + V6 backlog N206
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2251,7 +2261,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 295
+**Count:** 294
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -3816,19 +3826,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Production product + docs + tests
 
 ### N205 — Watch mode (re-run on change)
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
-### N206 — Daemon for goals/schedules
 
 - **Track:** V6
 - **Complete?** **NO**

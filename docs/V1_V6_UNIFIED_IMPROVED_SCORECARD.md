@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **218** |
-| **INCOMPLETE** | **297** |
+| **COMPLETE (production + docs + tests)** | **219** |
+| **INCOMPLETE** | **296** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **42.1%**
-- **Average percent (incomplete only):** **30.5%**
-- **Average percent (all non-refuse):** **60.1%**
+- **Strict completion rate (complete / (total − refuse)):** **42.3%**
+- **Average percent (incomplete only):** **30.4%**
+- **Average percent (all non-refuse):** **60.2%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 218
+**Count:** 219
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
@@ -2217,6 +2217,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### W7 — VS Code extension depth
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: VS Code extension depth
+- **Documentation (thorough):** YES — docs/VSCODE_EXTENSION.md + extensions/vscode-superai/README.md
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
 ### W8 — Smoke preflight checklist
 
 - **Track:** V1-V5
@@ -2231,7 +2241,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 297
+**Count:** 296
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -3742,19 +3752,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** Partial Should implementation may exist
 - **Partially implemented:** Partial Should implementation may exist
 - **Still incomplete:** Full production hardening + tests + docs
-
-### W7 — VS Code extension depth
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — VS Code extension thin
-- **Thorough documentation?** NO — No thorough extension docs
-- **Fully tested?** YES — smoke-preflight related
-- **Fully implemented:** VS Code extension thin
-- **Partially implemented:** VS Code extension thin
-- **Still incomplete:** IDE depth incomplete
 
 ### P366 — Reimplement vendor CLIs inside SuperAI
 

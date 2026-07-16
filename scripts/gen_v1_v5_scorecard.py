@@ -728,9 +728,10 @@ ITEMS: list[Item] = [
         "NotImportant",
         "W7",
         "VS Code extension depth",
-        "foundation",
-        "VS Code extension covers ask/review/members/smoke-preflight. Thin vs full "
-        "IDE product — foundation for 'depth' beyond empty stub.",
+        "full",
+        "extensions/vscode-superai v1.0: ask/do/review/selection/status/marketplace/"
+        "agent terminal/status bar; docs/VSCODE_EXTENSION.md; node + pytest tests. "
+        "Production CLI host extension (not full LSP IDE).",
     ),
     (
         "NotImportant",

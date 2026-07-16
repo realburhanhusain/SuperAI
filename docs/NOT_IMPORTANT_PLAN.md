@@ -13,7 +13,7 @@ verification is Phase 99 smoke (host/keys), not more not-important coding.
 | W4 | Cost/token session totals | **[x]** `/cost` + turn meta aggregation |
 | W5 | Command palette + aliases | **[x]** `tui_commands` + `/commands` |
 | W6 | Multi-line paste mode | **[x]** `/paste` … `/end` |
-| W7 | VS Code extension depth | **[x]** ask / review / members / smoke-preflight |
+| W7 | VS Code extension depth | **[x] full** | `extensions/vscode-superai` v1.0 · ask/do/review/selection/status/marketplace/agent terminal · `docs/VSCODE_EXTENSION.md` · `npm test` + `tests/test_vscode_extension_w7.py` |
 | W8 | Smoke preflight checklist | **[x]** `smoke_preflight` + CLI (no false pass) |
 | — | SuperAI multi-agent | **[x]** `docs/SUPERAI_AGENT.md` + `core.superai_agent` |
 

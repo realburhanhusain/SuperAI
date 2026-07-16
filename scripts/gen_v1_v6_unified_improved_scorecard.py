@@ -77,7 +77,17 @@ V5_COMPLETE = {
     "V5-M5", "V5-M6", "V5-M7", "V5-M8",
     "V5-S1", "V5-S2", "V5-S3", "V5-S4", "V5-S5", "V5-S6", "V5-S7", "V5-S10",
 }
-W_COMPLETE = {"W1", "W2", "W3", "W4", "W5", "W6", "W8", "W-SA"}  # test_not_important; W7 thin
+W_COMPLETE = {
+    "W1",
+    "W2",
+    "W3",
+    "W4",
+    "W5",
+    "W6",
+    "W7",  # VS Code extension full depth — docs/VSCODE_EXTENSION.md + node/pytest tests
+    "W8",
+    "W-SA",
+}
 
 # V1 phase items with plan + targeted tests (narrow DoD)
 V1_COMPLETE = {
@@ -174,7 +184,7 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     "V1-P99": T(True, True, True, 90, "smoke code", "IMPROVEMENT_PLAN Phase 99", "offline harness", "HOST live smoke"),
     # V1-N8 completed 2026-07-16: full browse product + PLUGIN_MARKETPLACE.md + test_plugin_marketplace_n8
     # (removed from STRICT_INCOMPLETE — handled via V1_COMPLETE)
-    "W7": T(True, False, True, 45, "VS Code extension thin", "No thorough extension docs", "smoke-preflight related", "IDE depth incomplete"),
+
     "V4-M1": T(True, True, True, 85, "spend_guard major paths", "V4 plan", "test_improvement_v4", "Not every spend path"),
     "V4-M2": T(True, True, True, 85, "contracts major paths", "V4 plan", "test_improvement_v4", "Not everywhere public"),
     "V4-M4": T(True, True, True, 85, "call_stream", "V4 plan", "test stream", "Provider coverage incomplete"),
@@ -277,6 +287,9 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
         if iid == "V1-N8":
             docs_note = "docs/PLUGIN_MARKETPLACE.md + PHASE8_PLAN N8"
             tests_note = "tests/test_plugin_marketplace_n8.py"
+        elif iid == "W7":
+            docs_note = "docs/VSCODE_EXTENSION.md + extensions/vscode-superai/README.md"
+            tests_note = "extensions/vscode-superai/test/run.js + tests/test_vscode_extension_w7.py"
         elif iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
             docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs"
         tests_note = "unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)"

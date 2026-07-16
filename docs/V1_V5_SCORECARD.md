@@ -36,8 +36,8 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 
 | Status | Count | % |
 |--------|------:|--:|
-| full | 110 | 82.7% |
-| foundation | 21 | 15.8% |
+| full | 111 | 83.5% |
+| foundation | 20 | 15.0% |
 | host | 2 | 1.5% |
 | **total** | **133** | **100%** |
 
@@ -55,7 +55,7 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 | V2 | 17 | 14 | 3 | 0 | 0 |
 | V3 | 15 | 13 | 2 | 0 | 0 |
 | MoSCoW | 26 | 23 | 2 | 1 | 0 |
-| NotImportant | 9 | 8 | 1 | 0 | 0 |
+| NotImportant | 9 | 9 | 0 | 0 | 0 |
 | V4 | 20 | 15 | 5 | 0 | 0 |
 | V5 | 16 | 12 | 4 | 0 | 0 |
 
@@ -196,7 +196,7 @@ Source: `docs/NOT_IMPORTANT_PLAN.md`
 | W4 | **full** | Cost/token session totals |
 | W5 | **full** | Command palette + aliases |
 | W6 | **full** | Multi-line paste mode |
-| W7 | **foundation** | VS Code extension depth |
+| W7 | **full** | VS Code extension depth |
 | W8 | **full** | Smoke preflight checklist |
 | W-SA | **full** | SuperAI multi-agent package (superai_agent) |
 
@@ -786,8 +786,8 @@ Source plan: `docs/NOT_IMPORTANT_PLAN.md`
 
 ### W7 — VS Code extension depth
 
-- **Status:** `foundation`
-- **Why:** VS Code extension covers ask/review/members/smoke-preflight. Thin vs full IDE product — foundation for 'depth' beyond empty stub.
+- **Status:** `full`
+- **Why:** extensions/vscode-superai v1.0: ask/do/review/selection/status/marketplace/agent terminal/status bar; docs/VSCODE_EXTENSION.md; node + pytest tests. Production CLI host extension (not full LSP IDE).
 
 ### W8 — Smoke preflight checklist
 
@@ -803,8 +803,7 @@ Source plan: `docs/NOT_IMPORTANT_PLAN.md`
 
 | Status | Count |
 |--------|------:|
-| full | 8 |
-| foundation | 1 |
+| full | 9 |
 
 ## V4 — Trust / efficiency / front door / change-set
 

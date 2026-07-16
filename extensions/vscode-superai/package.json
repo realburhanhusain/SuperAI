@@ -1,32 +1,147 @@
 {
   "name": "superai",
   "displayName": "SuperAI",
-  "description": "Run SuperAI ask/run/review/doctor and smoke preflight from VS Code (W7)",
-  "version": "0.2.0",
+  "description": "SuperAI multi-model orchestrator in VS Code — ask, do, review, doctor, marketplace, agent terminal (W7 full depth)",
+  "version": "1.0.0",
   "publisher": "superai",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Other", "Machine Learning"],
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Testing"
+  ],
+  "keywords": [
+    "superai",
+    "ai",
+    "llm",
+    "orchestrator",
+    "multi-model"
+  ],
   "activationEvents": [
-    "onCommand:superai.runTask",
-    "onCommand:superai.doctor",
-    "onCommand:superai.chat",
-    "onCommand:superai.ask",
-    "onCommand:superai.review",
-    "onCommand:superai.members",
-    "onCommand:superai.smokePreflight",
-    "onCommand:superai.agentTuiHint"
+    "onStartupFinished"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
-      { "command": "superai.runTask", "title": "SuperAI: Run Task" },
-      { "command": "superai.doctor", "title": "SuperAI: Doctor" },
-      { "command": "superai.chat", "title": "SuperAI: Chat" },
-      { "command": "superai.ask", "title": "SuperAI: Ask (NL)" },
-      { "command": "superai.review", "title": "SuperAI: Review (dry-run)" },
-      { "command": "superai.members", "title": "SuperAI: List Members" },
-      { "command": "superai.smokePreflight", "title": "SuperAI: Smoke Preflight" },
-      { "command": "superai.agentTuiHint", "title": "SuperAI: Agent TUI hint" }
+      {
+        "command": "superai.runTask",
+        "title": "SuperAI: Run Task"
+      },
+      {
+        "command": "superai.do",
+        "title": "SuperAI: Do (one-shot)"
+      },
+      {
+        "command": "superai.doctor",
+        "title": "SuperAI: Doctor"
+      },
+      {
+        "command": "superai.status",
+        "title": "SuperAI: Status --cost"
+      },
+      {
+        "command": "superai.chat",
+        "title": "SuperAI: Chat"
+      },
+      {
+        "command": "superai.ask",
+        "title": "SuperAI: Ask (NL)"
+      },
+      {
+        "command": "superai.askSelection",
+        "title": "SuperAI: Ask about Selection"
+      },
+      {
+        "command": "superai.review",
+        "title": "SuperAI: Review (dry-run)"
+      },
+      {
+        "command": "superai.reviewSelection",
+        "title": "SuperAI: Review Selection"
+      },
+      {
+        "command": "superai.members",
+        "title": "SuperAI: List Members"
+      },
+      {
+        "command": "superai.smokePreflight",
+        "title": "SuperAI: Smoke Preflight"
+      },
+      {
+        "command": "superai.pluginCatalog",
+        "title": "SuperAI: Plugin Marketplace"
+      },
+      {
+        "command": "superai.progress",
+        "title": "SuperAI: Progress"
+      },
+      {
+        "command": "superai.v6Status",
+        "title": "SuperAI: V6 Status"
+      },
+      {
+        "command": "superai.explainRun",
+        "title": "SuperAI: Explain Run"
+      },
+      {
+        "command": "superai.openAgentTerminal",
+        "title": "SuperAI: Open Agent Terminal"
+      },
+      {
+        "command": "superai.insertLastOutput",
+        "title": "SuperAI: Insert Last Output"
+      },
+      {
+        "command": "superai.agentTuiHint",
+        "title": "SuperAI: Agent TUI hint"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "superai.askSelection",
+          "when": "editorHasSelection",
+          "group": "superai@1"
+        },
+        {
+          "command": "superai.reviewSelection",
+          "when": "editorHasSelection",
+          "group": "superai@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "superai.runTask"
+        },
+        {
+          "command": "superai.ask"
+        },
+        {
+          "command": "superai.do"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "superai.ask",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "superai.askSelection",
+        "key": "ctrl+shift+alt+a",
+        "mac": "cmd+shift+alt+a",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "superai.doctor",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d"
+      }
     ],
     "configuration": {
       "title": "SuperAI",
@@ -35,11 +150,32 @@
           "type": "string",
           "default": "superai",
           "description": "Path to superai CLI executable"
+        },
+        "superai.timeoutMs": {
+          "type": "number",
+          "default": 180000,
+          "description": "CLI timeout in milliseconds"
+        },
+        "superai.mockMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Set SUPERAI_MOCK=1 when invoking CLI (offline-friendly)"
+        },
+        "superai.autoShowOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show SuperAI output channel on each command"
+        },
+        "superai.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional PYTHONPATH for superai (e.g. path to SuperAI/src)"
         }
       }
     }
   },
   "scripts": {
-    "package": "echo 'Open in VS Code and run Install from VSIX after vsce package'"
+    "test": "node test/run.js",
+    "package": "echo Use: npx @vscode/vsce package (optional)"
   }
 }

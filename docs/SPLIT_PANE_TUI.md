@@ -266,19 +266,20 @@ pytest tests/test_split_pane_tui_n209.py -q
 | Fully tested | `tests/test_split_pane_tui_n209.py` |
 | Multi-layout product | 8 presets, focus, hide, ratios, persistence |
 
-### Out of scope (related IDs)
+### Related advanced TUI (implemented)
 
-| ID | Topic |
-|----|--------|
-| N208 | Multiplexed sessions (tmux-like process mux) |
-| N210 | Vim keys in TUI |
-| N211 | Optional mouse support |
-| N215 | Screen-reader friendly TUI |
+| ID | Topic | Doc |
+|----|--------|-----|
+| N208 | Multiplexed sessions (tmux-like) | [TUI_ADVANCED.md](TUI_ADVANCED.md) |
+| N210 | Vim keys in TUI | [TUI_ADVANCED.md](TUI_ADVANCED.md) |
+| N211 | Optional mouse support | [TUI_ADVANCED.md](TUI_ADVANCED.md) |
+| N215 | Screen-reader friendly TUI | [TUI_ADVANCED.md](TUI_ADVANCED.md) |
 
 ---
 
 ## Related
 
+- Advanced TUI pack: [TUI_ADVANCED.md](TUI_ADVANCED.md) (N208/N210/N211/N215)  
 - Agent TUI (M077 / MoSCoW N1): `superai_agent/tui.py`, `agent_tui.py`  
 - Command palette (W5): `tui_commands.py`  
 - Dashboard multi-panel (observability): `cli/dashboard.py`  

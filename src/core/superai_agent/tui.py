@@ -32,15 +32,19 @@ HELP = """
 **Model:** `/model <name>`  
 **Permission:** `/permission plan|ask|auto|yolo`  
 **Sessions:** `/new` `/sessions` `/resume id` `/export` `/undo`  
+**Mux (N208):** `/mux status|new|next|prev|select|kill|rename|attach|list`  
 **Changes:** `/changeset` `/apply` `/reject` (staged writes)  
 **Tools:** `/tools` · tool loop runs automatically  
 **Split-pane (N209):** `/layout` `/split` `/focus` `/cycle` `/hide` `/show` `/ratio` `/panes` `/layouts` `/split-help`  
+**Vim (N210):** `/vim on|off|status|help` · Esc=NORMAL in vim mode  
+**Mouse (N211):** `/mouse on|off|status|help`  
+**A11y (N215):** `/a11y on|off|brief|normal|verbose|status|help`  
 **Voice:** `/listen [sec]` `/speak [text]` `/voice status|on|off|auto on|off|queue …`  
 **Other:** `/cost` `/trace` `/help` `/exit`
 
 Plain text → agent run (tool loop).
 
-Also: `superai` (default agent) · `superai agent` · `superai split-tui` · `superai ask`
+Also: `superai` · `superai agent` · `superai mux` · `superai split-tui` · `superai ask`
 """
 
 
@@ -204,30 +208,210 @@ def run_superai_agent_tui(
         SPLIT_HELP,
         handle_split_slash,
         layout_summary,
+        set_focus,
     )
+    from core.tui_a11y import A11Y_HELP, A11yController, handle_a11y_slash
+    from core.tui_mouse import MOUSE_HELP, MouseController, handle_mouse_slash
+    from core.tui_mux import MUX_HELP, SessionMux, handle_mux_slash
+    from core.tui_vim import VIM_HELP, create_engine, handle_vim_slash
+
+    mux = SessionMux(persist=True)
+    mux.sync_active_session(
+        state.id, title=getattr(state, "title", "") or state.id, agent=state.agent
+    )
+    vim_eng = create_engine()
+    mouse_ctl = MouseController()
+    a11y = A11yController()
+    msg_scroll_offset = 0  # used by vim/mouse scroll actions
+
+    def _print_frame(status: str = "") -> None:
+        nonlocal msg_scroll_offset
+        try:
+            cs_sum = changeset.summary()
+        except Exception:
+            cs_sum = None
+        if a11y.cfg.enabled:
+            text = a11y.render(
+                state=state,
+                events=events,
+                tools_info=catalog(),
+                stream_on=stream_on,
+                status=status,
+                mux_bar=mux.status_bar(),
+                vim_mode=vim_eng.mode_indicator() if vim_eng.enabled else "",
+                mouse_on=mouse_ctl.cfg.enabled,
+            )
+            console.print(text)
+            return
+        # decorate header status with mux + vim indicator
+        extra = status
+        bar = mux.status_bar()
+        ind = vim_eng.mode_indicator()
+        if bar:
+            extra = f"{extra} {bar}".strip()
+        if ind:
+            extra = f"{extra} [{ind}]".strip()
+        console.print(
+            render_frame(
+                state,
+                events,
+                stream_on,
+                extra,
+                changeset_summary=cs_sum,
+            )
+        )
+
+    def _apply_nav_action(name: str, *, count: int = 1, arg: str = "") -> bool:
+        """Apply vim/mouse navigation actions. Returns True if consumed (not passthrough)."""
+        nonlocal state, msg_scroll_offset
+        if name in {"scroll_up", "page_up"}:
+            step = count * (5 if name == "page_up" else 1)
+            msg_scroll_offset = max(0, msg_scroll_offset + step)
+            a11y.announce(f"Scroll up {step}.")
+            return True
+        if name in {"scroll_down", "page_down"}:
+            step = count * (5 if name == "page_down" else 1)
+            msg_scroll_offset = max(0, msg_scroll_offset - step)
+            a11y.announce(f"Scroll down {step}.")
+            return True
+        if name == "scroll_top":
+            msg_scroll_offset = 10**9
+            return True
+        if name == "scroll_bottom":
+            msg_scroll_offset = 0
+            return True
+        if name in {"focus_next", "focus_right", "focus_down"}:
+            from core.split_pane_tui import cycle_focus
+
+            cycle_focus(persist=True)
+            return True
+        if name in {"focus_prev", "focus_left", "focus_up"}:
+            from core.split_pane_tui import cycle_focus, layout_summary as _ls
+
+            # cycle twice for 2-pane feels wrong; reverse by cycling n-1
+            vis = _ls().get("visible_panes") or ["messages"]
+            for _ in range(max(1, len(vis) - 1)):
+                cycle_focus(persist=True)
+            return True
+        if name == "focus_pane" and arg:
+            set_focus(arg, persist=True)
+            return True
+        if name == "mux_next":
+            handle_mux_slash("next", mux=mux)
+            w = mux.active_window()
+            if w:
+                try:
+                    state = store.load(w.session_id)
+                except Exception:
+                    pass
+            return True
+        if name == "mux_prev":
+            handle_mux_slash("prev", mux=mux)
+            w = mux.active_window()
+            if w:
+                try:
+                    state = store.load(w.session_id)
+                except Exception:
+                    pass
+            return True
+        if name == "mux_new":
+            out = handle_mux_slash("new", mux=mux)
+            if out.get("ok") and out.get("created"):
+                sid = out["created"].get("session_id")
+                try:
+                    state = store.load(sid)
+                    events.clear()
+                except Exception:
+                    pass
+            return True
+        if name == "mux_select" and arg.isdigit():
+            handle_mux_slash(f"select {arg}", mux=mux)
+            w = mux.active_window()
+            if w:
+                try:
+                    state = store.load(w.session_id)
+                except Exception:
+                    pass
+            return True
+        if name == "redraw":
+            return True
+        if name == "help":
+            console.print(Markdown(HELP))
+            return True
+        return False
 
     console.print(
         Panel.fit(
             "[bold]SuperAI agent[/bold]\n"
-            "Multi-agent · tool loop · sessions · split-pane layouts (N209)\n"
-            "Type /help · /split-help · plain text runs the agent",
+            "Multi-agent · mux · split-pane · vim/mouse/a11y (N208–N215)\n"
+            "Type /help · /mux · /vim · /mouse · /a11y · plain text runs the agent",
             border_style="cyan",
         )
     )
-    try:
-        cs_sum = changeset.summary()
-    except Exception:
-        cs_sum = None
-    console.print(
-        render_frame(state, events, stream_on, changeset_summary=cs_sum)
-    )
+    _print_frame()
 
     while True:
+        prompt = "[bold green]you>[/bold green] "
+        if vim_eng.enabled and vim_eng.mode == "normal":
+            prompt = "[bold yellow]NORMAL>[/bold yellow] "
+        elif vim_eng.enabled and vim_eng.mode == "command":
+            prompt = f"[bold magenta]:{vim_eng.command_buf}[/bold magenta] "
         try:
-            line = console.input("[bold green]you>[/bold green] ").strip()
+            line = console.input(prompt).rstrip("\n")
         except (EOFError, KeyboardInterrupt):
             console.print()
             break
+        # N210: when vim normal mode, treat short line as key sequence
+        if vim_eng.enabled and vim_eng.mode == "normal" and line and not line.startswith("/"):
+            # multi-char sequences like gg, ZZ or single keys
+            if line == ":":
+                act = vim_eng.feed(":")
+                console.print(f"[dim]{vim_eng.mode_indicator()}[/dim]")
+                continue
+            actions = []
+            i = 0
+            while i < len(line):
+                # handle gg / ZZ as digraphs
+                if i + 1 < len(line) and line[i : i + 2] in {"gg", "ZZ", "ZQ"}:
+                    # feed as pending-aware two keys
+                    actions.append(vim_eng.feed(line[i]))
+                    actions.append(vim_eng.feed(line[i + 1]))
+                    i += 2
+                else:
+                    actions.append(vim_eng.feed(line[i]))
+                    i += 1
+            quit_req = False
+            for act in actions:
+                if act.name == "quit":
+                    quit_req = True
+                    break
+                if act.name == "submit_command":
+                    parsed = vim_eng.parse_command(act.arg)
+                    if parsed.name == "quit":
+                        quit_req = True
+                        break
+                    _apply_nav_action(parsed.name, count=parsed.count, arg=parsed.arg)
+                elif act.name == "enter_insert":
+                    pass
+                elif act.name not in {"none", "passthrough", "unknown"}:
+                    _apply_nav_action(act.name, count=act.count, arg=act.arg)
+            if quit_req:
+                break
+            _print_frame(f"vim={vim_eng.mode_indicator()}")
+            if vim_eng.mode == "insert":
+                continue
+            continue
+        if vim_eng.enabled and vim_eng.mode == "command":
+            # entire line is command body if user typed after :
+            parsed = vim_eng.parse_command(line)
+            vim_eng.set_mode("normal")
+            if parsed.name == "quit":
+                break
+            _apply_nav_action(parsed.name, count=parsed.count, arg=parsed.arg)
+            _print_frame()
+            continue
+
+        line = line.strip()
         if not line:
             continue
 
@@ -240,6 +424,86 @@ def run_superai_agent_tui(
             if cmd == "help":
                 console.print(Markdown(HELP))
                 console.print(Markdown(SPLIT_HELP))
+                console.print(Markdown(MUX_HELP))
+                console.print(Markdown(VIM_HELP))
+                console.print(Markdown(MOUSE_HELP))
+                console.print(Markdown(A11Y_HELP))
+                continue
+            # N208 mux
+            if cmd in {"mux", "window", "w"}:
+                if cmd in {"w", "window"} and not arg:
+                    arg = "next"
+                out = handle_mux_slash(arg, mux=mux)
+                if out.get("help"):
+                    console.print(Markdown(str(out["help"])))
+                else:
+                    console.print_json(data=out)
+                sub0 = (arg or "status").split()[0].lower() if arg else "status"
+                if sub0 in {
+                    "next",
+                    "prev",
+                    "select",
+                    "new",
+                    "attach",
+                    "kill",
+                    "n",
+                    "p",
+                    "s",
+                    "a",
+                    "c",
+                    "+",
+                    "-",
+                    "goto",
+                    "create",
+                    "x",
+                    "close",
+                }:
+                    w = mux.active_window()
+                    if w:
+                        try:
+                            state = store.load(w.session_id)
+                            if sub0 in {"new", "c", "create"}:
+                                events.clear()
+                        except Exception:
+                            pass
+                a11y.announce(mux.status_bar())
+                _print_frame()
+                continue
+            # N210 vim
+            if cmd in {"vim", "vim-keys", "vi"}:
+                out = handle_vim_slash(arg, engine=vim_eng)
+                if out.get("help"):
+                    console.print(Markdown(str(out["help"])))
+                else:
+                    # re-sync engine flags from config when toggled
+                    if (arg or "").split()[:1] in (["on"], ["off"], ["enable"], ["disable"]):
+                        from core.tui_vim import create_engine as _ce
+
+                        vim_eng = _ce()
+                    console.print_json(data=out)
+                _print_frame()
+                continue
+            # N211 mouse
+            if cmd in {"mouse"}:
+                out = handle_mouse_slash(arg, ctl=mouse_ctl)
+                if out.get("help"):
+                    console.print(Markdown(str(out["help"])))
+                else:
+                    console.print_json(data=out)
+                if out.get("action") and out["action"].get("name") == "focus_pane":
+                    pane = out["action"].get("pane")
+                    if pane:
+                        set_focus(pane, persist=True)
+                _print_frame()
+                continue
+            # N215 a11y
+            if cmd in {"a11y", "sr", "screenreader", "screen-reader"}:
+                out = handle_a11y_slash(arg, ctl=a11y)
+                if out.get("help"):
+                    console.print(Markdown(str(out["help"])))
+                else:
+                    console.print_json(data=out)
+                _print_frame()
                 continue
             # N209 split-pane commands
             if cmd in SPLIT_COMMANDS:
@@ -249,18 +513,10 @@ def run_superai_agent_tui(
                 else:
                     console.print_json(data=out)
                 try:
-                    cs_sum = changeset.summary()
+                    mouse_ctl.set_layout(str(layout_summary().get("layout") or "agent"))
                 except Exception:
-                    cs_sum = None
-                console.print(
-                    render_frame(
-                        state,
-                        events,
-                        stream_on,
-                        status=f"layout={layout_summary().get('layout')}",
-                        changeset_summary=cs_sum,
-                    )
-                )
+                    pass
+                _print_frame(f"layout={layout_summary().get('layout')}")
                 continue
             if cmd == "agents":
                 console.print_json(data=list_agents())
@@ -287,8 +543,15 @@ def run_superai_agent_tui(
                     permission=state.permission,
                 )
                 events.clear()
+                mux.new_window(
+                    session_id=state.id,
+                    title=state.title or state.id,
+                    agent=state.agent,
+                    create_session=False,
+                )
                 console.print(f"[green]new session {state.id}[/green]")
-                console.print(render_frame(state, events, stream_on))
+                a11y.announce(f"New session {state.id}.")
+                _print_frame()
                 continue
             if cmd == "sessions":
                 table = Table(title="SuperAI sessions")
@@ -308,8 +571,10 @@ def run_superai_agent_tui(
             if cmd == "resume":
                 try:
                     state = store.load(arg.strip())
+                    mux.attach(state.id, title=state.title or state.id)
                     console.print(f"[green]resumed {state.id}[/green]")
-                    console.print(render_frame(state, events, stream_on))
+                    a11y.announce(f"Resumed session {state.id}.")
+                    _print_frame()
                 except KeyError:
                     console.print(f"[red]unknown {arg}[/red]")
                 continue
@@ -319,7 +584,7 @@ def run_superai_agent_tui(
                 continue
             if cmd == "undo":
                 state = store.undo_last_user_assistant(state)
-                console.print(render_frame(state, events, stream_on, "undone"))
+                _print_frame("undone")
                 continue
             if cmd == "cost":
                 console.print(
@@ -353,15 +618,7 @@ def run_superai_agent_tui(
                 if arg:
                     out = handle_split_slash("layout", arg, persist=True)
                     console.print_json(data=out)
-                try:
-                    cs_sum = changeset.summary()
-                except Exception:
-                    cs_sum = None
-                console.print(
-                    render_frame(
-                        state, events, stream_on, changeset_summary=cs_sum
-                    )
-                )
+                _print_frame()
                 continue
             # MOS-N6 voice hooks
             if cmd == "listen":
@@ -422,43 +679,45 @@ def run_superai_agent_tui(
                 stage_writes=state.permission in {"ask", "plan"},
             )
         state = store.load(result.session_id)
-        if stream_on and buf:
-            console.print(
-                Panel("".join(buf)[:4000], title="stream", border_style="green")
-            )
-        else:
-            console.print(
-                Panel(
-                    (result.response or "")[:4000],
-                    title=f"agent:{result.agent} tools={result.tool_rounds}",
-                    border_style="green",
-                )
-            )
-        console.print(
-            f"[dim]mock={result.mock} cost≈${result.estimated_cost_usd:.6f} "
-            f"session={state.id}[/dim]"
+        mux.sync_active_session(
+            state.id, title=state.title or state.id, agent=state.agent
         )
+        reply_txt = "".join(buf) if (stream_on and buf) else (result.response or "")
+        if a11y.cfg.enabled:
+            a11y.announce(
+                f"Agent reply. Tools {result.tool_rounds}. "
+                f"{'OK' if result.ok else 'Error'}."
+            )
+            if reply_txt:
+                console.print(
+                    f"assistant: {str(reply_txt)[:4000]}\n"
+                    f"(mock={result.mock} cost≈${result.estimated_cost_usd:.6f})"
+                )
+        else:
+            if stream_on and buf:
+                console.print(
+                    Panel("".join(buf)[:4000], title="stream", border_style="green")
+                )
+            else:
+                console.print(
+                    Panel(
+                        (result.response or "")[:4000],
+                        title=f"agent:{result.agent} tools={result.tool_rounds}",
+                        border_style="green",
+                    )
+                )
+            console.print(
+                f"[dim]mock={result.mock} cost≈${result.estimated_cost_usd:.6f} "
+                f"session={state.id}[/dim]"
+            )
         # MOS-N6: auto-speak reply when /voice auto on
         try:
             from core.voice_io import speak_reply
 
-            spoken = "".join(buf) if (stream_on and buf) else (result.response or "")
-            speak_reply(str(spoken)[:500])
+            speak_reply(str(reply_txt)[:500])
         except Exception:
             pass
-        try:
-            cs_sum = changeset.summary()
-        except Exception:
-            cs_sum = None
-        console.print(
-            render_frame(
-                state,
-                events,
-                stream_on,
-                "ok" if result.ok else "err",
-                changeset_summary=cs_sum,
-            )
-        )
+        _print_frame("ok" if result.ok else "err")
 
     console.print(f"[dim]session saved: {state.id}[/dim]")
 

@@ -5196,6 +5196,127 @@ def split_tui_cmd(
     raise typer.Exit(1)
 
 
+@app.command("mux")
+def mux_cmd(
+    action: str = typer.Argument(
+        "status",
+        help="status|new|list|select|next|prev|kill|rename|attach|name|help",
+    ),
+    value: Optional[str] = typer.Argument(
+        None, help="title / index / session_id depending on action"
+    ),
+    agent: str = typer.Option("build", "--agent", "-a"),
+):
+    """N208: Multiplexed sessions (tmux-like windows over agent sessions)."""
+    from core.tui_mux import MUX_HELP, SessionMux, handle_mux_slash
+
+    act = (action or "status").lower().strip()
+    if act in {"help", "?"}:
+        console.print(MUX_HELP)
+        return
+    # map CLI args → slash arg string
+    if act in {"status", "list", "next", "prev"}:
+        arg = act
+    elif act in {"new"}:
+        arg = f"new {value or ''}".strip()
+    elif act in {"select"}:
+        arg = f"select {value or 0}"
+    elif act in {"kill"}:
+        arg = f"kill {value}".strip() if value is not None else "kill"
+    elif act in {"rename"}:
+        arg = f"rename {value or ''}".strip()
+    elif act in {"attach"}:
+        arg = f"attach {value or ''}".strip()
+    elif act in {"name"}:
+        arg = f"name {value or 'default'}".strip()
+    else:
+        arg = f"{act} {value or ''}".strip()
+    mux = SessionMux(persist=True)
+    if act == "new" and value is None:
+        out = mux.new_window(agent=agent, title="")
+        console.print_json(data=out)
+        return
+    console.print_json(data=handle_mux_slash(arg, mux=mux))
+
+
+@app.command("vim-keys")
+def vim_keys_cmd(
+    action: str = typer.Argument(
+        "status", help="status|on|off|normal|insert|help|feed"
+    ),
+    value: Optional[str] = typer.Argument(None, help="keys for feed"),
+):
+    """N210: Vim keybindings engine status / toggle / feed."""
+    from core.tui_vim import VIM_HELP, handle_vim_slash
+
+    act = (action or "status").lower().strip()
+    if act in {"help", "?"}:
+        console.print(VIM_HELP)
+        return
+    arg = act if not value else f"{act} {value}"
+    console.print_json(data=handle_vim_slash(arg))
+
+
+@app.command("mouse")
+def mouse_cmd(
+    action: str = typer.Argument(
+        "status", help="status|on|off|parse|hit|layout|help"
+    ),
+    value: Optional[str] = typer.Argument(
+        None, help="sgr payload, or 'x y [layout]' for hit"
+    ),
+):
+    """N211: Optional mouse support (parse / hit-test / enable)."""
+    from core.tui_mouse import MOUSE_HELP, handle_mouse_slash
+
+    act = (action or "status").lower().strip()
+    if act in {"help", "?"}:
+        console.print(MOUSE_HELP)
+        return
+    arg = act if not value else f"{act} {value}"
+    console.print_json(data=handle_mouse_slash(arg))
+
+
+@app.command("a11y")
+def a11y_cmd(
+    action: str = typer.Argument(
+        "status",
+        help="status|on|off|brief|normal|verbose|render|help",
+    ),
+    value: Optional[str] = typer.Argument(None, help="announce text or verbosity"),
+):
+    """N215: Screen-reader friendly TUI mode."""
+    from core.tui_a11y import A11Y_HELP, A11yController, handle_a11y_slash, linearize_frame
+
+    act = (action or "status").lower().strip()
+    if act in {"help", "?"}:
+        console.print(A11Y_HELP)
+        return
+    if act == "render":
+        ctl = A11yController()
+
+        class _S:
+            id = "demo"
+            agent = "build"
+            model = "mock"
+            permission = "plan"
+            messages = [
+                {"role": "user", "content": "Hello a11y"},
+                {"role": "assistant", "content": "Screen-reader frame."},
+            ]
+            estimated_cost_usd = 0.0
+            tokens = 0
+
+        text = linearize_frame(state=_S(), events=[], tools_info=[], cfg=ctl.cfg)
+        console.print(text)
+        return
+    if act == "announce" and value:
+        console.print_json(data=handle_a11y_slash(f"announce {value}"))
+        return
+    arg = act if not value else f"{act} {value}"
+    console.print_json(data=handle_a11y_slash(arg))
+
+
 @app.command("agent-roles")
 def agent_roles_cmd():
     """List SuperAI agent roles (build / plan / ask)."""

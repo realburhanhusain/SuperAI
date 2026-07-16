@@ -145,6 +145,10 @@ V6_N_COMPLETE = {
     "N202",  # NL → any command with preview — nl_preview + docs + tests
     "N206",  # goals/schedules daemon — goals_daemon + docs + tests
     "N209",  # split-pane TUI — split_pane_tui + docs + tests
+    "N208",  # multiplexed sessions — tui_mux + docs + tests
+    "N210",  # vim keys — tui_vim + docs + tests
+    "N211",  # mouse — tui_mouse + docs + tests
+    "N215",  # screen-reader a11y — tui_a11y + docs + tests
 }
 
 COMPLETE_IDS = (
@@ -303,6 +307,18 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
         elif iid == "N209":
             docs_note = "docs/SPLIT_PANE_TUI.md + V6 backlog N209"
             tests_note = "tests/test_split_pane_tui_n209.py"
+        elif iid == "N208":
+            docs_note = "docs/TUI_ADVANCED.md (N208 mux) + V6 backlog"
+            tests_note = "tests/test_tui_advanced_n208_n215.py"
+        elif iid == "N210":
+            docs_note = "docs/TUI_ADVANCED.md (N210 vim) + V6 backlog"
+            tests_note = "tests/test_tui_advanced_n208_n215.py"
+        elif iid == "N211":
+            docs_note = "docs/TUI_ADVANCED.md (N211 mouse) + V6 backlog"
+            tests_note = "tests/test_tui_advanced_n208_n215.py"
+        elif iid == "N215":
+            docs_note = "docs/TUI_ADVANCED.md (N215 a11y) + V6 backlog"
+            tests_note = "tests/test_tui_advanced_n208_n215.py"
         elif iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
             docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs"
         return "complete", T(

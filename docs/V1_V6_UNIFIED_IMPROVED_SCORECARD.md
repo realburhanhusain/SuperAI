@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **222** |
-| **INCOMPLETE** | **293** |
+| **COMPLETE (production + docs + tests)** | **226** |
+| **INCOMPLETE** | **289** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **42.9%**
-- **Average percent (incomplete only):** **30.6%**
-- **Average percent (all non-refuse):** **60.7%**
+- **Strict completion rate (complete / (total − refuse)):** **43.6%**
+- **Average percent (incomplete only):** **30.8%**
+- **Average percent (all non-refuse):** **61.3%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 222
+**Count:** 226
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
@@ -1107,6 +1107,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — tests/test_goals_daemon_n206.py + tests/test_daemon_deploy_n206.py
 - **Still incomplete:** —
 
+### N208 — Multiplexed sessions (tmux-like)
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Multiplexed sessions (tmux-like)
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N208 mux) + V6 backlog
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
+- **Still incomplete:** —
+
 ### N209 — Split-pane TUI
 
 - **Track:** V6
@@ -1117,6 +1127,26 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — tests/test_split_pane_tui_n209.py
 - **Still incomplete:** —
 
+### N210 — Vim keys in TUI
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Vim keys in TUI
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N210 vim) + V6 backlog
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
+- **Still incomplete:** —
+
+### N211 — Optional mouse support
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Optional mouse support
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N211 mouse) + V6 backlog
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
+- **Still incomplete:** —
+
 ### N213 — Optional voice channel
 
 - **Track:** V6
@@ -1125,6 +1155,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: Optional voice channel
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### N215 — Screen-reader friendly TUI
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Screen-reader friendly TUI
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N215 a11y) + V6 backlog
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
 - **Still incomplete:** —
 
 ### N227 — Pre/post tool hooks
@@ -2271,7 +2311,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 293
+**Count:** 289
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -3861,45 +3901,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** —
 - **Still incomplete:** Production product + docs + tests
 
-### N208 — Multiplexed sessions (tmux-like)
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
-### N210 — Vim keys in TUI
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
-### N211 — Optional mouse support
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
 ### N212 — Image paste from clipboard
 
 - **Track:** V6
@@ -3914,19 +3915,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Production product + docs + tests
 
 ### N214 — Full i18n for CLI/TUI
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
-### N215 — Screen-reader friendly TUI
 
 - **Track:** V6
 - **Complete?** **NO**

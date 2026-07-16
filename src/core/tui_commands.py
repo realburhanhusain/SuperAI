@@ -39,6 +39,11 @@ SLASH_COMMANDS: List[Dict[str, str]] = [
     {"cmd": "/panes", "alias": "", "desc": "N209: list visible/hidden panes"},
     {"cmd": "/layouts", "alias": "", "desc": "N209: list layout presets"},
     {"cmd": "/split-help", "alias": "splithelp", "desc": "N209: split-pane help"},
+    # N208–N215 advanced TUI
+    {"cmd": "/mux", "alias": "window|w", "desc": "N208: multiplexed sessions (tmux-like)"},
+    {"cmd": "/vim", "alias": "vi", "desc": "N210: vim keys on|off|status|help"},
+    {"cmd": "/mouse", "alias": "", "desc": "N211: mouse on|off|status|hit|help"},
+    {"cmd": "/a11y", "alias": "sr", "desc": "N215: screen-reader mode on|off|verbosity"},
 ]
 
 

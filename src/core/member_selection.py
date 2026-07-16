@@ -172,6 +172,13 @@ def list_selectable_members(
 
     # Soft-discover Ollama into in-memory registry for listing only
     ollama_soft: List[str] = []
+    if not include_ollama_live:
+        try:
+            from .config import Config
+
+            include_ollama_live = bool(Config().get("auto_ollama_discover"))
+        except Exception:
+            pass
     if include_ollama_live:
         try:
             from .model_discovery import list_ollama_tags, ollama_tags_to_catalog

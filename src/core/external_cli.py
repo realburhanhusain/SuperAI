@@ -182,13 +182,17 @@ class ExternalCLIRegistry:
         }
 
     def discover(self) -> List[Dict[str, Any]]:
+        from .path_which import resolve_candidates
+
         found = []
         for name, spec in self.specs.items():
-            path = None
-            for cand in [spec.command, *spec.detects]:
-                path = shutil.which(cand)
-                if path:
-                    break
+            path = resolve_candidates(spec.command, list(spec.detects or []))
+            if path is None:
+                # fallback classic which
+                for cand in [spec.command, *spec.detects]:
+                    path = shutil.which(cand)
+                    if path:
+                        break
             found.append(
                 {
                     "name": name,
@@ -219,14 +223,17 @@ class ExternalCLIRegistry:
 
     def probe(self, name: str) -> Dict[str, Any]:
         """Rich availability probe for a CLI (path, role, templates, hint)."""
+        from .path_which import resolve_candidates
+
         spec = self.get(name)
         if not spec:
             return {"name": name, "available": False, "error": "unknown"}
-        path = None
-        for d in spec.detects or [spec.command]:
-            path = shutil.which(d)
-            if path:
-                break
+        path = resolve_candidates(spec.command, list(spec.detects or []))
+        if path is None:
+            for d in spec.detects or [spec.command]:
+                path = shutil.which(d)
+                if path:
+                    break
         return {
             "name": name,
             "available": path is not None,
@@ -348,8 +355,11 @@ class ExternalCLITool:
                 error=f"Unknown CLI: {cli_name}",
             )
 
-        resolved = shutil.which(spec.command) or next(
-            (shutil.which(d) for d in spec.detects if shutil.which(d)), None
+        from .path_which import resolve_candidates
+
+        resolved = resolve_candidates(spec.command, list(spec.detects or [])) or (
+            shutil.which(spec.command)
+            or next((shutil.which(d) for d in spec.detects if shutil.which(d)), None)
         )
         if not resolved:
             # Dry-run still works without binary (demos / CI / orchestrator mock)

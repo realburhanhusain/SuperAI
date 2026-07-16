@@ -120,8 +120,9 @@ _ACTION_RULES: List[Tuple[str, float, str]] = [
     (
         "members",
         0.93,
-        r"\b(list|show|what|which).{0,48}\b(member|model|cli|available)|"
-        r"\bmembers\b|\bavailable (models?|clis?)\b|\bwhat can i use\b",
+        r"\b(list|show|what|which).{0,48}\b(member|model|cli|available|provider)|"
+        r"\bmembers\b|\bavailable (models?|clis?)\b|\bwhat can i use\b|"
+        r"\bproviders?\b|\blist[- ]models\b",
     ),
     ("doctor", 0.92, r"\b(doctor|health check|diagnose|is (superai|everything) (ok|healthy))\b"),
     (
@@ -133,6 +134,12 @@ _ACTION_RULES: List[Tuple[str, float, str]] = [
     ("host_tools", 0.88, r"\b(host[- ]tools|check (git|docker|rclone)|tool matrix)\b"),
     ("budget", 0.9, r"\b(budget|spend limit|cost limit|how much (have i|did i) spend)\b"),
     ("backup", 0.9, r"\b(backup|restore|export (my )?profile)\b"),
+    # profile / permission as run with extras via notes
+    (
+        "run",
+        0.86,
+        r"\b(use profile|set profile|cheap mode|local[- ]only mode|permission (plan|yolo))\b",
+    ),
     (
         "palace",
         0.88,

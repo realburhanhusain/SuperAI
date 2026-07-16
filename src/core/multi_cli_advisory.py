@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 # Structured protocol every advisor/reviewer is asked to follow
 REVIEW_PROTOCOL_PROMPT = """You are a SuperAI {role} on a multi-CLI advisory board.
@@ -364,6 +364,8 @@ def multi_cli_board(
     approve: bool = True,
     write_memory: bool = True,
     prefer: str = "mixed",  # mixed | cli | api
+    use_cache: bool = True,
+    progress: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """
     Full multi-member advisory/review board (API models + external CLIs).
@@ -375,6 +377,17 @@ def multi_cli_board(
     clis: legacy CLI-only list (still supported)
     """
     role = "reviewer" if (mode or "review").lower().startswith("rev") else "advisor"
+
+    # Smart sizing when caller left default and subject is short
+    try:
+        from .board_cache import smart_max_members
+
+        if max_clis == 3:
+            max_clis = smart_max_members(subject, default=3, hard_cap=5)
+    except Exception:
+        pass
+    # Diversity hard cap (cost control)
+    max_clis = max(1, min(int(max_clis or 3), 5))
 
     # Build member list: explicit members > clis > auto mixed
     raw: List[str] = []
@@ -397,6 +410,15 @@ def multi_cli_board(
         except Exception:
             raw = [f"cli:{c}" for c in pick_advisory_clis(role=role, max_clis=max_clis)]
 
+    # Deduplicate members (diversity)
+    seen = set()
+    deduped = []
+    for m in raw:
+        if m not in seen:
+            seen.add(m)
+            deduped.append(m)
+    raw = deduped[: max(1, max_clis)]
+
     if not raw:
         return {
             "ok": False,
@@ -410,8 +432,34 @@ def multi_cli_board(
             "board": merge_board([]),
         }
 
-    opinions = [
-        run_member_opinion(
+    # Cache hit (identical subject+members+mode)
+    if use_cache:
+        try:
+            from .board_cache import get_board
+
+            hit = get_board(
+                subject,
+                mode=mode,
+                members=raw,
+                prefer=prefer,
+                dry_run=dry_run,
+            )
+            if hit:
+                return hit
+        except Exception:
+            pass
+
+    def _prog(msg: str) -> None:
+        if callable(progress):
+            try:
+                progress(msg)
+            except Exception:
+                pass
+
+    opinions = []
+    for m in raw[: max(1, max_clis)]:
+        _prog(f"board_member_start:{m}")
+        op = run_member_opinion(
             m,
             subject,
             role=role,
@@ -419,8 +467,8 @@ def multi_cli_board(
             approve=approve,
             use_mock=dry_run,
         )
-        for m in raw[: max(1, max_clis)]
-    ]
+        opinions.append(op)
+        _prog(f"board_member_end:{m}:{op.get('verdict')}")
     board = merge_board(opinions)
     # Cost/token rollup from opinions (mock estimates when dry_run)
     tokens = 0
@@ -525,6 +573,21 @@ def multi_cli_board(
         result.setdefault("contract", "superai.result.v1")
         result.setdefault("mock", bool(dry_run))
         result.setdefault("dry_run", bool(dry_run))
+
+    if use_cache and result.get("ok"):
+        try:
+            from .board_cache import put_board
+
+            put_board(
+                subject,
+                result,
+                mode=mode,
+                members=raw[: max(1, max_clis)],
+                prefer=prefer,
+                dry_run=dry_run,
+            )
+        except Exception:
+            pass
 
     return result
 

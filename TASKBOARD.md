@@ -58,10 +58,10 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-16 |
-| **What** | Improvement track Phases 1–3 complete; 4–5 basic; ~85% track |
+| **What** | Improvement track Phases 1–7 **100%** code; Phase 99 smoke postponed |
 | **Plan** | `docs/IMPROVEMENT_PLAN.md` |
-| **Verify** | `pytest tests/test_result_contract.py tests/test_ask_session.py -q` |
-| **Prior** | Universal models code complete; smoke postponed |
+| **Verify** | `pytest tests/test_result_contract.py tests/test_board_cache.py tests/test_path_which.py -q` |
+| **Prior** | Universal models code complete |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 
@@ -74,14 +74,14 @@
 | 1 Trust & cost foundation | `[x]` | 100 |
 | 2 Agent front door + sessions + permissions | `[x]` | 100 |
 | 3 Catalog hygiene + profiles + cost report | `[x]` | 100 |
-| 4 Routing efficiency (OW/local) | `[~]` basic | 80 |
-| 5 Tool loop (minimal) | `[~]` basic | 60 |
-| 6 NL + Windows polish | `[~]` partial | 25 |
+| 4 Routing efficiency + board cache | `[x]` | 100 |
+| 5 Tool loop + health UX | `[x]` | 100 |
+| 6 NL + Windows PATH + auto Ollama | `[x]` | 100 |
 | 7 Docs closeout | `[x]` | 100 |
 | 8 Nice-to-have backlog | backlog | — |
 | 99 Live smoke | postponed | 0 |
 
-**Implementation % (Phases 1–7):** ~**85%** (musts 100%)
+**Implementation % (Phases 1–7):** **100%**
 
 ---
 

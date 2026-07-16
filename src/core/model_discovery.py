@@ -178,12 +178,34 @@ def register_openai_compatible_model(
 
 def provider_status() -> Dict[str, Any]:
     rows = list_providers(include_native=True)
+    # Merge circuit-breaker / health (offline file; no live calls)
+    health_map: Dict[str, Any] = {}
+    try:
+        from .provider_health import ProviderHealthStore
+
+        store = ProviderHealthStore()
+        health_map = (store.data or {}).get("providers") or {}
+    except Exception:
+        health_map = {}
+    for r in rows:
+        hid = str(r.get("id") or "")
+        h = health_map.get(hid) or {}
+        r["circuit_open"] = bool(h.get("circuit_open"))
+        r["consecutive_failures"] = int(h.get("consecutive_failures") or 0)
+        r["last_error"] = h.get("last_error")
+        if r.get("circuit_open"):
+            r["ready_note"] = "circuit_open"
+        elif not r.get("key_configured"):
+            r["ready_note"] = "missing_key"
+        else:
+            r["ready_note"] = "ok"
     return {
         "ok": True,
         "providers": rows,
         "counts": {
             "total": len(rows),
             "key_configured": sum(1 for r in rows if r.get("key_configured")),
+            "circuit_open": sum(1 for r in rows if r.get("circuit_open")),
             "local": sum(1 for r in rows if r.get("kind") == "local"),
             "cloud": sum(1 for r in rows if r.get("kind") == "cloud"),
             "gateway": sum(1 for r in rows if r.get("kind") == "gateway"),

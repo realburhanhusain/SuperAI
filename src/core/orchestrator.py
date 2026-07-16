@@ -116,13 +116,18 @@ class SuperAIOrchestrator:
             return None
 
     def _event(self, kind: str, **payload: Any) -> None:
-        self._adaptation_events.append(
-            {
-                "ts": time.time(),
-                "kind": kind,
-                **payload,
-            }
-        )
+        ev = {
+            "ts": time.time(),
+            "kind": kind,
+            **payload,
+        }
+        self._adaptation_events.append(ev)
+        try:
+            from .progress_events import get_progress_bus
+
+            get_progress_bus().emit(kind, **payload)
+        except Exception:
+            pass
 
     def run_task(
         self,

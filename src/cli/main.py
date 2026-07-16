@@ -1554,9 +1554,18 @@ def cli_run(
                 f"[dim]Memory Palace context {ctx_id} "
                 f"(memories={ctx.get('memory_count', 0)})[/dim]"
             )
-    # If require_human_approval is False, auto-approve file-modifying CLIs
-    auto = not cfg.require_human_approval
-    tool = ExternalCLITool(dry_run=dry_run, auto_approve=auto)
+    # Permission mode + require_human_approval
+    from core.permission_mode import apply_to_cli_tool_kwargs, mode_from_config
+
+    pmode = mode_from_config(cfg)
+    kw = apply_to_cli_tool_kwargs(
+        pmode,
+        dry_run=dry_run,
+        auto_approve=(not cfg.require_human_approval) or approve,
+    )
+    auto = bool(kw.get("auto_approve"))
+    dry_eff = bool(kw.get("dry_run"))
+    tool = ExternalCLITool(dry_run=dry_eff, auto_approve=auto)
     result = tool.run(
         run_name,
         prompt,
@@ -3314,6 +3323,7 @@ def providers_cmd(
     table.add_column("Protocol")
     table.add_column("Key env")
     table.add_column("Ready")
+    table.add_column("Circuit")
     for r in rows:
         table.add_row(
             str(r.get("id")),
@@ -3322,6 +3332,7 @@ def providers_cmd(
             str(r.get("protocol") or ""),
             str(r.get("api_key_env") or "—"),
             "yes" if r.get("key_configured") else "",
+            "OPEN" if r.get("circuit_open") else "",
         )
     console.print(table)
     # Registry validation warnings

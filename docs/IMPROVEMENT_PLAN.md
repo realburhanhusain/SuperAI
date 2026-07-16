@@ -1,67 +1,42 @@
-# SuperAI improvement plan — strengthen, efficiency, cost, flexibility, completeness
+# SuperAI improvement plan — complete (code)
 
-**Created:** 2026-07-16  
-**Updated:** 2026-07-16 — Phases 1–5 implemented (basic); 6–7 partial/docs  
-**Track:** `TASKBOARD.md`  
-**Smoke:** Phase 99 still **POSTPONED**
+**Updated:** 2026-07-16  
+**Status:** Phases 0–7 **code complete** · Phase 8 backlog · Phase 99 smoke **POSTPONED**  
+**Track:** `TASKBOARD.md`
 
 ## Progress dashboard
 
-| Phase | Name | Tasks | Done | Status | % |
-|------:|------|------:|-----:|--------|--:|
-| 0 | Planning | 3 | 3 | complete | 100% |
-| 1 | Trust & cost foundation | 6 | 6 | complete | 100% |
-| 2 | Agent front door + sessions + permissions | 5 | 5 | complete | 100% |
-| 3 | Catalog hygiene + profiles + cost report | 5 | 5 | complete | 100% |
-| 4 | Routing efficiency (OW/local prefer) | 5 | 4 | basic done | 80% |
-| 5 | Tool loop + health UX | 5 | 3 | basic done | 60% |
-| 6 | NL + Windows polish | 4 | 1 | partial | 25% |
-| 7 | Docs closeout | 3 | 3 | complete | 100% |
-| 8 | Nice-to-have backlog | — | 0 | backlog | — |
-| 99 | Live smoke | — | 0 | postponed | 0% |
+| Phase | Name | % | Status |
+|------:|------|--:|--------|
+| 0 | Planning | 100% | complete |
+| 1 | Trust & cost foundation | 100% | complete |
+| 2 | Agent front door + sessions + permissions | 100% | complete |
+| 3 | Profiles + validation + cost report | 100% | complete |
+| 4 | Routing efficiency + board cache | 100% | complete |
+| 5 | Tool loop + health UX | 100% | complete (basic tools + circuit column) |
+| 6 | NL expand + Windows PATH + auto Ollama | 100% | complete |
+| 7 | Docs closeout | 100% | complete |
+| 8 | Nice-to-have | — | backlog |
+| 99 | Live smoke | 0% | **POSTPONED** |
 
-**Phases 1–7 weighted estimate:** ~**85%** complete (core musts done; S1 streaming/board cache thinner).  
-**Must-have (1–3):** **100%**.
+**Implementation Phases 1–7:** **100%** (finish commit includes board cache, PATH, health, progress)  
+**Smoke:** 0% until all product planned work done  
 
-## Delivered modules
+## Key modules
 
-| Module | Phase |
-|--------|-------|
-| `result_contract.py` | 1 |
-| `permission_mode.py` | 2 |
-| `ask_session.py` | 2 |
-| `run_profiles.py` | 3 |
-| `registry_validate.py` | 3 |
-| `agent_tools.py` | 5 (minimal Read/Write/Glob jailed) |
-| Orchestrator contract + budget hard-stop | 1 |
-| multi_cli_board contract | 1 |
-| Worker pool local/OW prefer via profile | 4 |
-| CLI: default agent entry, profile, permission, cost footer | 2–3 |
+- `result_contract.py`, `permission_mode.py`, `ask_session.py`, `run_profiles.py`
+- `registry_validate.py`, `agent_tools.py`, `board_cache.py`, `path_which.py`
+- `progress_events.py` — orchestrator progress bus
+- Board cache TTL, smart max members, provider circuit in `providers`
+- Windows-aware CLI resolve; `auto_ollama_discover` config
+- `cli-run` honors permission modes
 
-## Commands
+## Verify
 
 ```powershell
-superai                          # NL agent REPL
-superai ask "…" --session ID --profile cheap --permission plan
-superai run "…" --profile local-only --permission ask
-superai profile cheap --persist
-superai providers
+pytest tests/test_result_contract.py tests/test_board_cache.py tests/test_path_which.py tests/test_provider_catalog.py tests/test_ask_session.py -q
 ```
-
-## Remaining (optional follow-up)
-
-- P4.3 Board subject cache (TTL)
-- P5.3 Richer streaming events
-- P5.4 Circuit-breaker detail in providers
-- P6.2–P6.3 NL map + Windows probe polish
-- Phase 8 nice-to-haves
-- Phase 99 live smoke after all planned product work
 
 ## Resume
 
-```text
-1. docs/IMPROVEMENT_PLAN.md
-2. TASKBOARD.md
-3. Continue remaining Phase 4–6 polish OR new product track
-4. No Phase 99 smoke yet
-```
+Only Phase 99 smoke (later) or Phase 8 nice-to-haves if prioritized.

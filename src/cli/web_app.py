@@ -172,26 +172,26 @@ async function status(){
             return graph_from_adaptation_events(events)
         return graph_from_run_result(result)
 
-    # OpenCode-style HTTP surface (client/server pattern inspired by OpenCode)
-    @app.get("/api/opencode/agents")
-    def api_opencode_agents() -> Dict[str, Any]:
-        from core.opencode_agent.agents import list_agents
+    # SuperAI agent HTTP surface (multi-agent tool loop)
+    @app.get("/api/agent/roles")
+    def api_agent_roles() -> Dict[str, Any]:
+        from core.super_agent.agents import list_agents
 
         return {"ok": True, "agents": list_agents()}
 
-    @app.get("/api/opencode/sessions")
-    def api_opencode_sessions(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
-        from core.opencode_agent.session import OpenCodeSessionStore
+    @app.get("/api/agent/sessions")
+    def api_agent_sessions(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
+        from core.super_agent.session import AgentSessionStore
 
-        return {"ok": True, "sessions": OpenCodeSessionStore().list_sessions(limit)}
+        return {"ok": True, "sessions": AgentSessionStore().list_sessions(limit)}
 
-    @app.post("/api/opencode/run")
-    async def api_opencode_run(request: Request) -> Dict[str, Any]:
+    @app.post("/api/agent/run")
+    async def api_agent_run(request: Request) -> Dict[str, Any]:
         """
-        One-shot OpenCode agent run (safe defaults: mock + plan permission).
+        One-shot SuperAI agent run (safe defaults: mock + plan permission).
         Body: {prompt, agent?, model?, session_id?, permission?, live?}
         """
-        from core.opencode_agent.runtime import AgentRuntime
+        from core.super_agent.runtime import AgentRuntime
 
         try:
             body = await request.json()
@@ -203,7 +203,6 @@ async function status(){
         if not prompt:
             raise HTTPException(status_code=400, detail="prompt required")
         live = bool(body.get("live"))
-        # Require env gate for live HTTP agent runs
         import os
 
         if live and (os.getenv("SUPERAI_MCP_ALLOW_LIVE") or "").lower() not in {
@@ -225,6 +224,21 @@ async function status(){
             permission=str(body.get("permission") or ("ask" if live else "plan")),
         )
         return out.to_dict()
+
+    # Deprecated aliases (old /api/opencode/* paths)
+    @app.get("/api/opencode/agents")
+    def api_opencode_agents_alias() -> Dict[str, Any]:
+        return api_agent_roles()
+
+    @app.get("/api/opencode/sessions")
+    def api_opencode_sessions_alias(
+        limit: int = Query(20, ge=1, le=100)
+    ) -> Dict[str, Any]:
+        return api_agent_sessions(limit=limit)
+
+    @app.post("/api/opencode/run")
+    async def api_opencode_run_alias(request: Request) -> Dict[str, Any]:
+        return await api_agent_run(request)
 
     @app.get("/graph", response_class=HTMLResponse)
     def graph_page() -> str:

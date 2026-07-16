@@ -1,17 +1,12 @@
 """
-SuperAI OpenCode-style agent (inspired by OpenCode patterns, not a fork).
+Deprecated alias package — use ``core.super_agent`` (product name: SuperAI).
 
-Architecture:
-  - multi-agent roles: build | plan | ask
-  - full message session (parts: text, tool_call, tool_result)
-  - permission-aware tool loop
-  - multi-panel Rich TUI + optional HTTP API
-  - model-agnostic via SuperAI ModelCaller / member catalog
+Kept so older imports/docs keep working.
 """
 
-from .agents import AGENT_ROLES, get_agent, list_agents
-from .runtime import AgentRuntime, RunResult
-from .session import OpenCodeSessionStore, SessionState
+from core.super_agent import *  # noqa: F403
+from core.super_agent import AgentSessionStore as OpenCodeSessionStore
+from core.super_agent.tui import run_super_agent_tui as run_opencode_tui
 
 __all__ = [
     "AGENT_ROLES",
@@ -19,6 +14,8 @@ __all__ = [
     "list_agents",
     "AgentRuntime",
     "RunResult",
+    "AgentSessionStore",
     "OpenCodeSessionStore",
     "SessionState",
+    "run_opencode_tui",
 ]

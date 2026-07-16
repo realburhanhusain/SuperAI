@@ -61,7 +61,7 @@ pytest -m unit -q
 | Item | Status |
 |------|--------|
 | Claiming live smoke passed without keys | **Will not lie** — harness only (`live_passed=False` by default) |
-| Full OpenCode rewrite | **[x] Implemented** SuperAI-native OpenCode-style stack — `docs/OPENCODE_REWRITE.md` (not a Go fork) |
+| Full agent rewrite (patterns, not fork) | **[x]** SuperAI multi-agent — `docs/SUPER_AGENT.md` · brand is SuperAI only |
 
 ### Not-important polish pack (pre–live smoke)
 

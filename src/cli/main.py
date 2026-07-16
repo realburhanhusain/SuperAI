@@ -76,22 +76,52 @@ def _main_callback(
         "--no-auto-backup",
         help="Disable atexit auto-backup for this process",
     ),
+    ask_mode: bool = typer.Option(
+        False,
+        "--ask",
+        help="Use NL product-route REPL instead of SuperAI agent TUI",
+    ),
+    agent: str = typer.Option(
+        "build",
+        "--agent",
+        "-a",
+        help="Default agent role when launching SuperAI TUI: build|plan|ask",
+    ),
+    model: Optional[str] = typer.Option(
+        None, "--model", "-m", help="Model for default SuperAI agent session"
+    ),
+    permission: Optional[str] = typer.Option(
+        None, "--permission", help="plan|ask|auto|yolo for default agent session"
+    ),
+    session: Optional[str] = typer.Option(
+        None, "--session", "-s", help="Resume SuperAI agent session id"
+    ),
 ) -> None:
     if not no_auto_backup:
         _register_auto_backup_if_enabled()
-    # No subcommand → interactive NL agent (Claude Code-style front door)
+    # No subcommand → SuperAI agent TUI (product front door)
     if ctx.invoked_subcommand is None:
-        from core.nl_intent import interactive_repl
+        if ask_mode:
+            from core.nl_intent import interactive_repl
 
-        console.print(
-            Panel.fit(
-                "[bold]SuperAI[/bold] — natural language agent\n"
-                "Type a request, or 'help' / 'exit'. "
-                "Commands still work: superai run | review | providers …",
-                border_style="cyan",
+            console.print(
+                Panel.fit(
+                    "[bold]SuperAI[/bold] — natural language routes\n"
+                    "Type a request, or 'help' / 'exit'. "
+                    "Default agent TUI: just run `superai`",
+                    border_style="cyan",
+                )
             )
+            interactive_repl(execute=True, verbose=False)
+            raise typer.Exit(0)
+        from core.super_agent.tui import run_super_agent_tui
+
+        run_super_agent_tui(
+            session_id=session,
+            agent=agent,
+            model=model,
+            permission=permission,
         )
-        interactive_repl(execute=True, verbose=False)
         raise typer.Exit(0)
 
 
@@ -4449,72 +4479,53 @@ def plugin_catalog_cmd(
     console.print_json(data=cat)
 
 
-@app.command("agent-tui")
-def agent_tui_cmd(
+@app.command("agent")
+def agent_cmd(
+    prompt: Optional[str] = typer.Argument(
+        None, help="One-shot task (omit for interactive SuperAI agent TUI)"
+    ),
     session: Optional[str] = typer.Option(None, "--session", "-s"),
+    agent: str = typer.Option("build", "--agent", "-a", help="build | plan | ask"),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
     permission: Optional[str] = typer.Option(None, "--permission"),
+    mock: bool = typer.Option(True, "--mock/--live"),
     profile: Optional[str] = typer.Option(None, "--profile"),
     legacy: bool = typer.Option(
-        False, "--legacy", help="Use pre-OpenCode simple agent TUI"
+        False, "--legacy", help="Use older simple agent loop"
     ),
-    agent: str = typer.Option(
-        "build", "--agent", "-a", help="build | plan | ask (OpenCode-style)"
-    ),
-    model: Optional[str] = typer.Option(None, "--model", "-m"),
 ):
-    """OpenCode-style multi-agent TUI (default). Use --legacy for old loop."""
+    """
+    SuperAI multi-agent (build/plan/ask) — tool loop + sessions + TUI.
+
+    Interactive: superai   or   superai agent
+    One-shot:    superai agent "add logging to config"
+    """
     if profile:
         from core.config import Config
         from core.run_profiles import apply_profile_to_config
 
         apply_profile_to_config(Config(), profile)
-    if legacy:
+    if legacy and not prompt:
         from core.agent_tui import run_agent_tui
 
         run_agent_tui(session_id=session, permission=permission, profile=profile)
         return
-    from core.opencode_agent.tui import run_opencode_tui
-
-    run_opencode_tui(
-        session_id=session,
-        agent=agent,
-        model=model,
-        permission=permission,
-    )
-
-
-@app.command("opencode")
-def opencode_cmd(
-    session: Optional[str] = typer.Option(None, "--session", "-s"),
-    agent: str = typer.Option("build", "--agent", "-a", help="build | plan | ask"),
-    model: Optional[str] = typer.Option(None, "--model", "-m"),
-    permission: Optional[str] = typer.Option(None, "--permission"),
-    prompt: Optional[str] = typer.Argument(
-        None, help="One-shot prompt (omit for interactive TUI)"
-    ),
-    mock: bool = typer.Option(True, "--mock/--live"),
-):
-    """
-    Full OpenCode-style agent (rewrite): multi-agent tool loop + sessions.
-
-    Interactive: superai opencode
-    One-shot:    superai opencode "add logging to config"
-    """
     if prompt:
-        from core.opencode_agent.runtime import AgentRuntime
+        from core.super_agent.runtime import AgentRuntime
 
         rt = AgentRuntime(use_mock=mock)
         out = rt.run(
             prompt,
+            session_id=session,
             agent=agent,
             model=model,
             permission=permission or "plan",
         )
         console.print_json(data=out.to_dict())
         return
-    from core.opencode_agent.tui import run_opencode_tui
+    from core.super_agent.tui import run_super_agent_tui
 
-    run_opencode_tui(
+    run_super_agent_tui(
         session_id=session,
         agent=agent,
         model=model,
@@ -4523,12 +4534,60 @@ def opencode_cmd(
     )
 
 
-@app.command("opencode-agents")
-def opencode_agents_cmd():
-    """List OpenCode-style agent roles (build/plan/ask)."""
-    from core.opencode_agent.agents import list_agents
+@app.command("agent-tui")
+def agent_tui_cmd(
+    session: Optional[str] = typer.Option(None, "--session", "-s"),
+    permission: Optional[str] = typer.Option(None, "--permission"),
+    profile: Optional[str] = typer.Option(None, "--profile"),
+    legacy: bool = typer.Option(False, "--legacy", help="Older simple agent loop"),
+    agent: str = typer.Option("build", "--agent", "-a", help="build | plan | ask"),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
+):
+    """Alias for `superai agent` interactive TUI."""
+    agent_cmd(
+        prompt=None,
+        session=session,
+        agent=agent,
+        model=model,
+        permission=permission,
+        mock=True,
+        profile=profile,
+        legacy=legacy,
+    )
+
+
+@app.command("agent-roles")
+def agent_roles_cmd():
+    """List SuperAI agent roles (build / plan / ask)."""
+    from core.super_agent.agents import list_agents
 
     console.print_json(data={"agents": list_agents()})
+
+
+@app.command("opencode", hidden=True)
+def opencode_cmd(
+    session: Optional[str] = typer.Option(None, "--session", "-s"),
+    agent: str = typer.Option("build", "--agent", "-a"),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
+    permission: Optional[str] = typer.Option(None, "--permission"),
+    prompt: Optional[str] = typer.Argument(None),
+    mock: bool = typer.Option(True, "--mock/--live"),
+):
+    """Deprecated alias for `superai agent` (product name is SuperAI)."""
+    console.print(
+        "[dim]Note: `superai opencode` is deprecated — use `superai` or "
+        "`superai agent`[/dim]"
+    )
+    agent_cmd(
+        prompt=prompt,
+        session=session,
+        agent=agent,
+        model=model,
+        permission=permission,
+        mock=mock,
+        profile=None,
+        legacy=False,
+    )
 
 
 @app.command("agent-tools")

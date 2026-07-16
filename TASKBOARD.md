@@ -62,7 +62,7 @@
 | Nice N1–N7 | `[x]` |
 | Nice N8 live smoke | `[!]` harness only — `superai smoke-harness` |
 | Not-important W1–W8 | `[x]` `docs/NOT_IMPORTANT_PLAN.md` |
-| OpenCode-style rewrite | `[x]` `superai opencode` · `docs/OPENCODE_REWRITE.md` |
+| SuperAI multi-agent | `[x]` `superai` / `superai agent` · `docs/SUPER_AGENT.md` |
 | Truth file | `docs/MOSCOW_100_PLAN.md` |
 
 ## Last session

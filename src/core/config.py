@@ -109,6 +109,9 @@ class Config:
         "auto_ollama_discover": False,
         # Multi-user palace tenant (Phase 8 N7)
         "tenant_id": "default",
+        # MemPalace MCP: allow peer writers (multi-client / multi-agent).
+        # Sets MEMPALACE_MCP_ALLOW_PEER_WRITER=1 for child MCP processes.
+        "mempalace_mcp_allow_peer_writer": True,
     }
 
     def __init__(self, config_path: Optional[str] = None):
@@ -185,11 +188,32 @@ class Config:
             "SUPERAI_MEMORY_DSN": ("memory_dsn", str),
             "SUPERAI_MEMORY_BACKEND": ("memory_backend", str),
             "SUPERAI_DATABASE_URL": ("memory_dsn", str),
+            "SUPERAI_MEMPALACE_MCP_ALLOW_PEER_WRITER": (
+                "mempalace_mcp_allow_peer_writer",
+                _as_bool,
+            ),
+            # Official MemPalace env name (also applied to process env when True)
+            "MEMPALACE_MCP_ALLOW_PEER_WRITER": (
+                "mempalace_mcp_allow_peer_writer",
+                _as_bool,
+            ),
         }
         for env_key, (cfg_key, caster) in env_map.items():
             raw = os.getenv(env_key)
             if raw is not None and raw != "":
                 self.config[cfg_key] = caster(raw)
+        # Propagate MemPalace peer-writer allow into process env for MCP children
+        self._apply_mempalace_peer_writer_env()
+
+    def _apply_mempalace_peer_writer_env(self) -> None:
+        """Ensure MEMPALACE_MCP_ALLOW_PEER_WRITER is set when config enables it."""
+        enabled = bool(self.config.get("mempalace_mcp_allow_peer_writer", True))
+        if enabled:
+            os.environ["MEMPALACE_MCP_ALLOW_PEER_WRITER"] = "1"
+        elif os.environ.get("MEMPALACE_MCP_ALLOW_PEER_WRITER") in {"1", "true", "yes", "on"}:
+            # Config explicitly false would clear only if we set false — leave env if user set it
+            if self.config.get("mempalace_mcp_allow_peer_writer") is False:
+                os.environ.pop("MEMPALACE_MCP_ALLOW_PEER_WRITER", None)
 
     def _load_project_config(self) -> None:
         """S7: merge project-local .superai/config.json from cwd if present."""

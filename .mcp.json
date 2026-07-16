@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "mempalace": {
+      "command": "mempalace-mcp",
+      "env": {
+        "MEMPALACE_MCP_ALLOW_PEER_WRITER": "1"
+      }
+    }
+  }
+}

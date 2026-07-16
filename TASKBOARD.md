@@ -58,9 +58,40 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-16 |
+| **What** | Improvement track **planned** (not implemented). Prior: universal models code complete. |
+| **Plan** | `docs/IMPROVEMENT_PLAN.md` — start Phase 1 next session |
+| **Prior plan** | `docs/UNIVERSAL_MODELS_PLAN.md` (100% code; smoke postponed) |
+| **Handoff** | `docs/SESSION_HANDOFF_IMPROVEMENT_TRACK.md` |
+
+### Improvement track (strong / efficient / cost / flexible / complete)
+
+**Resume:** `docs/IMPROVEMENT_PLAN.md` → Phase 1 tasks only.  
+**Smoke:** still postponed (Phase 99) until all planned code done.
+
+| Phase | Status | % |
+|------:|--------|--:|
+| 0 Planning + handoff | `[x]` | 100 |
+| 1 Trust & cost foundation | `[ ]` | 0 |
+| 2 Agent front door + sessions + permissions | `[ ]` | 0 |
+| 3 Catalog hygiene + profiles + cost report | `[ ]` | 0 |
+| 4 Routing efficiency | `[ ]` | 0 |
+| 5 Tool loop + streaming + health UX | `[ ]` | 0 |
+| 6 NL + Windows polish | `[ ]` | 0 |
+| 7 Docs closeout | `[ ]` | 0 |
+| 8 Nice-to-have backlog | backlog | — |
+| 99 Live smoke | postponed | 0 |
+
+**Implementation % (Phases 1–7):** 0 / 33 = **0%**
+
+---
+
+## Prior session (universal models)
+
+| Field | Value |
+|-------|--------|
+| **When** | 2026-07-16 |
 | **What** | Universal models Phases 0–5 **code complete**; smoke Phase 99 postponed |
-| **Plan** | `docs/UNIVERSAL_MODELS_PLAN.md` (task list + %) |
-| **Charter** | `docs/UNIVERSAL_MODELS.md` |
+| **Plan** | `docs/UNIVERSAL_MODELS_PLAN.md` |
 | **Verify** | `pytest tests/test_provider_catalog.py tests/test_model_discovery.py tests/test_member_selection.py tests/test_nl_intent.py -q` |
 
 ### Universal models (multi-vendor / open-weight)

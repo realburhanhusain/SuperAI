@@ -20,10 +20,17 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 
 - ChromaDB backend or Chroma → SQL migrator (no existing user data; Chroma removed)
 
-## Recently closed (code)
+## Next implementation track (planned, not started)
 
 | Item | Notes |
 |------|--------|
+| Improvement Phases 1–7 | `docs/IMPROVEMENT_PLAN.md` — trust/cost, agent entry, profiles, routing, tools, NL |
+| Improvement Phase 0 | Planning complete; implement from Phase 1 in next session |
+| Nice-to-have N1–N8 | Backlog only after Phases 1–7 |
+
+## Recently closed (code)
+
+| Item | Notes |
 | G13–G15 | FAISS HNSW, DDG Instant Answer, GitHub issues/PRs |
 | Concurrent palace | store_lock, shared palace, sync merge |
 | Review hardening | approval/jail/SSRF/redact/MCP/XSS |

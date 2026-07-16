@@ -250,6 +250,10 @@ def resolve_members(
 ) -> List[MemberSpec]:
     """
     Resolve user member list or auto-pick from available API models + CLIs.
+
+    role affects mixed ordering:
+      advisor/reviewer → CLI-leaning interleave
+      implementer/worker/tester → API-first then CLI workers
     """
     if raw_members:
         out: List[MemberSpec] = []
@@ -268,35 +272,140 @@ def resolve_members(
     api_ids = [m["id"] for m in catalog["api_models"] if m.get("available")]
     cli_ids = [m["id"] for m in catalog["clis"] if m.get("available")]
 
+    # Role-ordered CLI ids (implementer prefers coding CLIs)
+    try:
+        from .multi_cli_advisory import pick_advisory_clis
+
+        role_key = (role or "advisor").lower()
+        if role_key in {"worker", "implementer"}:
+            pick_role = "implementer"
+        elif role_key in {"tester", "test"}:
+            pick_role = "tester"
+        elif role_key in {"reviewer", "critic"}:
+            pick_role = "reviewer"
+        else:
+            pick_role = "advisor"
+        cli_pref_ids = [
+            f"cli:{c}" for c in pick_advisory_clis(role=pick_role, max_clis=max_members)
+        ]
+        # Keep catalog order for any remaining available CLIs
+        for cid in cli_ids:
+            if cid not in cli_pref_ids:
+                cli_pref_ids.append(cid)
+    except Exception:
+        cli_pref_ids = list(cli_ids)
+
     chosen: List[str] = []
     if prefer == "cli":
-        chosen = cli_ids[:max_members]
+        chosen = cli_pref_ids[:max_members]
         if len(chosen) < max_members:
-            chosen += api_ids[: max_members - len(chosen)]
+            chosen += [a for a in api_ids if a not in chosen][: max_members - len(chosen)]
     elif prefer == "api":
         chosen = api_ids[:max_members]
         if len(chosen) < max_members:
-            chosen += cli_ids[: max_members - len(chosen)]
+            chosen += [
+                c for c in cli_pref_ids if c not in chosen
+            ][: max_members - len(chosen)]
     else:
-        # mixed: interleave CLI advisors/reviewers with API models
-        from .multi_cli_advisory import pick_advisory_clis
-
-        cli_pref = pick_advisory_clis(role=role, max_clis=max_members)
-        cli_pref_ids = [f"cli:{c}" for c in cli_pref]
+        # mixed interleave — workers: API first; advisors/reviewers: CLI first
+        workerish = (role or "").lower() in {
+            "worker",
+            "implementer",
+            "tester",
+            "test",
+        }
+        first = api_ids if workerish else cli_pref_ids
+        second = cli_pref_ids if workerish else api_ids
         i = j = 0
-        while len(chosen) < max_members and (i < len(cli_pref_ids) or j < len(api_ids)):
-            if i < len(cli_pref_ids):
-                chosen.append(cli_pref_ids[i])
+        while len(chosen) < max_members and (i < len(first) or j < len(second)):
+            if i < len(first):
+                if first[i] not in chosen:
+                    chosen.append(first[i])
                 i += 1
             if len(chosen) >= max_members:
                 break
-            if j < len(api_ids):
-                # skip if same logical
-                if api_ids[j] not in chosen:
-                    chosen.append(api_ids[j])
+            if j < len(second):
+                if second[j] not in chosen:
+                    chosen.append(second[j])
                 j += 1
 
     return [_enrich(parse_member_spec(c)) for c in chosen[:max_members]]
+
+
+def resolve_worker_pool(
+    raw_members: Optional[Sequence[str]] = None,
+    *,
+    prefer: str = "mixed",  # mixed | cli | api | router
+    role: str = "implementer",
+    max_members: int = 5,
+    forced_primary: Optional[str] = None,
+    router_primary: Optional[str] = None,
+    router_failover: Optional[Sequence[str]] = None,
+) -> List[str]:
+    """
+    Ordered worker/failover pool for orchestrator steps.
+
+    prefer=router → router_primary + router_failover (+ optional forced)
+    prefer=mixed|api|cli → resolve_members pool (API registry + PATH CLIs)
+    forced_primary always first when set.
+    """
+    pref = (prefer or "mixed").lower().strip()
+    if pref not in {"mixed", "cli", "api", "router", "off"}:
+        pref = "mixed"
+
+    pool: List[str] = []
+
+    if forced_primary:
+        pool.append(str(forced_primary).strip())
+
+    if pref in {"router", "off"}:
+        if router_primary and router_primary not in pool:
+            pool.append(str(router_primary))
+        for m in router_failover or []:
+            sm = str(m).strip()
+            if sm and sm not in pool:
+                pool.append(sm)
+        # Still append available CLIs/API as soft failover if room
+        try:
+            extra = resolve_members(
+                None, max_members=max_members, prefer="mixed", role=role
+            )
+            for s in extra:
+                if s.id not in pool:
+                    pool.append(s.id)
+                if len(pool) >= max(1, max_members) + (1 if forced_primary else 0):
+                    break
+        except Exception:
+            pass
+        return pool[: max(1, max_members + (1 if forced_primary else 0))]
+
+    # Explicit or auto members from unified catalog
+    specs = resolve_members(
+        raw_members,
+        max_members=max_members,
+        prefer=pref if pref in {"mixed", "cli", "api"} else "mixed",
+        role=role,
+    )
+    for s in specs:
+        if s.id not in pool:
+            pool.append(s.id)
+
+    # If pool thin, fold router suggestions
+    if len(pool) < max_members:
+        if router_primary and router_primary not in pool:
+            pool.append(str(router_primary))
+        for m in router_failover or []:
+            sm = str(m).strip()
+            if sm and sm not in pool:
+                pool.append(sm)
+            if len(pool) >= max_members + (1 if forced_primary else 0):
+                break
+
+    if not pool and router_primary:
+        pool = [str(router_primary)]
+    if not pool:
+        pool = ["gpt-4o"]
+    return pool
 
 
 def _enrich(spec: MemberSpec) -> MemberSpec:

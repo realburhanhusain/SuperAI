@@ -78,9 +78,17 @@ class Config:
         "critic_mode": "light",
         # Max one council critique per run when critic_mode=council
         "council_max_per_run": 1,
-        # Delegate worker/implementer steps to external CLIs (cli:*) when available
+        # Worker pool: mixed | api | cli | router
+        # mixed/api/cli → primary + failover from configured APIs + PATH CLIs
+        # router → classic model_router primary (failover still can include members)
+        "worker_prefer": "mixed",
+        # Explicit worker members (list or comma string); null = auto from catalog
+        "worker_members": None,
+        # Max models/CLIs in worker primary+failover pool
+        "worker_max": 5,
+        # Legacy: when true and worker_prefer is router, treat as worker_prefer=cli
         "cli_delegate_workers": False,
-        # Prefer this CLI name when delegating (else pick_for_role)
+        # Prefer this CLI name when delegating (else pick_for_role); also prepended to pool
         "cli_delegate_preferred": None,
         # Ask available AI CLIs to review/advise (critic + dedicated review board)
         "cli_delegate_reviewers": False,

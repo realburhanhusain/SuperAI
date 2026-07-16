@@ -83,3 +83,38 @@ def test_split_cli_selector_and_parse():
     assert split_cli_selector("cli:codex") == ("codex", None)
     assert parse_cli_model("cli:gemini@flash") == "gemini"
     assert parse_cli_model("cli:aider") == "aider"
+
+
+def test_resolve_worker_pool_forced_and_mixed():
+    from core.member_selection import resolve_worker_pool
+
+    pool = resolve_worker_pool(
+        ["gpt-4o", "cli:gemini@flash", "cli:grok"],
+        prefer="mixed",
+        role="implementer",
+        max_members=5,
+        forced_primary=None,
+    )
+    assert pool[0] == "gpt-4o"
+    assert "cli:gemini@flash" in pool
+
+    pool2 = resolve_worker_pool(
+        None,
+        prefer="api",
+        role="implementer",
+        max_members=3,
+        forced_primary="cli:claude",
+        router_primary="gpt-4o",
+    )
+    assert pool2[0] == "cli:claude"
+    assert len(pool2) >= 1
+
+
+def test_resolve_members_worker_api_first():
+    specs = resolve_members(None, max_members=4, prefer="mixed", role="implementer")
+    assert isinstance(specs, list)
+    if len(specs) >= 2:
+        # implementer mixed: prefer API before CLI when both available
+        kinds = [s.kind for s in specs]
+        if "api" in kinds and "cli" in kinds:
+            assert kinds.index("api") < kinds.index("cli")

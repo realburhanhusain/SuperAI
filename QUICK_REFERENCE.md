@@ -57,8 +57,11 @@ superai run "hello" --format json
 | Env `SUPERAI_MEMORY_DSN` | e.g. `postgresql+psycopg://user:pass@localhost/superai` |
 | Env `SUPERAI_MEMORY_BACKEND=faiss` | Optional FAISS offline index |
 | Env `SUPERAI_FAISS_INDEX=hnsw` | FAISS HNSW (when backend=faiss) |
-| `config set cli_delegate_workers true` | Orchestrator delegates worker steps to external CLIs |
-| `config set cli_delegate_reviewers true` | Orchestrator critic uses multi-member review board (opt-in) |
+| `run "…" --workers gpt-4o,cli:gemini@MODEL [--worker-prefer mixed]` | Worker pool (API + CLIs + failover) |
+| `config set worker_prefer mixed\|api\|cli\|router` | Default worker auto-pick (default mixed) |
+| `config set worker_members gpt-4o,cli:claude` | Persistent worker pool |
+| `config set cli_delegate_workers true` | Legacy: force CLI-first worker pool |
+| `config set cli_delegate_reviewers true` | Orchestrator critic multi-member board (opt-in) |
 | `run "…" --model cli:claude` | Force step execution via external CLI (integrated) |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |

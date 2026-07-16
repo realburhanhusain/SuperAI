@@ -149,10 +149,59 @@ def test_orchestrator_cli_delegate_flag(home: Path, monkeypatch):
         e.get("kind")
         for e in (result.get("metadata") or {}).get("adaptation_events") or []
     }
-    assert "cli_delegate" in events
+    assert "cli_delegate" in events or "worker_pool" in events
     assert result.get("steps")
     model = str(result["steps"][0].get("model") or "")
     assert model.startswith("cli:")
+
+
+def test_orchestrator_worker_pool_mixed(home: Path, monkeypatch):
+    """Explicit workers (API + CLI) become primary/failover pool."""
+    cfg_path = home / ".superai" / "config.json"
+    cfg = Config(config_path=str(cfg_path))
+    cfg.set("mock_mode", True, persist=True)
+    cfg.set("worker_prefer", "mixed", persist=True)
+    cfg.set("max_step_retries", 0, persist=True)
+    cfg.set("quality_gate", False, persist=True)
+    cfg.initialize()
+
+    orch = SuperAIOrchestrator(config=cfg)
+    orch.use_step_cache = False
+    monkeypatch.setattr(
+        orch.task_planner,
+        "create_plan",
+        lambda task, use_llm=None: [
+            ExecutionStep(
+                step_id=1,
+                description="implement the feature carefully with enough text",
+                depends_on=[],
+                recommended_model="auto",
+                estimated_complexity="Medium",
+                role="implementer",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        ExternalCLIRegistry,
+        "available",
+        lambda self: ["gemini", "grok"],
+    )
+
+    result = orch.run_task(
+        "build feature",
+        verbose=False,
+        workers=["gpt-4o", "cli:gemini@flash"],
+        worker_prefer="mixed",
+    )
+    events = (result.get("metadata") or {}).get("adaptation_events") or []
+    pool_events = [e for e in events if e.get("kind") == "worker_pool"]
+    assert pool_events
+    pool = pool_events[0].get("pool") or []
+    assert pool[0] == "gpt-4o"
+    assert any("gemini" in str(x) for x in pool)
+    assert result.get("steps")
+    assert str(result["steps"][0].get("model") or "") == "gpt-4o"
+
 
 def test_envelope_metadata_keys(home: Path):
     tool = ExternalCLITool(dry_run=True, auto_approve=True)

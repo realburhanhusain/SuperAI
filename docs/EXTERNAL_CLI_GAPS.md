@@ -62,16 +62,22 @@ cli-run ──► ExternalCLITool (CLI layer)
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `cli_delegate_workers` | `false` | Route worker/implementer steps to external CLIs |
-| `cli_delegate_preferred` | `null` | Preferred CLI name when delegating |
+| `worker_prefer` | `mixed` | Worker pool auto-pick: mixed \| api \| cli \| router |
+| `worker_members` | `null` | Explicit pool e.g. `gpt-4o,cli:gemini@MODEL` |
+| `worker_max` | `5` | Max size of primary + failover pool |
+| `cli_delegate_workers` | `false` | Legacy: force `worker_prefer=cli` |
+| `cli_delegate_preferred` | `null` | Preferred CLI prepended to worker pool |
 | `cli_delegate_reviewers` | `false` | Opt-in multi-member board on orchestrator critic path |
 
 ```powershell
-superai config set cli_delegate_workers true
-superai config set cli_delegate_preferred aider
-superai config set cli_delegate_reviewers true   # critic uses review/advise board
-superai run "implement feature X" -v
-# or force: superai run "…" --model cli:claude
+superai members --available
+superai run "implement feature X" --workers gpt-4o,cli:gemini@flash,cli:claude -v
+superai run "…" --worker-prefer cli
+superai config set worker_prefer mixed
+superai config set worker_members "gpt-4o,cli:codex"
+superai config set cli_delegate_workers true   # legacy CLI-first
+superai config set cli_delegate_reviewers true # critic board
+# force one worker: superai run "…" -m cli:claude@… / -m gpt-4o
 ```
 
 ## Envelope metadata

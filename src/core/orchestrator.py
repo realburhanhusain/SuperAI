@@ -137,6 +137,8 @@ class SuperAIOrchestrator:
         cli_approve: bool = False,
         critic_mode: Optional[str] = None,
         replan_requires_approval: Optional[bool] = None,
+        workers: Optional[List[str]] = None,
+        worker_prefer: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Execute a task using planning, routing, adaptation, and model calls."""
         task = (task or "").strip()
@@ -147,6 +149,9 @@ class SuperAIOrchestrator:
             )
 
         self._degraded = []
+        # Per-run worker pool overrides (API models + CLIs)
+        self._run_workers = workers
+        self._run_worker_prefer = worker_prefer
         self._adaptation_events = []
         # Resolve overrides for this run
         if critic_mode is not None:
@@ -970,9 +975,89 @@ class SuperAIOrchestrator:
 
     # ── step execution with retry / failover / quality ─────────────────
 
-    def _failover_candidates(
+    def _effective_worker_prefer(self) -> str:
+        """Resolve worker_prefer for this run (CLI flag > config > legacy)."""
+        override = getattr(self, "_run_worker_prefer", None)
+        if override:
+            p = str(override).lower().strip()
+            return p if p in {"mixed", "api", "cli", "router", "off"} else "mixed"
+        # Legacy: cli_delegate_workers ⇒ CLI-first worker pool (unless run overrides)
+        if bool(self.config.get("cli_delegate_workers", False)):
+            return "cli"
+        pref = str(self.config.get("worker_prefer") or "mixed").lower().strip()
+        if pref not in {"mixed", "api", "cli", "router", "off"}:
+            return "mixed"
+        return pref
+
+    def _configured_worker_members(self) -> Optional[List[str]]:
+        run_w = getattr(self, "_run_workers", None)
+        if run_w:
+            return [str(x).strip() for x in run_w if str(x).strip()]
+        raw = self.config.get("worker_members")
+        if raw is None or raw == "" or raw == []:
+            return None
+        if isinstance(raw, (list, tuple)):
+            return [str(x).strip() for x in raw if str(x).strip()]
+        return [p.strip() for p in str(raw).split(",") if p.strip()]
+
+    def _worker_role_for_step(self, role: str) -> str:
+        r = (role or "worker").lower()
+        if r in {"worker", "implementer"}:
+            return "implementer"
+        if r in {"tester", "test"}:
+            return "tester"
+        if r in {"reviewer", "critic"}:
+            return "reviewer"
+        if r in {"advisor", "architect", "supervisor"}:
+            return r if r != "supervisor" else "advisor"
+        return "implementer"
+
+    def _resolve_worker_pool(
+        self,
+        *,
+        role: str,
+        step_desc: str,
+        forced_model: Optional[str],
+        router_primary: Optional[str],
+    ) -> List[str]:
+        """Ordered primary + failover: API models and CLIs (cli:name@MODEL)."""
+        from .member_selection import resolve_worker_pool
+
+        prefer = self._effective_worker_prefer()
+        max_n = max(1, int(self.config.get("worker_max") or 5))
+        members = self._configured_worker_members()
+
+        # Preferred CLI prepended into explicit list when set
+        pref_cli = self.config.get("cli_delegate_preferred")
+        if pref_cli:
+            tag = (
+                str(pref_cli)
+                if str(pref_cli).startswith("cli:")
+                else f"cli:{pref_cli}"
+            )
+            if members is None and prefer in {"cli", "mixed"}:
+                members = [tag]
+            elif members is not None and tag not in members:
+                members = [tag] + list(members)
+
+        router_failover = self._failover_candidates_router(
+            router_primary or forced_model, step_desc
+        )
+        pool = resolve_worker_pool(
+            members,
+            prefer=prefer,
+            role=self._worker_role_for_step(role),
+            max_members=max_n,
+            forced_primary=forced_model,
+            router_primary=router_primary,
+            router_failover=router_failover,
+        )
+        return pool
+
+    def _failover_candidates_router(
         self, primary: Optional[str], step_desc: str
     ) -> List[str]:
+        """Classic router/registry failover (API-leaning); used inside worker pool."""
         names: List[str] = []
         chain = list(self.config.get("failover_chain") or [])
         for n in chain:
@@ -988,15 +1073,19 @@ class SuperAIOrchestrator:
         try:
             for m in self.model_registry.list_all_models() or []:
                 sm = str(m)
-                if sm.startswith("cli:"):
-                    continue
                 if sm not in names and sm != primary:
                     names.append(sm)
-                if len(names) >= 4:
+                if len(names) >= 6:
                     break
         except Exception:  # noqa: BLE001
             pass
-        return names[:4]
+        return names[:6]
+
+    def _failover_candidates(
+        self, primary: Optional[str], step_desc: str
+    ) -> List[str]:
+        """Backward-compatible failover list (router + unified worker extras)."""
+        return self._failover_candidates_router(primary, step_desc)
 
     def _quality_ok(self, text: Any) -> Tuple[bool, str]:
         """Lightweight quality gate — fail empty/error-like outputs."""
@@ -1076,59 +1165,72 @@ class SuperAIOrchestrator:
                 )
 
         role = getattr(step, "role", "worker") or "worker"
-        if forced_model:
-            primary = forced_model
+        # Router suggestion (used when worker_prefer=router or as pool seed)
+        preferred = (
+            self.config.default_supervisor
+            if role in {"supervisor", "critic"}
+            else None
+        ) or self.preferences.preferred_model_for(task_type)
+        if role == "critic" and not preferred:
+            preferred = self.config.default_supervisor
+        router_primary = None
+        if not forced_model:
+            try:
+                router_primary = self.model_router.select_model(
+                    task_description=step.description,
+                    preferred_model=preferred,
+                    verbose=verbose,
+                )
+            except Exception:  # noqa: BLE001
+                router_primary = preferred or "gpt-4o"
+
+        # Unified worker pool for worker/implementer/tester (API + CLIs).
+        # Supervisor/critic keep router primary unless --model forced.
+        wprefer = self._effective_worker_prefer()
+        worker_roles = {"worker", "implementer", "tester"}
+        if forced_model or role in worker_roles:
+            pool = self._resolve_worker_pool(
+                role=role,
+                step_desc=step.description,
+                forced_model=forced_model,
+                router_primary=router_primary,
+            )
         else:
-            preferred = (
-                self.config.default_supervisor
-                if role in {"supervisor", "critic"}
-                else None
-            ) or self.preferences.preferred_model_for(task_type)
-            if role == "critic" and not preferred:
-                preferred = self.config.default_supervisor
-            primary = self.model_router.select_model(
-                task_description=step.description,
-                preferred_model=preferred,
-                verbose=verbose,
+            pool = [router_primary or preferred or "gpt-4o"]
+            pool.extend(
+                self._failover_candidates_router(pool[0], step.description)
             )
 
-        # Supervisor–worker: optionally delegate implementer/worker steps to external CLIs
-        # (tight ExternalCLI ↔ orchestrator integration; ModelCaller routes cli:*)
-        if (
-            not forced_model
-            and not str(primary).startswith("cli:")
-            and bool(self.config.get("cli_delegate_workers", False))
-            and role in {"worker", "implementer", "tester"}
-        ):
-            try:
-                from .external_cli import ExternalCLIRegistry
+        models_to_try: List[str] = []
+        for m in pool:
+            sm = str(m).strip() if m else ""
+            if sm and sm not in models_to_try:
+                models_to_try.append(sm)
+        if not models_to_try:
+            models_to_try = [forced_model or router_primary or "gpt-4o"]
+        primary = models_to_try[0]
 
-                reg = ExternalCLIRegistry()
-                pref = self.config.get("cli_delegate_preferred")
-                pick = (
-                    str(pref)
-                    if pref and pref in reg.available()
-                    else reg.pick_for_role(
-                        "implementer" if role == "worker" else role
-                    )
-                )
-                if pick:
-                    primary = f"cli:{pick}"
-                    self._event(
-                        "cli_delegate",
-                        step=step.step_id,
-                        role=role,
-                        cli=pick,
-                    )
-                    if verbose:
-                        console.print(
-                            f"[cyan]→ Delegating step {step.step_id} "
-                            f"to external CLI {primary} ({role})[/cyan]"
-                        )
-            except Exception as e:  # noqa: BLE001
-                logger.debug("cli_delegate_workers skipped: %s", e)
-
-        models_to_try = [primary] + self._failover_candidates(primary, step.description)
+        if str(primary).startswith("cli:"):
+            self._event(
+                "cli_delegate",
+                step=step.step_id,
+                role=role,
+                cli=str(primary),
+                worker_prefer=wprefer,
+            )
+        self._event(
+            "worker_pool",
+            step=step.step_id,
+            role=role,
+            primary=primary,
+            pool=models_to_try[:8],
+            worker_prefer=wprefer,
+        )
+        if verbose and role in worker_roles:
+            console.print(
+                f"[cyan]→ Worker pool ({wprefer}): {', '.join(models_to_try[:6])}"
+                f"{'…' if len(models_to_try) > 6 else ''}[/cyan]"
+            )
         max_retries = max(0, int(self.config.get("max_step_retries") or 0))
         backoff = float(self.config.get("step_retry_backoff_sec") or 0.05)
         adapt = bool(self.config.get("adapt_on_failure", True))

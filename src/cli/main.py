@@ -213,7 +213,12 @@ def init_cmd(
 @app.command()
 def run(
     task: str = typer.Argument(..., help="The task to execute"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Force a specific model"),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Force primary worker: gpt-4o | cli:gemini | cli:gemini@MODEL",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
     output: Optional[str] = typer.Option(
         None, "--output", "-o", help="Save result JSON to file path"
@@ -231,6 +236,16 @@ def run(
     ),
     stream: bool = typer.Option(
         False, "--stream", help="S1: stream model tokens when available"
+    ),
+    workers: Optional[str] = typer.Option(
+        None,
+        "--workers",
+        help="Worker pool: gpt-4o,cli:gemini@MODEL,cli:claude (see superai members)",
+    ),
+    worker_prefer: Optional[str] = typer.Option(
+        None,
+        "--worker-prefer",
+        help="Worker auto-pick: mixed | api | cli | router (default: config worker_prefer)",
     ),
     with_clis: Optional[str] = typer.Option(
         None,
@@ -295,6 +310,20 @@ def run(
             if with_clis
             else None
         )
+        worker_list = (
+            [c.strip() for c in workers.split(",") if c.strip()] if workers else None
+        )
+        if worker_prefer and worker_prefer.lower() not in {
+            "mixed",
+            "api",
+            "cli",
+            "router",
+            "off",
+        }:
+            console.print(
+                "[red]--worker-prefer must be mixed | api | cli | router | off[/red]"
+            )
+            raise typer.Exit(code=1)
 
         if stream and model:
             # S1: simple stream of a single model response (bypass multi-step for demo)
@@ -320,6 +349,8 @@ def run(
                 with_clis=cli_list,
                 cli_dry_run=not cli_live,
                 cli_approve=cli_approve or (not cli_live),
+                workers=worker_list,
+                worker_prefer=worker_prefer.lower() if worker_prefer else None,
                 critic_mode=critic,
                 replan_requires_approval=replan_approval,
             )

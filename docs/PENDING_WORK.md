@@ -29,6 +29,7 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | Install wizard | `superai install`, host tools prompts, Postgres default Yes |
 | Semantic tests | Stricter Memory Palace query/delete asserts |
 | Unified members | API models + CLIs + inner models on review/advise/council |
+| Unified workers | Same catalog for orchestrator worker pool + failover |
 
 ## Not pending
 

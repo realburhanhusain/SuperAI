@@ -22,7 +22,7 @@ remaining external gate is **live smoke (Phase 99)**.
 | Item | Why |
 |------|-----|
 | Claim live smoke passed without keys | Honesty policy |
-| Full OpenCode / Textual rewrite | Out of scope; W1–W6 is the substitute depth |
+| Full OpenCode rewrite | **Done** — `docs/OPENCODE_REWRITE.md` + `core.opencode_agent` (post W1–W8) |
 
 ## Next
 

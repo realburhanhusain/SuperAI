@@ -4454,11 +4454,81 @@ def agent_tui_cmd(
     session: Optional[str] = typer.Option(None, "--session", "-s"),
     permission: Optional[str] = typer.Option(None, "--permission"),
     profile: Optional[str] = typer.Option(None, "--profile"),
+    legacy: bool = typer.Option(
+        False, "--legacy", help="Use pre-OpenCode simple agent TUI"
+    ),
+    agent: str = typer.Option(
+        "build", "--agent", "-a", help="build | plan | ask (OpenCode-style)"
+    ),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
 ):
-    """Phase 8 N1: Agent TUI with tool traces (open-source agent patterns)."""
-    from core.agent_tui import run_agent_tui
+    """OpenCode-style multi-agent TUI (default). Use --legacy for old loop."""
+    if profile:
+        from core.config import Config
+        from core.run_profiles import apply_profile_to_config
 
-    run_agent_tui(session_id=session, permission=permission, profile=profile)
+        apply_profile_to_config(Config(), profile)
+    if legacy:
+        from core.agent_tui import run_agent_tui
+
+        run_agent_tui(session_id=session, permission=permission, profile=profile)
+        return
+    from core.opencode_agent.tui import run_opencode_tui
+
+    run_opencode_tui(
+        session_id=session,
+        agent=agent,
+        model=model,
+        permission=permission,
+    )
+
+
+@app.command("opencode")
+def opencode_cmd(
+    session: Optional[str] = typer.Option(None, "--session", "-s"),
+    agent: str = typer.Option("build", "--agent", "-a", help="build | plan | ask"),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
+    permission: Optional[str] = typer.Option(None, "--permission"),
+    prompt: Optional[str] = typer.Argument(
+        None, help="One-shot prompt (omit for interactive TUI)"
+    ),
+    mock: bool = typer.Option(True, "--mock/--live"),
+):
+    """
+    Full OpenCode-style agent (rewrite): multi-agent tool loop + sessions.
+
+    Interactive: superai opencode
+    One-shot:    superai opencode "add logging to config"
+    """
+    if prompt:
+        from core.opencode_agent.runtime import AgentRuntime
+
+        rt = AgentRuntime(use_mock=mock)
+        out = rt.run(
+            prompt,
+            agent=agent,
+            model=model,
+            permission=permission or "plan",
+        )
+        console.print_json(data=out.to_dict())
+        return
+    from core.opencode_agent.tui import run_opencode_tui
+
+    run_opencode_tui(
+        session_id=session,
+        agent=agent,
+        model=model,
+        permission=permission,
+        use_mock=mock,
+    )
+
+
+@app.command("opencode-agents")
+def opencode_agents_cmd():
+    """List OpenCode-style agent roles (build/plan/ask)."""
+    from core.opencode_agent.agents import list_agents
+
+    console.print_json(data={"agents": list_agents()})
 
 
 @app.command("agent-tools")

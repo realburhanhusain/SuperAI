@@ -61,7 +61,7 @@ pytest -m unit -q
 | Item | Status |
 |------|--------|
 | Claiming live smoke passed without keys | **Will not lie** — harness only (`live_passed=False` by default) |
-| Full OpenCode rewrite | Out of scope; **TUI depth pack W1–W8** instead (`docs/NOT_IMPORTANT_PLAN.md`) |
+| Full OpenCode rewrite | **[x] Implemented** SuperAI-native OpenCode-style stack — `docs/OPENCODE_REWRITE.md` (not a Go fork) |
 
 ### Not-important polish pack (pre–live smoke)
 

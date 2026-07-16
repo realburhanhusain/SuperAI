@@ -58,10 +58,11 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["core", "scli"]
+packages = ["core", "core.opencode_agent", "scli"]
 
 [tool.setuptools.package-dir]
 "core" = "src/core"
+"core.opencode_agent" = "src/core/opencode_agent"
 "scli" = "src/cli"
 
 [tool.setuptools.package-data]

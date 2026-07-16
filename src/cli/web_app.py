@@ -172,6 +172,60 @@ async function status(){
             return graph_from_adaptation_events(events)
         return graph_from_run_result(result)
 
+    # OpenCode-style HTTP surface (client/server pattern inspired by OpenCode)
+    @app.get("/api/opencode/agents")
+    def api_opencode_agents() -> Dict[str, Any]:
+        from core.opencode_agent.agents import list_agents
+
+        return {"ok": True, "agents": list_agents()}
+
+    @app.get("/api/opencode/sessions")
+    def api_opencode_sessions(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
+        from core.opencode_agent.session import OpenCodeSessionStore
+
+        return {"ok": True, "sessions": OpenCodeSessionStore().list_sessions(limit)}
+
+    @app.post("/api/opencode/run")
+    async def api_opencode_run(request: Request) -> Dict[str, Any]:
+        """
+        One-shot OpenCode agent run (safe defaults: mock + plan permission).
+        Body: {prompt, agent?, model?, session_id?, permission?, live?}
+        """
+        from core.opencode_agent.runtime import AgentRuntime
+
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        prompt = str(body.get("prompt") or body.get("task") or "").strip()
+        if not prompt:
+            raise HTTPException(status_code=400, detail="prompt required")
+        live = bool(body.get("live"))
+        # Require env gate for live HTTP agent runs
+        import os
+
+        if live and (os.getenv("SUPERAI_MCP_ALLOW_LIVE") or "").lower() not in {
+            "1",
+            "true",
+            "yes",
+        }:
+            return {
+                "ok": False,
+                "error": "live requires SUPERAI_MCP_ALLOW_LIVE=1",
+                "mock": True,
+            }
+        rt = AgentRuntime(use_mock=not live)
+        out = rt.run(
+            prompt,
+            session_id=body.get("session_id"),
+            agent=str(body.get("agent") or "build"),
+            model=body.get("model"),
+            permission=str(body.get("permission") or ("ask" if live else "plan")),
+        )
+        return out.to_dict()
+
     @app.get("/graph", response_class=HTMLResponse)
     def graph_page() -> str:
         """V3 C: simple SVG graph visualizer from /api/agent-graph."""

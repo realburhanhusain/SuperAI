@@ -31,7 +31,24 @@ class NotionClient:
             "api_key_set": bool(self.api_key),
             "database_id_set": bool(self.database_id),
             "dry_run": self.dry_run,
+            "log_path": str(self.log_path),
+            "features": ["write_page", "search", "append_log", "list_local_log"],
         }
+
+    def list_local_log(self, limit: int = 20) -> Dict[str, Any]:
+        """Not-important depth: read offline notion log without API."""
+        rows: List[Dict[str, Any]] = []
+        if self.log_path.is_file():
+            try:
+                lines = self.log_path.read_text(encoding="utf-8").splitlines()[-limit:]
+                for line in lines:
+                    try:
+                        rows.append(json.loads(line))
+                    except Exception:
+                        continue
+            except Exception as e:
+                return {"ok": False, "error": str(e)[:200]}
+        return {"ok": True, "count": len(rows), "entries": rows, "dry_run": self.dry_run}
 
     def _log(self, entry: Dict[str, Any]) -> None:
         entry = {**entry, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}

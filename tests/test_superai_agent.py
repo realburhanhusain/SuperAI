@@ -10,7 +10,7 @@ pytestmark = pytest.mark.unit
 
 
 def test_agents_catalog():
-    from core.super_agent.agents import get_agent, list_agents
+    from core.superai_agent.agents import get_agent, list_agents
 
     agents = list_agents()
     ids = {a["id"] for a in agents}
@@ -19,10 +19,10 @@ def test_agents_catalog():
 
 
 def test_session_store(tmp_path, monkeypatch):
-    monkeypatch.setenv("SUPERAI_AGENT_ROOT", str(tmp_path / "sa"))
-    from core.super_agent.session import AgentSessionStore
+    monkeypatch.setenv("SUPERAI_SESSIONS_ROOT", str(tmp_path / "sa"))
+    from core.superai_agent.session import SuperAISessionStore
 
-    store = AgentSessionStore()
+    store = SuperAISessionStore()
     st = store.create(agent="plan", model="gpt-4o", permission="plan", title="t")
     assert st.id.startswith("sa-")
     store.append_message(st, "user", "hello")
@@ -35,9 +35,9 @@ def test_session_store(tmp_path, monkeypatch):
 
 
 def test_runtime_mock_run(tmp_path, monkeypatch):
-    monkeypatch.setenv("SUPERAI_AGENT_ROOT", str(tmp_path / "sa"))
+    monkeypatch.setenv("SUPERAI_SESSIONS_ROOT", str(tmp_path / "sa"))
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "1")
-    from core.super_agent.runtime import AgentRuntime
+    from core.superai_agent.runtime import AgentRuntime
 
     rt = AgentRuntime(use_mock=True)
     out = rt.run(
@@ -54,6 +54,6 @@ def test_runtime_mock_run(tmp_path, monkeypatch):
 
 def test_compat_import():
     from core.opencode_agent import AgentRuntime as AR
-    from core.super_agent import AgentRuntime as AR2
+    from core.superai_agent import AgentRuntime as AR2
 
     assert AR is AR2 or AR.__module__.endswith("runtime")

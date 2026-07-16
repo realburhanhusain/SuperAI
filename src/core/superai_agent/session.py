@@ -17,21 +17,26 @@ def _root() -> Path:
 
     # Prefer SuperAI name; accept legacy env for existing installs
     env = (
-        (os.getenv("SUPERAI_AGENT_ROOT") or "").strip()
+        (os.getenv("SUPERAI_SESSIONS_ROOT") or "").strip()
+        or (os.getenv("SUPERAI_AGENT_ROOT") or "").strip()
         or (os.getenv("SUPERAI_OPENCODE_ROOT") or "").strip()
     )
     if env:
         p = Path(env)
     else:
-        # Prefer agent_sessions; fall back to legacy folder if it has data
-        primary = Path.home() / ".superai" / "agent_sessions"
-        legacy = Path.home() / ".superai" / "opencode_sessions"
-        if legacy.is_dir() and any(legacy.glob("oc-*.json")) and not any(
-            primary.glob("*.json")
-        ):
-            p = legacy
-        else:
-            p = primary
+        # Prefer superai_sessions; fall back to older folders if they have data
+        primary = Path.home() / ".superai" / "superai_sessions"
+        legacy_dirs = [
+            Path.home() / ".superai" / "agent_sessions",
+            Path.home() / ".superai" / "opencode_sessions",
+        ]
+        if not any(primary.glob("*.json")):
+            for legacy in legacy_dirs:
+                if legacy.is_dir() and any(legacy.glob("*.json")):
+                    p = legacy
+                    p.mkdir(parents=True, exist_ok=True)
+                    return p
+        p = primary
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -68,7 +73,7 @@ class SessionState:
         )
 
 
-class AgentSessionStore:
+class SuperAISessionStore:
     def __init__(self, root: Optional[Path] = None):
         self.root = Path(root or _root())
         self.root.mkdir(parents=True, exist_ok=True)
@@ -206,5 +211,6 @@ class AgentSessionStore:
         return out
 
 
-# Back-compat name
-OpenCodeSessionStore = AgentSessionStore
+# Back-compat names
+OpenCodeSessionStore = SuperAISessionStore
+AgentSessionStore = SuperAISessionStore

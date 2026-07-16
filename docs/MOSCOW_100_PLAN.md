@@ -61,7 +61,7 @@ pytest -m unit -q
 | Item | Status |
 |------|--------|
 | Claiming live smoke passed without keys | **Will not lie** — harness only (`live_passed=False` by default) |
-| Full agent rewrite (patterns, not fork) | **[x]** SuperAI multi-agent — `docs/SUPER_AGENT.md` · brand is SuperAI only |
+| Full agent rewrite (patterns, not fork) | **[x]** SuperAI multi-agent — `docs/SUPERAI_AGENT.md` · brand is SuperAI only |
 
 ### Not-important polish pack (pre–live smoke)
 

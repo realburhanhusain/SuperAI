@@ -1,1 +1,1 @@
-from core.super_agent.agents import *  # noqa: F403
+from core.superai_agent.agents import *  # noqa: F403

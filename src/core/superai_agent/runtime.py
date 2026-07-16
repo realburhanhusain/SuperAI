@@ -12,7 +12,7 @@ from ..progress_events import get_progress_bus
 from ..result_contract import apply_contract
 from ..tool_protocol import extract_tool_calls
 from .agents import get_agent
-from .session import AgentSessionStore, SessionState
+from .session import SuperAISessionStore, SessionState
 from .tools_bridge import catalog, dispatch_tool
 
 
@@ -60,11 +60,11 @@ class RunResult:
 class AgentRuntime:
     def __init__(
         self,
-        store: Optional[AgentSessionStore] = None,
+        store: Optional[SuperAISessionStore] = None,
         *,
         use_mock: Optional[bool] = None,
     ):
-        self.store = store or AgentSessionStore()
+        self.store = store or SuperAISessionStore()
         if use_mock is None:
             try:
                 from ..config import Config
@@ -220,7 +220,7 @@ class AgentRuntime:
                     from ..side_effect_audit import record_side_effect
 
                     record_side_effect(
-                        "super_agent_tool",
+                        "superai_agent_tool",
                         name=name,
                         ok=bool(res.get("ok")),
                         dry_run=bool(res.get("dry_run")),

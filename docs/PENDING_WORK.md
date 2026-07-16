@@ -30,7 +30,7 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | Improvement V3 Sprints A–D | **100%** — tool protocol, failover, cost on run, tenant write, goals safety — `docs/IMPROVEMENT_V3_PLAN.md` |
 | MoSCoW 100% (must+should+nice) | **Code+tests complete** — `docs/MOSCOW_100_PLAN.md` (N8 smoke = harness only) |
 | Not-important polish W1–W8 | **Code+tests complete** — `docs/NOT_IMPORTANT_PLAN.md` |
-| SuperAI multi-agent | **Code+tests complete** — `docs/SUPER_AGENT.md` · `superai` / `superai agent` |
+| SuperAI multi-agent | **Code+tests complete** — `docs/SUPERAI_AGENT.md` · `superai` / `superai agent` |
 | Phase 99 live smoke | **Next** — keys required; prep: `superai smoke-preflight` then `smoke-harness --allow-live` |
 
 ## Recently closed (code)

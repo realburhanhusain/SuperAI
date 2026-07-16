@@ -1,12 +1,10 @@
 """
-Deprecated alias package — use ``core.super_agent`` (product name: SuperAI).
-
-Kept so older imports/docs keep working.
+Deprecated alias package — use ``core.superai_agent`` (product name: SuperAI).
 """
 
-from core.super_agent import *  # noqa: F403
-from core.super_agent import AgentSessionStore as OpenCodeSessionStore
-from core.super_agent.tui import run_super_agent_tui as run_opencode_tui
+from core.superai_agent import *  # noqa: F403
+from core.superai_agent import SuperAISessionStore as OpenCodeSessionStore
+from core.superai_agent.tui import run_superai_agent_tui as run_opencode_tui
 
 __all__ = [
     "AGENT_ROLES",
@@ -14,7 +12,7 @@ __all__ = [
     "list_agents",
     "AgentRuntime",
     "RunResult",
-    "AgentSessionStore",
+    "SuperAISessionStore",
     "OpenCodeSessionStore",
     "SessionState",
     "run_opencode_tui",

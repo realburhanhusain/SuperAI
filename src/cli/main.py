@@ -114,9 +114,9 @@ def _main_callback(
             )
             interactive_repl(execute=True, verbose=False)
             raise typer.Exit(0)
-        from core.super_agent.tui import run_super_agent_tui
+        from core.superai_agent.tui import run_superai_agent_tui
 
-        run_super_agent_tui(
+        run_superai_agent_tui(
             session_id=session,
             agent=agent,
             model=model,
@@ -4511,7 +4511,7 @@ def agent_cmd(
         run_agent_tui(session_id=session, permission=permission, profile=profile)
         return
     if prompt:
-        from core.super_agent.runtime import AgentRuntime
+        from core.superai_agent.runtime import AgentRuntime
 
         rt = AgentRuntime(use_mock=mock)
         out = rt.run(
@@ -4523,9 +4523,9 @@ def agent_cmd(
         )
         console.print_json(data=out.to_dict())
         return
-    from core.super_agent.tui import run_super_agent_tui
+    from core.superai_agent.tui import run_superai_agent_tui
 
-    run_super_agent_tui(
+    run_superai_agent_tui(
         session_id=session,
         agent=agent,
         model=model,
@@ -4559,7 +4559,7 @@ def agent_tui_cmd(
 @app.command("agent-roles")
 def agent_roles_cmd():
     """List SuperAI agent roles (build / plan / ask)."""
-    from core.super_agent.agents import list_agents
+    from core.superai_agent.agents import list_agents
 
     console.print_json(data={"agents": list_agents()})
 

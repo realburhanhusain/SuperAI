@@ -1,1 +1,1 @@
-from core.super_agent.tools_bridge import *  # noqa: F403
+from core.superai_agent.tools_bridge import *  # noqa: F403

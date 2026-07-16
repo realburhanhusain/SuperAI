@@ -131,7 +131,7 @@ def render_frame(state, events, stream_on: bool = True, status: str = "") -> Lay
     return layout
 
 
-def run_super_agent_tui(
+def run_superai_agent_tui(
     *,
     session_id: Optional[str] = None,
     agent: str = "build",
@@ -323,4 +323,4 @@ def run_super_agent_tui(
 
 
 # Back-compat alias
-run_opencode_tui = run_super_agent_tui
+run_opencode_tui = run_superai_agent_tui

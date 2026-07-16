@@ -1,0 +1,15 @@
+# V6 N284 sample — SuperAI PR review (requires superai on runner)
+name: SuperAI Review
+description: Run SuperAI PR review in dry-run/mock-safe mode
+inputs:
+  task:
+    description: Review task
+    required: false
+    default: "Review the current git diff for bugs and security issues"
+runs:
+  using: composite
+  steps:
+    - name: SuperAI review
+      shell: bash
+      run: |
+        superai do "${{ inputs.task }}" || superai pr-review || true

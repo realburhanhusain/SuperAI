@@ -4621,6 +4621,188 @@ def eval_golden_cmd(
     console.print_json(data=run_golden(use_mock=not live))
 
 
+@app.command("v6-status")
+def v6_status_cmd():
+    """V6 phase completion report (honest done/partial/park/n/a)."""
+    from core.v6_phase_status import phase_report
+
+    console.print_json(data=phase_report())
+
+
+@app.command("todos")
+def todos_cmd(
+    action: str = typer.Argument("list", help="list|add|done|new"),
+    text: Optional[str] = typer.Argument(None),
+    list_id: Optional[str] = typer.Option(None, "--list"),
+    item_id: Optional[str] = typer.Option(None, "--id"),
+):
+    """V6 S101: Agent todo lists."""
+    from core.agent_todos import AgentTodoStore
+
+    store = AgentTodoStore()
+    lid = list_id or store.ensure()
+    if action == "new":
+        console.print_json(data={"ok": True, "list_id": store.ensure()})
+        return
+    if action == "add":
+        console.print_json(data=store.add(lid, text or ""))
+        return
+    if action == "done":
+        console.print_json(data={"ok": store.complete(lid, item_id or "")})
+        return
+    console.print_json(data={"list_id": lid, "items": store.list_items(lid)})
+
+
+@app.command("spec")
+def spec_cmd(
+    action: str = typer.Argument("run", help="run|approve|get"),
+    task: Optional[str] = typer.Argument(None),
+    auto_approve: bool = typer.Option(False, "--auto-approve"),
+):
+    """V6 S102: Spec-first plan → approve → implement."""
+    from core.spec_mode import approve_spec, get_spec, run_spec_first
+
+    if action == "approve":
+        console.print_json(data=approve_spec(task or ""))
+        return
+    if action == "get":
+        console.print_json(data=get_spec(task or ""))
+        return
+    console.print_json(
+        data=run_spec_first(task or "task", use_mock=True, auto_approve=auto_approve)
+    )
+
+
+@app.command("gates")
+def gates_cmd():
+    """V6 S105/S106: Run quality gates (pytest/lint if present)."""
+    from core.quality_gates import detect_and_run
+
+    console.print_json(data=detect_and_run())
+
+
+@app.command("recipes")
+def recipes_cmd(
+    recipe_id: Optional[str] = typer.Argument(None),
+):
+    """V6 S196: List or show recipe prompts."""
+    from core.recipes import get_recipe, list_recipes
+
+    if recipe_id:
+        console.print_json(data=get_recipe(recipe_id))
+    else:
+        console.print_json(data=list_recipes())
+
+
+@app.command("onboard")
+def onboard_cmd(
+    mark: Optional[str] = typer.Option(None, "--mark", help="Mark step id done"),
+):
+    """V6 S199: Onboarding quest status."""
+    from core.onboarding_quest import mark as mark_step
+    from core.onboarding_quest import status
+
+    if mark:
+        console.print_json(data=mark_step(mark))
+    else:
+        console.print_json(data=status())
+
+
+@app.command("whats-new")
+def whats_new_cmd():
+    """V6 S200: Changelog summary."""
+    from core.changelog_cli import whats_new
+
+    console.print_json(data=whats_new())
+
+
+@app.command("macros")
+def macros_cmd(
+    action: str = typer.Argument("list", help="list|set|get"),
+    name: Optional[str] = typer.Argument(None),
+    command: Optional[str] = typer.Argument(None),
+):
+    """V6 N203: User macros."""
+    from core.macros import get_macro, list_macros, set_macro
+
+    if action == "set" and name and command:
+        console.print_json(data=set_macro(name, command))
+        return
+    if action == "get" and name:
+        console.print_json(data={"ok": True, "command": get_macro(name)})
+        return
+    console.print_json(data=list_macros())
+
+
+@app.command("capabilities")
+def capabilities_cmd(
+    models: str = typer.Option("gpt-4o,deepseek-chat,llama3.2,cli:claude", "--models", "-m"),
+    need: Optional[str] = typer.Option(None, "--need", help="Filter capability"),
+):
+    """V6 S152: Model capability tags."""
+    from core.capability_tags import catalog_with_tags, filter_by_capability
+
+    ms = [x.strip() for x in models.split(",") if x.strip()]
+    if need:
+        console.print_json(data={"ok": True, "models": filter_by_capability(ms, need)})
+    else:
+        console.print_json(data={"ok": True, "catalog": catalog_with_tags(ms)})
+
+
+@app.command("ci-why")
+def ci_why_cmd(
+    log_file: Optional[str] = typer.Option(None, "--file", "-f"),
+    text: Optional[str] = typer.Option(None, "--text", "-t"),
+):
+    """V6 N260: Analyze CI/log failure patterns."""
+    from core.ci_why import analyze_log
+    from pathlib import Path
+
+    blob = text or ""
+    if log_file:
+        blob = Path(log_file).read_text(encoding="utf-8", errors="replace")
+    if not blob:
+        console.print("[red]Provide --file or --text[/red]")
+        raise typer.Exit(2)
+    console.print_json(data=analyze_log(blob))
+
+
+@app.command("debate")
+def debate_cmd(
+    topic: str = typer.Argument(..., help="Debate topic"),
+    live: bool = typer.Option(False, "--live"),
+):
+    """V6 N261: Multi-role plan/critic/build debate."""
+    from core.role_debate import debate
+
+    console.print_json(data=debate(topic, use_mock=not live))
+
+
+@app.command("lsp-check")
+def lsp_check_cmd(path: str = typer.Argument(..., help="File path")):
+    """V6 N231: Lightweight diagnostics (compile/LSP if available)."""
+    from core.lsp_bridge import diagnostics_stub
+
+    console.print_json(data=diagnostics_stub(path))
+
+
+@app.command("timeouts")
+def timeouts_cmd(
+    name: Optional[str] = typer.Option(None, "--name"),
+    seconds: Optional[float] = typer.Option(None, "--seconds"),
+):
+    """V6 S161: Show/set tool timeouts."""
+    from core.tool_timeouts import get, load, set_timeout
+
+    if name and seconds is not None:
+        console.print_json(data=set_timeout(name, seconds))
+        return
+    if name:
+        console.print_json(data={"ok": True, "name": name, "seconds": get(name)})
+        return
+    console.print_json(data={"ok": True, "timeouts": load()})
+
+
 @app.command("do")
 def do_cmd(
     task: str = typer.Argument(..., help="Task — routed by front-door policy"),

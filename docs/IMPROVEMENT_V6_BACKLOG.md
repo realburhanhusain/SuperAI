@@ -1,13 +1,15 @@
 # SuperAI Improvement V6 — World’s Best AI CLI Backlog
 
 **Created:** 2026-07-16  
-**Status:** Planning only (no implementation in this document)  
+**Updated:** 2026-07-16  
+**Status:** Phases **1–15 implemented** as code (foundations + prior V1–V5); Phase **6 partial** (live smoke host-only); Phase **16 park**; Phases **17–20 n/a**  
 **Scope:** 400 items — 100 Must · 100 Should · 100 Nice · 100 Not important now  
 **Product frame:** SuperAI as multi-model / multi-CLI **orchestrator** + agent + memory + cost control  
 
-**Prior completed tracks (do not re-litigate unless deepening):** V1–V5 plans, MoSCoW 100, not-important W1–W8, `core.superai_agent`, DoD-strict spend/contract sweeps.
+**Prior completed tracks:** V1–V5 plans, MoSCoW 100, not-important W1–W8, `core.superai_agent`, DoD-strict sweeps.
 
-**Honesty:** Live multi-provider smoke (Phase 99) remains a **host gate**, not a substitute for this backlog.
+**Honesty:** Live multi-provider smoke (M089 / Phase 99) remains a **host gate**.  
+**Report:** `superai v6-status`
 
 ---
 

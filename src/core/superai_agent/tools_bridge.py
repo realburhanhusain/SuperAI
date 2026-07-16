@@ -100,10 +100,27 @@ def dispatch_tool(
         if not ok:
             return {"ok": False, "error": "user_denied", "tool": n, "dry_run": True}
 
-    if n in {"bash", "shell"}:
-        return tool_bash(str(args.get("command") or args.get("cmd") or ""), dry_run=dry)
+    # V6 N227 hooks
+    try:
+        from ..hooks import run_pre, run_post
 
-    return run_tool(n, permission_mode=mode, dry_run=dry, **args)
+        blocked = run_pre(n, args)
+        if isinstance(blocked, dict):
+            return blocked
+    except Exception:
+        run_post = None  # type: ignore
+
+    if n in {"bash", "shell"}:
+        res = tool_bash(str(args.get("command") or args.get("cmd") or ""), dry_run=dry)
+    else:
+        res = run_tool(n, permission_mode=mode, dry_run=dry, **args)
+    try:
+        from ..hooks import run_post as _post
+
+        _post(n, args, res)
+    except Exception:
+        pass
+    return res
 
 
 def catalog() -> List[Dict[str, str]]:

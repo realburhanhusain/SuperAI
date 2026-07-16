@@ -33,7 +33,8 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | V6 line-by-line scorecard | **Honest audit** — not 400× full: 93 full / 98 foundation / 162 stub / 31 absent / 15 refuse / 1 host — `docs/V6_SCORECARD.md` · regenerate via `python scripts/gen_v6_scorecard.py` |
 | V1–V5 detailed scorecard | **Honest audit** of Improvement Plan → V5 (+ MoSCoW + W1–W8) — `docs/V1_V5_SCORECARD.md` · regenerate via `python scripts/gen_v1_v5_scorecard.py` |
 | Foundation lift (code) | Real infra lift exists (`call_lifecycle`, preflight, etc.) — **does not** mean every foundation ID is full |
-| Scorecard honesty fix | **2026-07-16** bulk foundation→full **reverted**. See `docs/SCORECARD_HONESTY.md`. V6 ≈106 full / 85 foundation; V1–V5 ≈108 full / 23 foundation / 2 host |
+| Scorecard honesty fix | **2026-07-16** bulk overclaim reverted; further Must foundation completion + unified audit |
+| **V1–V6 unified scorecard** | **`docs/V1_V6_UNIFIED_SCORECARD.md`** — primary file for Claude/Gemini/Codex review (full/foundation/stub/host/refuse/absent + % complete). Regenerate: `python scripts/gen_v1_v6_unified_scorecard.py` |
 | Phase 99 / live smoke | **Runtime host** — `superai phase6-smoke --allow-live` when keys present |
 
 ## Recently closed (code)

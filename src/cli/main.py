@@ -76,6 +76,16 @@ def _main_callback(
         "--no-auto-backup",
         help="Disable atexit auto-backup for this process",
     ),
+    json_out: bool = typer.Option(
+        False,
+        "--json",
+        help="JSON automation mode for public results (V6 M079)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Prefer dry-run / no side effects where supported",
+    ),
     ask_mode: bool = typer.Option(
         False,
         "--ask",
@@ -97,6 +107,17 @@ def _main_callback(
         None, "--session", "-s", help="Resume SuperAI agent session id"
     ),
 ) -> None:
+    # Global automation surface (M079/M080)
+    try:
+        from core.public_surface import set_dry_run, set_json_mode
+
+        set_json_mode(bool(json_out))
+        set_dry_run(bool(dry_run))
+        ctx.ensure_object(dict)
+        ctx.obj["json"] = bool(json_out)
+        ctx.obj["dry_run"] = bool(dry_run)
+    except Exception:
+        pass
     if not no_auto_backup:
         _register_auto_backup_if_enabled()
     # No subcommand → front-door interactive (DoD-strict) or TUI
@@ -5394,5 +5415,50 @@ def mode_cmd(
 
     console.print_json(
         data=wrap_public_result(resolve_mode(mode), mock=True, record_spend=False)
+    )
+
+
+@app.command("foundation-check")
+def foundation_check_cmd(
+    item: str = typer.Argument(
+        "all",
+        help="Item id e.g. M001 or 'all' for must foundation suite",
+    ),
+):
+    """Run offline checks for foundation completion evidence (V1–V6)."""
+    from core.foundation_complete import (
+        dashboard_state,
+        learning_distill,
+        learning_promote_durable,
+        learning_resolve_conflicts,
+        mcp_parity,
+        verify_top30_contracts,
+    )
+    from core.public_api import wrap_public_result
+    from core.public_surface import emit_public, set_json_mode
+
+    set_json_mode(True)
+    suite = {
+        "M090": verify_top30_contracts(),
+        "M093": mcp_parity(),
+        "M100": dashboard_state(),
+        "M061": learning_promote_durable(limit=5),
+        "M062": learning_resolve_conflicts(),
+        "M063": learning_distill(),
+    }
+    if item and item.upper() != "ALL":
+        key = item.upper()
+        data = suite.get(key) or wrap_public_result(
+            {"ok": False, "error": f"no suite for {key}", "available": list(suite)},
+            ok=False,
+            record_spend=False,
+        )
+        emit_public(data, print_json=True, record_spend=False)
+        return
+    emit_public(
+        {"ok": True, "suite": suite, "count": len(suite)},
+        mock=True,
+        print_json=True,
+        record_spend=False,
     )
 

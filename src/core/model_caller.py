@@ -291,14 +291,46 @@ class ModelCaller:
                     return cancelled
             except Exception:
                 pass
-            last = self._call_one_model(
-                provider=provider if mid == primary_model else None,
-                model=mid,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                use_fallback=use_fallback,
-                vision_attachments=vision_attachments,
-            )
+            try:
+                from .model_timeouts import run_with_timeout, timeout_error_result
+                from .tool_timeouts import get as tget
+
+                tsec = float(tget("model"))
+                last = run_with_timeout(
+                    lambda mid=mid: self._call_one_model(
+                        provider=provider if mid == primary_model else None,
+                        model=mid,
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        use_fallback=use_fallback,
+                        vision_attachments=vision_attachments,
+                    ),
+                    seconds=tsec,
+                    kind="model",
+                )
+            except TimeoutError:
+                try:
+                    from .model_timeouts import timeout_error_result
+                    from .tool_timeouts import get as tget
+
+                    last = timeout_error_result(kind="model", seconds=float(tget("model")))
+                except Exception:
+                    last = {
+                        "ok": False,
+                        "status": "error",
+                        "error_code": "timeout",
+                        "response": "model_timeout",
+                        "model": mid,
+                    }
+            except Exception:
+                last = self._call_one_model(
+                    provider=provider if mid == primary_model else None,
+                    model=mid,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    use_fallback=use_fallback,
+                    vision_attachments=vision_attachments,
+                )
             if last and str(last.get("status")) != "error" and not last.get(
                 "blocked"
             ):

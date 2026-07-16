@@ -370,7 +370,50 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
     """Dispatch MCP tool call — used by stdio and HTTP transports."""
     if not name:
         raise ValueError("tool name required")
+    # MCP/CLI safety parity (M093): budget gate for spend tools before dispatch
+    try:
+        from .mcp_safety import SPEND_TOOLS
+        from .public_api import wrap_public_result
+        from .spend_guard import budget_precheck
 
+        live = bool((args or {}).get("live") or (args or {}).get("live_run"))
+        if name in SPEND_TOOLS and live:
+            block = budget_precheck(estimated_usd=0.2, tokens=1000)
+            if block.get("blocked") or block.get("ok") is False:
+                return wrap_public_result(block, ok=False, record_spend=False)
+    except Exception:
+        pass
+
+    try:
+        result = _call_tool_impl(name, args or {})
+    except Exception as e:
+        from .public_api import wrap_public_result
+
+        return wrap_public_result(
+            {"ok": False, "error": str(e)[:500], "mcp_tool": name},
+            ok=False,
+            record_spend=False,
+        )
+    # Always contract-wrap dict results
+    if isinstance(result, dict):
+        try:
+            from .public_api import wrap_public_result
+
+            result.setdefault("mcp_tool", name)
+            result.setdefault("mcp_safety", True)
+            return wrap_public_result(
+                result,
+                mock=result.get("mock"),
+                ok=result.get("ok", True),
+                record_spend=False,
+            )
+        except Exception:
+            return result
+    return result
+
+
+def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
+    """Inner MCP tool dispatch."""
     if name == "superai_status":
         from .doctor import run_doctor
 
@@ -707,6 +750,11 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
 
         profile = str(args.get("profile") or "full")
         return checklist(profile=profile)
+
+    if name == "superai_mcp_safety":
+        from .mcp_safety import safety_matrix
+
+        return safety_matrix()
 
     raise ValueError(f"Unknown tool: {name}")
 

@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-16  
 **Audience:** Claude / Gemini / Codex / human auditors  
-**Files:** `docs/V6_SCORECARD.md`, `docs/V1_V5_SCORECARD.md`
+**Primary audit file:** **`docs/V1_V6_UNIFIED_SCORECARD.md`** (single ordered list: full → foundation → stub → host → refuse → absent, with % complete)  
+**Secondary:** `docs/V6_SCORECARD.md`, `docs/V1_V5_SCORECARD.md`
 
 ## What went wrong
 

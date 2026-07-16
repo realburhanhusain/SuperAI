@@ -1,7 +1,7 @@
 # Phase 8 — Nice-to-have product depth
 
-**Inspired by (patterns, not forks):** Aider, OpenCode-style TUIs, Hermes messengers.  
-**Status:** **Implemented (basic vertical slices)** 2026-07-16  
+**Inspired by open-source agent patterns (not forks).**  
+**Status:** **Implemented** 2026-07-16 — see also `docs/SUPERAI_AGENT.md`  
 **Smoke:** Phase 99 still postponed  
 
 | ID | Item | Status | Module / command |
@@ -15,7 +15,7 @@
 | N7 | Palace tenant | `[x]` | `palace_tenant.py` · config `tenant_id` |
 | N8 | Plugin marketplace browse | `[x]` | `plugin_catalog.browse_catalog` · `plugin-catalog` |
 
-**Progress: 8/8 = 100%** (code depth is foundation-level, not full Aider/OpenCode clone)
+**Progress: 8/8 = 100%** (full multi-agent TUI in `core.superai_agent`)
 
 ## Usage
 

@@ -4490,9 +4490,6 @@ def agent_cmd(
     permission: Optional[str] = typer.Option(None, "--permission"),
     mock: bool = typer.Option(True, "--mock/--live"),
     profile: Optional[str] = typer.Option(None, "--profile"),
-    legacy: bool = typer.Option(
-        False, "--legacy", help="Use older simple agent loop"
-    ),
 ):
     """
     SuperAI multi-agent (build/plan/ask) — tool loop + sessions + TUI.
@@ -4505,11 +4502,6 @@ def agent_cmd(
         from core.run_profiles import apply_profile_to_config
 
         apply_profile_to_config(Config(), profile)
-    if legacy and not prompt:
-        from core.agent_tui import run_agent_tui
-
-        run_agent_tui(session_id=session, permission=permission, profile=profile)
-        return
     if prompt:
         from core.superai_agent.runtime import AgentRuntime
 
@@ -4539,7 +4531,6 @@ def agent_tui_cmd(
     session: Optional[str] = typer.Option(None, "--session", "-s"),
     permission: Optional[str] = typer.Option(None, "--permission"),
     profile: Optional[str] = typer.Option(None, "--profile"),
-    legacy: bool = typer.Option(False, "--legacy", help="Older simple agent loop"),
     agent: str = typer.Option("build", "--agent", "-a", help="build | plan | ask"),
     model: Optional[str] = typer.Option(None, "--model", "-m"),
 ):
@@ -4552,7 +4543,6 @@ def agent_tui_cmd(
         permission=permission,
         mock=True,
         profile=profile,
-        legacy=legacy,
     )
 
 
@@ -4562,32 +4552,6 @@ def agent_roles_cmd():
     from core.superai_agent.agents import list_agents
 
     console.print_json(data={"agents": list_agents()})
-
-
-@app.command("opencode", hidden=True)
-def opencode_cmd(
-    session: Optional[str] = typer.Option(None, "--session", "-s"),
-    agent: str = typer.Option("build", "--agent", "-a"),
-    model: Optional[str] = typer.Option(None, "--model", "-m"),
-    permission: Optional[str] = typer.Option(None, "--permission"),
-    prompt: Optional[str] = typer.Argument(None),
-    mock: bool = typer.Option(True, "--mock/--live"),
-):
-    """Deprecated alias for `superai agent` (product name is SuperAI)."""
-    console.print(
-        "[dim]Note: `superai opencode` is deprecated — use `superai` or "
-        "`superai agent`[/dim]"
-    )
-    agent_cmd(
-        prompt=prompt,
-        session=session,
-        agent=agent,
-        model=model,
-        permission=permission,
-        mock=mock,
-        profile=None,
-        legacy=False,
-    )
 
 
 @app.command("agent-tools")

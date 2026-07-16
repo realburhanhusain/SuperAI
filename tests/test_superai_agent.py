@@ -52,8 +52,9 @@ def test_runtime_mock_run(tmp_path, monkeypatch):
     assert d.get("session_id", "").startswith("sa-")
 
 
-def test_compat_import():
-    from core.opencode_agent import AgentRuntime as AR
-    from core.superai_agent import AgentRuntime as AR2
+def test_package_exports():
+    from core.superai_agent import AgentRuntime, SuperAISessionStore, list_agents
 
-    assert AR is AR2 or AR.__module__.endswith("runtime")
+    assert AgentRuntime is not None
+    assert SuperAISessionStore is not None
+    assert list_agents()

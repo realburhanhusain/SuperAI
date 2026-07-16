@@ -58,13 +58,11 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["core", "core.superai_agent", "core.super_agent", "core.opencode_agent", "scli"]
+packages = ["core", "core.superai_agent", "scli"]
 
 [tool.setuptools.package-dir]
 "core" = "src/core"
 "core.superai_agent" = "src/core/superai_agent"
-"core.super_agent" = "src/core/super_agent"
-"core.opencode_agent" = "src/core/opencode_agent"
 "scli" = "src/cli"
 
 [tool.setuptools.package-data]

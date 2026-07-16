@@ -3,7 +3,7 @@
 **Updated:** 2026-07-16  
 
 The MoSCoW “not important” section was mostly **non-goals**. This pack turns the deferred
-**“TUI depth instead of full OpenCode rewrite”** into concrete W1–W8 work so the only
+**TUI depth polish** as concrete W1–W8 work so the only
 remaining external gate is **live smoke (Phase 99)**.
 
 | ID | Item | Status |
@@ -22,7 +22,7 @@ remaining external gate is **live smoke (Phase 99)**.
 | Item | Why |
 |------|-----|
 | Claim live smoke passed without keys | Honesty policy |
-| Full OpenCode rewrite | **Done** — `docs/OPENCODE_REWRITE.md` + `core.opencode_agent` (post W1–W8) |
+| Full agent rewrite | **Done** — `docs/SUPERAI_AGENT.md` + `core.superai_agent` (post W1–W8) |
 
 ## Next
 

@@ -322,5 +322,3 @@ def run_superai_agent_tui(
     console.print(f"[dim]session saved: {state.id}[/dim]")
 
 
-# Back-compat alias
-run_opencode_tui = run_superai_agent_tui

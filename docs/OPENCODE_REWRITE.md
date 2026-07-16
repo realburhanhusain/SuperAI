@@ -1,13 +1,5 @@
-# Moved: SuperAI agent branding
+# Historical note
 
-**This doc is historical.** Product name is **SuperAI**, not a third-party tool name.
+The multi-agent stack is SuperAI-native: **`core.superai_agent`**.
 
-See **`docs/SUPERAI_AGENT.md`** for current entry points:
-
-```powershell
-superai                 # default agent TUI
-superai agent "task"    # one-shot
-superai --ask           # NL product-route REPL
-```
-
-Package: `core.superai_agent` (deprecated re-export: `core.opencode_agent`).
+See **docs/SUPERAI_AGENT.md**.

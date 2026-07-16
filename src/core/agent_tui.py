@@ -1,13 +1,13 @@
 """
 Agent session TUI (Phase 8 N1 / MoSCoW S1 N1 N6).
 
-Patterns inspired by open-source coding agents (Aider/OpenCode-style):
+Simple SuperAI agent TUI (older loop; prefer `superai` / `core.superai_agent`).
   - visible tool/model steps
   - compact prior turns
   - plan vs act permission
   - token streaming display
   - /diff confirm, /listen /speak voice hooks
-Uses Rich (already a SuperAI dependency) — no heavy Textual dep required.
+Uses Rich (already a SuperAI dependency).
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ console = Console()
 
 
 def compact_turns(turns: List[Dict[str, Any]], max_chars: int = 1200) -> str:
-    """Summarize prior turns for context window (OpenCode/Aider-like compact)."""
+    """Summarize prior turns for context window."""
     if not turns:
         return ""
     chunks = []

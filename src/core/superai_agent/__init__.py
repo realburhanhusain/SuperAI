@@ -13,10 +13,6 @@ from .agents import AGENT_ROLES, get_agent, list_agents
 from .runtime import AgentRuntime, RunResult
 from .session import SuperAISessionStore, SessionState
 
-# Back-compat aliases
-OpenCodeSessionStore = SuperAISessionStore
-AgentSessionStore = SuperAISessionStore
-
 __all__ = [
     "AGENT_ROLES",
     "get_agent",
@@ -24,7 +20,5 @@ __all__ = [
     "AgentRuntime",
     "RunResult",
     "SuperAISessionStore",
-    "AgentSessionStore",
-    "OpenCodeSessionStore",
     "SessionState",
 ]

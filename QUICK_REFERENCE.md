@@ -37,7 +37,7 @@ superai run "hello" --format json
 | `scripts/bootstrap.ps1` / `bootstrap.sh` | pip + optional `-Interactive` / `--with-postgres` |
 | `cli-run NAME "…" [-M MODEL] · name@MODEL` | External CLI run; optional inner model (`--cli-model` / `@`) |
 | `cli-run` … `--context/--no-context` · `--memory/--no-memory` | Central Memory Palace inject + write-back (default on) |
-| `members [--available]` | List selectable API models (keys) + external CLIs |
+| `members [--available] [--with-models] [--live-probe] [--pick]` | API + CLIs + inner models; optional interactive pick |
 | Config `central_memory` / env `SUPERAI_CENTRAL_MEMORY` | Master switch for shared Memory Palace |
 | `run "task" --critic off\|light\|council` | Critic mode (default light) |
 | `run "task" --replan-approval` | HITL must approve recovery replan |
@@ -49,15 +49,16 @@ superai run "hello" --format json
 | `web` → `/palace` | Interactive Memory Palace browser |
 | `search-web "q" --provider duckduckgo` | Instant Answer API (no scrape) |
 | `github status\|issues\|prs\|issue-create\|pr\|comment` | GitHub product API / gh CLI |
-| `review "…" [-m gpt-4o,cli:gemini@MODEL] [--prefer mixed\|cli\|api]` | Multi-member review (API + CLI) |
-| `advise "…" [-m …] [--prefer mixed\|cli\|api]` | Multi-member advisor board (API + CLI) |
-| `council "…" [--models gpt-4o,cli:grok] [--prefer mixed\|cli\|api]` | Council with API models and/or CLIs |
+| `review "…" [-m gpt-4o,cli:gemini@MODEL] [--pick] [--prefer mixed\|cli\|api]` | Multi-member review (API + CLI) |
+| `advise "…" [-m …] [--pick] [--prefer mixed\|cli\|api]` | Multi-member advisor board (API + CLI) |
+| `council "…" [--models gpt-4o,cli:grok] [--pick] [--prefer mixed\|cli\|api]` | Council with API models and/or CLIs |
 | `pr-review --use-clis` | Diff review with CLI board + council (default CLIs on) |
 | Env `SUPERAI_MEMORY_BACKEND=pgvector` | Default Memory Palace backend (Postgres+pgvector or SQLite cosine) |
 | Env `SUPERAI_MEMORY_DSN` | e.g. `postgresql+psycopg://user:pass@localhost/superai` |
 | Env `SUPERAI_MEMORY_BACKEND=faiss` | Optional FAISS offline index |
 | Env `SUPERAI_FAISS_INDEX=hnsw` | FAISS HNSW (when backend=faiss) |
 | `run "…" --workers gpt-4o,cli:gemini@MODEL [--worker-prefer mixed]` | Worker pool (API + CLIs + failover) |
+| `run "…" --pick-workers` | Interactive pick from detected API/CLI models |
 | `config set worker_prefer mixed\|api\|cli\|router` | Default worker auto-pick (default mixed) |
 | `config set worker_members gpt-4o,cli:claude` | Persistent worker pool |
 | `config set cli_delegate_workers true` | Legacy: force CLI-first worker pool |

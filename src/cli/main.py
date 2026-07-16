@@ -247,6 +247,11 @@ def run(
         "--worker-prefer",
         help="Worker auto-pick: mixed | api | cli | router (default: config worker_prefer)",
     ),
+    pick_workers: bool = typer.Option(
+        False,
+        "--pick-workers",
+        help="Interactively pick workers from detected API models + CLIs/models",
+    ),
     with_clis: Optional[str] = typer.Option(
         None,
         "--with-clis",
@@ -313,6 +318,15 @@ def run(
         worker_list = (
             [c.strip() for c in workers.split(",") if c.strip()] if workers else None
         )
+        if pick_workers and not worker_list:
+            from core.approval_tui import prompt_pick_from_catalog
+
+            worker_list = prompt_pick_from_catalog(
+                title="Pick workers (API models + CLIs)",
+                max_n=5,
+                prefer=(worker_prefer or "mixed"),
+            )
+            console.print(f"[dim]Workers: {', '.join(worker_list)}[/dim]")
         if worker_prefer and worker_prefer.lower() not in {
             "mixed",
             "api",
@@ -1636,6 +1650,9 @@ def council(
         "--prefer",
         help="When --models omitted: mixed | cli | api",
     ),
+    pick: bool = typer.Option(
+        False, "--pick", help="Interactively pick council members"
+    ),
 ):
     """Multi-model/CLI council with selectable voting (LLM Council inspired)"""
     from core.council import Council, VOTING_MODES
@@ -1646,6 +1663,14 @@ def council(
         console.print(f"[red]Invalid voting mode. Use one of: {VOTING_MODES}[/red]")
         raise typer.Exit(code=1)
     model_list = [m.strip() for m in models.split(",")] if models else None
+    if pick and not model_list:
+        from core.approval_tui import prompt_pick_from_catalog
+
+        model_list = prompt_pick_from_catalog(
+            title="Pick council members",
+            max_n=3,
+            prefer=prefer if prefer in {"mixed", "cli", "api"} else "mixed",
+        )
     # Default: mixed available API models + external CLIs
     if model_list is None:
         try:
@@ -3766,11 +3791,41 @@ def members_cmd(
         "--available",
         help="Only show configured API models + CLIs on PATH",
     ),
+    with_models: bool = typer.Option(
+        True,
+        "--with-models/--no-models",
+        help="Include detected/curated inner models for each CLI",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live-probe",
+        help="Try live CLI help/list commands (slow; results cached)",
+    ),
+    pick: bool = typer.Option(
+        False,
+        "--pick",
+        help="Interactive multi-select; print chosen ids",
+    ),
+    max_pick: int = typer.Option(5, "--max", help="Max picks with --pick"),
 ):
-    """List selectable API models (with keys) and external AI CLIs for review/advise/council."""
+    """List selectable API models, CLIs, and CLI inner models for workers/boards."""
     from core.member_selection import list_selectable_members
 
-    data = list_selectable_members(only_available=only_available)
+    data = list_selectable_members(
+        only_available=only_available,
+        with_cli_models=with_models,
+        live_cli_models=live,
+    )
+    if pick:
+        from core.approval_tui import prompt_pick_from_catalog
+
+        chosen = prompt_pick_from_catalog(
+            title="Select members",
+            max_n=max_pick,
+            only_available=only_available or True,
+        )
+        console.print_json(data={"ok": True, "selected": chosen})
+        return
     console.print_json(data=data)
 
 
@@ -3791,6 +3846,9 @@ def multi_review_cmd(
         "--prefer",
         help="Auto-pick preference when members omitted: mixed | cli | api",
     ),
+    pick: bool = typer.Option(
+        False, "--pick", help="Interactively pick API/CLI members"
+    ),
     max_clis: int = typer.Option(3, "--max", help="Max members on the board"),
     dry_run: bool = typer.Option(True, "--dry-run/--live"),
     approve: bool = typer.Option(True, "--approve/--no-approve"),
@@ -3799,6 +3857,14 @@ def multi_review_cmd(
     from core.multi_cli_advisory import multi_cli_board
 
     member_list = [c.strip() for c in members.split(",")] if members else None
+    if pick and not member_list:
+        from core.approval_tui import prompt_pick_from_catalog
+
+        member_list = prompt_pick_from_catalog(
+            title="Pick review board members",
+            max_n=max_clis,
+            prefer=prefer,
+        )
     cli_list = [c.strip() for c in clis.split(",")] if clis else None
     out = multi_cli_board(
         subject,
@@ -3840,6 +3906,9 @@ def multi_advise_cmd(
         "--prefer",
         help="Auto-pick preference when members omitted: mixed | cli | api",
     ),
+    pick: bool = typer.Option(
+        False, "--pick", help="Interactively pick API/CLI advisors"
+    ),
     max_clis: int = typer.Option(3, "--max", help="Max advisors"),
     dry_run: bool = typer.Option(True, "--dry-run/--live"),
     approve: bool = typer.Option(True, "--approve/--no-approve"),
@@ -3848,6 +3917,14 @@ def multi_advise_cmd(
     from core.multi_cli_advisory import multi_cli_board
 
     member_list = [c.strip() for c in members.split(",")] if members else None
+    if pick and not member_list:
+        from core.approval_tui import prompt_pick_from_catalog
+
+        member_list = prompt_pick_from_catalog(
+            title="Pick advisor board members",
+            max_n=max_clis,
+            prefer=prefer,
+        )
     cli_list = [c.strip() for c in clis.split(",")] if clis else None
     out = multi_cli_board(
         subject,

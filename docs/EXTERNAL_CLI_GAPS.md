@@ -19,6 +19,7 @@
 | No CLI inner model pick | **Closed** — `cli:name@MODEL`, `--cli-model` / `-M`, `model_flag` on specs |
 | ModelCaller/council dropped `@MODEL` | **Closed** — `split_cli_selector` + `cli_model` through ModelCaller/council/orchestrator |
 | Council defaults CLI-only | **Closed** — `default_council_members(prefer=mixed)` + API keys when configured |
+| No CLI inner-model discovery | **Closed** — `cli_models.py` curated+registry+optional live probe; `members --pick` |
 
 ## Unified members (API + CLI)
 
@@ -26,10 +27,14 @@ When provider API keys are configured (or mock mode), those registry models are
 selectable **alongside** PATH CLIs for review / advise / council.
 
 ```text
-superai members --available
+superai members --available              # API + PATH CLIs + inner models
+superai members --available --live-probe # also try CLI help/list (cached)
+superai members --pick                   # interactive multi-select
+superai run "implement X" --pick-workers
+superai review "auth design" --pick
 superai review "auth design" -m gpt-4o,cli:gemini@gemini-2.5-pro,cli:grok
 superai advise "ship tonight?" --prefer mixed
-superai council "pick architecture" --models gpt-4o,cli:claude --prefer api
+superai council "pick architecture" --pick
 superai cli-run gemini@gemini-2.5-flash "summarize this PR" --dry-run
 ```
 

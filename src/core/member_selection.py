@@ -145,9 +145,11 @@ def list_selectable_members(
     *,
     include_unconfigured: bool = True,
     only_available: bool = False,
+    with_cli_models: bool = True,
+    live_cli_models: bool = False,
 ) -> Dict[str, Any]:
     """
-    Catalog of selectable API models + external CLIs for review/advise/council UIs.
+    Catalog of selectable API models + external CLIs (+ inner models) for UIs.
     """
     from .external_cli import ExternalCLIRegistry
     from .model_registry import ModelRegistry
@@ -191,12 +193,33 @@ def list_selectable_members(
         )
 
     clis: List[MemberSpec] = []
+    cli_model_rows: List[MemberSpec] = []
     cli_reg = ExternalCLIRegistry()
+    cli_models_catalog: Dict[str, Any] = {}
+    if with_cli_models:
+        try:
+            from .cli_models import list_cli_models_catalog
+
+            cli_models_catalog = list_cli_models_catalog(
+                only_available=only_available,
+                live=live_cli_models,
+            )
+        except Exception:
+            cli_models_catalog = {}
+
+    by_cli_models = {
+        c.get("cli"): c
+        for c in (cli_models_catalog.get("clis") or [])
+        if c.get("cli")
+    }
+
     for d in cli_reg.discover():
         avail = bool(d.get("available"))
         if only_available and not avail:
             continue
         name = d["name"]
+        minfo = by_cli_models.get(name) or {}
+        models = list(minfo.get("models") or [])
         clis.append(
             MemberSpec(
                 kind="cli",
@@ -212,26 +235,60 @@ def list_selectable_members(
                     "default_role": d.get("default_role"),
                     "install_hint": d.get("install_hint") or cli_reg.install_hint(name),
                     "description": d.get("description"),
-                    # common model flag hint for UIs
                     "model_flag_hint": "Use cli:{name}@MODEL or --cli-model MODEL",
+                    "models": models,
+                    "model_sources": minfo.get("sources") or [],
+                    "model_flag": minfo.get("model_flag"),
                 },
             )
         )
+        # Expand selectable inner-model rows for pickers
+        for mid in models:
+            cid = f"cli:{name}@{mid}"
+            cli_model_rows.append(
+                MemberSpec(
+                    kind="cli",
+                    id=cid,
+                    display=cid,
+                    provider="external_cli",
+                    cli_name=name,
+                    model_id=mid,
+                    configured=avail,
+                    available=avail,
+                    source=str(d.get("path") or ""),
+                    extra={"parent_cli": name, "inner_model": mid},
+                )
+            )
 
     all_ids = [m.id for m in api_models if m.available] + [
         m.id for m in clis if m.available
     ]
+    # Prefer expanded CLI@model ids for interactive pick lists
+    pick_ids = [m.id for m in api_models if m.available] + [
+        m.id for m in cli_model_rows if m.available
+    ]
+    if not pick_ids:
+        pick_ids = list(all_ids)
+    # Always allow bare cli:name as well
+    for m in clis:
+        if m.available and m.id not in pick_ids:
+            pick_ids.append(m.id)
+
     return {
         "ok": True,
         "mock_mode": mock,
         "api_models": [m.to_dict() for m in api_models],
         "clis": [m.to_dict() for m in clis],
+        "cli_models": [m.to_dict() for m in cli_model_rows],
+        "cli_models_catalog": cli_models_catalog,
         "selectable_ids": all_ids,
+        "pick_ids": pick_ids,
         "counts": {
             "api_configured": sum(1 for m in api_models if m.available),
             "api_total": len(api_models),
             "cli_available": sum(1 for m in clis if m.available),
             "cli_total": len(clis),
+            "cli_model_variants": len(cli_model_rows),
         },
         "syntax": {
             "api": "gpt-4o | claude-3-5-sonnet | … (registry name)",

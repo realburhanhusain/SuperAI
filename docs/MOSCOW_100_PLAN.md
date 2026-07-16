@@ -56,14 +56,7 @@ pytest -m unit -q
 | N7 | Team palace export/import by tenant | **[x]** `tenant-export` / `tenant-import` |
 | N8 | Live multi-vendor smoke | **POSTPONED** — `smoke_harness` only (never false pass) |
 
-## Not important / explicit non-goals
-
-| Item | Status |
-|------|--------|
-| Claiming live smoke passed without keys | **Will not lie** — harness only (`live_passed=False` by default) |
-| Full agent rewrite (patterns, not fork) | **[x]** SuperAI multi-agent — `docs/SUPERAI_AGENT.md` · brand is SuperAI only |
-
-### Not-important polish pack (pre–live smoke)
+## Not-important polish pack
 
 | ID | Item | Status |
 |----|------|--------|
@@ -75,8 +68,9 @@ pytest -m unit -q
 | W6 | Multi-line paste mode | **[x]** |
 | W7 | VS Code extension depth | **[x]** |
 | W8 | Smoke preflight checklist | **[x]** `superai smoke-preflight` |
+| — | SuperAI multi-agent | **[x]** `docs/SUPERAI_AGENT.md` |
 
-**Next external gate only:** Phase 99 live multi-vendor smoke (with real keys).
+Live multi-vendor smoke is host work (Phase 99), not a not-important coding task.
 
 ## Commands
 

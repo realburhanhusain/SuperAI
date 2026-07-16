@@ -2,9 +2,8 @@
 
 **Updated:** 2026-07-16  
 
-The MoSCoW “not important” section was mostly **non-goals**. This pack turns the deferred
-**TUI depth polish** as concrete W1–W8 work so the only
-remaining external gate is **live smoke (Phase 99)**.
+TUI depth polish pack (W1–W8). Remaining external gate for live multi-provider
+verification is Phase 99 smoke (host/keys), not more not-important coding.
 
 | ID | Item | Status |
 |----|------|--------|
@@ -16,13 +15,7 @@ remaining external gate is **live smoke (Phase 99)**.
 | W6 | Multi-line paste mode | **[x]** `/paste` … `/end` |
 | W7 | VS Code extension depth | **[x]** ask / review / members / smoke-preflight |
 | W8 | Smoke preflight checklist | **[x]** `smoke_preflight` + CLI (no false pass) |
-
-## Explicit non-goals (still not done — by design)
-
-| Item | Why |
-|------|-----|
-| Claim live smoke passed without keys | Honesty policy |
-| Full agent rewrite | **Done** — `docs/SUPERAI_AGENT.md` + `core.superai_agent` (post W1–W8) |
+| — | SuperAI multi-agent | **[x]** `docs/SUPERAI_AGENT.md` + `core.superai_agent` |
 
 ## Next
 

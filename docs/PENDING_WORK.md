@@ -16,10 +16,6 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 4. GitHub Pages enablement in repo settings  
 5. Live Postgres + `vector` extension smoke on a real server (suite uses SQLite cosine offline)
 
-## Explicitly not planned
-
-- ChromaDB backend or Chroma → SQL migrator (no existing user data; Chroma removed)
-
 ## Improvement track status
 
 | Item | Notes |

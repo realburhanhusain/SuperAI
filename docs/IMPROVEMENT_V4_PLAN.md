@@ -59,16 +59,6 @@
 | S7 | Context pack token budget | `context_pack` ordered drop under budget |
 | S10 | Change-set apply/reject | Agent accumulates writes; `/apply` `/reject` |
 
-## Non-goals (explicit)
-
-| Item | Reason |
-|------|--------|
-| Claiming live multi-vendor smoke without keys | Honesty / Phase 99 host gate |
-| Full product rewrite under another brand | SuperAI is the product |
-| ChromaDB / Chroma migrator | Removed by design |
-| Mandatory cloud SaaS | Local-first remains valid |
-| Replacing external CLIs with forks | Orchestrate, don’t fork |
-
 ## Verify
 
 ```powershell

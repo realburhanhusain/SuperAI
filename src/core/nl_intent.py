@@ -1,11 +1,14 @@
 """
-Natural-language → SuperAI command intent router.
+Universal natural-language front door for SuperAI (Claude Code / Gemini / Codex style).
 
-Maps phrases like:
-  "review the auth design with gpt-4o and gemini"
-  "let me pick a council for architecture"
-  "list available models and clis"
-into structured intents and optional execution of review/advise/council/run/members.
+Any user phrase is understood as either:
+  - a specialized SuperAI product action (review, council, doctor, memory, …), or
+  - a general agent task executed by the orchestrator (`run`)
+
+Entry points:
+  superai ask "…"
+  superai ask                 # interactive REPL
+  superai chat "…"            # routes product intents here
 """
 
 from __future__ import annotations
@@ -13,17 +16,31 @@ from __future__ import annotations
 import re
 import shlex
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 
+# Specialized product actions + universal agent run
 ACTIONS = (
     "members",
     "review",
     "advise",
     "council",
-    "run",
+    "run",  # universal agent (default)
     "discover",
+    "doctor",
     "cli_run",
+    "plan",
+    "tdd",
+    "pr_review",
+    "memory_search",
+    "palace",
+    "backup",
+    "budget",
+    "host_tools",
+    "install",
+    "debate",
+    "search_web",
+    "github",
     "help",
     "unknown",
 )
@@ -41,17 +58,17 @@ class SuperAIIntent:
     only_available: bool = True
     worker_prefer: Optional[str] = None
     max_members: int = 3
-    model: Optional[str] = None  # forced primary for run/cli_run
+    model: Optional[str] = None
     confidence: float = 0.0
     raw: str = ""
     planned_command: str = ""
     notes: List[str] = field(default_factory=list)
+    extras: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
-# Known API/CLI tokens for member extraction
 _CLI_NAMES = (
     "claude",
     "gemini",
@@ -83,20 +100,91 @@ _API_HINTS = (
     "qwen2.5-coder",
 )
 
+# (action, confidence, regex) — first match wins (order = priority)
+_ACTION_RULES: List[Tuple[str, float, str]] = [
+    ("help", 0.95, r"\b(help|how do i|what can superai|commands?)\b"),
+    (
+        "members",
+        0.93,
+        r"\b(list|show|what|which).{0,48}\b(member|model|cli|available)|"
+        r"\bmembers\b|\bavailable (models?|clis?)\b|\bwhat can i use\b",
+    ),
+    ("doctor", 0.92, r"\b(doctor|health check|diagnose|is (superai|everything) (ok|healthy))\b"),
+    (
+        "discover",
+        0.9,
+        r"\b(discover|what.?s installed|environment|scan (path|clis?))\b",
+    ),
+    ("install", 0.9, r"\b(install (superai|postgres|host tools)|setup wizard|onboard)\b"),
+    ("host_tools", 0.88, r"\b(host[- ]tools|check (git|docker|rclone)|tool matrix)\b"),
+    ("budget", 0.9, r"\b(budget|spend limit|cost limit|how much (have i|did i) spend)\b"),
+    ("backup", 0.9, r"\b(backup|restore|export (my )?profile)\b"),
+    (
+        "palace",
+        0.88,
+        r"\b(memory palace|palace (layout|browse)|wings?|rooms?)\b",
+    ),
+    (
+        "memory_search",
+        0.88,
+        r"\b(search memory|remember|what do (we|you) know|recall|memory search)\b",
+    ),
+    ("pr_review", 0.91, r"\b(pr[- ]review|review (the )?(pr|pull request|diff|git diff))\b"),
+    ("tdd", 0.9, r"\b(tdd|test[- ]driven|write tests (for|and)|red green refactor)\b"),
+    (
+        "plan",
+        0.9,
+        r"\b((make|show|create|write)\s+(me\s+)?(a\s+)?plan|"
+        r"plan\s+(only|this|the|a|an|my|for)|"
+        r"break\s+down|decompose)\b",
+    ),
+    ("debate", 0.88, r"\b(debate|argue (both|two) sides)\b"),
+    ("search_web", 0.88, r"\b(search (the )?web|web search|look up online|duckduckgo)\b"),
+    ("github", 0.88, r"\b(github|list (issues|prs)|create (issue|pr)|open prs?)\b"),
+    (
+        "council",
+        0.91,
+        r"\b(council|vote on|multi[- ]model (debate|vote|discuss)|convene)\b",
+    ),
+    (
+        "advise",
+        0.9,
+        r"\b(advise|advice|should we|recommend|what do you think|"
+        r"advisor board|ask advisors)\b",
+    ),
+    (
+        "review",
+        0.91,
+        r"\b(code\s+review|\breview\b|critique|look over)\b",
+    ),
+    (
+        "cli_run",
+        0.86,
+        r"\b(cli[- ]run|run\s+(on|via|with)\s+(claude|gemini|grok|codex|aider)|"
+        r"(ask|tell)\s+(claude|gemini|grok|codex|aider)\b)",
+    ),
+    (
+        "run",
+        0.84,
+        r"\b(implement|build|fix|create|write|refactor|run\s+task|"
+        r"do\s+this|work\s+on|workers?|add feature|ship)\b",
+    ),
+]
+
 
 def parse_intent(text: str) -> SuperAIIntent:
-    """Heuristic NL → SuperAIIntent (offline, deterministic)."""
+    """NL → SuperAIIntent. Unknown phrases become universal agent `run`."""
     raw = (text or "").strip()
     low = raw.lower()
-    intent = SuperAIIntent(action="unknown", raw=raw, confidence=0.2)
+    intent = SuperAIIntent(action="run", raw=raw, confidence=0.5, notes=["agent_default"])
 
     if not raw:
         intent.action = "help"
         intent.confidence = 1.0
+        intent.notes = []
         intent.planned_command = "superai ask --help"
         return intent
 
-    # Flags from language
     intent.pick = bool(
         re.search(
             r"\b(pick|choose|select|interactive|let me (choose|pick)|which model)\b",
@@ -123,26 +211,26 @@ def parse_intent(text: str) -> SuperAIIntent:
     intent.members = _extract_members(raw)
     intent.model = intent.members[0] if len(intent.members) == 1 else None
 
-    # Action classification (order matters: specific before run)
-    if re.search(
-        r"\b(list|show|what|which).{0,40}\b(member|model|cli|available)|"
-        r"\bmembers\b|"
-        r"\bavailable (models?|clis?)\b|"
-        r"\bwhat can i use\b",
-        low,
-    ):
-        intent.action = "members"
-        intent.confidence = 0.92
+    matched = False
+    for action, conf, pattern in _ACTION_RULES:
+        if re.search(pattern, low):
+            intent.action = action
+            intent.confidence = conf
+            intent.notes = []
+            matched = True
+            break
+
+    if not matched:
+        # Universal agent: any free-form request (Claude Code style)
+        intent.action = "run"
+        intent.subject = raw
+        intent.confidence = 0.72
+        intent.notes = ["universal_agent"]
+
+    # Subject extraction per action
+    if intent.action == "members":
         intent.only_available = "all" not in low and "every" not in low
-    elif re.search(r"\b(discover|doctor|environment|what.?s installed)\b", low):
-        intent.action = "discover"
-        intent.confidence = 0.9
-    elif re.search(
-        r"\b(council|vote on|multi[- ]model (debate|vote|discuss)|convene)\b",
-        low,
-    ):
-        intent.action = "council"
-        intent.confidence = 0.9
+    elif intent.action == "council":
         intent.subject = _extract_subject(
             raw,
             drop_prefixes=(
@@ -153,13 +241,7 @@ def parse_intent(text: str) -> SuperAIIntent:
             ),
         )
         intent.max_members = 3
-    elif re.search(
-        r"\b(advise|advice|should we|recommend|what do you think|"
-        r"advisor board|ask advisors)\b",
-        low,
-    ):
-        intent.action = "advise"
-        intent.confidence = 0.88
+    elif intent.action == "advise":
         intent.subject = _extract_subject(
             raw,
             drop_prefixes=(
@@ -170,31 +252,16 @@ def parse_intent(text: str) -> SuperAIIntent:
                 r"ask\s+advisors?\s+(about|on)?",
             ),
         )
-    elif re.search(
-        r"\b(review|code review|pr review|critique|look over)\b",
-        low,
-    ):
-        intent.action = "review"
-        intent.confidence = 0.9
+    elif intent.action == "review":
         intent.subject = _extract_subject(
             raw,
             drop_prefixes=(
                 r"(please\s+)?(code\s+)?review\s+(the|this|my)?",
                 r"critique\s+(the|this)?",
                 r"look\s+over\s+(the|this)?",
-                r"pr[- ]review\s+(the|this)?",
             ),
         )
-    elif re.search(
-        r"\b(cli[- ]run|run\s+(on|via|with)\s+(claude|gemini|grok|codex|aider))\b",
-        low,
-    ) or (
-        re.search(r"\b(ask|tell)\s+(claude|gemini|grok|codex|aider)\b", low)
-        and not re.search(r"\b(review|advise|council)\b", low)
-    ):
-        intent.action = "cli_run"
-        intent.confidence = 0.85
-        # primary CLI from members or name in text
+    elif intent.action == "cli_run":
         for c in _CLI_NAMES:
             if re.search(rf"\b{c}\b", low):
                 intent.model = next(
@@ -209,41 +276,58 @@ def parse_intent(text: str) -> SuperAIIntent:
                 r"cli[- ]run",
             ),
         )
-    elif re.search(
-        r"\b(implement|build|fix|create|write|refactor|run\s+task|"
-        r"do\s+this|work\s+on|workers?)\b",
-        low,
-    ) or low.startswith("run "):
-        intent.action = "run"
-        intent.confidence = 0.82
-        intent.subject = _extract_subject(
-            raw,
-            drop_prefixes=(
-                r"(please\s+)?(run|implement|build|fix|create|write|refactor)\s+",
-                r"work\s+on\s+",
-                r"do\s+this\s*:\s*",
-            ),
-        )
+    elif intent.action == "run":
+        if "universal_agent" not in intent.notes and "agent_default" not in intent.notes:
+            intent.subject = _extract_subject(
+                raw,
+                drop_prefixes=(
+                    r"(please\s+)?(run|implement|build|fix|create|write|refactor)\s+",
+                    r"work\s+on\s+",
+                    r"do\s+this\s*:\s*",
+                ),
+            )
+        else:
+            intent.subject = raw
         if intent.pick:
             intent.notes.append("pick_workers")
         if intent.worker_prefer is None:
             intent.worker_prefer = intent.prefer
-    elif re.search(r"\b(help|how do i|what can superai)\b", low):
-        intent.action = "help"
-        intent.confidence = 0.85
-    else:
-        # Default: orchestrated run with the full phrase as task
-        intent.action = "run"
+    elif intent.action in {
+        "plan",
+        "tdd",
+        "memory_search",
+        "search_web",
+        "debate",
+        "pr_review",
+    }:
+        intent.subject = _extract_subject(
+            raw,
+            drop_prefixes=(
+                r"(please\s+)?(plan|tdd|search memory|search (the )?web|"
+                r"debate|pr[- ]review|review (the )?diff)\s+(for|about|on)?",
+                r"what do (we|you) know about\s+",
+                r"remember\s+",
+            ),
+        )
+    elif intent.action == "github":
         intent.subject = raw
-        intent.confidence = 0.55
-        intent.notes.append("fallback_run")
+        if re.search(r"\bissues?\b", low):
+            intent.extras["github_action"] = "issues"
+        elif re.search(r"\bprs?|pull requests?\b", low):
+            intent.extras["github_action"] = "prs"
+        else:
+            intent.extras["github_action"] = "status"
 
-    if not intent.subject and intent.action in {
-        "review",
-        "advise",
-        "council",
-        "run",
-        "cli_run",
+    if not intent.subject and intent.action not in {
+        "members",
+        "discover",
+        "doctor",
+        "help",
+        "backup",
+        "budget",
+        "host_tools",
+        "install",
+        "palace",
     }:
         intent.subject = raw
 
@@ -253,7 +337,6 @@ def parse_intent(text: str) -> SuperAIIntent:
 
 def _extract_members(text: str) -> List[str]:
     found: List[str] = []
-    # explicit cli:name@model / name@model
     for m in re.finditer(
         r"\b(?:cli:)?([a-z][a-z0-9_-]*)@([a-zA-Z0-9._:/-]+)\b", text, flags=re.I
     ):
@@ -267,7 +350,6 @@ def _extract_members(text: str) -> List[str]:
         if tok not in found:
             found.append(tok)
     for name in _CLI_NAMES:
-        # bare CLI: "with gemini and grok" — not "gemini-2.5-pro" (API id)
         if any(x.startswith(f"cli:{name}") for x in found):
             continue
         if re.search(
@@ -282,7 +364,6 @@ def _extract_members(text: str) -> List[str]:
         if re.search(rf"\b{re.escape(api)}\b", text, flags=re.I):
             if api not in found:
                 found.append(api)
-    # "with X, Y, and Z" tokens that look like model ids
     for m in re.finditer(
         r"\b([a-z][a-z0-9]+(?:-[a-z0-9.]+){1,4})\b", text, flags=re.I
     ):
@@ -290,7 +371,10 @@ def _extract_members(text: str) -> List[str]:
         low = tok.lower()
         if low in _CLI_NAMES:
             continue
-        if any(k in low for k in ("gpt", "claude", "gemini", "grok", "o3", "o4", "deepseek", "qwen")):
+        if any(
+            k in low
+            for k in ("gpt", "claude", "gemini", "grok", "o3", "o4", "deepseek", "qwen")
+        ):
             if tok not in found and f"cli:{tok}" not in found:
                 found.append(tok)
     return found[:8]
@@ -298,7 +382,6 @@ def _extract_members(text: str) -> List[str]:
 
 def _extract_subject(text: str, drop_prefixes: Sequence[str] = ()) -> str:
     s = text.strip()
-    # strip member list tail "with gpt-4o and cli:gemini"
     s = re.sub(
         r"\b(with|using|via)\s+[\w@:,./\s-]+$",
         "",
@@ -309,7 +392,6 @@ def _extract_subject(text: str, drop_prefixes: Sequence[str] = ()) -> str:
         s2 = re.sub(rf"^{pat}\s*", "", s, flags=re.I).strip()
         if s2 != s:
             s = s2
-    # strip pick/prefer/live clauses
     s = re.sub(
         r"\b(and\s+)?(let me pick|interactively|prefer\s+\w+|dry[- ]?run|live)\b.*$",
         "",
@@ -320,8 +402,9 @@ def _extract_subject(text: str, drop_prefixes: Sequence[str] = ()) -> str:
 
 
 def format_planned_command(intent: SuperAIIntent) -> str:
-    """Human-readable SuperAI CLI equivalent."""
     a = intent.action
+    q = lambda s: shlex.quote(s or "")  # noqa: E731
+
     if a == "members":
         cmd = ["superai", "members"]
         if intent.only_available:
@@ -333,10 +416,37 @@ def format_planned_command(intent: SuperAIIntent) -> str:
         return " ".join(cmd)
     if a == "discover":
         return "superai discover"
+    if a == "doctor":
+        return "superai doctor"
+    if a == "install":
+        return "superai install"
+    if a == "host_tools":
+        return "superai host-tools check"
+    if a == "budget":
+        return "superai budget show"
+    if a == "backup":
+        return "superai backup"
+    if a == "palace":
+        return "superai memory-palace layout"
+    if a == "memory_search":
+        return f"superai memory-palace search {q(intent.subject)}"
+    if a == "plan":
+        return f"superai plan {q(intent.subject)}"
+    if a == "tdd":
+        return f"superai tdd {q(intent.subject)}"
+    if a == "pr_review":
+        return "superai pr-review"
+    if a == "debate":
+        return f"superai debate {q(intent.subject)}"
+    if a == "search_web":
+        return f'superai search-web {q(intent.subject)}'
+    if a == "github":
+        act = intent.extras.get("github_action") or "status"
+        return f"superai github {act}"
     if a == "help":
         return "superai ask --help"
     if a == "review":
-        cmd = ["superai", "review", shlex.quote(intent.subject or "")]
+        cmd = ["superai", "review", q(intent.subject)]
         if intent.members:
             cmd += ["-m", ",".join(intent.members)]
         if intent.pick:
@@ -345,7 +455,7 @@ def format_planned_command(intent: SuperAIIntent) -> str:
         cmd.append("--live" if intent.live else "--dry-run")
         return " ".join(cmd)
     if a == "advise":
-        cmd = ["superai", "advise", shlex.quote(intent.subject or "")]
+        cmd = ["superai", "advise", q(intent.subject)]
         if intent.members:
             cmd += ["-m", ",".join(intent.members)]
         if intent.pick:
@@ -354,7 +464,7 @@ def format_planned_command(intent: SuperAIIntent) -> str:
         cmd.append("--live" if intent.live else "--dry-run")
         return " ".join(cmd)
     if a == "council":
-        cmd = ["superai", "council", shlex.quote(intent.subject or "")]
+        cmd = ["superai", "council", q(intent.subject)]
         if intent.members:
             cmd += ["--models", ",".join(intent.members)]
         if intent.pick:
@@ -365,22 +475,21 @@ def format_planned_command(intent: SuperAIIntent) -> str:
         name = intent.model or "gemini"
         if name.startswith("cli:"):
             name = name[4:]
-        cmd = ["superai", "cli-run", name, shlex.quote(intent.subject or "")]
+        cmd = ["superai", "cli-run", name, q(intent.subject)]
         if intent.dry_run:
             cmd.append("--dry-run")
         return " ".join(cmd)
-    if a == "run":
-        cmd = ["superai", "run", shlex.quote(intent.subject or intent.raw)]
-        if intent.members:
-            cmd += ["--workers", ",".join(intent.members)]
-        if intent.pick or "pick_workers" in intent.notes:
-            cmd.append("--pick-workers")
-        if intent.worker_prefer:
-            cmd += ["--worker-prefer", intent.worker_prefer]
-        if intent.model and not intent.members:
-            cmd += ["-m", intent.model]
-        return " ".join(cmd)
-    return f"superai run {shlex.quote(intent.raw)}"
+    # run / universal agent
+    cmd = ["superai", "run", q(intent.subject or intent.raw)]
+    if intent.members:
+        cmd += ["--workers", ",".join(intent.members)]
+    if intent.pick or "pick_workers" in intent.notes:
+        cmd.append("--pick-workers")
+    if intent.worker_prefer:
+        cmd += ["--worker-prefer", intent.worker_prefer]
+    if intent.model and not intent.members:
+        cmd += ["-m", intent.model]
+    return " ".join(cmd)
 
 
 def execute_intent(
@@ -389,204 +498,375 @@ def execute_intent(
     execute: bool = True,
     verbose: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Plan and optionally execute the intent against SuperAI core APIs.
-    """
     result: Dict[str, Any] = {
         "ok": True,
         "intent": intent.to_dict(),
         "planned_command": intent.planned_command or format_planned_command(intent),
         "executed": False,
         "result": None,
+        "agent_mode": intent.action == "run",
     }
     if not execute:
         return result
 
     action = intent.action
     try:
-        if action == "help":
-            result["result"] = {
-                "message": (
-                    "Try: list available models; review X with gpt-4o and gemini; "
-                    "advise whether we should ship; council on architecture --pick; "
-                    "implement feature Y with workers"
-                ),
-                "examples": [
-                    "list available models and clis",
-                    "review the auth design with gpt-4o and cli:gemini",
-                    "advise should we ship tonight prefer cli",
-                    "council pick architecture interactively",
-                    "implement rate limiting with gpt-4o and claude",
-                ],
-            }
-            result["executed"] = True
-            return result
-
-        if action == "members":
-            from .member_selection import list_selectable_members
-
-            if intent.pick:
-                from .approval_tui import prompt_pick_from_catalog
-
-                chosen = prompt_pick_from_catalog(
-                    title="Select members",
-                    max_n=intent.max_members,
-                    only_available=intent.only_available,
-                    prefer=intent.prefer,
-                )
-                result["result"] = {"selected": chosen}
-            else:
-                result["result"] = list_selectable_members(
-                    only_available=intent.only_available,
-                    with_cli_models=True,
-                    live_cli_models=bool(intent.live),
-                )
-            result["executed"] = True
-            return result
-
-        if action == "discover":
-            from .discovery import discover_environment
-
-            result["result"] = discover_environment()
-            result["executed"] = True
-            return result
-
-        if action == "review":
-            from .multi_cli_advisory import multi_cli_board
-
-            members = list(intent.members)
-            if intent.pick and not members:
-                from .approval_tui import prompt_pick_from_catalog
-
-                members = prompt_pick_from_catalog(
-                    title="Pick review board",
-                    max_n=intent.max_members,
-                    prefer=intent.prefer,
-                )
-            result["result"] = multi_cli_board(
-                intent.subject or intent.raw,
-                mode="review",
-                members=members or None,
-                max_clis=intent.max_members,
-                dry_run=intent.dry_run,
-                approve=True,
-                prefer=intent.prefer,
-            )
-            result["executed"] = True
-            return result
-
-        if action == "advise":
-            from .multi_cli_advisory import multi_cli_board
-
-            members = list(intent.members)
-            if intent.pick and not members:
-                from .approval_tui import prompt_pick_from_catalog
-
-                members = prompt_pick_from_catalog(
-                    title="Pick advisors",
-                    max_n=intent.max_members,
-                    prefer=intent.prefer,
-                )
-            result["result"] = multi_cli_board(
-                intent.subject or intent.raw,
-                mode="advise",
-                members=members or None,
-                max_clis=intent.max_members,
-                dry_run=intent.dry_run,
-                approve=True,
-                prefer=intent.prefer,
-            )
-            result["executed"] = True
-            return result
-
-        if action == "council":
-            from .council import Council
-            from .member_selection import resolve_members
-
-            members = list(intent.members)
-            if intent.pick and not members:
-                from .approval_tui import prompt_pick_from_catalog
-
-                members = prompt_pick_from_catalog(
-                    title="Pick council members",
-                    max_n=intent.max_members,
-                    prefer=intent.prefer,
-                )
-            if not members:
-                specs = resolve_members(
-                    None,
-                    max_members=intent.max_members,
-                    prefer=intent.prefer,
-                    role="advisor",
-                )
-                members = [s.id for s in specs]
-            result["result"] = Council().run(
-                intent.subject or intent.raw,
-                models=members or None,
-            )
-            result["executed"] = True
-            return result
-
-        if action == "cli_run":
-            from .config import Config
-            from .external_cli import ExternalCLITool
-
-            cfg = Config()
-            name = intent.model or "gemini"
-            cli_model = None
-            if name.startswith("cli:"):
-                name = name[4:]
-            if "@" in name:
-                name, cli_model = name.split("@", 1)
-            auto = not cfg.require_human_approval
-            tool = ExternalCLITool(
-                dry_run=intent.dry_run or cfg.use_mock,
-                auto_approve=auto,
-            )
-            env = tool.run(
-                name,
-                intent.subject or intent.raw,
-                approve=auto,
-                cli_model=cli_model,
-            )
-            result["result"] = env.to_dict() if hasattr(env, "to_dict") else {"ok": env.ok}
-            result["executed"] = True
-            return result
-
-        if action == "run":
-            from .orchestrator import SuperAIOrchestrator
-
-            orch = SuperAIOrchestrator()
-            workers = list(intent.members) if intent.members else None
-            if (intent.pick or "pick_workers" in intent.notes) and not workers:
-                from .approval_tui import prompt_pick_from_catalog
-
-                workers = prompt_pick_from_catalog(
-                    title="Pick workers",
-                    max_n=5,
-                    prefer=intent.worker_prefer or intent.prefer,
-                )
-            forced = None
-            if intent.model and not workers:
-                forced = intent.model
-            result["result"] = orch.run_task(
-                task=intent.subject or intent.raw,
-                forced_model=forced,
-                verbose=verbose,
-                workers=workers,
-                worker_prefer=intent.worker_prefer,
-            )
-            result["executed"] = True
-            return result
-
-        result["ok"] = False
-        result["error"] = f"Unknown action: {action}"
+        handler = _HANDLERS.get(action)
+        if handler is None:
+            # Safety: anything unmapped → universal agent run
+            handler = _HANDLERS["run"]
+            intent.action = "run"
+            intent.subject = intent.subject or intent.raw
+        out = handler(intent, verbose=verbose)
+        result["result"] = out
+        result["executed"] = True
+        result["agent_mode"] = action == "run" or "universal_agent" in intent.notes
         return result
     except Exception as e:  # noqa: BLE001
         result["ok"] = False
         result["executed"] = False
         result["error"] = str(e)[:500]
         return result
+
+
+def _h_help(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    return {
+        "message": (
+            "SuperAI understands natural language like Claude Code / Gemini / Codex. "
+            "Say what you want; specialized features are auto-routed, everything else "
+            "runs as an agentic task."
+        ),
+        "examples": [
+            "list available models and clis",
+            "review the auth design with gpt-4o and gemini",
+            "advise should we ship tonight",
+            "council on architecture let me pick",
+            "implement rate limiting",
+            "run doctor / health check",
+            "search memory for postgres setup",
+            "plan a FastAPI service",
+            "tdd for the login form",
+            "pr-review the last commit",
+            "what should I refactor in the orchestrator?",  # universal agent
+        ],
+        "tip": 'superai ask "…"   or   superai ask   # interactive REPL',
+    }
+
+
+def _h_members(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .member_selection import list_selectable_members
+
+    if intent.pick:
+        from .approval_tui import prompt_pick_from_catalog
+
+        return {
+            "selected": prompt_pick_from_catalog(
+                title="Select members",
+                max_n=intent.max_members,
+                only_available=intent.only_available,
+                prefer=intent.prefer,
+            )
+        }
+    return list_selectable_members(
+        only_available=intent.only_available,
+        with_cli_models=True,
+        live_cli_models=bool(intent.live),
+    )
+
+
+def _h_discover(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .discovery import discover_environment
+
+    return discover_environment()
+
+
+def _h_doctor(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .doctor import run_doctor
+
+    return run_doctor(quick=True)
+
+
+def _h_board(mode: str) -> Callable[..., Dict[str, Any]]:
+    def _inner(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+        from .multi_cli_advisory import multi_cli_board
+
+        members = list(intent.members)
+        if intent.pick and not members:
+            from .approval_tui import prompt_pick_from_catalog
+
+            members = prompt_pick_from_catalog(
+                title=f"Pick {mode} board",
+                max_n=intent.max_members,
+                prefer=intent.prefer,
+            )
+        return multi_cli_board(
+            intent.subject or intent.raw,
+            mode=mode,
+            members=members or None,
+            max_clis=intent.max_members,
+            dry_run=intent.dry_run,
+            approve=True,
+            prefer=intent.prefer,
+        )
+
+    return _inner
+
+
+def _h_council(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .council import Council
+    from .member_selection import resolve_members
+
+    members = list(intent.members)
+    if intent.pick and not members:
+        from .approval_tui import prompt_pick_from_catalog
+
+        members = prompt_pick_from_catalog(
+            title="Pick council members",
+            max_n=intent.max_members,
+            prefer=intent.prefer,
+        )
+    if not members:
+        specs = resolve_members(
+            None,
+            max_members=intent.max_members,
+            prefer=intent.prefer,
+            role="advisor",
+        )
+        members = [s.id for s in specs]
+    return Council().run(intent.subject or intent.raw, models=members or None)
+
+
+def _h_cli_run(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .config import Config
+    from .external_cli import ExternalCLITool
+
+    cfg = Config()
+    name = intent.model or "gemini"
+    cli_model = None
+    if name.startswith("cli:"):
+        name = name[4:]
+    if "@" in name:
+        name, cli_model = name.split("@", 1)
+    auto = not cfg.require_human_approval
+    tool = ExternalCLITool(
+        dry_run=intent.dry_run or cfg.use_mock,
+        auto_approve=auto,
+    )
+    env = tool.run(
+        name,
+        intent.subject or intent.raw,
+        approve=auto,
+        cli_model=cli_model,
+    )
+    return env.to_dict() if hasattr(env, "to_dict") else {"ok": getattr(env, "ok", False)}
+
+
+def _h_run(intent: SuperAIIntent, *, verbose: bool = False, **_: Any) -> Dict[str, Any]:
+    """Universal agentic path — same spirit as Claude Code / Gemini default chat."""
+    from .orchestrator import SuperAIOrchestrator
+
+    orch = SuperAIOrchestrator()
+    workers = list(intent.members) if intent.members else None
+    if (intent.pick or "pick_workers" in intent.notes) and not workers:
+        from .approval_tui import prompt_pick_from_catalog
+
+        workers = prompt_pick_from_catalog(
+            title="Pick workers",
+            max_n=5,
+            prefer=intent.worker_prefer or intent.prefer,
+        )
+    forced = None
+    if intent.model and not workers:
+        forced = intent.model
+    return orch.run_task(
+        task=intent.subject or intent.raw,
+        forced_model=forced,
+        verbose=verbose,
+        workers=workers,
+        worker_prefer=intent.worker_prefer,
+    )
+
+
+def _h_plan(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .model_caller import ModelCaller
+    from .model_registry import ModelRegistry
+    from .model_router import ModelRouter
+    from .task_planner import TaskPlanner
+
+    reg = ModelRegistry()
+    planner = TaskPlanner(ModelRouter(reg), model_caller=ModelCaller(use_mock=True, registry=reg))
+    steps = planner.create_plan(intent.subject or intent.raw)
+    return {
+        "ok": True,
+        "task": intent.subject or intent.raw,
+        "steps": [
+            {
+                "step_id": getattr(s, "step_id", i + 1),
+                "description": getattr(s, "description", str(s)),
+                "role": getattr(s, "role", None),
+            }
+            for i, s in enumerate(steps or [])
+        ],
+    }
+
+
+def _h_tdd(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .tdd_loop import tdd_cycle
+
+    return tdd_cycle(intent.subject or intent.raw)
+
+
+def _h_pr_review(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .config import Config
+    from .pr_review import get_git_diff, review_diff
+
+    cfg = Config()
+    diff = get_git_diff("HEAD~1")
+    if not (diff or "").strip():
+        return {"ok": False, "error": "empty_diff", "hint": "No git diff for HEAD~1"}
+    return review_diff(
+        diff,
+        use_mock=cfg.use_mock,
+        use_clis=True,
+        dry_run=intent.dry_run or cfg.use_mock,
+    )
+
+
+def _h_memory_search(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .memory_palace import MemoryPalace
+
+    q = intent.subject or intent.raw
+    palace = MemoryPalace()
+    hits: Any = []
+    if hasattr(palace, "query_semantic"):
+        hits = palace.query_semantic(q, n_results=8)
+    elif hasattr(palace, "search"):
+        hits = palace.search(q, n_results=8)
+    return {"ok": True, "query": q, "hits": hits}
+
+
+def _h_palace(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .memory_palace import MemoryPalace
+
+    palace = MemoryPalace()
+    layout = palace.palace_layout() if hasattr(palace, "palace_layout") else {}
+    return {"ok": True, "layout": layout}
+
+
+def _h_backup(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .backup_manager import BackupManager
+
+    mgr = BackupManager()
+    try:
+        if hasattr(mgr, "create_backup"):
+            path = mgr.create_backup(quiet=True)
+            return {"ok": True, "backup_path": str(path)}
+        if hasattr(mgr, "backup"):
+            return {"ok": True, "result": mgr.backup()}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:300], "hint": "superai backup"}
+    return {"ok": False, "hint": "superai backup"}
+
+
+def _h_budget(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .budget import BudgetGuard
+
+    return BudgetGuard().snapshot()
+
+
+def _h_host_tools(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from . import host_tools as ht
+
+    try:
+        if hasattr(ht, "checklist"):
+            return ht.checklist(profile="core")
+        if hasattr(ht, "list_catalog"):
+            return {"ok": True, "catalog": ht.list_catalog(profile="core")}
+    except TypeError:
+        try:
+            return ht.checklist()  # type: ignore[misc]
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": str(e)[:300]}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:300]}
+    return {"ok": True, "hint": "superai host-tools check --profile core"}
+
+
+def _h_install(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    return {
+        "ok": True,
+        "message": "Run interactive install wizard",
+        "command": "superai install",
+        "hint": "superai install --non-interactive --skip-postgres",
+    }
+
+
+def _h_debate(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    from .agentic import AgenticWorkflows
+
+    return AgenticWorkflows().debate(
+        intent.subject or intent.raw,
+        models=intent.members or None,
+    )
+
+
+def _h_search_web(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    try:
+        from .ecosystem import EcosystemHub
+
+        hub = EcosystemHub()
+        if hasattr(hub, "web_search"):
+            return hub.web_search(intent.subject or intent.raw)
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "query": intent.subject or intent.raw,
+        "note": "Use: superai search-web \"query\"",
+        "planned": format_planned_command(intent),
+    }
+
+
+def _h_github(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    try:
+        from .github_api import GitHubClient
+
+        client = GitHubClient()
+        act = intent.extras.get("github_action") or "status"
+        if act == "issues" and hasattr(client, "list_issues"):
+            return {"ok": True, "issues": client.list_issues()}
+        if act == "prs" and hasattr(client, "list_prs"):
+            return {"ok": True, "prs": client.list_prs()}
+        if hasattr(client, "status"):
+            return client.status()
+        return {"ok": True, "action": act, "hint": f"superai github {act}"}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)[:300], "hint": "superai github status"}
+
+
+_HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
+    "help": _h_help,
+    "members": _h_members,
+    "discover": _h_discover,
+    "doctor": _h_doctor,
+    "review": _h_board("review"),
+    "advise": _h_board("advise"),
+    "council": _h_council,
+    "cli_run": _h_cli_run,
+    "run": _h_run,
+    "plan": _h_plan,
+    "tdd": _h_tdd,
+    "pr_review": _h_pr_review,
+    "memory_search": _h_memory_search,
+    "palace": _h_palace,
+    "backup": _h_backup,
+    "budget": _h_budget,
+    "host_tools": _h_host_tools,
+    "install": _h_install,
+    "debate": _h_debate,
+    "search_web": _h_search_web,
+    "github": _h_github,
+}
 
 
 def ask_superai(
@@ -596,10 +876,59 @@ def ask_superai(
     plan_only: bool = False,
     verbose: bool = False,
 ) -> Dict[str, Any]:
-    """One-shot NL entrypoint."""
+    """One-shot NL entrypoint (universal agent + specialized routes)."""
     intent = parse_intent(text)
     return execute_intent(
         intent,
         execute=execute and not plan_only,
         verbose=verbose,
     )
+
+
+def interactive_repl(
+    *,
+    execute: bool = True,
+    verbose: bool = False,
+    print_fn: Optional[Callable[[str], None]] = None,
+) -> None:
+    """
+    Interactive SuperAI session (Claude Code / Gemini style).
+    Type natural language; 'exit' / 'quit' / Ctrl-C to leave.
+    """
+    out = print_fn or print
+    from .approval_tui import is_interactive
+
+    out("SuperAI agent — natural language (type help, exit to quit)")
+    out("Examples: list models | review X | implement Y | doctor | plan Z")
+    if not is_interactive():
+        out("(non-interactive: no REPL)")
+        return
+    while True:
+        try:
+            line = input("superai> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            out("")
+            break
+        if not line:
+            continue
+        if line.lower() in {"exit", "quit", "q", ":q"}:
+            break
+        if line.lower() in {"help", "?"}:
+            r = ask_superai("help", execute=True)
+            out(str((r.get("result") or {}).get("message") or r))
+            for ex in (r.get("result") or {}).get("examples") or []:
+                out(f"  · {ex}")
+            continue
+        res = ask_superai(line, execute=execute, verbose=verbose)
+        out(f"→ {res.get('planned_command')}")
+        if res.get("error"):
+            out(f"Error: {res['error']}")
+        elif res.get("result") is not None:
+            # compact preview
+            import json
+
+            try:
+                preview = json.dumps(res.get("result"), default=str)[:2500]
+            except Exception:
+                preview = str(res.get("result"))[:2500]
+            out(preview)

@@ -30,7 +30,7 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | Semantic tests | Stricter Memory Palace query/delete asserts |
 | Unified members | API models + CLIs + inner models on review/advise/council |
 | Unified workers | Same catalog for orchestrator worker pool + failover |
-| NL intent router | `superai ask` maps natural language → product commands |
+| Universal NL agent | `superai ask` / REPL — product routes + agentic fallback for everything |
 
 ## Not pending
 

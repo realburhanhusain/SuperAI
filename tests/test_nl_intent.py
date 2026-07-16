@@ -41,6 +41,20 @@ def test_parse_run_implement():
     assert any("claude" in m for m in i.members)
 
 
+def test_universal_agent_fallback_any_phrase():
+    """Free-form requests become agentic run (Claude Code style)."""
+    i = parse_intent("explain the tradeoffs of using SQLite vs Postgres here")
+    assert i.action == "run"
+    assert i.confidence >= 0.5
+
+
+def test_parse_doctor_plan_memory():
+    assert parse_intent("run doctor health check").action == "doctor"
+    assert parse_intent("plan a FastAPI hello service").action == "plan"
+    assert parse_intent("search memory for postgres setup").action == "memory_search"
+    assert parse_intent("pr-review the last commit").action == "pr_review"
+
+
 def test_parse_does_not_treat_api_id_as_bare_cli():
     i = parse_intent("review design with gemini-2.5-pro")
     assert i.action == "review"

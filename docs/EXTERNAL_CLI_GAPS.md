@@ -47,18 +47,26 @@ superai cli-run gemini@gemini-2.5-flash "summarize this PR" --dry-run
 
 Module: `src/core/member_selection.py` · protocol `superai.multi_member_review.v2`
 
-## Natural language (`superai ask`)
+## Natural language (`superai ask`) — universal agent front door
+
+Like Claude Code / Gemini / Codex: **say what you want**. Specialized SuperAI
+features are auto-routed; anything else becomes an orchestrated agent task.
 
 ```text
+superai ask                         # interactive REPL
 superai ask "list available models and clis"
 superai ask "review the auth design with gpt-4o and gemini dry-run"
 superai ask "advise should we ship tonight prefer cli"
 superai ask "council on architecture let me pick"
 superai ask "implement rate limiting with gpt-4o and claude"
-superai ask "review X" --plan-only   # parse only, no execute
+superai ask "run doctor" / "search memory for postgres" / "plan a FastAPI app"
+superai ask "what should I refactor next?"   # universal agent → run
+superai ask "review X" --plan-only
 ```
 
-Module: `src/core/nl_intent.py` — maps NL → members/review/advise/council/run/cli-run/discover.
+Routes include: members, review, advise, council, doctor, discover, plan, tdd,
+pr-review, memory, palace, backup, budget, host-tools, debate, github, web search,
+cli-run, and **run** (default agent). Module: `src/core/nl_intent.py`.
 
 ## Integration graph
 

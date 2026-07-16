@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import re
 import traceback
 from typing import List, Optional
 
@@ -2525,9 +2526,9 @@ def doctor(
 
 @app.command("ask")
 def ask_cmd(
-    text: str = typer.Argument(
-        ...,
-        help='Natural language: "review auth with gpt-4o and gemini", "list available models"',
+    text: Optional[str] = typer.Argument(
+        None,
+        help='Natural language (omit for interactive agent REPL like Claude Code / Gemini)',
     ),
     plan_only: bool = typer.Option(
         False,
@@ -2541,14 +2542,36 @@ def ask_cmd(
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
     json_out: bool = typer.Option(True, "--json/--text", help="JSON result (default)"),
+    repl: bool = typer.Option(
+        False,
+        "--repl",
+        help="Force interactive natural-language REPL",
+    ),
 ):
-    """Natural language → SuperAI command (members/review/advise/council/run/…)."""
-    from core.nl_intent import ask_superai, parse_intent
+    """Universal NL front door — any request (specialized routes or agentic run)."""
+    from core.nl_intent import ask_superai, interactive_repl, parse_intent
+
+    if repl or not (text or "").strip():
+        console.print(
+            Panel.fit(
+                "[bold]SuperAI agent[/bold] — natural language for everything\n"
+                "Specialized: review · advise · council · doctor · memory · plan · tdd · …\n"
+                "Anything else → orchestrated agent task (Claude Code style)",
+                border_style="cyan",
+            )
+        )
+        interactive_repl(execute=execute and not plan_only, verbose=verbose)
+        return
 
     intent = parse_intent(text)
+    agent_note = ""
+    if intent.action == "run" and (
+        "universal_agent" in intent.notes or "agent_default" in intent.notes
+    ):
+        agent_note = "  [agent]"
     console.print(
         Panel.fit(
-            f"[bold]Intent:[/bold] {intent.action}  "
+            f"[bold]Intent:[/bold] {intent.action}{agent_note}  "
             f"(conf={intent.confidence:.2f})\n"
             f"[bold]Planned:[/bold] {intent.planned_command}",
             border_style="cyan",
@@ -2598,37 +2621,25 @@ def chat(
         console.print("Send a message: superai chat \"hello\" -s " + sid)
         return
 
-    # Route clear product intents through NL → command (unless disabled)
+    # Route NL through universal ask (product intents + agentic run)
     if not no_intent:
         try:
             from core.nl_intent import parse_intent, ask_superai
 
             intent = parse_intent(message)
-            if intent.action not in {"unknown", "run"} or (
-                intent.action == "run"
-                and intent.confidence >= 0.8
-                and not intent.notes
-            ):
-                # Prefer ask for product actions; keep low-confidence "run" as chat
-                if intent.action in {
-                    "members",
-                    "review",
-                    "advise",
-                    "council",
-                    "discover",
-                    "cli_run",
-                    "help",
-                } or (
-                    intent.action == "run"
-                    and intent.confidence >= 0.82
-                    and "fallback_run" not in intent.notes
-                ):
-                    console.print(
-                        f"[dim]→ intent {intent.action}: {intent.planned_command}[/dim]"
-                    )
-                    out = ask_superai(message, execute=True, verbose=False)
-                    console.print_json(data=out)
-                    return
+            # Pure chitchat stays in chat; everything product/agent goes to ask
+            chitchat = re.search(
+                r"^(hi|hello|hey|thanks|thank you|good (morning|evening))\b",
+                message.strip(),
+                flags=re.I,
+            )
+            if not chitchat:
+                console.print(
+                    f"[dim]→ intent {intent.action}: {intent.planned_command}[/dim]"
+                )
+                out = ask_superai(message, execute=True, verbose=False)
+                console.print_json(data=out)
+                return
         except Exception:
             pass
 

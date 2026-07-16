@@ -26,12 +26,44 @@ def _safe(path: str) -> Path:
     return p
 
 
+def _tool_cache_get(key: str) -> Optional[Dict[str, Any]]:
+    try:
+        from .step_cache import StepResultCache
+
+        return StepResultCache().get(key, model="tool")
+    except Exception:
+        return None
+
+
+def _tool_cache_put(key: str, result: Dict[str, Any]) -> None:
+    try:
+        from .step_cache import StepResultCache
+
+        StepResultCache().put(key, result, model="tool")
+    except Exception:
+        pass
+
+
 def tool_read(path: str, max_chars: int = 20000) -> Dict[str, Any]:
     p = _safe(path)
     if not p.is_file():
         return {"ok": False, "error": "not_found", "path": str(p)}
+    # V4 M5: cache by path + mtime + size
+    try:
+        st = p.stat()
+        cache_key = f"read:{p}:{st.st_mtime_ns}:{st.st_size}:{max_chars}"
+        hit = _tool_cache_get(cache_key)
+        if isinstance(hit, dict) and hit.get("ok"):
+            hit = dict(hit)
+            hit["cache_hit"] = True
+            return hit
+    except Exception:
+        cache_key = None
     text = p.read_text(encoding="utf-8", errors="replace")[:max_chars]
-    return {"ok": True, "path": str(p), "content": text, "chars": len(text)}
+    out = {"ok": True, "path": str(p), "content": text, "chars": len(text)}
+    if cache_key:
+        _tool_cache_put(cache_key, out)
+    return out
 
 
 def tool_write(path: str, content: str, *, dry_run: bool = False) -> Dict[str, Any]:

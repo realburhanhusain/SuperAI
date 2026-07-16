@@ -99,7 +99,18 @@ class AgentRuntime:
         approve: Optional[ApproveFn] = None,
         on_token: Optional[TokenFn] = None,
         max_rounds: Optional[int] = None,
+        max_seconds: Optional[float] = None,
+        change_set: Any = None,
+        stage_writes: bool = False,
     ) -> RunResult:
+        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        from ..run_trail import append_event, new_run_id
+        from ..result_contract import apply_contract
+
+        t0 = time.time()
+        run_id = new_run_id()
         bus = get_progress_bus()
         if session is None:
             if session_id:
@@ -119,19 +130,114 @@ class AgentRuntime:
 
         role = get_agent(session.agent)
         rounds = max_rounds if max_rounds is not None else role.max_tool_rounds
+        mid = session.model or self._default_model()
 
+        # V4 M1 budget pre-check
+        try:
+            from ..budget import BudgetGuard
+            from ..config import Config
+
+            cfg = Config()
+            enforce = bool(cfg.get("enforce_budget", True))
+            est = 0.02 if self.use_mock else 0.15
+            blocked = BudgetGuard().enforce_or_block(est, tokens=500, enforce=enforce)
+            if blocked.get("blocked"):
+                blocked["session_id"] = session.id
+                blocked["run_id"] = run_id
+                append_event(run_id, "budget_block", ok=False, detail=blocked.get("error"))
+                return RunResult(
+                    ok=False,
+                    response=str(blocked.get("error") or "budget_blocked"),
+                    session_id=session.id,
+                    agent=role.id,
+                    model=mid,
+                    mock=self.use_mock,
+                    raw=blocked,
+                )
+        except Exception:
+            pass
+
+        # V4 M3 fail-closed readiness for live
+        if not self.use_mock:
+            try:
+                from ..readiness import check_model_ready
+
+                ready = check_model_ready(mid, use_mock=False)
+                if not ready.get("ok"):
+                    msg = f"model_not_ready:{mid}:{ready.get('error') or ready}"
+                    append_event(run_id, "readiness_block", ok=False, detail=msg)
+                    return RunResult(
+                        ok=False,
+                        response=msg,
+                        session_id=session.id,
+                        agent=role.id,
+                        model=mid,
+                        mock=False,
+                        raw={"readiness": ready, "run_id": run_id},
+                    )
+            except Exception:
+                pass
+
+        # V4 M6 cheap-first model pick for non-code
+        try:
+            from ..task_complexity import classify_task, cheap_first_models
+
+            cx = classify_task(user_text)
+            if cx.get("prefer_cheap") and not session.model:
+                pool = cheap_first_models(
+                    [mid, "deepseek-chat", "llama3.2", "gpt-4o-mini", "gpt-4o"],
+                    prefer_cheap=True,
+                    max_n=1,
+                )
+                if pool:
+                    mid = pool[0]
+        except Exception:
+            cx = {}
+
+        append_event(
+            run_id,
+            "start",
+            session_id=session.id,
+            agent=role.id,
+            model=mid,
+            detail=user_text[:120],
+        )
         self.store.append_message(session, "user", user_text)
         bus.emit("oc_user", text=user_text[:200], agent=session.agent)
 
-        # Build conversation context
         history = self._history_text(session)
-        system = role.system_prompt + (
-            f"\nWorkspace tools available: "
+        tools_hint = (
+            "Workspace tools: "
             + ", ".join(t["name"] for t in catalog())
             + f"\nAgent={role.id} permission={session.permission}"
         )
+        # V4 S7 context pack
+        try:
+            from ..context_pack import pack_context
 
-        mid = session.model or self._default_model()
+            packed = pack_context(
+                system=role.system_prompt,
+                history=history,
+                tools_hint=tools_hint,
+                user=user_text,
+                max_tokens=int(
+                    __import__("os").environ.get("SUPERAI_CONTEXT_TOKENS", "6000")
+                ),
+            )
+            system = role.system_prompt
+            prompt = packed.get("text") or (
+                f"{history}\n\nUser: {user_text}\n\n"
+                "If tools are needed, emit tool_call JSON first; otherwise answer."
+            )
+            if tools_hint not in prompt:
+                prompt = f"{tools_hint}\n\n{prompt}"
+        except Exception:
+            system = role.system_prompt + "\n" + tools_hint
+            prompt = (
+                f"{history}\n\nUser: {user_text}\n\n"
+                "If tools are needed, emit tool_call JSON first; otherwise answer."
+            )
+
         all_tool_results: List[Dict[str, Any]] = []
         parts: List[Dict[str, Any]] = []
         total_tokens = 0
@@ -139,15 +245,52 @@ class AgentRuntime:
         mock = self.use_mock
         final_text = ""
         tool_rounds = 0
-
-        prompt = (
-            f"{history}\n\nUser: {user_text}\n\n"
-            "If tools are needed, emit tool_call JSON first; otherwise answer."
-        )
+        status = "success"
+        deadline = t0 + float(max_seconds) if max_seconds else None
 
         for round_i in range(max(1, rounds)):
+            if deadline and time.time() > deadline:
+                status = "partial"
+                final_text = final_text or "timeout: partial result"
+                break
             bus.emit("oc_round", n=round_i + 1, model=mid)
-            call = self._call_model(mid, prompt, system)
+
+            # V4 M4 stream path when on_token provided
+            if on_token:
+                text_parts: List[str] = []
+                try:
+                    from ..model_caller import ModelCaller
+                    from ..model_registry import ModelRegistry
+
+                    caller = ModelCaller(
+                        use_mock=self.use_mock, registry=ModelRegistry()
+                    )
+                    for ch in caller.call_stream(
+                        model=mid, prompt=prompt, system_prompt=system
+                    ):
+                        text_parts.append(ch)
+                        on_token(ch)
+                    text = "".join(text_parts)
+                    call = {
+                        "response": text,
+                        "mock": self.use_mock,
+                        "tokens": max(1, len(text) // 4),
+                        "estimated_cost_usd": 0.0 if self.use_mock else 0.01,
+                    }
+                except Exception:
+                    call = self._call_model(mid, prompt, system)
+                    text = str(call.get("response") or call.get("error") or "")
+                    try:
+                        from ..token_stream import stream_tokens
+
+                        for ch in stream_tokens(text, emit_progress=False):
+                            on_token(ch)
+                    except Exception:
+                        on_token(text)
+            else:
+                call = self._call_model(mid, prompt, system)
+                text = str(call.get("response") or call.get("error") or "")
+
             mock = mock or bool(call.get("mock"))
             total_tokens += int(
                 (call.get("usage") or {}).get("total_tokens")
@@ -155,15 +298,6 @@ class AgentRuntime:
                 or 0
             )
             total_cost += float(call.get("estimated_cost_usd") or 0)
-            text = str(call.get("response") or call.get("error") or "")
-            if on_token:
-                try:
-                    from ..token_stream import stream_tokens
-
-                    for ch in stream_tokens(text, emit_progress=False):
-                        on_token(ch)
-                except Exception:
-                    on_token(text)
 
             calls = extract_tool_calls(text)
             if not calls:
@@ -172,22 +306,42 @@ class AgentRuntime:
                 break
 
             tool_rounds += 1
-            # strip tool JSON from visible reply partially
             visible = text
-            round_results = []
-            for tc in calls:
+            round_results: List[Dict[str, Any]] = []
+            perm = session.permission
+
+            def _one(tc: Dict[str, Any]) -> Dict[str, Any]:
                 name = str(tc.get("name") or "")
                 args = tc.get("arguments") or tc.get("args") or {}
                 if not isinstance(args, dict):
                     args = {}
-                # plan/ask force dry for write
-                perm = session.permission
-                if role.id in {"plan", "ask"} and name in {"write", "diff_apply", "bash"}:
+                if role.id in {"plan", "ask"} and name in {
+                    "write",
+                    "diff_apply",
+                    "bash",
+                }:
                     res = {
                         "ok": False,
                         "error": "blocked_for_agent",
                         "agent": role.id,
                         "tool": name,
+                    }
+                elif (
+                    stage_writes
+                    and change_set is not None
+                    and name == "write"
+                    and perm != "yolo"
+                ):
+                    # V4 S10 stage instead of write
+                    change_set.stage_write(
+                        str(args.get("path") or ""),
+                        str(args.get("content") or ""),
+                    )
+                    res = {
+                        "ok": True,
+                        "staged": True,
+                        "path": args.get("path"),
+                        "change_set": change_set.summary(),
                     }
                 else:
                     bus.emit("oc_tool", name=name)
@@ -198,12 +352,29 @@ class AgentRuntime:
                         permission_mode=perm,
                         approve_callback=approve,
                     )
+                return {"tool_call": tc, "result": res, "name": name, "args": args}
+
+            # V4 S8 parallel independent read tools
+            readonly = all(
+                str(tc.get("name") or "").lower() in {"read", "grep", "glob"}
+                for tc in calls
+            )
+            if readonly and len(calls) > 1:
+                with ThreadPoolExecutor(max_workers=min(4, len(calls))) as ex:
+                    futs = [ex.submit(_one, tc) for tc in calls[:8]]
+                    for fut in as_completed(futs):
+                        item = fut.result()
+                        round_results.append(item)
+            else:
+                for tc in calls[:8]:
+                    round_results.append(_one(tc))
+
+            for item in round_results:
+                name = item.get("name") or ""
+                args = item.get("args") or {}
+                res = item.get("result") or {}
                 parts.append(
-                    {
-                        "type": "tool_call",
-                        "name": name,
-                        "arguments": args,
-                    }
+                    {"type": "tool_call", "name": name, "arguments": args}
                 )
                 parts.append(
                     {
@@ -213,15 +384,22 @@ class AgentRuntime:
                         "result": res,
                     }
                 )
-                item = {"tool_call": tc, "result": res}
-                round_results.append(item)
-                all_tool_results.append(item)
+                all_tool_results.append(
+                    {"tool_call": item.get("tool_call"), "result": res}
+                )
+                append_event(
+                    run_id,
+                    "tool",
+                    ok=bool(res.get("ok")),
+                    detail=f"{name}:{str(res.get('path') or res.get('error') or '')[:80]}",
+                    dry_run=bool(res.get("dry_run")),
+                )
                 try:
                     from ..side_effect_audit import record_side_effect
 
                     record_side_effect(
                         "superai_agent_tool",
-                        name=name,
+                        name=str(name),
                         ok=bool(res.get("ok")),
                         dry_run=bool(res.get("dry_run")),
                         detail=str(res.get("path") or res.get("error") or "")[:200],
@@ -229,16 +407,14 @@ class AgentRuntime:
                 except Exception:
                     pass
 
-            # follow-up with tool results
             prompt = (
                 f"{history}\n\nUser: {user_text}\n\n"
                 f"Assistant draft:\n{visible[:3000]}\n\n"
                 f"Tool results:\n{json.dumps(round_results, default=str)[:6000]}\n\n"
                 "Continue. If done, give final answer without more tool_call JSON."
             )
-            final_text = visible  # may be overwritten next round
+            final_text = visible
         else:
-            # last round ended with tools — one more call without tools pressure
             call = self._call_model(
                 mid,
                 prompt + "\nFinal answer only, no tools.",
@@ -250,6 +426,31 @@ class AgentRuntime:
             )
             total_cost += float(call.get("estimated_cost_usd") or 0)
             parts.append({"type": "text", "text": final_text})
+
+        # record budget spend
+        try:
+            from ..budget import BudgetGuard
+
+            BudgetGuard().record(usd=total_cost, tokens=total_tokens)
+        except Exception:
+            pass
+
+        # V4 S3 bandit feedback
+        try:
+            from ..model_registry import ModelRegistry
+            from ..model_router import ModelRouter
+
+            latency = time.time() - t0
+            router = ModelRouter(ModelRegistry())
+            if hasattr(router, "update_bandit"):
+                router.update_bandit(
+                    mid,
+                    success=status == "success",
+                    latency=latency,
+                    cost=total_cost,
+                )
+        except Exception:
+            pass
 
         session.tokens += total_tokens
         session.estimated_cost_usd = round(
@@ -267,19 +468,38 @@ class AgentRuntime:
                 "estimated_cost_usd": total_cost,
                 "agent": role.id,
                 "model": mid,
+                "run_id": run_id,
+                "status": status,
             },
         )
         self.store.save(session)
+        append_event(
+            run_id,
+            "done",
+            ok=status == "success",
+            detail=f"tools={tool_rounds} cost={total_cost}",
+            session_id=session.id,
+        )
         bus.emit(
             "oc_done",
-            ok=True,
+            ok=status == "success",
             tools=tool_rounds,
             cost=total_cost,
             session=session.id,
+            run_id=run_id,
         )
 
-        return RunResult(
-            ok=True,
+        raw = {
+            "session": session.to_dict(),
+            "run_id": run_id,
+            "status": status,
+            "complexity": cx if isinstance(cx, dict) else {},
+        }
+        if change_set is not None:
+            raw["change_set"] = change_set.summary()
+
+        result = RunResult(
+            ok=status in {"success", "partial"},
             response=final_text,
             session_id=session.id,
             agent=role.id,
@@ -290,8 +510,15 @@ class AgentRuntime:
             estimated_cost_usd=round(total_cost, 6),
             mock=mock,
             parts=parts,
-            raw={"session": session.to_dict()},
+            raw=raw,
         )
+        # V4 M2 ensure contract on public result
+        d = result.to_dict()
+        d["status"] = status if status != "success" else d.get("status")
+        d["run_id"] = run_id
+        apply_contract(d, mock=mock, ok=result.ok)
+        result.raw["contracted"] = d
+        return result
 
     def _history_text(self, session: SessionState, max_msgs: int = 12) -> str:
         msgs = (session.messages or [])[-max_msgs:]

@@ -31,6 +31,7 @@ HELP = """
 **Model:** `/model <name>`  
 **Permission:** `/permission plan|ask|auto|yolo`  
 **Sessions:** `/new` `/sessions` `/resume id` `/export` `/undo`  
+**Changes:** `/changeset` `/apply` `/reject` (staged writes)  
 **Tools:** `/tools` · tool loop runs automatically  
 **Other:** `/cost` `/trace` `/help` `/exit`
 
@@ -165,6 +166,9 @@ def run_superai_agent_tui(
 
     bus.on(_hook)
     stream_on = True
+    from ..change_set import ChangeSet
+
+    changeset = ChangeSet()
 
     console.print(
         Panel.fit(
@@ -261,6 +265,18 @@ def run_superai_agent_tui(
             if cmd == "tools":
                 console.print_json(data=catalog())
                 continue
+            if cmd in {"changeset", "cs"}:
+                console.print_json(data=changeset.summary())
+                continue
+            if cmd == "apply":
+                dry = (arg or "").lower() in {"dry", "dry-run", "--dry-run"}
+                console.print_json(
+                    data=changeset.apply(dry_run=dry or state.permission == "plan")
+                )
+                continue
+            if cmd == "reject":
+                console.print_json(data=changeset.reject())
+                continue
             if cmd == "trace":
                 console.print_json(data=events[-20:])
                 continue
@@ -297,6 +313,8 @@ def run_superai_agent_tui(
                 session=state,
                 approve=_approve if state.permission == "ask" else None,
                 on_token=_tok if stream_on else None,
+                change_set=changeset,
+                stage_writes=state.permission in {"ask", "plan"},
             )
         state = store.load(result.session_id)
         if stream_on and buf:

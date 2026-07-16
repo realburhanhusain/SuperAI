@@ -62,6 +62,74 @@ class ModelCaller:
     def list_supported_providers(self) -> Dict[str, str]:
         return self.providers
 
+    def call_stream(
+        self,
+        model: str,
+        prompt: str = "",
+        system_prompt: Optional[str] = None,
+        **kwargs: Any,
+    ):
+        """
+        V4 M4: yield text chunks from provider stream when available.
+        Falls back to chunking a full call() response (mock-safe).
+        """
+        if self.use_mock:
+            full = self.call(
+                model=model,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                use_fallback=False,
+                **kwargs,
+            )
+            text = str(full.get("response") or "")
+            from .token_stream import chunk_text
+
+            for ch in chunk_text(text, 24):
+                yield ch
+            return
+
+        # Try OpenAI-compatible streaming
+        try:
+            from openai import OpenAI
+
+            info = self.registry.get_model(model) if self.registry else None
+            provider = info.provider if info else self._resolve_provider(model)
+            base_url, api_key, _ = self._resolve_openai_endpoint(provider, model)
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            messages: List[Dict[str, Any]] = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+            stream = client.chat.completions.create(
+                model=self._model_id(model),
+                messages=messages,
+                stream=True,
+            )
+            for event in stream:
+                try:
+                    delta = event.choices[0].delta
+                    piece = getattr(delta, "content", None) or ""
+                    if piece:
+                        yield piece
+                except Exception:
+                    continue
+            return
+        except Exception:
+            pass
+
+        full = self.call(
+            model=model,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            use_fallback=True,
+            **kwargs,
+        )
+        text = str(full.get("response") or full.get("error") or "")
+        from .token_stream import chunk_text
+
+        for ch in chunk_text(text, 24):
+            yield ch
+
     def call(
         self,
         provider: Optional[str] = None,

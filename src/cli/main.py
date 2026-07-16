@@ -555,7 +555,11 @@ def plan(
 
 
 @app.command()
-def status():
+def status(
+    cost: bool = typer.Option(
+        False, "--cost", help="V4 S9: budget spend, circuits, cache stats"
+    ),
+):
     """Show current SuperAI system status"""
     config = Config()
     history = TaskHistory()
@@ -570,6 +574,44 @@ def status():
         mem_count = st.get("total_memories", "n/a")
     except Exception:  # noqa: BLE001
         pass
+    if cost:
+        from core.budget import BudgetGuard
+
+        payload: dict = {
+            "budget": BudgetGuard().snapshot(),
+            "enforce_budget": config.get("enforce_budget", True),
+            "run_profile": config.get("run_profile"),
+            "permission_mode": config.get("permission_mode"),
+            "mock_mode": config.use_mock,
+        }
+        try:
+            from core.provider_health import ProviderHealthStore
+
+            payload["provider_health"] = ProviderHealthStore().summary() if hasattr(
+                ProviderHealthStore(), "summary"
+            ) else ProviderHealthStore().snapshot() if hasattr(
+                ProviderHealthStore(), "snapshot"
+            ) else {}
+        except Exception as e:
+            payload["provider_health_error"] = str(e)[:200]
+        try:
+            from pathlib import Path
+
+            cache_dir = Path.home() / ".superai" / "cache" / "boards"
+            payload["board_cache_files"] = (
+                len(list(cache_dir.glob("*.json"))) if cache_dir.is_dir() else 0
+            )
+        except Exception:
+            payload["board_cache_files"] = 0
+        try:
+            from core.step_cache import StepResultCache
+
+            sc = StepResultCache()
+            payload["step_cache_entries"] = len((sc._data.get("entries") or {}))
+        except Exception:
+            payload["step_cache_entries"] = 0
+        console.print_json(data=payload)
+        return
     console.print(
         Panel.fit(
             f"[bold]SuperAI Status[/bold]\n\n"

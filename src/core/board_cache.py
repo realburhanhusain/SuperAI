@@ -166,7 +166,14 @@ def put_board(
 
 
 def smart_max_members(subject: str, default: int = 3, hard_cap: int = 5) -> int:
-    """Fewer members for short/simple subjects (cost control)."""
+    """Fewer members for short/simple subjects (cost control). V4 S1: complexity."""
+    try:
+        from .task_complexity import classify_task
+
+        cx = classify_task(subject)
+        return max(1, min(int(cx.get("max_members") or default), hard_cap))
+    except Exception:
+        pass
     s = (subject or "").strip()
     n = len(s)
     if n < 80:

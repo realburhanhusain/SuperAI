@@ -378,10 +378,14 @@ def multi_cli_board(
     """
     role = "reviewer" if (mode or "review").lower().startswith("rev") else "advisor"
 
-    # Smart sizing when caller left default and subject is short
+    # Smart sizing when caller left default and subject is short (V4 S1)
+    prefer_cheap = False
     try:
         from .board_cache import smart_max_members
+        from .task_complexity import classify_task
 
+        cx = classify_task(subject)
+        prefer_cheap = bool(cx.get("prefer_cheap"))
         if max_clis == 3:
             max_clis = smart_max_members(subject, default=3, hard_cap=5)
     except Exception:
@@ -410,6 +414,15 @@ def multi_cli_board(
         except Exception:
             raw = [f"cli:{c}" for c in pick_advisory_clis(role=role, max_clis=max_clis)]
 
+    # V4 M6 cheap-first reorder
+    try:
+        from .task_complexity import cheap_first_models
+
+        if prefer_cheap:
+            raw = cheap_first_models(raw, prefer_cheap=True, max_n=max_clis)
+    except Exception:
+        pass
+
     # Deduplicate members (diversity)
     seen = set()
     deduped = []
@@ -418,6 +431,20 @@ def multi_cli_board(
             seen.add(m)
             deduped.append(m)
     raw = deduped[: max(1, max_clis)]
+
+    # V4 M1 budget hard block when enforce_budget
+    try:
+        from .budget import BudgetGuard
+        from .config import Config
+
+        cfg = Config()
+        if bool(cfg.get("enforce_budget", True)):
+            est = max(0.05, 0.03 * max(1, len(raw)))
+            block = BudgetGuard().enforce_or_block(est, tokens=800, enforce=True)
+            if block.get("blocked"):
+                return block
+    except Exception:
+        pass
 
     # Cost router: shrink board if over run budget (Sprint B M3)
     cost_meta = None
@@ -430,7 +457,8 @@ def multi_cli_board(
             raw,
             subject,
             run_usd_limit=float(cfg.get("budget_run_usd") or 1.0),
-            prefer_cheap=str(cfg.get("run_profile") or "") in {"cheap", "local-only"},
+            prefer_cheap=prefer_cheap
+            or str(cfg.get("run_profile") or "") in {"cheap", "local-only"},
         )
         cost_meta = decision
         if decision.get("action") == "block":

@@ -2615,6 +2615,12 @@ def ask_cmd(
     profile: Optional[str] = typer.Option(
         None, "--profile", help="cheap | balanced | quality | local-only"
     ),
+    image: Optional[List[str]] = typer.Option(
+        None,
+        "--image",
+        "-i",
+        help="Attach image path(s) for multimodal context (repeatable)",
+    ),
 ):
     """Universal NL front door — any request (specialized routes or agentic run)."""
     from core.nl_intent import ask_superai, interactive_repl, parse_intent
@@ -2654,6 +2660,14 @@ def ask_cmd(
             console.print(f"[dim]ask_session={ask_sid}[/dim]")
         preface = store.context_preface(ask_sid)
     text_eff = f"{preface}\n\n{text}" if preface else text
+    if image:
+        from core.multimodal import prompt_with_images
+
+        mm = prompt_with_images(text_eff or "", list(image))
+        text_eff = mm.get("prompt") or text_eff
+        console.print(
+            f"[dim]attachments={len(mm.get('attachment_meta') or [])}[/dim]"
+        )
 
     intent = parse_intent(text)
     agent_note = ""
@@ -4384,13 +4398,29 @@ def skill_perms_cmd(
 
 @app.command("plugin-catalog")
 def plugin_catalog_cmd(
-    url: str = typer.Argument(..., help="Remote catalog JSON URL"),
+    url: Optional[str] = typer.Argument(
+        None, help="Remote catalog JSON URL (omit for bundled marketplace sample)"
+    ),
     install_id: Optional[str] = typer.Option(None, "--install", help="Install entry id"),
+    query: str = typer.Option("", "--query", "-q", help="Search plugins"),
 ):
-    """N23: Fetch remote plugin catalog; optional install with sha256"""
-    from core.plugin_catalog import fetch_catalog, install_from_catalog_entry
+    """N23/N8: Browse plugin marketplace; optional install with sha256"""
+    from core.plugin_catalog import (
+        browse_catalog,
+        fetch_catalog,
+        install_from_catalog_entry,
+    )
 
+    if not url and not install_id:
+        console.print_json(data=browse_catalog(query=query))
+        return
+    if not url:
+        console.print("[red]URL required for install[/red]")
+        raise typer.Exit(1)
     cat = fetch_catalog(url)
+    if query:
+        console.print_json(data=browse_catalog(url, query=query))
+        return
     if install_id:
         entries = cat.get("plugins") or cat.get("entries") or []
         entry = next((e for e in entries if e.get("id") == install_id), None)
@@ -4400,6 +4430,108 @@ def plugin_catalog_cmd(
         console.print_json(data=install_from_catalog_entry(entry))
         return
     console.print_json(data=cat)
+
+
+@app.command("agent-tui")
+def agent_tui_cmd(
+    session: Optional[str] = typer.Option(None, "--session", "-s"),
+    permission: Optional[str] = typer.Option(None, "--permission"),
+    profile: Optional[str] = typer.Option(None, "--profile"),
+):
+    """Phase 8 N1: Agent TUI with tool traces (open-source agent patterns)."""
+    from core.agent_tui import run_agent_tui
+
+    run_agent_tui(session_id=session, permission=permission, profile=profile)
+
+
+@app.command("goals")
+def goals_cmd(
+    action: str = typer.Argument(
+        "list", help="list | add | done | heartbeat | notify | schedule"
+    ),
+    title: Optional[str] = typer.Argument(None, help="Goal title (for add)"),
+    goal_id: Optional[str] = typer.Option(None, "--id"),
+    detail: str = typer.Option("", "--detail"),
+    every_hours: float = typer.Option(24.0, "--every-hours"),
+):
+    """Phase 8 N2: Personal assistant goals + heartbeat + messenger."""
+    from core.assistant_goals import GoalStore
+
+    store = GoalStore()
+    act = action.lower()
+    if act == "list":
+        console.print_json(data={"goals": store.list("open")})
+        return
+    if act == "add":
+        if not title:
+            console.print("[red]Need goal title[/red]")
+            raise typer.Exit(1)
+        console.print_json(data=store.add(title, detail=detail))
+        return
+    if act == "done":
+        if not goal_id:
+            console.print("[red]Need --id[/red]")
+            raise typer.Exit(1)
+        console.print_json(data={"ok": store.complete(goal_id)})
+        return
+    if act == "heartbeat":
+        console.print_json(data=store.heartbeat(goal_id))
+        return
+    if act == "notify":
+        console.print_json(data=store.notify_due())
+        return
+    if act == "schedule":
+        if not goal_id:
+            console.print("[red]Need --id[/red]")
+            raise typer.Exit(1)
+        console.print_json(
+            data=store.schedule_reminder(goal_id, every_hours=every_hours)
+        )
+        return
+    raise typer.Exit(1)
+
+
+@app.command("bakeoff")
+def bakeoff_cmd(
+    prompt: str = typer.Argument(..., help="Prompt for all models"),
+    models: str = typer.Option(
+        "gpt-4o,deepseek-chat,llama3.2",
+        "--models",
+        "-m",
+        help="Comma-separated registry names",
+    ),
+    live: bool = typer.Option(False, "--live", help="Disable mock (needs keys)"),
+):
+    """Phase 8 N6: Model bake-off ranking by success then latency."""
+    from core.model_bakeoff import bakeoff
+
+    model_list = [m.strip() for m in models.split(",") if m.strip()]
+    console.print_json(
+        data=bakeoff(prompt, model_list, use_mock=not live)
+    )
+
+
+@app.command("models-refresh-openrouter")
+def models_refresh_openrouter_cmd(
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    limit: int = typer.Option(40, "--limit"),
+):
+    """Phase 8 N5: Pull OpenRouter public model list into user registry."""
+    from core.model_catalog_refresh import refresh_openrouter_into_user_registry
+
+    console.print_json(
+        data=refresh_openrouter_into_user_registry(write=not dry_run, limit=limit)
+    )
+
+
+@app.command("agent-graph")
+def agent_graph_cmd(
+    task_id: Optional[str] = typer.Option(None, "--task-id"),
+):
+    """Phase 8 N4: Print run/member graph JSON (also GET /api/agent-graph)."""
+    from core.agent_graph import graph_from_run_result
+
+    console.print_json(data=graph_from_run_result({"task_id": task_id} if task_id else {}))
 
 
 @app.command()

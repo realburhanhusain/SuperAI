@@ -107,6 +107,8 @@ class Config:
         "run_profile": "balanced",
         # Soft-include Ollama tags on members/doctor
         "auto_ollama_discover": False,
+        # Multi-user palace tenant (Phase 8 N7)
+        "tenant_id": "default",
     }
 
     def __init__(self, config_path: Optional[str] = None):

@@ -24,8 +24,8 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 
 | Item | Notes |
 |------|--------|
-| Improvement Phases 1–7 | **100% code complete** — `docs/IMPROVEMENT_PLAN.md` |
-| Nice-to-have N1–N8 | Still backlog (optional) |
+| Improvement Phases 1–7 | **100%** — `docs/IMPROVEMENT_PLAN.md` |
+| Phase 8 N1–N8 | **100% foundations** — `docs/PHASE8_PLAN.md` (agent-tui, goals, multimodal, graph, bakeoff, …) |
 | Phase 99 live smoke | **Postponed** until all planned product work done |
 
 ## Recently closed (code)

@@ -48,6 +48,13 @@ superai run "hello" --format json
 | `ask "…" [--session] [--profile cheap] [--permission plan\|ask\|auto\|yolo]` | NL agent + multi-turn + cost footer |
 | `run "…" --profile local-only --permission plan` | Orchestrated run with cost/permission profile |
 | `profile cheap\|balanced\|quality\|local-only [--persist]` | Apply cost/quality defaults |
+| `agent-tui` | Phase 8 rich agent session (traces, compact, slash cmds) |
+| `goals list\|add\|done\|heartbeat\|notify\|schedule` | Personal assistant goals |
+| `ask "…" -i image.png` | Multimodal image attach |
+| `bakeoff "prompt" -m a,b,c` | Model bake-off ranking |
+| `models-refresh-openrouter` | Pull OpenRouter model list |
+| `plugin-catalog [-q query]` | Plugin marketplace browse |
+| `agent-graph` / web `/api/agent-graph` | Run/member graph JSON |
 | `ask "review auth with gpt-4o" --plan-only` | Show planned command only |
 | `chat "…"` | Routes NL via `ask` (use `--no-intent` for pure chat) |
 | `run "task" --critic off\|light\|council` | Critic mode (default light) |

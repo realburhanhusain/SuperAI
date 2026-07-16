@@ -28,6 +28,63 @@ def verify_sha256(path: Path, expected: str) -> bool:
     return h.hexdigest().lower() == expected.lower()
 
 
+def browse_catalog(
+    url: Optional[str] = None,
+    *,
+    query: str = "",
+    limit: int = 30,
+) -> Dict[str, Any]:
+    """
+    Browse remote or bundled sample catalog (Phase 8 N8 marketplace UX).
+    """
+    sample = {
+        "plugins": [
+            {
+                "id": "sample-hello",
+                "name": "Hello Skill",
+                "description": "Sample plugin manifest entry",
+                "tags": ["sample", "demo"],
+                "url": None,
+            },
+            {
+                "id": "memory-extra",
+                "name": "Memory extras",
+                "description": "Placeholder for memory-related plugin",
+                "tags": ["memory"],
+                "url": None,
+            },
+        ]
+    }
+    data = sample
+    if url:
+        try:
+            data = fetch_catalog(url)
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:300], "plugins": sample["plugins"]}
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    if not isinstance(plugins, list):
+        plugins = sample["plugins"]
+    q = (query or "").lower().strip()
+    if q:
+        plugins = [
+            p
+            for p in plugins
+            if isinstance(p, dict)
+            and (
+                q in str(p.get("id") or "").lower()
+                or q in str(p.get("name") or "").lower()
+                or q in str(p.get("description") or "").lower()
+                or any(q in str(t).lower() for t in (p.get("tags") or []))
+            )
+        ]
+    return {
+        "ok": True,
+        "count": len(plugins[:limit]),
+        "plugins": plugins[:limit],
+        "source": url or "bundled_sample",
+    }
+
+
 def install_from_catalog_entry(
     entry: Dict[str, Any],
     dest_root: Optional[Path] = None,

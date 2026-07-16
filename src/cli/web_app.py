@@ -128,6 +128,7 @@ async function status(){
         from core.config import Config
         from core.history import TaskHistory
         from core.memory_palace import MemoryPalace
+        from core.palace_tenant import current_tenant
         from core.preferences import UserPreferenceModel
 
         cfg = Config()
@@ -135,10 +136,35 @@ async function status(){
         return {
             "version": __version__,
             "mock_mode": cfg.use_mock,
+            "tenant_id": current_tenant(cfg),
             "history": TaskHistory().count(),
             "memory": mp.get_memory_stats(),
             "preferences": UserPreferenceModel().profile_summary(),
         }
+
+    @app.get("/api/agent-graph")
+    def api_agent_graph(
+        task_id: Optional[str] = Query(None),
+    ) -> Dict[str, Any]:
+        """Phase 8 N4: subagent/run graph for dashboard."""
+        from core.agent_graph import graph_from_adaptation_events, graph_from_run_result
+        from core.history import TaskHistory
+
+        result = {}
+        if task_id:
+            try:
+                # best-effort load last result from history
+                hist = TaskHistory()
+                if hasattr(hist, "get"):
+                    result = hist.get(task_id) or {}
+                elif hasattr(hist, "load"):
+                    result = hist.load(task_id) or {}
+            except Exception:
+                result = {}
+        events = (result.get("metadata") or {}).get("adaptation_events") or []
+        if events:
+            return graph_from_adaptation_events(events)
+        return graph_from_run_result(result)
 
     @app.get("/api/memory/search")
     def memory_search(

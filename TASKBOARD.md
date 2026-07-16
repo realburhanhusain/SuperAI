@@ -78,10 +78,11 @@
 | 5 Tool loop + health UX | `[x]` | 100 |
 | 6 NL + Windows PATH + auto Ollama | `[x]` | 100 |
 | 7 Docs closeout | `[x]` | 100 |
-| 8 Nice-to-have backlog | backlog | — |
+| 8 Nice-to-have (N1–N8) | `[x]` foundations | 100 |
 | 99 Live smoke | postponed | 0 |
 
-**Implementation % (Phases 1–7):** **100%**
+**Implementation % (Phases 1–8):** **100%** (smoke still postponed)  
+**Phase 8 plan:** `docs/PHASE8_PLAN.md`
 
 ---
 

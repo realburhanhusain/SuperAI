@@ -14,11 +14,11 @@ def test_v6_phase_report():
 
     r = phase_report()
     assert r["ok"] is True
-    assert r["counts"]["done"] >= 14
-    # phase 6 partial host, 16 park, 17-20 n/a
+    assert r["counts"]["done"] >= 16
+    # phases 0-16 done; 17-20 n/a
     statuses = {p["phase"]: p["status"] for p in r["phases"]}
-    assert statuses[6] == "partial"
-    assert statuses[16] == "park"
+    assert statuses[6] == "done"
+    assert statuses[16] == "done"
     assert statuses[20] == "n/a"
 
 

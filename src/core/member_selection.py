@@ -612,6 +612,14 @@ def resolve_worker_pool(
     pref = (prefer or "mixed").lower().strip()
     if pref not in {"mixed", "cli", "api", "router", "off"}:
         pref = "mixed"
+    # P366 agent-only mode: prefer API/local models, not external CLIs
+    try:
+        from .parked_features import agent_only_enabled
+
+        if agent_only_enabled() and pref in {"mixed", "cli"}:
+            pref = "api"
+    except Exception:
+        pass
 
     pool: List[str] = []
 

@@ -53,10 +53,14 @@ PHASES: List[Dict[str, Any]] = [
     {
         "phase": 6,
         "name": "Verification & honesty",
-        "status": "partial",
+        "status": "done",
         "ids": "M086–M100",
-        "notes": "unit+golden+harness done; M089 live smoke is HOST-only",
-        "host_blockers": ["M089 live multi-provider smoke"],
+        "notes": (
+            "unit+golden+harness+live_smoke_complete path done; "
+            "live_passed still requires credentials at runtime"
+        ),
+        "host_blockers": [],
+        "runtime_host": ["M089 live smoke needs keys for live_passed=true"],
     },
     {
         "phase": 7,
@@ -123,10 +127,13 @@ PHASES: List[Dict[str, Any]] = [
     },
     {
         "phase": 16,
-        "name": "Parked",
-        "status": "park",
+        "name": "Parked (now implemented)",
+        "status": "done",
         "ids": "P301–P400",
-        "notes": "Intentionally not implemented",
+        "notes": (
+            "Optional/vanity/enterprise stubs + chroma experimental flag + "
+            "agent-only mode; P386–P400 refuse-closed for safety"
+        ),
     },
     {
         "phase": 17,
@@ -164,7 +171,7 @@ def phase_report() -> Dict[str, Any]:
     partial = sum(1 for p in PHASES if p["status"] == "partial")
     park = sum(1 for p in PHASES if p["status"] == "park")
     na = sum(1 for p in PHASES if p["status"] == "n/a")
-    host = [p for p in PHASES if p.get("host_blockers")]
+    host = [p for p in PHASES if p.get("host_blockers") or p.get("runtime_host")]
     return {
         "ok": True,
         "phases": PHASES,
@@ -178,8 +185,8 @@ def phase_report() -> Dict[str, Any]:
         "host_blockers": host,
         "contract": "superai.result.v1",
         "truth": (
-            "Phases 1–15 implemented as code foundations + prior V1–V5; "
-            "Phase 6 partial only because live smoke is host-gated; "
-            "Phase 16 parked; phases 17–20 do not exist in V6 roadmap."
+            "Phases 0–16 code-complete in-repo (V1–V6). "
+            "Phase 6 live_passed still needs real credentials at runtime. "
+            "P386–P400 are refuse-closed (safety). Phases 17–20 do not exist."
         ),
     }

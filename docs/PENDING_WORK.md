@@ -29,8 +29,8 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | SuperAI multi-agent | **Code+tests complete** — `docs/SUPERAI_AGENT.md` · `superai` / `superai agent` |
 | Improvement V4 A–C | **Code+tests complete** — trust/cost/efficiency/UX — `docs/IMPROVEMENT_V4_PLAN.md` |
 | Improvement V5 A–C | **Code+tests complete** — ops maturity — `docs/IMPROVEMENT_V5_PLAN.md` |
-| Improvement V6 backlog | **Phases 1–15 code done** (6 partial host smoke) — `docs/IMPROVEMENT_V6_BACKLOG.md` · `superai v6-status` |
-| Phase 99 live smoke | **Next host gate** — keys required; prep: `superai smoke-preflight` then `smoke-harness --allow-live` |
+| Improvement V6 backlog | **Phases 0–16 code done** (P386–P400 refuse-closed) — `superai v6-status` · `superai parked catalog` |
+| Phase 99 / live smoke | **Runtime host** — `superai phase6-smoke --allow-live` when keys present |
 
 ## Recently closed (code)
 

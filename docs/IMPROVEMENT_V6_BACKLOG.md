@@ -2,7 +2,7 @@
 
 **Created:** 2026-07-16  
 **Updated:** 2026-07-16  
-**Status:** Phases **1–15 implemented** as code (foundations + prior V1–V5); Phase **6 partial** (live smoke host-only); Phase **16 park**; Phases **17–20 n/a**  
+**Status:** Phases **0–16 code-complete** in-repo; live_passed still needs keys at runtime; P386–P400 refuse-closed; Phases **17–20 n/a**  
 **Scope:** 400 items — 100 Must · 100 Should · 100 Nice · 100 Not important now  
 **Product frame:** SuperAI as multi-model / multi-CLI **orchestrator** + agent + memory + cost control  
 

@@ -115,9 +115,16 @@ def _main_callback(
             interactive_repl(execute=True, verbose=False)
             raise typer.Exit(0)
         # Interactive front door: empty / /tui → full agent TUI; else route task
+        try:
+            from core.parked_features import splash_banner
+
+            banner = splash_banner()
+        except Exception:
+            banner = "SuperAI"
         console.print(
             Panel.fit(
-                "[bold]SuperAI[/bold] — type a task (front-door routes agent/board/run)\n"
+                f"[bold]{banner.splitlines()[0] if banner else 'SuperAI'}[/bold]\n"
+                "Type a task (front-door routes agent/board/run)\n"
                 "Empty or `/tui` opens multi-panel agent · `/ask` NL REPL · `exit` quits",
                 border_style="cyan",
             )
@@ -4627,6 +4634,85 @@ def v6_status_cmd():
     from core.v6_phase_status import phase_report
 
     console.print_json(data=phase_report())
+
+
+@app.command("phase6-smoke")
+def phase6_smoke_cmd(
+    allow_live: bool = typer.Option(False, "--allow-live"),
+):
+    """Phase 6 full smoke path (live only with credentials; never false-pass)."""
+    from core.live_smoke_complete import run_phase6_smoke
+
+    console.print_json(data=run_phase6_smoke(allow_live=allow_live))
+
+
+@app.command("parked")
+def parked_cmd(
+    action: str = typer.Argument(
+        "catalog",
+        help="catalog|flags|set|invoke|refuse-list|splash|chroma|agent-only|rbac|sso",
+    ),
+    key: Optional[str] = typer.Argument(None),
+    value: Optional[str] = typer.Argument(None),
+):
+    """
+    Phase 16 parked features (optional / stubs / refuse-closed).
+    Abuse IDs P386–P400 always refuse.
+    """
+    from core import parked_features as pf
+    from core.enterprise_stubs import data_residency, platform_catalog, rbac_roles, sso_status
+
+    act = action.lower()
+    if act == "catalog":
+        console.print_json(data=pf.catalog())
+        return
+    if act == "flags":
+        console.print_json(data={"ok": True, "flags": pf.load_flags()})
+        return
+    if act == "set" and key is not None:
+        val: Any = value
+        if value is not None and value.lower() in {"true", "false", "1", "0"}:
+            val = value.lower() in {"true", "1"}
+        console.print_json(data=pf.save_flags({key: val}))
+        return
+    if act == "invoke" and key:
+        kw = {}
+        if value:
+            kw["text"] = value
+            kw["name"] = value
+            kw["enabled"] = value.lower() in {"true", "1", "yes"}
+        console.print_json(data=pf.invoke(key, **kw))
+        return
+    if act in {"refuse-list", "refused"}:
+        console.print_json(data=pf.list_refused())
+        return
+    if act == "splash":
+        console.print(pf.splash_banner())
+        return
+    if act == "chroma":
+        if key == "store" and value:
+            pf.save_flags({"chroma_experimental": True})
+            console.print_json(data=pf.experimental_chroma_store(value))
+        else:
+            console.print_json(data=pf.chroma_status())
+        return
+    if act == "agent-only":
+        en = (key or "true").lower() in {"true", "1", "yes", "on"}
+        console.print_json(data=pf.set_agent_only(en))
+        return
+    if act == "rbac":
+        console.print_json(data=rbac_roles())
+        return
+    if act == "sso":
+        console.print_json(data=sso_status())
+        return
+    if act == "residency":
+        console.print_json(data=data_residency())
+        return
+    if act == "platforms":
+        console.print_json(data={"ok": True, "platforms": platform_catalog()})
+        return
+    console.print_json(data=pf.catalog())
 
 
 @app.command("todos")

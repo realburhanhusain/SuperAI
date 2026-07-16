@@ -37,8 +37,10 @@ def prompt_with_images(text: str, image_paths: Optional[List[str]] = None) -> Di
     """
     attachments = []
     parts = [text or ""]
+    full_atts = []
     for ip in image_paths or []:
         info = describe_image_file(ip)
+        full_atts.append(info)
         attachments.append({k: info.get(k) for k in ("ok", "path", "mime", "bytes") if k in info})
         if info.get("ok"):
             parts.append(
@@ -47,13 +49,29 @@ def prompt_with_images(text: str, image_paths: Optional[List[str]] = None) -> Di
                 f"(base64 length={len(info.get('base64') or '')}; "
                 f"providers with vision can use full payload from attachments)\n"
             )
-            # Keep full base64 only in structured attachments, not prompt bloat
     return {
         "ok": True,
         "prompt": "\n".join(parts),
-        "attachments": [
-            describe_image_file(ip) if Path(ip).is_file() else {"ok": False, "path": ip}
-            for ip in (image_paths or [])
-        ],
+        "attachments": full_atts,
         "attachment_meta": attachments,
     }
+
+
+def vision_messages(
+    text: str, attachments: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """OpenAI-compatible multimodal message content parts."""
+    content: List[Dict[str, Any]] = [{"type": "text", "text": text or ""}]
+    for att in attachments or []:
+        if not att.get("ok") or not att.get("base64"):
+            continue
+        mime = att.get("mime") or "image/png"
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{mime};base64,{att['base64']}",
+                },
+            }
+        )
+    return [{"role": "user", "content": content}]

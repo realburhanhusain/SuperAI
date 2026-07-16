@@ -317,11 +317,24 @@ class MemoryPalace:
         include_deprecated: bool = False,
         wing: Optional[str] = None,
         room: Optional[str] = None,
+        tenant_id: Optional[str] = None,
         **kwargs: Any,
     ) -> List[Dict]:
         if n_results is not None:
             top_k = n_results
         _ = kwargs
+        # Tenant isolation (Sprint B M8)
+        try:
+            from .palace_tenant import current_tenant, tenant_tag
+
+            tid = tenant_id or current_tenant()
+            ttag = tenant_tag(tid)
+            if tags is None:
+                tags = [ttag]
+            elif ttag not in tags:
+                tags = list(tags) + [ttag]
+        except Exception:
+            pass
         # Fetch extra when filtering by tags/wing/room
         need_filter = bool(tags or wing or room)
         fetch_k = top_k * 4 if need_filter else top_k

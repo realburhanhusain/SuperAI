@@ -229,6 +229,24 @@ def parse_intent(text: str) -> SuperAIIntent:
         intent.prefer = "mixed"
         intent.worker_prefer = "mixed"
 
+    # Profile / permission from NL (Sprint D S9)
+    if re.search(r"\b(cheap mode|use cheap|profile cheap)\b", low):
+        intent.extras["run_profile"] = "cheap"
+        intent.notes.append("profile:cheap")
+    elif re.search(r"\b(local[- ]only|profile local)\b", low):
+        intent.extras["run_profile"] = "local-only"
+        intent.notes.append("profile:local-only")
+    elif re.search(r"\b(quality mode|profile quality)\b", low):
+        intent.extras["run_profile"] = "quality"
+        intent.notes.append("profile:quality")
+    if re.search(r"\b(yolo|auto[- ]approve all)\b", low):
+        intent.extras["permission_mode"] = "yolo"
+        intent.notes.append("permission:yolo")
+    elif re.search(r"\b(plan only|permission plan|dry[- ]run only)\b", low):
+        intent.extras["permission_mode"] = "plan"
+        intent.dry_run = True
+        intent.notes.append("permission:plan")
+
     intent.members = _extract_members(raw)
     intent.model = intent.members[0] if len(intent.members) == 1 else None
 
@@ -572,6 +590,22 @@ def execute_intent(
         except Exception:
             pass
         return result
+
+    # Apply NL-derived profile/permission
+    try:
+        from .config import Config
+        from .run_profiles import apply_profile_to_config
+        from .permission_mode import normalize_mode
+
+        cfg = Config()
+        if intent.extras.get("run_profile"):
+            apply_profile_to_config(cfg, str(intent.extras["run_profile"]))
+        if intent.extras.get("permission_mode"):
+            cfg.config["permission_mode"] = normalize_mode(
+                str(intent.extras["permission_mode"])
+            )
+    except Exception:
+        pass
 
     action = intent.action
     try:

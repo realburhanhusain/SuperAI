@@ -5,7 +5,7 @@ Lightweight model bake-off / eval (Phase 8 N6).
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence  # noqa: F401
 
 
 def bakeoff(
@@ -48,9 +48,35 @@ def bakeoff(
                 }
             )
     rows.sort(key=lambda r: (not r.get("ok"), r.get("latency_sec") or 999))
-    return {
+    winner = rows[0]["model"] if rows else None
+    out = {
         "ok": True,
+        "status": "success",
         "prompt": prompt[:500],
         "results": rows,
-        "winner": rows[0]["model"] if rows else None,
+        "winner": winner,
+        "mock": use_mock,
+        "dry_run": False,
+        "model_chain": [r.get("model") for r in rows if r.get("model")],
+        "tokens": sum(int(r.get("tokens") or 0) for r in rows),
+        "estimated_cost_usd": round(sum(float(r.get("cost") or 0) for r in rows), 6),
+        "members": [r.get("model") for r in rows if r.get("model")],
+        "memory_ids": [],
+        "contract": "superai.result.v1",
     }
+    return out
+
+
+def pin_winner(model: Optional[str], *, persist: bool = True) -> Dict[str, Any]:
+    """Persist bakeoff winner as preferred default model."""
+    if not model:
+        return {"ok": False, "error": "no_winner"}
+    try:
+        from .config import Config
+
+        cfg = Config()
+        cfg.set("preferred_model", model, persist=persist)
+        cfg.set("default_model", model, persist=persist)
+        return {"ok": True, "preferred_model": model, "persisted": persist}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:300]}

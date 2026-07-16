@@ -74,6 +74,21 @@ class ModelCaller:
         if not model:
             raise ValueError("ModelCaller.call requires a model name")
 
+        # Fail-closed when live and not ready (Sprint A M4)
+        if not self.use_mock:
+            try:
+                from .readiness import assert_ready_or_error
+
+                blocked = assert_ready_or_error(str(model), use_mock=False)
+                if blocked:
+                    blocked["response"] = blocked.get("error")
+                    blocked["provider"] = (blocked.get("readiness") or {}).get(
+                        "provider"
+                    )
+                    return blocked
+            except Exception:
+                pass
+
         # Dual-registered external CLIs: cli:aider, cli:claude, …
         if str(model).startswith("cli:") or (
             self.registry

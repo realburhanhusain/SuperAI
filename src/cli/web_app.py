@@ -166,6 +166,25 @@ async function status(){
             return graph_from_adaptation_events(events)
         return graph_from_run_result(result)
 
+    @app.get("/graph", response_class=HTMLResponse)
+    def graph_page() -> str:
+        """Sprint C S7: minimal graph visualizer."""
+        return """<!doctype html><html><head><meta charset=utf-8>
+<title>SuperAI agent graph</title>
+<style>body{font-family:system-ui;margin:1.5rem}#out{white-space:pre-wrap;background:#111;color:#0f0;padding:1rem;border-radius:8px}</style>
+</head><body>
+<h1>Agent graph</h1>
+<button onclick="load()">Load /api/agent-graph</button>
+<pre id=out>…</pre>
+<script>
+async function load(){
+  const r=await fetch('/api/agent-graph');
+  const j=await r.json();
+  document.getElementById('out').textContent=JSON.stringify(j,null,2);
+}
+load();
+</script></body></html>"""
+
     @app.get("/api/memory/search")
     def memory_search(
         q: str = Query(..., min_length=1),

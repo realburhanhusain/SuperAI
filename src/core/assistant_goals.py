@@ -118,10 +118,35 @@ class GoalStore:
         )
         try:
             from .messengers import MessengerBus
+            from .permission_mode import mode_from_config
 
+            # plan mode: do not send external messages
+            if mode_from_config() == "plan":
+                return {"ok": True, "sent": 0, "dry_run": True, "due": due, "text": text}
             bus = MessengerBus()
-            # prefer file outbox
             r = bus.send("file", text)
             return {"ok": True, "sent": len(due), "messenger": r}
         except Exception as e:
             return {"ok": True, "sent": 0, "due": due, "notify_error": str(e)[:200]}
+
+    def execute_due(self, *, max_goals: int = 3, use_ask: bool = True) -> Dict[str, Any]:
+        """Sprint B M5: run ask/run for due goals (opt-in automation)."""
+        hb = self.heartbeat()
+        due = (hb.get("due") or [])[:max_goals]
+        results = []
+        for g in due:
+            title = g.get("title") or g.get("id")
+            prompt = f"Work on this open goal: {title}. Detail: {g.get('detail') or ''}"
+            try:
+                if use_ask:
+                    from .nl_intent import ask_superai
+
+                    out = ask_superai(prompt, execute=True)
+                else:
+                    from .orchestrator import SuperAIOrchestrator
+
+                    out = SuperAIOrchestrator().run_task(prompt, verbose=False)
+                results.append({"goal_id": g.get("id"), "ok": out.get("ok", True), "result": out})
+            except Exception as e:
+                results.append({"goal_id": g.get("id"), "ok": False, "error": str(e)[:300]})
+        return {"ok": True, "executed": len(results), "results": results}

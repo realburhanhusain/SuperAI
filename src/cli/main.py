@@ -4447,14 +4447,16 @@ def agent_tui_cmd(
 @app.command("goals")
 def goals_cmd(
     action: str = typer.Argument(
-        "list", help="list | add | done | heartbeat | notify | schedule"
+        "list",
+        help="list | add | done | heartbeat | notify | schedule | execute",
     ),
     title: Optional[str] = typer.Argument(None, help="Goal title (for add)"),
     goal_id: Optional[str] = typer.Option(None, "--id"),
     detail: str = typer.Option("", "--detail"),
     every_hours: float = typer.Option(24.0, "--every-hours"),
+    max_goals: int = typer.Option(3, "--max"),
 ):
-    """Phase 8 N2: Personal assistant goals + heartbeat + messenger."""
+    """Phase 8 N2: Personal assistant goals + heartbeat + messenger + execute."""
     from core.assistant_goals import GoalStore
 
     store = GoalStore()
@@ -4488,6 +4490,9 @@ def goals_cmd(
             data=store.schedule_reminder(goal_id, every_hours=every_hours)
         )
         return
+    if act == "execute":
+        console.print_json(data=store.execute_due(max_goals=max_goals, use_ask=True))
+        return
     raise typer.Exit(1)
 
 
@@ -4501,27 +4506,42 @@ def bakeoff_cmd(
         help="Comma-separated registry names",
     ),
     live: bool = typer.Option(False, "--live", help="Disable mock (needs keys)"),
+    pin: bool = typer.Option(False, "--pin", help="Persist winner as preferred_model"),
 ):
     """Phase 8 N6: Model bake-off ranking by success then latency."""
-    from core.model_bakeoff import bakeoff
+    from core.model_bakeoff import bakeoff, pin_winner
 
     model_list = [m.strip() for m in models.split(",") if m.strip()]
-    console.print_json(
-        data=bakeoff(prompt, model_list, use_mock=not live)
-    )
+    out = bakeoff(prompt, model_list, use_mock=not live)
+    if pin and out.get("winner"):
+        out["pin"] = pin_winner(out["winner"], persist=True)
+    console.print_json(data=out)
 
 
 @app.command("models-refresh-openrouter")
 def models_refresh_openrouter_cmd(
     dry_run: bool = typer.Option(False, "--dry-run"),
     limit: int = typer.Option(40, "--limit"),
+    schedule: bool = typer.Option(
+        False, "--schedule", help="Also add a weekly schedule job"
+    ),
 ):
-    """Phase 8 N5: Pull OpenRouter public model list into user registry."""
+    """Phase 8 N5 / Sprint D: Pull OpenRouter public model list into user registry."""
     from core.model_catalog_refresh import refresh_openrouter_into_user_registry
 
-    console.print_json(
-        data=refresh_openrouter_into_user_registry(write=not dry_run, limit=limit)
-    )
+    out = refresh_openrouter_into_user_registry(write=not dry_run, limit=limit)
+    if schedule:
+        try:
+            from core.schedule_store import ScheduleStore
+
+            out["schedule"] = ScheduleStore().add(
+                "openrouter-refresh",
+                "models-refresh-openrouter",
+                every_hours=168.0,
+            )
+        except Exception as e:
+            out["schedule_error"] = str(e)[:200]
+    console.print_json(data=out)
 
 
 @app.command("agent-graph")

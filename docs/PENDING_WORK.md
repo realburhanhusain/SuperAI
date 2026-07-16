@@ -25,8 +25,9 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | Item | Notes |
 |------|--------|
 | Improvement Phases 1–7 | **100%** — `docs/IMPROVEMENT_PLAN.md` |
-| Phase 8 N1–N8 | **100% foundations** — `docs/PHASE8_PLAN.md` (agent-tui, goals, multimodal, graph, bakeoff, …) |
-| Phase 99 live smoke | **Postponed** until all planned product work done |
+| Phase 8 N1–N8 | **100% foundations** — `docs/PHASE8_PLAN.md` |
+| Improvement V2 Sprints A–D | **100%** — tools/diff/fail-closed/cost router/goals execute/tenant/parallel board — `docs/IMPROVEMENT_V2_PLAN.md` |
+| Phase 99 live smoke | **Postponed** |
 
 ## Recently closed (code)
 

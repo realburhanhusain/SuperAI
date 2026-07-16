@@ -89,8 +89,8 @@ def run_agent_tui(
         Panel.fit(
             f"[bold]SuperAI Agent TUI[/bold]\n"
             f"session={sid}  permission={mode_from_config(cfg)}\n"
-            f"Slash: /help /trace /compact /permission plan|ask|auto|yolo /exit\n"
-            f"Patterns: open coding agents (tool visibility + compact context)",
+            f"Slash: /help /trace /compact /tool … /permission /profile /exit\n"
+            f"Tools: /tool read path=… · grep pattern=… · write · diff_apply",
             border_style="cyan",
         )
     )
@@ -111,10 +111,12 @@ def run_agent_tui(
             if cmd == "help":
                 console.print(
                     Markdown(
-                        "- `/trace` show recent tool/step events\n"
-                        "- `/compact` force context compact\n"
-                        "- `/permission plan|ask|auto|yolo`\n"
-                        "- `/profile cheap|balanced|quality|local-only`\n"
+                        "- `/trace` show tool/step events\n"
+                        "- `/compact` [smart] compact context\n"
+                        "- `/tool read path=FILE` · `/tool grep pattern=X`\n"
+                        "- `/tool write path=F content=…` (respects permission)\n"
+                        "- `/tool diff_apply diff=…` (plan=dry-run)\n"
+                        "- `/permission plan|ask|auto|yolo` · `/profile …`\n"
                         "- plain text → agent (`ask`)\n"
                     )
                 )
@@ -124,8 +126,26 @@ def run_agent_tui(
                 continue
             if cmd == "compact":
                 data = store._load(sid)
-                pref = compact_turns(data.get("turns") or [])
+                if arg == "smart":
+                    from .session_compact import smart_compact
+
+                    pref = smart_compact(data.get("turns") or [])
+                else:
+                    pref = compact_turns(data.get("turns") or [])
                 console.print(Panel(pref or "(empty)", title="compacted"))
+                continue
+            if cmd == "tool" or line.startswith("/tool"):
+                from .agent_tools import execute_directives
+
+                # allow "/tool read path=x" as full line
+                blob = line if line.startswith("/tool") else f"/tool {arg}"
+                bus.emit("tool_batch", text=blob[:120])
+                results = execute_directives(
+                    blob, permission_mode=mode_from_config(cfg)
+                )
+                for r in results:
+                    bus.emit("tool_result", tool=r["directive"].get("tool"), ok=r["result"].get("ok"))
+                    console.print_json(data=r)
                 continue
             if cmd == "permission":
                 cfg.config["permission_mode"] = normalize_mode(arg or "ask")
@@ -138,16 +158,62 @@ def run_agent_tui(
             console.print(f"[yellow]Unknown slash: /{cmd}[/yellow]")
             continue
 
+        # Inline /tool lines mixed with message
+        tool_results = []
+        if "/tool" in line:
+            from .agent_tools import execute_directives
+
+            tool_results = execute_directives(
+                line, permission_mode=mode_from_config(cfg)
+            )
+            for r in tool_results:
+                bus.emit("tool_result", tool=r["directive"].get("tool"), ok=r["result"].get("ok"))
+                console.print(
+                    Panel(
+                        json.dumps(r["result"], default=str)[:1500],
+                        title=f"tool:{r['directive'].get('tool')}",
+                        border_style="yellow",
+                    )
+                )
+
         # Build prompt with compacted history
+        preface = ""
         try:
             data = store._load(sid)
-            preface = compact_turns(data.get("turns") or [], max_chars=1500)
+            from .session_compact import smart_compact
+
+            preface = smart_compact(data.get("turns") or [], max_chars=1500)
         except Exception:
-            preface = ""
+            try:
+                preface = compact_turns(store._load(sid).get("turns") or [], max_chars=1500)
+            except Exception:
+                preface = ""
         prompt = f"{preface}\n\n{line}" if preface else line
+        if tool_results:
+            prompt += "\n\n[Tool results]\n" + json.dumps(tool_results, default=str)[:2000]
         intent = parse_intent(line)
         console.print(f"[dim]→ {intent.action}: {intent.planned_command}[/dim]")
         bus.emit("user_message", text=line[:200])
+
+        def _live(ev: Dict[str, Any]) -> None:
+            if ev.get("kind") in {
+                "board_member_start",
+                "board_member_end",
+                "worker_pool",
+                "step",
+                "tool_result",
+            }:
+                detail = {
+                    k: v
+                    for k, v in ev.items()
+                    if k not in {"ts", "kind"}
+                }
+                console.print(
+                    f"[dim]… {ev.get('kind')} "
+                    f"{json.dumps(detail, default=str)[:80]}[/dim]"
+                )
+
+        bus.on(_live)
         out = ask_superai(prompt, execute=True, verbose=False)
         bus.emit(
             "agent_done",
@@ -177,7 +243,7 @@ def run_agent_tui(
             sid,
             line,
             str(body)[:500],
-            meta={"action": intent.action, "ok": out.get("ok")},
+            meta={"action": intent.action, "ok": out.get("ok"), "tools": len(tool_results)},
         )
 
     console.print(f"[dim]session saved: {sid}[/dim]")

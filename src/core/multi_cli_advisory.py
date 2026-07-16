@@ -419,6 +419,34 @@ def multi_cli_board(
             deduped.append(m)
     raw = deduped[: max(1, max_clis)]
 
+    # Cost router: shrink board if over run budget (Sprint B M3)
+    cost_meta = None
+    try:
+        from .config import Config
+        from .cost_router import should_skip_or_shrink
+
+        cfg = Config()
+        decision = should_skip_or_shrink(
+            raw,
+            subject,
+            run_usd_limit=float(cfg.get("budget_run_usd") or 1.0),
+            prefer_cheap=str(cfg.get("run_profile") or "") in {"cheap", "local-only"},
+        )
+        cost_meta = decision
+        if decision.get("action") == "block":
+            return {
+                "ok": False,
+                "status": "error",
+                "error": "board_over_budget",
+                "cost_router": decision,
+                "mock": bool(dry_run),
+                "dry_run": bool(dry_run),
+            }
+        if decision.get("members"):
+            raw = list(decision["members"])[: max(1, max_clis)]
+    except Exception:
+        pass
+
     if not raw:
         return {
             "ok": False,
@@ -432,13 +460,14 @@ def multi_cli_board(
             "board": merge_board([]),
         }
 
-    # Cache hit (identical subject+members+mode)
+    # Cache hit (identical subject+members+mode); normalize subject for soft match
+    cache_subject = " ".join((subject or "").lower().split())
     if use_cache:
         try:
             from .board_cache import get_board
 
             hit = get_board(
-                subject,
+                cache_subject,
                 mode=mode,
                 members=raw,
                 prefer=prefer,
@@ -455,9 +484,17 @@ def multi_cli_board(
                 progress(msg)
             except Exception:
                 pass
+        try:
+            from .progress_events import get_progress_bus
 
-    opinions = []
-    for m in raw[: max(1, max_clis)]:
+            get_progress_bus().emit("board", message=msg)
+        except Exception:
+            pass
+
+    # Parallel opinions (Sprint C S2) with ordered results
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _one(m: str) -> Dict[str, Any]:
         _prog(f"board_member_start:{m}")
         op = run_member_opinion(
             m,
@@ -467,8 +504,31 @@ def multi_cli_board(
             approve=approve,
             use_mock=dry_run,
         )
-        opinions.append(op)
         _prog(f"board_member_end:{m}:{op.get('verdict')}")
+        return op
+
+    opinions: List[Dict[str, Any]] = []
+    workers = min(4, max(1, len(raw)))
+    if workers == 1:
+        opinions = [_one(m) for m in raw]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futs = {pool.submit(_one, m): m for m in raw}
+            # preserve input order
+            by_m = {}
+            for fut in as_completed(futs):
+                m = futs[fut]
+                try:
+                    by_m[m] = fut.result()
+                except Exception as e:
+                    by_m[m] = {
+                        "ok": False,
+                        "member_id": m,
+                        "cli": m,
+                        "verdict": "advise",
+                        "error": str(e)[:200],
+                    }
+            opinions = [by_m[m] for m in raw if m in by_m]
     board = merge_board(opinions)
     # Cost/token rollup from opinions (mock estimates when dry_run)
     tokens = 0
@@ -579,7 +639,7 @@ def multi_cli_board(
             from .board_cache import put_board
 
             put_board(
-                subject,
+                cache_subject,
                 result,
                 mode=mode,
                 members=raw[: max(1, max_clis)],
@@ -588,6 +648,8 @@ def multi_cli_board(
             )
         except Exception:
             pass
+    if cost_meta:
+        result["cost_router"] = cost_meta
 
     return result
 

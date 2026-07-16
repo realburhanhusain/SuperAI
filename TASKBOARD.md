@@ -58,10 +58,10 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-16 |
-| **What** | Improvement track Phases 1–7 **100%** code; Phase 99 smoke postponed |
-| **Plan** | `docs/IMPROVEMENT_PLAN.md` |
-| **Verify** | `pytest tests/test_result_contract.py tests/test_board_cache.py tests/test_path_which.py -q` |
-| **Prior** | Universal models code complete |
+| **What** | Improvement V2 Sprints A–D complete; Phase 99 smoke postponed |
+| **Plan** | `docs/IMPROVEMENT_V2_PLAN.md` |
+| **Verify** | `pytest tests/test_sprint_abcd.py -q` |
+| **Prior** | Phases 1–8 foundations |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

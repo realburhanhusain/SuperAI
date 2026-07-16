@@ -94,7 +94,7 @@ def review_diff(
             "findings": board.get("findings") or [],
         }
 
-    return {
+    out = {
         "ok": True,
         "decision": decision,
         "proposals": result.get("proposals"),
@@ -102,7 +102,22 @@ def review_diff(
         "members": result.get("members"),
         "cli_board": cli_board,
         "protocol": "superai.pr_review.v2",
+        "mock": bool(use_mock),
+        "dry_run": bool(dry_run or use_mock),
     }
+    try:
+        from .result_contract import apply_contract
+
+        apply_contract(
+            out,
+            mock=bool(use_mock),
+            dry_run=bool(dry_run or use_mock),
+            members=list(result.get("members") or []),
+            ok=True,
+        )
+    except Exception:
+        out.setdefault("contract", "superai.result.v1")
+    return out
 
 
 def review_local(

@@ -1224,7 +1224,7 @@ class SuperAIOrchestrator:
                         if (
                             not ok
                             and critic == "light"
-                            and bool(self.config.get("cli_delegate_reviewers", True))
+                            and bool(self.config.get("cli_delegate_reviewers", False))
                         ):
                             improved, cmeta = self._council_critique_step(
                                 step=step,
@@ -1597,7 +1597,7 @@ class SuperAIOrchestrator:
         meta: Dict[str, Any] = {}
 
         # 1) Multi-member reviewer board (API models + CLIs) when enabled
-        if bool(self.config.get("cli_delegate_reviewers", True)):
+        if bool(self.config.get("cli_delegate_reviewers", False)):
             try:
                 from .multi_cli_advisory import multi_cli_board
 

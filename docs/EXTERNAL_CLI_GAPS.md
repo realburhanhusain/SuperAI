@@ -11,7 +11,7 @@
 | Weak Memory Palace / context / output wrapping | **Closed** — `with_context` + `write_memory` defaults on `ExternalCLITool.run` |
 | Unclear orchestrator supervisor–worker use | **Closed** — `cli_delegate_workers` + `run_as_worker` + ModelCaller `cli:*` |
 | Council/pr-review ignore CLIs by default | **Closed** — prefer available `cli:*` members; pr-review runs multi-CLI board |
-| No auto multi-CLI review | **Closed** — `cli_delegate_reviewers` (default true) + `superai review` / `advise` |
+| No auto multi-CLI review | **Closed** — `cli_delegate_reviewers` (default false; opt-in) + `superai review` / `advise` |
 | No advisor role | **Closed** — `advisor` role + gemini default_role=advisor |
 | Weak CLI args / PATH errors | **Closed** — alt templates, probe(), install_hint on miss |
 | Freeform review only | **Closed** — structured protocol v1 (verdict/findings/confidence) |
@@ -64,10 +64,12 @@ cli-run ──► ExternalCLITool (CLI layer)
 |-----|---------|---------|
 | `cli_delegate_workers` | `false` | Route worker/implementer steps to external CLIs |
 | `cli_delegate_preferred` | `null` | Preferred CLI name when delegating |
+| `cli_delegate_reviewers` | `false` | Opt-in multi-member board on orchestrator critic path |
 
 ```powershell
 superai config set cli_delegate_workers true
 superai config set cli_delegate_preferred aider
+superai config set cli_delegate_reviewers true   # critic uses review/advise board
 superai run "implement feature X" -v
 # or force: superai run "…" --model cli:claude
 ```

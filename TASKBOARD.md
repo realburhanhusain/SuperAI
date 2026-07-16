@@ -62,7 +62,7 @@
 
 - `[x]` `superai review` / `superai advise` structured board  
 - `[x]` Council + pr-review default to available `cli:*`  
-- `[x]` `cli_delegate_reviewers` (default true) for critic path  
+- `[x]` `cli_delegate_reviewers` (default false; opt-in) for critic path  
 - `[x]` `advisor` role + gemini/grok defaults  
 - `[x]` Alt args templates, probe, install_hint  
 - `[x]` Protocol v1: verdict / findings / confidence / merge

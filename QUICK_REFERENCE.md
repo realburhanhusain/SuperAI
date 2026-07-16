@@ -58,6 +58,7 @@ superai run "hello" --format json
 | Env `SUPERAI_MEMORY_BACKEND=faiss` | Optional FAISS offline index |
 | Env `SUPERAI_FAISS_INDEX=hnsw` | FAISS HNSW (when backend=faiss) |
 | `config set cli_delegate_workers true` | Orchestrator delegates worker steps to external CLIs |
+| `config set cli_delegate_reviewers true` | Orchestrator critic uses multi-member review board (opt-in) |
 | `run "…" --model cli:claude` | Force step execution via external CLI (integrated) |
 | `run "<task>"` | Orchestrated multi-step run |
 | `run … --resume ID` | Resume checkpoint |

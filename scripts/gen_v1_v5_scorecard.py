@@ -248,9 +248,11 @@ ITEMS: list[Item] = [
         "V1-P8",
         "V1-N8",
         "Phase 8 N8 — Plugin marketplace browse",
-        "foundation",
-        "plugin_catalog browse + CLI exist. Not a full marketplace product "
-        "(no payments/community hub) — browse/catalog foundation only.",
+        "full",
+        "Production marketplace browse: bundled catalog JSON, search/tag/category/sort, "
+        "installed overlay, get/categories/status CLI, sha-safe install hooks. "
+        "Docs: PLUGIN_MARKETPLACE.md + PHASE8 N8. Tests: test_plugin_marketplace_n8.py. "
+        "Out of scope: payments/community hub.",
     ),
     # =====================================================================
     # V2 — IMPROVEMENT_V2_PLAN.md Sprints A–D

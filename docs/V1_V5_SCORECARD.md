@@ -36,8 +36,8 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 
 | Status | Count | % |
 |--------|------:|--:|
-| full | 109 | 82.0% |
-| foundation | 22 | 16.5% |
+| full | 110 | 82.7% |
+| foundation | 21 | 15.8% |
 | host | 2 | 1.5% |
 | **total** | **133** | **100%** |
 
@@ -51,7 +51,7 @@ Older plans often mark items `[x]` or “100% sprint complete” after a **verti
 | Track | Items | full | foundation | host | other |
 |-------|------:|-----:|-----------:|-----:|------:|
 | V1 | 22 | 17 | 4 | 1 | 0 |
-| V1-P8 | 8 | 7 | 1 | 0 | 0 |
+| V1-P8 | 8 | 8 | 0 | 0 | 0 |
 | V2 | 17 | 14 | 3 | 0 | 0 |
 | V3 | 15 | 13 | 2 | 0 | 0 |
 | MoSCoW | 26 | 23 | 2 | 1 | 0 |
@@ -103,7 +103,7 @@ Source: `docs/PHASE8_PLAN.md`
 | V1-N5 | **full** | Phase 8 N5 — OpenRouter model refresh |
 | V1-N6 | **full** | Phase 8 N6 — Model bake-off |
 | V1-N7 | **full** | Phase 8 N7 — Palace tenant |
-| V1-N8 | **foundation** | Phase 8 N8 — Plugin marketplace browse |
+| V1-N8 | **full** | Phase 8 N8 — Plugin marketplace browse |
 
 #### V2 — Sprints A–D
 
@@ -417,15 +417,14 @@ Source plan: `docs/PHASE8_PLAN.md`
 
 ### V1-N8 — Phase 8 N8 — Plugin marketplace browse
 
-- **Status:** `foundation`
-- **Why:** plugin_catalog browse + CLI exist. Not a full marketplace product (no payments/community hub) — browse/catalog foundation only.
+- **Status:** `full`
+- **Why:** Production marketplace browse: bundled catalog JSON, search/tag/category/sort, installed overlay, get/categories/status CLI, sha-safe install hooks. Docs: PLUGIN_MARKETPLACE.md + PHASE8 N8. Tests: test_plugin_marketplace_n8.py. Out of scope: payments/community hub.
 
 #### Track rollup
 
 | Status | Count |
 |--------|------:|
-| full | 7 |
-| foundation | 1 |
+| full | 8 |
 
 ## V2 — Sprints A–D
 

@@ -13,9 +13,20 @@
 | N5 | OpenRouter model refresh | `[x]` | `model_catalog_refresh.py` · `models-refresh-openrouter` |
 | N6 | Model bake-off | `[x]` | `model_bakeoff.py` · `superai bakeoff` |
 | N7 | Palace tenant | `[x]` | `palace_tenant.py` · config `tenant_id` |
-| N8 | Plugin marketplace browse | `[x]` | `plugin_catalog.browse_catalog` · `plugin-catalog` |
+| N8 | Plugin marketplace browse | `[x]` **full** | `plugin_catalog` · bundled catalog JSON · `superai plugin-catalog` · `docs/PLUGIN_MARKETPLACE.md` · `tests/test_plugin_marketplace_n8.py` |
 
 **Progress: 8/8 = 100%** (full multi-agent TUI in `core.superai_agent`)
+
+### N8 detail (V1-N8 production browse)
+
+See **`docs/PLUGIN_MARKETPLACE.md`** for full documentation.
+
+- Offline bundled catalog: `src/core/data/plugin_marketplace_catalog.json`
+- Browse: search (`-q`), `--category`, `--tag`, `--sort`, `--limit`
+- `--show <id>`, `--categories`, `--status`
+- Installed overlay via `PluginRegistry`
+- Optional remote catalog URL + sha256 install hooks (M097)
+
 
 ## Usage
 

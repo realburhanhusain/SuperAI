@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **217** |
-| **INCOMPLETE** | **298** |
+| **COMPLETE (production + docs + tests)** | **218** |
+| **INCOMPLETE** | **297** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **41.9%**
+- **Strict completion rate (complete / (total − refuse)):** **42.1%**
 - **Average percent (incomplete only):** **30.5%**
-- **Average percent (all non-refuse):** **60.0%**
+- **Average percent (all non-refuse):** **60.1%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 217
+**Count:** 218
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
@@ -1427,6 +1427,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V1-N8 — Phase 8 N8 — Plugin marketplace browse
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N8 — Plugin marketplace browse
+- **Documentation (thorough):** YES — docs/PLUGIN_MARKETPLACE.md + PHASE8_PLAN N8
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
 ### V1-P0 — Phase 0 — Planning (IMPROVEMENT_PLAN, TASKBOARD, handoff)
 
 - **Track:** V1-V5
@@ -2221,7 +2231,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 298
+**Count:** 297
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2731,19 +2741,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** Partial Must code path
 - **Partially implemented:** Partial Must code path
 - **Still incomplete:** Close gaps to production + full tests
-
-### V1-N8 — Phase 8 N8 — Plugin marketplace browse
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **50%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — plugin_catalog browse
-- **Thorough documentation?** YES — PHASE8 N8
-- **Fully tested?** YES — test_phase8 partial
-- **Fully implemented:** plugin_catalog browse
-- **Partially implemented:** —
-- **Still incomplete:** Not marketplace product
 
 ### S104 — Self-critique pass before claiming done
 

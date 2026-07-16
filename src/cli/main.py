@@ -4560,37 +4560,65 @@ def skill_perms_cmd(
 @app.command("plugin-catalog")
 def plugin_catalog_cmd(
     url: Optional[str] = typer.Argument(
-        None, help="Remote catalog JSON URL (omit for bundled marketplace sample)"
+        None, help="Remote catalog JSON URL (omit for bundled marketplace)"
     ),
-    install_id: Optional[str] = typer.Option(None, "--install", help="Install entry id"),
+    install_id: Optional[str] = typer.Option(None, "--install", help="Install entry id (needs url)"),
     query: str = typer.Option("", "--query", "-q", help="Search plugins"),
+    category: str = typer.Option("", "--category", "-c", help="Filter by category"),
+    tag: str = typer.Option("", "--tag", "-t", help="Filter by tag"),
+    sort: str = typer.Option(
+        "name", "--sort", help="Sort: name|id|category|version|installed"
+    ),
+    limit: int = typer.Option(50, "--limit", "-n", help="Max results"),
+    show_id: Optional[str] = typer.Option(None, "--show", help="Show one plugin by id"),
+    categories: bool = typer.Option(False, "--categories", help="List categories"),
+    status: bool = typer.Option(False, "--status", help="Marketplace status summary"),
+    installed_only: bool = typer.Option(False, "--installed", help="Only installed"),
+    available_only: bool = typer.Option(False, "--available", help="Only not installed"),
 ):
-    """N23/N8: Browse plugin marketplace; optional install with sha256"""
+    """V1-N8: Browse plugin marketplace (offline bundled + optional remote)."""
     from core.plugin_catalog import (
         browse_catalog,
         fetch_catalog,
+        get_plugin,
         install_from_catalog_entry,
+        list_categories,
+        marketplace_status,
     )
 
-    if not url and not install_id:
-        console.print_json(data=browse_catalog(query=query))
+    if status:
+        console.print_json(data=marketplace_status())
         return
-    if not url:
-        console.print("[red]URL required for install[/red]")
-        raise typer.Exit(1)
-    cat = fetch_catalog(url)
-    if query:
-        console.print_json(data=browse_catalog(url, query=query))
+    if categories:
+        console.print_json(data=list_categories(url))
+        return
+    if show_id:
+        console.print_json(data=get_plugin(show_id, url=url))
         return
     if install_id:
+        if not url:
+            console.print("[red]URL required for --install (remote catalog entry)[/red]")
+            raise typer.Exit(1)
+        cat = fetch_catalog(url)
         entries = cat.get("plugins") or cat.get("entries") or []
         entry = next((e for e in entries if e.get("id") == install_id), None)
         if not entry:
-            console.print("[red]id not found[/red]")
+            console.print("[red]id not found in remote catalog[/red]")
             raise typer.Exit(1)
         console.print_json(data=install_from_catalog_entry(entry))
         return
-    console.print_json(data=cat)
+    console.print_json(
+        data=browse_catalog(
+            url,
+            query=query,
+            category=category,
+            tag=tag,
+            sort=sort,
+            limit=limit,
+            installed_only=installed_only,
+            available_only=available_only,
+        )
+    )
 
 
 @app.command("explain-run")

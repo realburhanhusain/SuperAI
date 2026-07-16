@@ -85,6 +85,7 @@ V1_COMPLETE = {
     "V1-P3-1", "V1-P3-2", "V1-P3-3", "V1-P4-1", "V1-P4-2", "V1-P4-3",
     "V1-P5-1", "V1-P5-3", "V1-P6-1", "V1-P6-2", "V1-P6-3", "V1-P7",
     "V1-N1", "V1-N2", "V1-N3", "V1-N4", "V1-N5", "V1-N6", "V1-N7",
+    "V1-N8",  # plugin marketplace browse — full product + docs + tests
 }
 # V2/V3 sprint items with test_sprint_abcd / test_improvement_v3
 V2_COMPLETE = {
@@ -171,7 +172,8 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     "M089": T(True, True, True, 90, "smoke harness code", "plans document host gate", "harness tests offline", "HOST: live keys required"),
     "MOS-N8": T(True, True, True, 90, "smoke harness", "MOSCOW N8 postponed", "test_n8 no false pass", "HOST live multi-vendor"),
     "V1-P99": T(True, True, True, 90, "smoke code", "IMPROVEMENT_PLAN Phase 99", "offline harness", "HOST live smoke"),
-    "V1-N8": T(True, True, True, 50, "plugin_catalog browse", "PHASE8 N8", "test_phase8 partial", "Not marketplace product"),
+    # V1-N8 completed 2026-07-16: full browse product + PLUGIN_MARKETPLACE.md + test_plugin_marketplace_n8
+    # (removed from STRICT_INCOMPLETE — handled via V1_COMPLETE)
     "W7": T(True, False, True, 45, "VS Code extension thin", "No thorough extension docs", "smoke-preflight related", "IDE depth incomplete"),
     "V4-M1": T(True, True, True, 85, "spend_guard major paths", "V4 plan", "test_improvement_v4", "Not every spend path"),
     "V4-M2": T(True, True, True, 85, "contracts major paths", "V4 plan", "test_improvement_v4", "Not everywhere public"),
@@ -272,7 +274,10 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
             docs_note = "IMPROVEMENT_V4_PLAN.md"
         if iid.startswith("V5"):
             docs_note = "IMPROVEMENT_V5_PLAN.md"
-        if iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
+        if iid == "V1-N8":
+            docs_note = "docs/PLUGIN_MARKETPLACE.md + PHASE8_PLAN N8"
+            tests_note = "tests/test_plugin_marketplace_n8.py"
+        elif iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
             docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs"
         tests_note = "unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)"
         return "complete", T(

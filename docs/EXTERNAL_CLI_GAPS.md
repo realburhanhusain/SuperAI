@@ -15,6 +15,30 @@
 | No advisor role | **Closed** — `advisor` role + gemini default_role=advisor |
 | Weak CLI args / PATH errors | **Closed** — alt templates, probe(), install_hint on miss |
 | Freeform review only | **Closed** — structured protocol v1 (verdict/findings/confidence) |
+| CLI-only boards (no API models) | **Closed** — unified `member_selection` + `superai members`; mix API+CLI |
+| No CLI inner model pick | **Closed** — `cli:name@MODEL`, `--cli-model` / `-M`, `model_flag` on specs |
+
+## Unified members (API + CLI)
+
+When provider API keys are configured (or mock mode), those registry models are
+selectable **alongside** PATH CLIs for review / advise / council.
+
+```text
+superai members --available
+superai review "auth design" -m gpt-4o,cli:gemini@gemini-2.5-pro,cli:grok
+superai advise "ship tonight?" --prefer mixed
+superai council "pick architecture" --models gpt-4o,cli:claude --prefer api
+superai cli-run gemini@gemini-2.5-flash "summarize this PR" --dry-run
+```
+
+| Selector | Meaning |
+|----------|---------|
+| `gpt-4o` | API model from registry (needs key / mock) |
+| `cli:gemini` | External CLI, default model |
+| `cli:gemini@MODEL` / `gemini@MODEL` | CLI + inner model (`model_flag`) |
+| `--prefer mixed\|cli\|api` | Auto-pick when `--members` / `--models` omitted |
+
+Module: `src/core/member_selection.py` · protocol `superai.multi_member_review.v2`
 
 ## Integration graph
 

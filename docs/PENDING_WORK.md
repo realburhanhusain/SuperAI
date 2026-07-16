@@ -28,6 +28,7 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | pgvector default | Chroma removed; SQLite cosine offline; FAISS opt-in |
 | Install wizard | `superai install`, host tools prompts, Postgres default Yes |
 | Semantic tests | Stricter Memory Palace query/delete asserts |
+| Unified members | API models + CLIs + inner models on review/advise/council |
 
 ## Not pending
 

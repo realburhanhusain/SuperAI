@@ -1401,12 +1401,20 @@ def term_jobs_cmd(
 
 @app.command("cli-run")
 def cli_run(
-    name: str = typer.Argument(..., help="External CLI name from discover"),
+    name: str = typer.Argument(
+        ..., help="External CLI name (gemini, grok, …) or cli:name@MODEL"
+    ),
     prompt: str = typer.Argument(..., help="Prompt/task for the CLI"),
     approve: bool = typer.Option(
         False, "--approve", help="Approve file-modifying actions this run"
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show command only"),
+    cli_model: Optional[str] = typer.Option(
+        None,
+        "--cli-model",
+        "-M",
+        help="Inner model for the CLI (e.g. gemini-2.5-pro). Also: name@model",
+    ),
     with_context: bool = typer.Option(
         True,
         "--context/--no-context",
@@ -1425,6 +1433,23 @@ def cli_run(
     cfg = Config()
     orig_prompt = prompt
     ctx_id = None
+    # Parse name@model / cli:name@model shorthand
+    run_name = name
+    run_model = cli_model
+    if run_name.startswith("cli:"):
+        run_name = run_name[4:]
+    if "@" in run_name and not run_model:
+        run_name, run_model = run_name.split("@", 1)
+    elif "/" in run_name and not run_model:
+        # gemini/MODEL only when left side is a known CLI (avoid eating paths)
+        left, right = run_name.split("/", 1)
+        try:
+            from core.external_cli import ExternalCLIRegistry
+
+            if ExternalCLIRegistry().get(left):
+                run_name, run_model = left, right
+        except Exception:
+            pass
     if with_context:
         ctx = inject_context(orig_prompt, prompt=orig_prompt, use_memory=True)
         prompt = ctx.get("prompt") or prompt
@@ -1437,7 +1462,12 @@ def cli_run(
     # If require_human_approval is False, auto-approve file-modifying CLIs
     auto = not cfg.require_human_approval
     tool = ExternalCLITool(dry_run=dry_run, auto_approve=auto)
-    result = tool.run(name, prompt, approve=True if auto else approve)
+    result = tool.run(
+        run_name,
+        prompt,
+        approve=True if auto else approve,
+        cli_model=run_model,
+    )
     data = result.to_dict()
     # Always write back into central Memory Palace (unless --no-memory)
     try:
@@ -1559,7 +1589,9 @@ def council(
         help="majority | supervisor | weighted (default from config)",
     ),
     models: Optional[str] = typer.Option(
-        None, "--models", help="Comma-separated council members"
+        None,
+        "--models",
+        help="Comma-separated members: gpt-4o,cli:gemini@MODEL,cli:grok (see superai members)",
     ),
     supervisor: Optional[str] = typer.Option(
         None, "--supervisor", help="Supervisor model (for supervisor voting)"
@@ -1568,8 +1600,13 @@ def council(
     document: Optional[List[str]] = typer.Option(
         None, "--document", "-d", help="Path to document to inject (repeatable)"
     ),
+    prefer: str = typer.Option(
+        "mixed",
+        "--prefer",
+        help="When --models omitted: mixed | cli | api",
+    ),
 ):
-    """Multi-model council with selectable voting (LLM Council inspired)"""
+    """Multi-model/CLI council with selectable voting (LLM Council inspired)"""
     from core.council import Council, VOTING_MODES
 
     cfg = Config()
@@ -1578,15 +1615,30 @@ def council(
         console.print(f"[red]Invalid voting mode. Use one of: {VOTING_MODES}[/red]")
         raise typer.Exit(code=1)
     model_list = [m.strip() for m in models.split(",")] if models else None
-    # Default: prefer available external CLIs as council members
-    if model_list is None and bool(cfg.get("council_prefer_clis", True)):
+    # Default: mixed available API models + external CLIs
+    if model_list is None:
         try:
-            from core.multi_cli_advisory import default_council_members
-            from core.model_registry import ModelRegistry
+            from core.member_selection import resolve_members
 
-            reg = ModelRegistry()
-            reg.register_external_clis_as_models()
-            model_list = default_council_members(3, prefer_clis=True, registry=reg)
+            specs = resolve_members(
+                None,
+                max_members=3,
+                prefer=prefer
+                if prefer in {"mixed", "cli", "api"}
+                else (
+                    "cli"
+                    if bool(cfg.get("council_prefer_clis", True))
+                    else "mixed"
+                ),
+                role="advisor",
+            )
+            # Council ModelCaller expects registry names; map cli:x@m → cli:x
+            model_list = []
+            for s in specs:
+                if s.kind == "cli":
+                    model_list.append(f"cli:{s.cli_name}")
+                else:
+                    model_list.append(s.id)
         except Exception:
             model_list = None
     sup = supervisor or cfg.default_supervisor
@@ -3681,33 +3733,62 @@ def pr_review_cmd(
     console.print_json(data=out)
 
 
+@app.command("members")
+def members_cmd(
+    only_available: bool = typer.Option(
+        False,
+        "--available",
+        help="Only show configured API models + CLIs on PATH",
+    ),
+):
+    """List selectable API models (with keys) and external AI CLIs for review/advise/council."""
+    from core.member_selection import list_selectable_members
+
+    data = list_selectable_members(only_available=only_available)
+    console.print_json(data=data)
+
+
 @app.command("review")
 def multi_review_cmd(
     subject: str = typer.Argument(..., help="What to review"),
-    clis: Optional[str] = typer.Option(
-        None, "--clis", help="Comma list e.g. grok,gemini,claude (default: auto)"
+    members: Optional[str] = typer.Option(
+        None,
+        "--members",
+        "-m",
+        help="Mixed members: gpt-4o,cli:gemini@MODEL,cli:grok (default: auto mixed)",
     ),
-    max_clis: int = typer.Option(3, "--max", help="Max CLIs on the board"),
+    clis: Optional[str] = typer.Option(
+        None, "--clis", help="CLI-only list (legacy); prefer --members"
+    ),
+    prefer: str = typer.Option(
+        "mixed",
+        "--prefer",
+        help="Auto-pick preference when members omitted: mixed | cli | api",
+    ),
+    max_clis: int = typer.Option(3, "--max", help="Max members on the board"),
     dry_run: bool = typer.Option(True, "--dry-run/--live"),
     approve: bool = typer.Option(True, "--approve/--no-approve"),
 ):
-    """Multi-CLI structured code/design review board (gap: always ask CLIs to review)."""
+    """Multi-member review board (API models + CLIs; structured verdict)."""
     from core.multi_cli_advisory import multi_cli_board
 
+    member_list = [c.strip() for c in members.split(",")] if members else None
     cli_list = [c.strip() for c in clis.split(",")] if clis else None
     out = multi_cli_board(
         subject,
         mode="review",
+        members=member_list,
         clis=cli_list,
         max_clis=max_clis,
         dry_run=dry_run,
         approve=approve,
+        prefer=prefer,
     )
     board = out.get("board") or {}
     console.print(
         Panel.fit(
-            f"[bold]Multi-CLI review[/bold]\n"
-            f"CLIs: {', '.join(out.get('clis') or [])}\n"
+            f"[bold]Multi-member review[/bold]\n"
+            f"Members: {', '.join(out.get('members') or [])}\n"
             f"Verdict: {board.get('verdict')}  conf={board.get('confidence')}\n"
             f"Tally: {board.get('tally')}",
             border_style="yellow",
@@ -3719,30 +3800,44 @@ def multi_review_cmd(
 @app.command("advise")
 def multi_advise_cmd(
     subject: str = typer.Argument(..., help="Question / decision for advisors"),
-    clis: Optional[str] = typer.Option(
-        None, "--clis", help="Comma list e.g. gemini,grok,claude (default: auto)"
+    members: Optional[str] = typer.Option(
+        None,
+        "--members",
+        "-m",
+        help="Mixed members: gpt-4o,cli:gemini@MODEL,cli:grok (default: auto mixed)",
     ),
-    max_clis: int = typer.Option(3, "--max", help="Max advisor CLIs"),
+    clis: Optional[str] = typer.Option(
+        None, "--clis", help="CLI-only list (legacy); prefer --members"
+    ),
+    prefer: str = typer.Option(
+        "mixed",
+        "--prefer",
+        help="Auto-pick preference when members omitted: mixed | cli | api",
+    ),
+    max_clis: int = typer.Option(3, "--max", help="Max advisors"),
     dry_run: bool = typer.Option(True, "--dry-run/--live"),
     approve: bool = typer.Option(True, "--approve/--no-approve"),
 ):
-    """Multi-CLI advisor board (CLIs act as advisors; structured opinions + merge)."""
+    """Multi-member advisor board (API models + CLIs)."""
     from core.multi_cli_advisory import multi_cli_board
 
+    member_list = [c.strip() for c in members.split(",")] if members else None
     cli_list = [c.strip() for c in clis.split(",")] if clis else None
     out = multi_cli_board(
         subject,
         mode="advise",
+        members=member_list,
         clis=cli_list,
         max_clis=max_clis,
         dry_run=dry_run,
         approve=approve,
+        prefer=prefer,
     )
     board = out.get("board") or {}
     console.print(
         Panel.fit(
-            f"[bold]Multi-CLI advisors[/bold]\n"
-            f"CLIs: {', '.join(out.get('clis') or [])}\n"
+            f"[bold]Multi-member advisors[/bold]\n"
+            f"Members: {', '.join(out.get('members') or [])}\n"
             f"Board: {board.get('verdict')}  conf={board.get('confidence')}",
             border_style="cyan",
         )

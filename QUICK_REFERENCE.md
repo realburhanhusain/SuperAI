@@ -35,7 +35,9 @@ superai run "hello" --format json
 | `install-postgres [--setup-only] [--live]` | Detect/install Postgres, create DB + vector, write `memory_dsn` |
 | `host-tools check\|install\|matrix [--profile core\|agentic\|cloud\|full]` | Host CLI checklist + optional install (not bundled) |
 | `scripts/bootstrap.ps1` / `bootstrap.sh` | pip + optional `-Interactive` / `--with-postgres` |
+| `cli-run NAME "…" [-M MODEL] · name@MODEL` | External CLI run; optional inner model (`--cli-model` / `@`) |
 | `cli-run` … `--context/--no-context` · `--memory/--no-memory` | Central Memory Palace inject + write-back (default on) |
+| `members [--available]` | List selectable API models (keys) + external CLIs |
 | Config `central_memory` / env `SUPERAI_CENTRAL_MEMORY` | Master switch for shared Memory Palace |
 | `run "task" --critic off\|light\|council` | Critic mode (default light) |
 | `run "task" --replan-approval` | HITL must approve recovery replan |
@@ -47,7 +49,9 @@ superai run "hello" --format json
 | `web` → `/palace` | Interactive Memory Palace browser |
 | `search-web "q" --provider duckduckgo` | Instant Answer API (no scrape) |
 | `github status\|issues\|prs\|issue-create\|pr\|comment` | GitHub product API / gh CLI |
-| `review "…"` / `advise "…"` | Multi-CLI structured review / advisor board |
+| `review "…" [-m gpt-4o,cli:gemini@MODEL] [--prefer mixed\|cli\|api]` | Multi-member review (API + CLI) |
+| `advise "…" [-m …] [--prefer mixed\|cli\|api]` | Multi-member advisor board (API + CLI) |
+| `council "…" [--models gpt-4o,cli:grok] [--prefer mixed\|cli\|api]` | Council with API models and/or CLIs |
 | `pr-review --use-clis` | Diff review with CLI board + council (default CLIs on) |
 | Env `SUPERAI_MEMORY_BACKEND=pgvector` | Default Memory Palace backend (Postgres+pgvector or SQLite cosine) |
 | Env `SUPERAI_MEMORY_DSN` | e.g. `postgresql+psycopg://user:pass@localhost/superai` |
@@ -95,7 +99,8 @@ superai run "hello" --format json
 
 | Command | Purpose |
 |---------|---------|
-| `council` / `delegate` / `roles` / `debate` | Multi-model |
+| `council` / `delegate` / `roles` / `debate` | Multi-model / multi-CLI |
+| Member syntax | `gpt-4o` · `cli:gemini` · `cli:gemini@MODEL` · `gemini@MODEL` |
 | `mcp-serve` | Local MCP server (stdio) — other AIs share Memory Palace |
 | `mcp-config [--write]` | Client config for Claude Desktop / Cursor / etc. |
 | `web` → `POST /mcp` · `/api/mcp/tools` | HTTP MCP + tool listing |

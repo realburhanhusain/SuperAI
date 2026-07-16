@@ -144,6 +144,7 @@ def run_cli_opinion(
     dry_run: bool = False,
     approve: bool = True,
     timeout_sec: float = 300.0,
+    cli_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run one CLI as reviewer/advisor with structured protocol."""
     from .external_cli import ExternalCLIRegistry, ExternalCLITool
@@ -154,6 +155,8 @@ def run_cli_opinion(
             "ok": False,
             "cli": cli,
             "role": role,
+            "kind": "cli",
+            "cli_model": cli_model,
             "error": f"CLI '{cli}' not on PATH",
             "hint": reg.install_hint(cli) if hasattr(reg, "install_hint") else None,
         }
@@ -175,10 +178,15 @@ def run_cli_opinion(
         source="multi_cli_advisory",
         task_type="review",
         write_memory=True,
+        cli_model=cli_model,
     )
     text = env.stdout or env.stderr or env.error or ""
-    opinion = parse_structured_opinion(text, cli=cli, role=role)
+    label = f"cli:{cli}" + (f"@{cli_model}" if cli_model else "")
+    opinion = parse_structured_opinion(text, cli=label, role=role)
     opinion["ok"] = bool(env.ok or tool.dry_run)
+    opinion["kind"] = "cli"
+    opinion["cli_model"] = cli_model
+    opinion["member_id"] = label
     opinion["dry_run"] = bool(tool.dry_run or env.metadata.get("dry_run"))
     opinion["exit_code"] = env.exit_code
     opinion["duration_sec"] = env.duration_sec
@@ -186,6 +194,91 @@ def run_cli_opinion(
     if env.error and not opinion.get("summary"):
         opinion["error"] = env.error
     return opinion
+
+
+def run_api_opinion(
+    model: str,
+    subject: str,
+    *,
+    role: str = "reviewer",
+    use_mock: Optional[bool] = None,
+    model_id_override: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run one API registry model as reviewer/advisor with structured protocol."""
+    from .model_caller import ModelCaller
+    from .model_registry import ModelRegistry
+
+    reg = ModelRegistry()
+    prompt = REVIEW_PROTOCOL_PROMPT.format(role=role, subject=subject[:12000])
+    if model_id_override:
+        prompt = (
+            f"(Use model variant/id hint: {model_id_override} if applicable.)\n" + prompt
+        )
+    if use_mock is None:
+        try:
+            from .config import Config
+
+            use_mock = bool(Config().use_mock)
+        except Exception:
+            use_mock = True
+    caller = ModelCaller(use_mock=bool(use_mock), registry=reg)
+    try:
+        raw = caller.call(model=model, prompt=prompt)
+        text = str(raw.get("response") or raw.get("error") or "")
+        ok = str(raw.get("status") or "success") != "error"
+        opinion = parse_structured_opinion(text, cli=model, role=role)
+        opinion["ok"] = ok
+        opinion["kind"] = "api"
+        opinion["member_id"] = model
+        opinion["model"] = model
+        opinion["model_id"] = model_id_override
+        opinion["mock"] = bool(raw.get("mock"))
+        opinion["provider"] = (reg.get_model(model).provider if reg.get_model(model) else None)
+        return opinion
+    except Exception as e:  # noqa: BLE001
+        return {
+            "ok": False,
+            "kind": "api",
+            "member_id": model,
+            "cli": model,
+            "role": role,
+            "error": str(e)[:400],
+            "verdict": "advise",
+            "confidence": 0.0,
+            "summary": "",
+            "findings": [],
+        }
+
+
+def run_member_opinion(
+    member_raw: str,
+    subject: str,
+    *,
+    role: str = "reviewer",
+    dry_run: bool = False,
+    approve: bool = True,
+    use_mock: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Run API or CLI member (unified)."""
+    from .member_selection import parse_member_spec
+
+    spec = parse_member_spec(member_raw)
+    if spec.kind == "cli":
+        return run_cli_opinion(
+            spec.cli_name or "",
+            subject,
+            role=role,
+            dry_run=dry_run,
+            approve=approve,
+            cli_model=spec.model_id,
+        )
+    return run_api_opinion(
+        spec.id,
+        subject,
+        role=role,
+        use_mock=use_mock if use_mock is not None else dry_run,
+        model_id_override=spec.model_id,
+    )
 
 
 def merge_board(opinions: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -224,7 +317,8 @@ def merge_board(opinions: List[Dict[str, Any]]) -> Dict[str, Any]:
     for o in usable:
         for f in o.get("findings") or []:
             ff = dict(f)
-            ff["from_cli"] = o.get("cli")
+            ff["from_cli"] = o.get("cli") or o.get("member_id")
+            ff["from_member"] = o.get("member_id") or o.get("cli")
             findings.append(ff)
     # de-dupe by title
     seen = set()
@@ -237,7 +331,8 @@ def merge_board(opinions: List[Dict[str, Any]]) -> Dict[str, Any]:
         uniq.append(f)
 
     summaries = [
-        f"- {o.get('cli')} ({o.get('role')}/{o.get('verdict')}): {str(o.get('summary') or '')[:300]}"
+        f"- {o.get('member_id') or o.get('cli')} ({o.get('kind') or '?'}/{o.get('role')}/{o.get('verdict')}): "
+        f"{str(o.get('summary') or '')[:300]}"
         for o in usable
     ]
     board_summary = (
@@ -254,7 +349,7 @@ def merge_board(opinions: List[Dict[str, Any]]) -> Dict[str, Any]:
         "severity_hint": severity_rank.get(winner, 0),
         "findings": uniq[:40],
         "summary": board_summary,
-        "members": [o.get("cli") for o in usable],
+        "members": [o.get("member_id") or o.get("cli") for o in usable],
     }
 
 
@@ -263,48 +358,80 @@ def multi_cli_board(
     *,
     mode: str = "review",  # review | advise
     clis: Optional[Sequence[str]] = None,
+    members: Optional[Sequence[str]] = None,
     max_clis: int = 3,
     dry_run: bool = False,
     approve: bool = True,
     write_memory: bool = True,
+    prefer: str = "mixed",  # mixed | cli | api
 ) -> Dict[str, Any]:
     """
-    Full multi-CLI advisory/review board.
+    Full multi-member advisory/review board (API models + external CLIs).
 
     mode=review → role reviewer
     mode=advise → role advisor
+
+    members: unified selectors e.g. gpt-4o,cli:gemini@MODEL,cli:grok
+    clis: legacy CLI-only list (still supported)
     """
     role = "reviewer" if (mode or "review").lower().startswith("rev") else "advisor"
-    chosen = list(clis) if clis else pick_advisory_clis(role=role, max_clis=max_clis)
-    if not chosen:
+
+    # Build member list: explicit members > clis > auto mixed
+    raw: List[str] = []
+    if members:
+        raw = [str(m).strip() for m in members if str(m).strip()]
+    elif clis:
+        raw = [
+            (c if str(c).startswith("cli:") else f"cli:{c}")
+            for c in clis
+            if str(c).strip()
+        ]
+    else:
+        try:
+            from .member_selection import resolve_members
+
+            specs = resolve_members(
+                None, max_members=max_clis, prefer=prefer, role=role
+            )
+            raw = [s.id for s in specs]
+        except Exception:
+            raw = [f"cli:{c}" for c in pick_advisory_clis(role=role, max_clis=max_clis)]
+
+    if not raw:
         return {
             "ok": False,
-            "error": "No external AI CLIs available on PATH",
-            "hint": "Install gemini/grok/claude/codex or run: superai install --host-tools-profile agentic",
+            "error": "No selectable API models or external CLIs available",
+            "hint": (
+                "Configure provider API keys and/or install gemini/grok/claude/codex. "
+                "List options: superai members"
+            ),
             "mode": mode,
             "opinions": [],
             "board": merge_board([]),
         }
 
     opinions = [
-        run_cli_opinion(
-            c,
+        run_member_opinion(
+            m,
             subject,
             role=role,
             dry_run=dry_run,
             approve=approve,
+            use_mock=dry_run,
         )
-        for c in chosen
+        for m in raw[: max(1, max_clis)]
     ]
     board = merge_board(opinions)
     result: Dict[str, Any] = {
         "ok": True,
         "mode": mode,
         "role": role,
-        "clis": chosen,
+        "members": raw[: max(1, max_clis)],
+        "clis": [m for m in raw if str(m).startswith("cli:") or "@" in str(m)],
         "opinions": opinions,
         "board": board,
-        "protocol": "superai.multi_cli_review.v1",
+        "protocol": "superai.multi_member_review.v2",
+        "prefer": prefer,
     }
 
     if write_memory:
@@ -314,7 +441,7 @@ def multi_cli_board(
             result["memory_write"] = write_back(
                 task=subject[:500],
                 source="multi_cli_advisory",
-                model_or_cli=f"board:{','.join(chosen)}",
+                model_or_cli=f"board:{','.join(raw[:8])}",
                 success=True,
                 output=str(board.get("summary") or "")[:2500],
                 task_type="review",
@@ -322,7 +449,7 @@ def multi_cli_board(
                 metadata={
                     "verdict": board.get("verdict"),
                     "tally": board.get("tally"),
-                    "clis": chosen,
+                    "members": raw[: max(1, max_clis)],
                 },
             )
         except Exception as e:  # noqa: BLE001
@@ -335,7 +462,7 @@ def multi_cli_board(
             "multi_cli_advisory",
             {
                 "mode": mode,
-                "clis": chosen,
+                "members": raw[: max(1, max_clis)],
                 "verdict": board.get("verdict"),
                 "dry_run": dry_run,
             },

@@ -46,6 +46,8 @@ class ExternalCLISpec:
     # Optional alternate argv templates tried if primary fails validation
     alt_args_templates: List[List[str]] = field(default_factory=list)
     install_hint: str = ""
+    # How to pass an inner model id (placeholder {model} in templates)
+    model_flag: Optional[List[str]] = None  # e.g. ["--model", "{model}"]
 
 
 @dataclass
@@ -78,6 +80,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         description="Claude Code CLI",
         default_role="implementer",
         install_hint="Install Claude Code CLI and ensure `claude` is on PATH",
+        model_flag=["--model", "{model}"],
     ),
     ExternalCLISpec(
         name="aider",
@@ -89,6 +92,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         description="Aider coding agent",
         default_role="implementer",
         install_hint="pip install aider-chat",
+        model_flag=["--model", "{model}"],
     ),
     ExternalCLISpec(
         name="cursor",
@@ -100,6 +104,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         description="Cursor agent CLI (if available)",
         default_role="implementer",
         install_hint="Install Cursor IDE / agent CLI",
+        model_flag=["--model", "{model}"],
     ),
     ExternalCLISpec(
         name="grok",
@@ -111,6 +116,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         description="Grok CLI (strong reviewer/advisor)",
         default_role="reviewer",
         install_hint="Install Grok CLI and ensure `grok` is on PATH",
+        model_flag=["--model", "{model}"],
     ),
     ExternalCLISpec(
         name="gemini",
@@ -122,6 +128,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         description="Gemini CLI (worker/advisor)",
         default_role="advisor",
         install_hint="Install Google Gemini CLI; ensure `gemini` is on PATH",
+        model_flag=["-m", "{model}"],
     ),
     ExternalCLISpec(
         name="codex",
@@ -133,6 +140,7 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
         description="OpenAI Codex CLI",
         default_role="implementer",
         install_hint="npm i -g @openai/codex  (or install OpenAI Codex CLI)",
+        model_flag=["--model", "{model}"],
     ),
     ExternalCLISpec(
         name="continue",
@@ -305,13 +313,24 @@ class ExternalCLITool:
         source: str = "external_cli",
         task_id: Optional[str] = None,
         step_id: Optional[int] = None,
+        cli_model: Optional[str] = None,
     ) -> CLIResultEnvelope:
         """
         Run external CLI. By default injects SuperAI context and writes results
         into central Memory Palace + learning history.
+
+        cli_model: optional inner model id for CLIs that support model_flag
+                   (also via args_template placeholder {model}).
         """
         use_ctx = self.with_context if with_context is None else bool(with_context)
         use_mem = self.write_memory if write_memory is None else bool(write_memory)
+
+        # Allow cli:name@model shorthand
+        if "@" in cli_name and not self.registry.get(cli_name):
+            base, maybe_model = cli_name.split("@", 1)
+            if self.registry.get(base):
+                cli_name = base
+                cli_model = cli_model or maybe_model
 
         spec = self.registry.get(cli_name)
         if not spec:
@@ -431,7 +450,18 @@ class ExternalCLITool:
         )
         if not templates or not templates[0]:
             templates = [["{prompt}"]]
-        args = [a.replace("{prompt}", prompt) for a in templates[0]]
+        model_val = (cli_model or "").strip()
+        args = []
+        for a in templates[0]:
+            a2 = a.replace("{prompt}", prompt)
+            if "{model}" in a2:
+                a2 = a2.replace("{model}", model_val or "default")
+            args.append(a2)
+        # Inject model flag if requested and not already in template
+        if model_val and spec.model_flag and "{model}" not in " ".join(templates[0]):
+            flag = [x.replace("{model}", model_val) for x in spec.model_flag]
+            # insert after command base (front of args)
+            args = flag + args
         cmd = [resolved, *args]
         meta: Dict[str, Any] = {
             "source": source,
@@ -446,6 +476,7 @@ class ExternalCLITool:
             "integrated": True,
             "args_template_used": templates[0],
             "alt_templates_available": max(0, len(templates) - 1),
+            "cli_model": model_val or None,
         }
 
         if self.dry_run:

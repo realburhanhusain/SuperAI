@@ -74,9 +74,13 @@ def test_multi_cli_board_dry_run(tmp_path: Path, monkeypatch):
     )
     assert out.get("ok") is True
     assert out.get("role") == "advisor"
-    assert out.get("protocol") == "superai.multi_cli_review.v1"
+    assert out.get("protocol") in {
+        "superai.multi_cli_review.v1",
+        "superai.multi_member_review.v2",
+    }
     assert out.get("board", {}).get("verdict")
     assert len(out.get("opinions") or []) >= 1
+    assert out.get("members")
 
 
 def test_default_council_members_prefer_cli_prefix():
@@ -92,6 +96,26 @@ def test_probe_and_install_hint():
     assert "available" in p
     assert "install_hint" in p
     assert "codex" in reg.install_hint("codex").lower() or "PATH" in reg.install_hint("codex")
+
+
+def test_multi_member_board_mixed_api_cli(tmp_path: Path, monkeypatch):
+    """Configured API models + CLIs can sit on the same board."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    (tmp_path / ".superai").mkdir(parents=True)
+    monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
+    monkeypatch.setenv("SUPERAI_MOCK_MODE", "1")
+    out = multi_cli_board(
+        "Is rate limiting enough for this public API?",
+        mode="review",
+        members=["gpt-4o", "cli:gemini@flash"],
+        dry_run=True,
+        approve=True,
+    )
+    assert out.get("ok") is True
+    assert "gpt-4o" in (out.get("members") or [])
+    kinds = {o.get("kind") for o in (out.get("opinions") or [])}
+    assert "api" in kinds
+    assert "cli" in kinds
 
 
 def test_pr_review_uses_cli_board(tmp_path: Path, monkeypatch):

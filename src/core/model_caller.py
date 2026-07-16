@@ -601,6 +601,20 @@ class ModelCaller:
         return model
 
     def _estimate_cost(self, model: str, total_tokens: int) -> float:
+        # V5 M4: shared cost_accounting (registry rates + heuristics)
+        try:
+            from .cost_accounting import from_usage
+
+            return float(
+                from_usage(
+                    model,
+                    total_tokens=int(total_tokens or 0),
+                    registry=self.registry,
+                ).get("estimated_cost_usd")
+                or 0.0
+            )
+        except Exception:
+            pass
         if not self.registry or total_tokens <= 0:
             return 0.0
         info = self.registry.get_model(model)

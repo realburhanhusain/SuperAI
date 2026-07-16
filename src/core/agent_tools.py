@@ -68,11 +68,27 @@ def tool_read(path: str, max_chars: int = 20000) -> Dict[str, Any]:
 
 def tool_write(path: str, content: str, *, dry_run: bool = False) -> Dict[str, Any]:
     p = _safe(path)
+    data = content if isinstance(content, str) else str(content)
+    # V5 M6: idempotent write — skip if unchanged
+    if p.is_file():
+        try:
+            existing = p.read_text(encoding="utf-8", errors="replace")
+            if existing == data:
+                return {
+                    "ok": True,
+                    "path": str(p),
+                    "bytes": len(data.encode("utf-8")),
+                    "unchanged": True,
+                    "skipped": True,
+                    "dry_run": bool(dry_run),
+                }
+        except Exception:
+            pass
     if dry_run:
-        return {"ok": True, "dry_run": True, "path": str(p), "bytes": len(content.encode())}
+        return {"ok": True, "dry_run": True, "path": str(p), "bytes": len(data.encode("utf-8"))}
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
-    return {"ok": True, "path": str(p), "bytes": len(content.encode())}
+    p.write_text(data, encoding="utf-8")
+    return {"ok": True, "path": str(p), "bytes": len(data.encode("utf-8")), "unchanged": False}
 
 
 def tool_glob(pattern: str, limit: int = 50) -> Dict[str, Any]:

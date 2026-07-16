@@ -530,6 +530,8 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
 
         from .config import Config
         from .orchestrator import SuperAIOrchestrator
+        from .public_api import wrap_public_result
+        from .spend_guard import budget_precheck
 
         task = str(args.get("task") or "")
         if not task.strip():
@@ -544,14 +546,22 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
                 "true",
                 "yes",
             }:
-                return {
-                    "ok": False,
-                    "error": (
-                        "superai_run live requires SUPERAI_MCP_ALLOW_LIVE=1 "
-                        "(and live=true). Default is mock."
-                    ),
-                    "mock": True,
-                }
+                return wrap_public_result(
+                    {
+                        "ok": False,
+                        "error": (
+                            "superai_run live requires SUPERAI_MCP_ALLOW_LIVE=1 "
+                            "(and live=true). Default is mock."
+                        ),
+                        "mock": True,
+                    },
+                    mock=True,
+                    ok=False,
+                    record_spend=False,
+                )
+            block = budget_precheck(estimated_usd=0.2, tokens=1000)
+            if block.get("blocked"):
+                return block
             use_mock = False
         cfg.config["mock_mode"] = use_mock
         cfg.config["use_mock"] = use_mock
@@ -560,7 +570,16 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
         if isinstance(result, dict):
             result.setdefault("mock", use_mock)
             result.setdefault("live", live and not use_mock)
-        return result
+            return wrap_public_result(
+                result,
+                mock=use_mock,
+                ok=bool(result.get("ok", result.get("status") != "error")),
+            )
+        return wrap_public_result(
+            {"ok": True, "result": result, "mock": use_mock},
+            mock=use_mock,
+            ok=True,
+        )
 
     if name == "superai_ask_session":
         from .ask_session import AskSessionStore

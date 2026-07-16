@@ -102,15 +102,19 @@ class AgentRuntime:
         max_seconds: Optional[float] = None,
         change_set: Any = None,
         stage_writes: bool = False,
+        cancel_token: Any = None,
     ) -> RunResult:
         import time
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
+        from ..cancel_token import CancelToken, set_current
         from ..run_trail import append_event, new_run_id
         from ..result_contract import apply_contract
 
         t0 = time.time()
         run_id = new_run_id()
+        token = cancel_token or CancelToken()
+        set_current(token)
         bus = get_progress_bus()
         if session is None:
             if session_id:
@@ -249,6 +253,10 @@ class AgentRuntime:
         deadline = t0 + float(max_seconds) if max_seconds else None
 
         for round_i in range(max(1, rounds)):
+            if token.is_cancelled():
+                status = "cancelled"
+                final_text = final_text or "cancelled"
+                break
             if deadline and time.time() > deadline:
                 status = "partial"
                 final_text = final_text or "timeout: partial result"
@@ -303,6 +311,27 @@ class AgentRuntime:
             if not calls:
                 final_text = text
                 parts.append({"type": "text", "text": text})
+                # V5 S2: adaptive escalate once if empty/error and not already premium
+                weak = (not text.strip()) or str(call.get("status")) == "error"
+                if weak and not self.use_mock and mid not in {
+                    "gpt-4o",
+                    "claude-4-sonnet",
+                    "claude-4-opus",
+                }:
+                    premium = "gpt-4o"
+                    append_event(run_id, "escalate", detail=f"{mid}->{premium}")
+                    call2 = self._call_model(premium, prompt, system)
+                    text2 = str(call2.get("response") or "")
+                    if text2.strip():
+                        mid = premium
+                        final_text = text2
+                        total_tokens += int(
+                            (call2.get("usage") or {}).get("total_tokens")
+                            or call2.get("tokens")
+                            or 0
+                        )
+                        total_cost += float(call2.get("estimated_cost_usd") or 0)
+                        parts.append({"type": "text", "text": text2, "escalated": True})
                 break
 
             tool_rounds += 1
@@ -498,6 +527,18 @@ class AgentRuntime:
         if change_set is not None:
             raw["change_set"] = change_set.summary()
 
+        # V5 M4 recompute cost from tokens when missing
+        if total_cost <= 0 and total_tokens > 0:
+            try:
+                from ..cost_accounting import from_usage
+
+                total_cost = float(
+                    from_usage(mid, total_tokens=total_tokens).get("estimated_cost_usd")
+                    or 0
+                )
+            except Exception:
+                pass
+
         result = RunResult(
             ok=status in {"success", "partial"},
             response=final_text,
@@ -516,8 +557,31 @@ class AgentRuntime:
         d = result.to_dict()
         d["status"] = status if status != "success" else d.get("status")
         d["run_id"] = run_id
-        apply_contract(d, mock=mock, ok=result.ok)
+        if status == "cancelled":
+            d["ok"] = False
+            d["status"] = "cancelled"
+            try:
+                from ..error_codes import set_error_code
+
+                set_error_code(d, "cancelled", message="cancelled")
+            except Exception:
+                pass
+        elif status == "partial":
+            try:
+                from ..error_codes import set_error_code
+
+                set_error_code(d, "timeout", message="partial_timeout")
+            except Exception:
+                pass
+        apply_contract(d, mock=mock, ok=result.ok and status != "cancelled")
         result.raw["contracted"] = d
+        try:
+            from ..result_cache import put as cache_put
+
+            cache_put("agent", user_text, d, agent=role.id, model=mid)
+        except Exception:
+            pass
+        set_current(None)
         return result
 
     def _history_text(self, session: SessionState, max_msgs: int = 12) -> str:

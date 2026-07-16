@@ -4553,6 +4553,74 @@ def plugin_catalog_cmd(
     console.print_json(data=cat)
 
 
+@app.command("explain-run")
+def explain_run_cmd(
+    run_id: str = typer.Argument(..., help="run-… id from agent/trail"),
+    limit: int = typer.Option(50, "--limit"),
+):
+    """V5 S3: Explain a run_id (trail events + cost hints)."""
+    from core.run_trail import recent_for_run
+    from core.spend_guard import ensure_public_result
+
+    rows = recent_for_run(run_id, limit=limit)
+    console.print_json(
+        data=ensure_public_result(
+            {
+                "ok": True,
+                "run_id": run_id,
+                "events": rows,
+                "count": len(rows),
+            },
+            mock=False,
+            ok=True,
+        )
+    )
+
+
+@app.command("progress")
+def progress_cmd(limit: int = typer.Option(20, "--limit")):
+    """V5 S10: Recent progress bus + last trail lines."""
+    from core.progress_events import get_progress_bus
+    from pathlib import Path
+    import json
+
+    bus = get_progress_bus()
+    events = []
+    if hasattr(bus, "recent"):
+        events = bus.recent(limit)
+    elif hasattr(bus, "history"):
+        events = list(bus.history)[-limit:]
+    trail = []
+    p = Path.home() / ".superai" / "run_trails.jsonl"
+    if p.is_file():
+        try:
+            for line in p.read_text(encoding="utf-8").splitlines()[-limit:]:
+                trail.append(json.loads(line))
+        except Exception:
+            pass
+    console.print_json(
+        data={"ok": True, "progress_events": events, "trail_tail": trail}
+    )
+
+
+@app.command("profile-suggest")
+def profile_suggest_cmd():
+    """V5 S5: Suggest cheap/local-only/balanced from today's spend."""
+    from core.profile_suggest import suggest_profile
+
+    console.print_json(data=suggest_profile())
+
+
+@app.command("eval-golden")
+def eval_golden_cmd(
+    live: bool = typer.Option(False, "--live"),
+):
+    """V5 M8: Offline golden eval set (mock by default)."""
+    from core.eval_golden import run_golden
+
+    console.print_json(data=run_golden(use_mock=not live))
+
+
 @app.command("do")
 def do_cmd(
     task: str = typer.Argument(..., help="Task — routed by front-door policy"),

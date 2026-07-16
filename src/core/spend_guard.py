@@ -50,15 +50,17 @@ def ensure_public_result(
     ok: Optional[bool] = None,
     members: Optional[list] = None,
 ) -> Dict[str, Any]:
-    """Normalize any public API dict with result_contract."""
+    """Normalize any public API dict with result_contract + error taxonomy."""
+    from .error_codes import apply_error_taxonomy
     from .result_contract import apply_contract
 
     if not isinstance(result, dict):
         result = {"payload": result, "ok": True}
-    return apply_contract(
+    out = apply_contract(
         result,
         mock=mock,
         dry_run=dry_run,
         ok=ok,
         members=members,
     )
+    return apply_error_taxonomy(out)

@@ -536,28 +536,68 @@ def multi_cli_board(
         return op
 
     opinions: List[Dict[str, Any]] = []
-    workers = min(4, max(1, len(raw)))
-    if workers == 1:
-        opinions = [_one(m) for m in raw]
+    early_exit = False
+    # V5 S7: sequential first-2 consensus early-exit when >2 members (saves cost)
+    if len(raw) > 2:
+        opinions.append(_one(raw[0]))
+        if len(raw) > 1:
+            opinions.append(_one(raw[1]))
+        v0 = str((opinions[0] or {}).get("verdict") or "").lower()
+        v1 = str((opinions[1] or {}).get("verdict") or "").lower() if len(opinions) > 1 else ""
+        if (
+            v0
+            and v1
+            and v0 == v1
+            and opinions[0].get("ok")
+            and opinions[1].get("ok")
+        ):
+            early_exit = True
+            _prog(f"board_early_exit:consensus:{v0}")
+        else:
+            rest = raw[2:]
+            workers = min(4, max(1, len(rest)))
+            if rest:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    futs = {pool.submit(_one, m): m for m in rest}
+                    by_m = {}
+                    for fut in as_completed(futs):
+                        m = futs[fut]
+                        try:
+                            by_m[m] = fut.result()
+                        except Exception as e:
+                            by_m[m] = {
+                                "ok": False,
+                                "member_id": m,
+                                "cli": m,
+                                "verdict": "advise",
+                                "error": str(e)[:200],
+                            }
+                    opinions.extend([by_m[m] for m in rest if m in by_m])
     else:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futs = {pool.submit(_one, m): m for m in raw}
-            # preserve input order
-            by_m = {}
-            for fut in as_completed(futs):
-                m = futs[fut]
-                try:
-                    by_m[m] = fut.result()
-                except Exception as e:
-                    by_m[m] = {
-                        "ok": False,
-                        "member_id": m,
-                        "cli": m,
-                        "verdict": "advise",
-                        "error": str(e)[:200],
-                    }
-            opinions = [by_m[m] for m in raw if m in by_m]
+        workers = min(4, max(1, len(raw)))
+        if workers == 1:
+            opinions = [_one(m) for m in raw]
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futs = {pool.submit(_one, m): m for m in raw}
+                by_m = {}
+                for fut in as_completed(futs):
+                    m = futs[fut]
+                    try:
+                        by_m[m] = fut.result()
+                    except Exception as e:
+                        by_m[m] = {
+                            "ok": False,
+                            "member_id": m,
+                            "cli": m,
+                            "verdict": "advise",
+                            "error": str(e)[:200],
+                        }
+                opinions = [by_m[m] for m in raw if m in by_m]
     board = merge_board(opinions)
+    if early_exit:
+        board["early_exit"] = True
+        board["members_skipped"] = max(0, len(raw) - len(opinions))
     # Cost/token rollup from opinions (mock estimates when dry_run)
     tokens = 0
     cost = 0.0

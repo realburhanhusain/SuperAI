@@ -1484,127 +1484,40 @@ def _section(
 
 
 
-# --- Foundation lift (2026-07-16): raise remaining foundation → full ---
-FOUNDATION_LIFT = {
-    "M001": ("full", 'Universal ModelCaller.call lifecycle runs budget_precheck on every spend path; boards/MCP/HTTP already guarded. Raised foundation→full.'),
-    "M002": ("full", 'post_call attaches cost_accounting.from_usage (or estimate) + budget_record on every ModelCaller result. Raised full.'),
-    "M003": ("full", 'board_preflight.estimate_board + enforce_or_allow wired into multi_cli_advisory; CLI board-preflight. Raised full.'),
-    "M008": ("full", 'ensure_public_result/wrap_public_result on major paths + contract_registry top-30 smoke. Raised full.'),
-    "M012": ("full", 'secrets.redact + logging Filter on all handlers redacts secrets. Raised full.'),
-    "M015": ("full", 'injection_defense scan/sanitize on tool_protocol.run_tool_calls. Raised full.'),
-    "M017": ("full", 'CancelToken checked in call_lifecycle pre_call, stream chunks, and multi_cli board workers. Raised full.'),
-    "M018": ("full", 'tool_timeouts + stream timeout; model timeout applied on OpenAI stream path. Raised full.'),
-    "M027": ("full", 'call_stream real SSE when available + cancel between chunks + fallback. Raised full.'),
-    "M029": ("full", 'session_compact preserves decisions + open todos before truncating. Raised full.'),
-    "M050": ("full", 'bandit_router select reorders models_to_try; post_call updates every outcome. Raised full.'),
-    "M061": ("full", 'LearningEngine.promote_durable implemented + tested path. Raised full.'),
-    "M062": ("full", 'resolve_conflicts multi-factor scoring already present; promote/deprecate complete. Raised full.'),
-    "M063": ("full", 'distill_knowledge + deprecate_memory complete lifecycle. Raised full.'),
-    "M067": ("full", 'TaskHistory.search by task/model/cost + history-search CLI. Raised full.'),
-    "M068": ("full", 'preferences.bias_candidates + preferred model sticky in ModelCaller. Raised full.'),
-    "M079": ("full", 'JSON output default on automation commands + wrap_public_result. Raised full.'),
-    "M080": ("full", 'exit_codes.from_result taxonomy complete for contracts. Raised full.'),
-    "M081": ("full", 'Typer help + new command help strings for foundation CLIs. Raised full.'),
-    "M082": ("full", 'typer add_completion=True enabled globally. Raised full.'),
-    "M090": ("full", 'contract_registry.smoke_contracts_offline + top 30 command list + contract-smoke CLI. Raised full.'),
-    "M092": ("full", 'mock_fixtures deterministic CI fixtures module. Raised full.'),
-    "M093": ("full", 'mcp_safety_parity documents budget/contract/permission on MCP paths; superai_run guarded. Raised full.'),
-    "M094": ("full", 'web_app requires SUPERAI_WEB_TOKEN for non-loopback /api. Raised full.'),
-    "M099": ("full", 'docs/THREAT_MODEL.md + architecture/quickstart present. Raised full.'),
-    "M100": ("full", 'dashboard_honesty + status --cost mock_vs_live labels. Raised full.'),
-    "S103": ("full", 'architecture_mode.resolve_mode + mode CLI. Raised full.'),
-    "S105": ("full", 'quality_gates.discover_tests + detect_and_run auto discovery. Raised full.'),
-    "S106": ("full", 'quality_gates runs ruff/mypy when installed post-edit. Raised full.'),
-    "S109": ("full", 'ci_why log triage product path complete. Raised full.'),
-    "S110": ("full", 'pr_review file-level findings path complete. Raised full.'),
-    "S114": ("full", 'foundation_modules.security_scan_text secret/vuln hooks. Raised full.'),
-    "S116": ("full", 'suggest_commit_message branch/commit helpers. Raised full.'),
-    "S119": ("full", 'multimodal vision path production-usable. Raised full.'),
-    "S121": ("full", 'browser_tool optional Playwright path complete for intent. Raised full.'),
-    "S123": ("full", 'databao SQL allowlist path complete for intent. Raised full.'),
-    "S124": ("full", 'ci_why log triage covers stack traces. Raised full.'),
-    "S128": ("full", 'local_first + escalate pattern productized. Raised full.'),
-    "S130": ("full", 'adaptive_escalate quality_failed + agent runtime escalate. Raised full.'),
-    "S131": ("full", 'project_budget policies + CLI. Raised full.'),
-    "S133": ("full", 'board_preflight/cost_forecast before boards. Raised full.'),
-    "S134": ("full", 'spend_report daily/weekly. Raised full.'),
-    "S135": ("full", 'status --cost cache_hit_rate from spend_report. Raised full.'),
-    "S138": ("full", 'front_door + cheap-first + preferences cheap_mode. Raised full.'),
-    "S140": ("full", 'step_cache/path mtime tool cache. Raised full.'),
-    "S143": ("full", 'lazy imports on heavy paths. Raised full.'),
-    "S147": ("full", 'cancel on stream + call lifecycle. Raised full.'),
-    "S149": ("full", 'preferences sticky cheap/preferred model. Raised full.'),
-    "S150": ("full", 'ab_report experiments. Raised full.'),
-    "S154": ("full", 'enforce_json_mode for tools. Raised full.'),
-    "S155": ("full", 'validate_json_output + retry flag. Raised full.'),
-    "S156": ("full", 'OpenAI-compat + native catalog paths. Raised full.'),
-    "S159": ("full", 'container_sandbox flag complete for intent. Raised full.'),
-    "S160": ("full", 'net_safety public-only. Raised full.'),
-    "S164": ("full", 'model_pinning + bakeoff pin. Raised full.'),
-    "S166": ("full", 'doctor/readiness UX. Raised full.'),
-    "S168": ("full", 'openrouter catalog + refresh. Raised full.'),
-    "S169": ("full", 'NVIDIA NIM catalog path. Raised full.'),
-    "S174": ("full", 'memory-palace search CLI. Raised full.'),
-    "S179": ("full", 'recipes templates. Raised full.'),
-    "S180": ("full", 'msg-inbound path. Raised full.'),
-    "S181": ("full", 'goals notify on done. Raised full.'),
-    "S183": ("full", 'export_audit compliance export. Raised full.'),
-    "S184": ("full", 'apply_retention history. Raised full.'),
-    "S185": ("full", 'encrypt_session_blob at rest. Raised full.'),
-    "S186": ("full", 'web memory/status browser. Raised full.'),
-    "S188": ("full", 'VS Code extension commands. Raised full.'),
-    "S190": ("full", 'PWA static shell mounted. Raised full.'),
-    "S193": ("full", 'paste mode multi-line editor. Raised full.'),
-    "S195": ("full", 'init/onboard templates. Raised full.'),
-    "S197": ("full", 'explain-run + agent-graph. Raised full.'),
-    "N202": ("full", 'NL do/ask with front_door confidence. Raised full.'),
-    "N205": ("full", 'watch_mode complete for intent. Raised full.'),
-    "N206": ("full", 'goals schedule + tick daemon_tick. Raised full.'),
-    "N209": ("full", 'agent TUI panels. Raised full.'),
-    "N213": ("full", 'voice_io optional channel. Raised full.'),
-    "N214": ("full", 'i18n module strings. Raised full.'),
-    "N219": ("full", 'session export markdown. Raised full.'),
-    "N221": ("full", 'eval_golden offline harness. Raised full.'),
-    "N224": ("full", 'plugin-catalog UX. Raised full.'),
-    "N225": ("full", 'verify_plugin_sha signed path. Raised full.'),
-    "N228": ("full", 'policy evaluate_policy. Raised full.'),
-    "N231": ("full", 'lsp_diagnostics py_compile bridge. Raised full.'),
-    "N247": ("full", 'ci_why mobile/build log triage. Raised full.'),
-    "N249": ("full", 'databao/notebook hybrid. Raised full.'),
-    "N250": ("full", 'palace embeddings + workspace_index. Raised full.'),
-    "N259": ("full", 'pr_review semantic summaries. Raised full.'),
-    "N278": ("full", 'github ticket stub sync. Raised full.'),
-    "N284": ("full", 'github-action sample packaging. Raised full.'),
-    "N286": ("full", 'pre-commit sample. Raised full.'),
-    "N291": ("full", 'telegram config path. Raised full.'),
-    "N292": ("full", 'slack partial slash path. Raised full.'),
-    "N293": ("full", 'notion_stub when key. Raised full.'),
-    "N298": ("full", 'host-tools cloud CLIs gated. Raised full.'),
-    "N299": ("full", 'plugin-catalog community list. Raised full.'),
-    "N300": ("full", 'recipes awesome catalog seed. Raised full.'),
-    "P366": ("full", 'Agent-only prefer API over reimplementing vendor CLIs — strategy complete. Raised full.'),
-    "P368": ("full", 'Chroma experimental opt-in gated; not dual default stacks. Raised full.'),
+
+# Honest upgrades only (2026-07-16 re-audit). DO NOT bulk-lift foundations.
+# Only IDs with clear new production-usable completion beyond prior foundation rating.
+HONEST_UPGRADES = {
+    3: ("full", "board_preflight.estimate/enforce wired into multi_cli_advisory + CLI board-preflight; unit tested. Pre-flight board cost is production-usable."),
+    12: ("full", "secrets.redact_* plus logging Filter on console/file/daily handlers redacts secrets in logs. Production-usable secret scrubbing on log sinks."),
+    29: ("full", "session_compact preserves decisions + open todos before truncation; extract_decisions_and_todos tested. Compaction DoD met."),
+    67: ("full", "TaskHistory.search by task/model/cost + history-search CLI; unit tested. Searchable history met."),
+    92: ("full", "mock_fixtures module with deterministic CI fixtures; unit tested. Mock fixture library met for offline CI."),
+    94: ("full", "web_app requires SUPERAI_WEB_TOKEN for non-loopback /api; loopback may omit token for local dev. Non-loopback auth met."),
+    99: ("full", "docs/THREAT_MODEL.md plus architecture/quickstart docs. Threat/architecture docs met."),
+}
+# S-number upgrades (keys are backlog numbers 101-200)
+HONEST_UPGRADES_S = {
+    103: ("full", "architecture_mode.resolve_mode + mode CLI; architecture vs implementation boundaries clear. Intent met."),
+    130: ("full", "adaptive_escalate.quality_failed/pick_premium + agent runtime escalate on weak answer; unit tested. Intent met."),
+    131: ("full", "project_budget policies + CLI project-budget; unit tested. Per-project budget policies met."),
+    133: ("full", "board_preflight/cost forecast before multi-member boards. Forecast/preflight met."),
+    134: ("full", "spend_report daily/weekly from budget+history; CLI spend-report. Spend report met."),
+    135: ("full", "status --cost includes cache_hit_rate and spend totals via spend_report. Cache/spend visibility met."),
 }
 
-def _apply_lift(prefix: str, data: dict, lo: int, hi: int) -> None:
-    for i in range(lo, hi + 1):
-        key = f"{prefix}{i:03d}" if prefix == "M" else f"{prefix}{i}"
-        if key in FOUNDATION_LIFT and data.get(i, ("",))[0] == "foundation":
-            data[i] = FOUNDATION_LIFT[key]
-        elif data.get(i, ("",))[0] == "foundation":
-            # generic lift for any residual foundation
-            st, note = data[i]
-            data[i] = (
-                "full",
-                note + " Lifted foundation→full (2026-07-16 call_lifecycle + module completion).",
-            )
+def apply_honest_upgrades() -> None:
+    for i, val in HONEST_UPGRADES.items():
+        if i in M:
+            M[i] = val
+    for i, val in HONEST_UPGRADES_S.items():
+        if i in S:
+            S[i] = val
+
 
 def main() -> None:
     titles = load_titles()
-    _apply_lift('M', M, 1, 100)
-    _apply_lift('S', S, 101, 200)
-    _apply_lift('N', N, 201, 300)
-    _apply_lift('P', P, 301, 400)
+    apply_honest_upgrades()
     assert len(titles) == 400, len(titles)
     for d, lo, hi, prefix in [
         (M, 1, 100, "M"),
@@ -1625,7 +1538,9 @@ def main() -> None:
         "",
         "**Generated:** 2026-07-16  ",
         "**Total items:** 400 (M100 + S100 + N100 + P100)  ",
-        "**Purpose:** Honest status **and reasoning** per ID — not inflated “all done.”  ",
+        "**Purpose:** Truthful status per ID for external review (Claude/Gemini/Codex).",
+        "**Re-audit:** 2026-07-16 — prior bulk foundation→full upgrade **reverted**. Only a few IDs re-earned full with evidence.",
+        "**Policy:** full = production-usable for stated intent with real code (+ tests where applicable). foundation = real code, incomplete DoD. Never inflate.",
         "",
         "Each item lists:",
         "",

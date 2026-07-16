@@ -2523,14 +2523,67 @@ def doctor(
         raise typer.Exit(1)
 
 
+@app.command("ask")
+def ask_cmd(
+    text: str = typer.Argument(
+        ...,
+        help='Natural language: "review auth with gpt-4o and gemini", "list available models"',
+    ),
+    plan_only: bool = typer.Option(
+        False,
+        "--plan-only",
+        help="Only parse intent and show planned SuperAI command (no execute)",
+    ),
+    execute: bool = typer.Option(
+        True,
+        "--execute/--no-execute",
+        help="Execute the mapped command (default: yes unless --plan-only)",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    json_out: bool = typer.Option(True, "--json/--text", help="JSON result (default)"),
+):
+    """Natural language → SuperAI command (members/review/advise/council/run/…)."""
+    from core.nl_intent import ask_superai, parse_intent
+
+    intent = parse_intent(text)
+    console.print(
+        Panel.fit(
+            f"[bold]Intent:[/bold] {intent.action}  "
+            f"(conf={intent.confidence:.2f})\n"
+            f"[bold]Planned:[/bold] {intent.planned_command}",
+            border_style="cyan",
+        )
+    )
+    out = ask_superai(
+        text,
+        execute=execute and not plan_only,
+        plan_only=plan_only,
+        verbose=verbose,
+    )
+    if json_out:
+        console.print_json(data=out)
+    else:
+        if out.get("error"):
+            console.print(f"[red]{out['error']}[/red]")
+        elif out.get("result") is not None:
+            console.print(str(out.get("result"))[:4000])
+    if not out.get("ok"):
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def chat(
     message: Optional[str] = typer.Argument(None, help="Message (omit for new session id only)"),
     session: Optional[str] = typer.Option(None, "--session", "-s", help="Continue chat id"),
     new: bool = typer.Option(False, "--new", help="Start new session"),
     list_chats: bool = typer.Option(False, "--list", help="List recent chats"),
+    no_intent: bool = typer.Option(
+        False,
+        "--no-intent",
+        help="Skip natural-language command routing (chat only)",
+    ),
 ):
-    """S2: Multi-turn chat session with constitution + routing"""
+    """S2: Multi-turn chat; high-confidence product intents route via ask"""
     from core.chat_session import ChatSession
 
     cs = ChatSession()
@@ -2544,6 +2597,41 @@ def chat(
     if not message:
         console.print("Send a message: superai chat \"hello\" -s " + sid)
         return
+
+    # Route clear product intents through NL → command (unless disabled)
+    if not no_intent:
+        try:
+            from core.nl_intent import parse_intent, ask_superai
+
+            intent = parse_intent(message)
+            if intent.action not in {"unknown", "run"} or (
+                intent.action == "run"
+                and intent.confidence >= 0.8
+                and not intent.notes
+            ):
+                # Prefer ask for product actions; keep low-confidence "run" as chat
+                if intent.action in {
+                    "members",
+                    "review",
+                    "advise",
+                    "council",
+                    "discover",
+                    "cli_run",
+                    "help",
+                } or (
+                    intent.action == "run"
+                    and intent.confidence >= 0.82
+                    and "fallback_run" not in intent.notes
+                ):
+                    console.print(
+                        f"[dim]→ intent {intent.action}: {intent.planned_command}[/dim]"
+                    )
+                    out = ask_superai(message, execute=True, verbose=False)
+                    console.print_json(data=out)
+                    return
+        except Exception:
+            pass
+
     out = cs.ask(sid, message)
     console.print(Panel(out.get("reply") or "", title=f"Assistant ({out.get('model')})", border_style="green"))
     console.print(f"[dim]session={sid} turns={out.get('turns')}[/dim]")

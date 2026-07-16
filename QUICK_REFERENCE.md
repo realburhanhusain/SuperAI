@@ -39,6 +39,9 @@ superai run "hello" --format json
 | `cli-run` … `--context/--no-context` · `--memory/--no-memory` | Central Memory Palace inject + write-back (default on) |
 | `members [--available] [--with-models] [--live-probe] [--pick]` | API + CLIs + inner models; optional interactive pick |
 | Config `central_memory` / env `SUPERAI_CENTRAL_MEMORY` | Master switch for shared Memory Palace |
+| `ask "list available models"` | Natural language → SuperAI command (plan+execute) |
+| `ask "review auth with gpt-4o and gemini" --plan-only` | Show planned command only |
+| `chat "review …"` | Routes high-confidence intents via `ask` (use `--no-intent` for pure chat) |
 | `run "task" --critic off\|light\|council` | Critic mode (default light) |
 | `run "task" --replan-approval` | HITL must approve recovery replan |
 | `run "task" --with-clis claude,aider [--cli-live]` | After plan, multi-CLI fan-out (dry-run default) |

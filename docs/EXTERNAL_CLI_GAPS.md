@@ -47,6 +47,19 @@ superai cli-run gemini@gemini-2.5-flash "summarize this PR" --dry-run
 
 Module: `src/core/member_selection.py` · protocol `superai.multi_member_review.v2`
 
+## Natural language (`superai ask`)
+
+```text
+superai ask "list available models and clis"
+superai ask "review the auth design with gpt-4o and gemini dry-run"
+superai ask "advise should we ship tonight prefer cli"
+superai ask "council on architecture let me pick"
+superai ask "implement rate limiting with gpt-4o and claude"
+superai ask "review X" --plan-only   # parse only, no execute
+```
+
+Module: `src/core/nl_intent.py` — maps NL → members/review/advise/council/run/cli-run/discover.
+
 ## Integration graph
 
 ```text

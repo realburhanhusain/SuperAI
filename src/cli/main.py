@@ -5129,6 +5129,73 @@ def agent_tui_cmd(
     )
 
 
+@app.command("split-tui")
+def split_tui_cmd(
+    action: str = typer.Argument(
+        "run",
+        help="run|status|layouts|demo|set-layout|focus|ratio|reset|help",
+    ),
+    value: Optional[str] = typer.Argument(
+        None, help="Layout name, pane name, or ratio (for set-layout|focus|ratio)"
+    ),
+    session: Optional[str] = typer.Option(None, "--session", "-s"),
+    agent: str = typer.Option("build", "--agent", "-a"),
+    model: Optional[str] = typer.Option(None, "--model", "-m"),
+    permission: Optional[str] = typer.Option(None, "--permission"),
+    layout: Optional[str] = typer.Option(
+        None, "--layout", "-l", help="Preset before run (agent|classic|triple|quad|…)"
+    ),
+    mock: bool = typer.Option(True, "--mock/--live"),
+):
+    """N209: Split-pane TUI — layouts, focus, ratios; or launch agent in split mode."""
+    from core import split_pane_tui as spt
+
+    act = (action or "run").lower().strip()
+    if act in {"help", "split-help"}:
+        console.print(spt.SPLIT_HELP)
+        return
+    if act in {"status", "summary"}:
+        console.print_json(data=spt.status_public())
+        return
+    if act in {"layouts", "list"}:
+        console.print_json(data={"ok": True, "layouts": spt.list_layouts()})
+        return
+    if act in {"demo"}:
+        name = value or layout or "agent"
+        spt.set_layout(name, persist=False)
+        console.print(spt.demo_frame(layout=name if name in spt.PRESETS else "agent"))
+        return
+    if act in {"set-layout", "layout"}:
+        console.print_json(data=spt.set_layout(value or layout or "agent"))
+        return
+    if act in {"focus"}:
+        console.print_json(data=spt.set_focus(value or "messages"))
+        return
+    if act in {"ratio"}:
+        console.print_json(data=spt.set_ratio(value or "3:1"))
+        return
+    if act in {"reset"}:
+        console.print_json(data=spt.reset_config())
+        return
+    if act in {"run", "tui", "start"}:
+        if layout:
+            spt.set_layout(layout, persist=True)
+        from core.superai_agent.tui import run_superai_agent_tui
+
+        run_superai_agent_tui(
+            session_id=session,
+            agent=agent,
+            model=model,
+            permission=permission,
+            use_mock=mock,
+        )
+        return
+    console.print(
+        "[red]Unknown action. Use: run|status|layouts|demo|set-layout|focus|ratio|reset|help[/red]"
+    )
+    raise typer.Exit(1)
+
+
 @app.command("agent-roles")
 def agent_roles_cmd():
     """List SuperAI agent roles (build / plan / ask)."""

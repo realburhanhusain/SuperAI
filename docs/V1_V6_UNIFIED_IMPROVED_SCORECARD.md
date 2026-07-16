@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **221** |
-| **INCOMPLETE** | **294** |
+| **COMPLETE (production + docs + tests)** | **222** |
+| **INCOMPLETE** | **293** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **42.7%**
-- **Average percent (incomplete only):** **30.5%**
-- **Average percent (all non-refuse):** **60.5%**
+- **Strict completion rate (complete / (total − refuse)):** **42.9%**
+- **Average percent (incomplete only):** **30.6%**
+- **Average percent (all non-refuse):** **60.7%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 221
+**Count:** 222
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
@@ -1105,6 +1105,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: Daemon for goals/schedules
 - **Documentation (thorough):** YES — docs/GOALS_DAEMON.md + docs/DAEMON_DEPLOY.md (K8s/cluster/Windows)
 - **Tests (full):** YES — tests/test_goals_daemon_n206.py + tests/test_daemon_deploy_n206.py
+- **Still incomplete:** —
+
+### N209 — Split-pane TUI
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Split-pane TUI
+- **Documentation (thorough):** YES — docs/SPLIT_PANE_TUI.md + V6 backlog N209
+- **Tests (full):** YES — tests/test_split_pane_tui_n209.py
 - **Still incomplete:** —
 
 ### N213 — Optional voice channel
@@ -2261,7 +2271,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 294
+**Count:** 293
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -3852,19 +3862,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Production product + docs + tests
 
 ### N208 — Multiplexed sessions (tmux-like)
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
-### N209 — Split-pane TUI
 
 - **Track:** V6
 - **Complete?** **NO**

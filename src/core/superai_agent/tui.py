@@ -1,7 +1,8 @@
 """
-SuperAI multi-panel agent TUI (Rich).
+SuperAI multi-panel agent TUI (Rich) with N209 split-pane layouts.
 
-Panels: header (agent/model/perm) · messages · tools/events · footer (cost).
+Uses `core.split_pane_tui` for configurable layouts, focus, hide/show, ratios.
+Legacy fixed layout remains available via layout preset `classic`.
 """
 
 from __future__ import annotations
@@ -33,12 +34,13 @@ HELP = """
 **Sessions:** `/new` `/sessions` `/resume id` `/export` `/undo`  
 **Changes:** `/changeset` `/apply` `/reject` (staged writes)  
 **Tools:** `/tools` · tool loop runs automatically  
+**Split-pane (N209):** `/layout` `/split` `/focus` `/cycle` `/hide` `/show` `/ratio` `/panes` `/layouts` `/split-help`  
 **Voice:** `/listen [sec]` `/speak [text]` `/voice status|on|off|auto on|off|queue …`  
 **Other:** `/cost` `/trace` `/help` `/exit`
 
 Plain text → agent run (tool loop).
 
-Also: `superai` (default agent) · `superai agent` · `superai ask` (NL product routes)
+Also: `superai` (default agent) · `superai agent` · `superai split-tui` · `superai ask`
 """
 
 
@@ -115,7 +117,33 @@ def _footer(state, extra: str = "") -> Panel:
     )
 
 
-def render_frame(state, events, stream_on: bool = True, status: str = "") -> Layout:
+def render_frame(
+    state,
+    events,
+    stream_on: bool = True,
+    status: str = "",
+    *,
+    use_split: bool = True,
+    changeset_summary: Optional[Dict[str, Any]] = None,
+) -> Layout:
+    """
+    Render multi-pane frame.
+
+    When use_split=True (default), uses N209 split_pane_tui presets/config.
+    """
+    if use_split:
+        from core.split_pane_tui import render_split_frame
+
+        return render_split_frame(
+            state=state,
+            events=events,
+            tools_info=catalog(),
+            stream_on=stream_on,
+            status=status,
+            changeset_summary=changeset_summary,
+        )
+
+    # Legacy fixed layout (classic messages | tools)
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
@@ -171,15 +199,28 @@ def run_superai_agent_tui(
 
     changeset = ChangeSet()
 
+    from core.split_pane_tui import (
+        SPLIT_COMMANDS,
+        SPLIT_HELP,
+        handle_split_slash,
+        layout_summary,
+    )
+
     console.print(
         Panel.fit(
             "[bold]SuperAI agent[/bold]\n"
-            "Multi-agent · tool loop · sessions · permission modes\n"
-            "Type /help · plain text runs the agent",
+            "Multi-agent · tool loop · sessions · split-pane layouts (N209)\n"
+            "Type /help · /split-help · plain text runs the agent",
             border_style="cyan",
         )
     )
-    console.print(render_frame(state, events, stream_on))
+    try:
+        cs_sum = changeset.summary()
+    except Exception:
+        cs_sum = None
+    console.print(
+        render_frame(state, events, stream_on, changeset_summary=cs_sum)
+    )
 
     while True:
         try:
@@ -198,6 +239,28 @@ def run_superai_agent_tui(
                 break
             if cmd == "help":
                 console.print(Markdown(HELP))
+                console.print(Markdown(SPLIT_HELP))
+                continue
+            # N209 split-pane commands
+            if cmd in SPLIT_COMMANDS:
+                out = handle_split_slash(cmd, arg, persist=True)
+                if out.get("help"):
+                    console.print(Markdown(str(out["help"])))
+                else:
+                    console.print_json(data=out)
+                try:
+                    cs_sum = changeset.summary()
+                except Exception:
+                    cs_sum = None
+                console.print(
+                    render_frame(
+                        state,
+                        events,
+                        stream_on,
+                        status=f"layout={layout_summary().get('layout')}",
+                        changeset_summary=cs_sum,
+                    )
+                )
                 continue
             if cmd == "agents":
                 console.print_json(data=list_agents())
@@ -286,7 +349,19 @@ def run_superai_agent_tui(
                 console.print(f"stream={stream_on}")
                 continue
             if cmd == "layout":
-                console.print(render_frame(state, events, stream_on))
+                # With arg: handled by SPLIT_COMMANDS; bare /layout re-renders
+                if arg:
+                    out = handle_split_slash("layout", arg, persist=True)
+                    console.print_json(data=out)
+                try:
+                    cs_sum = changeset.summary()
+                except Exception:
+                    cs_sum = None
+                console.print(
+                    render_frame(
+                        state, events, stream_on, changeset_summary=cs_sum
+                    )
+                )
                 continue
             # MOS-N6 voice hooks
             if cmd == "listen":
@@ -371,8 +446,18 @@ def run_superai_agent_tui(
             speak_reply(str(spoken)[:500])
         except Exception:
             pass
+        try:
+            cs_sum = changeset.summary()
+        except Exception:
+            cs_sum = None
         console.print(
-            render_frame(state, events, stream_on, "ok" if result.ok else "err")
+            render_frame(
+                state,
+                events,
+                stream_on,
+                "ok" if result.ok else "err",
+                changeset_summary=cs_sum,
+            )
         )
 
     console.print(f"[dim]session saved: {state.id}[/dim]")

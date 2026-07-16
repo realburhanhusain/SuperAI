@@ -28,6 +28,17 @@ SLASH_COMMANDS: List[Dict[str, str]] = [
     {"cmd": "/permission", "alias": "perm", "desc": "plan|ask|auto|yolo"},
     {"cmd": "/profile", "alias": "", "desc": "Apply run profile"},
     {"cmd": "/exit", "alias": "quit|q", "desc": "Leave TUI"},
+    # N209 split-pane
+    {"cmd": "/layout", "alias": "", "desc": "N209: set/show split-pane layout preset"},
+    {"cmd": "/split", "alias": "", "desc": "N209: shortcut for /layout h|v|triple|quad|…"},
+    {"cmd": "/focus", "alias": "", "desc": "N209: focus a pane (highlight)"},
+    {"cmd": "/cycle", "alias": "tab|next-pane", "desc": "N209: cycle focus to next pane"},
+    {"cmd": "/hide", "alias": "", "desc": "N209: hide pane and reflow"},
+    {"cmd": "/show", "alias": "", "desc": "N209: show hidden pane"},
+    {"cmd": "/ratio", "alias": "", "desc": "N209: pane ratio e.g. 3:1"},
+    {"cmd": "/panes", "alias": "", "desc": "N209: list visible/hidden panes"},
+    {"cmd": "/layouts", "alias": "", "desc": "N209: list layout presets"},
+    {"cmd": "/split-help", "alias": "splithelp", "desc": "N209: split-pane help"},
 ]
 
 

@@ -53,6 +53,16 @@
 
 ---
 
+## MoSCoW 100% honesty track
+
+| Bucket | Status |
+|--------|--------|
+| Must M1–M8 | `[x]` code + `tests/test_moscow_100.py` / related |
+| Should S1–S10 | `[x]` |
+| Nice N1–N7 | `[x]` |
+| Nice N8 live smoke | `[!]` harness only — `superai smoke-harness` |
+| Truth file | `docs/MOSCOW_100_PLAN.md` |
+
 ## Last session
 
 | Field | Value |

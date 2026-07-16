@@ -69,13 +69,35 @@ def compare_models(
 
     # Rank: success first, then lower latency
     results.sort(key=lambda r: (not r.get("ok"), r.get("latency_sec") or 999.0))
-    return {
+    out = {
+        "ok": True,
+        "status": "success",
         "prompt": prompt,
         "mock": use_mock,
+        "dry_run": False,
         "count": len(results),
         "winner": results[0]["model"] if results else None,
         "results": results,
+        "model_chain": [r.get("model") for r in results if r.get("model")],
+        "members": [r.get("model") for r in results if r.get("model")],
+        "tokens": sum(
+            int((r.get("usage") or {}).get("total_tokens") or 0)
+            if isinstance(r.get("usage"), dict)
+            else 0
+            for r in results
+        ),
+        "estimated_cost_usd": round(
+            sum(float(r.get("cost_usd") or 0) for r in results), 6
+        ),
+        "memory_ids": [],
     }
+    try:
+        from .result_contract import apply_contract
+
+        return apply_contract(out, mock=use_mock, dry_run=False, ok=True)
+    except Exception:
+        out["contract"] = "superai.result.v1"
+        return out
 
 
 def benchmark_models(

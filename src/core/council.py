@@ -121,6 +121,8 @@ class Council:
         )
 
         result = {
+            "ok": True,
+            "status": "success",
             "topic": topic,
             "voting_mode": mode,
             "members": members,
@@ -131,6 +133,8 @@ class Council:
             "critiques": critiques,
             "decision": decision,
             "message": f"Council finished via {mode} voting.",
+            "mock": bool(getattr(self.caller, "use_mock", False)),
+            "dry_run": False,
         }
         # Write council outcome into central Memory Palace
         try:
@@ -149,7 +153,19 @@ class Council:
             )
         except Exception:
             pass
-        return result
+        # M6: stable public result envelope
+        try:
+            from .result_contract import apply_contract
+
+            return apply_contract(
+                result,
+                mock=bool(getattr(self.caller, "use_mock", False)),
+                dry_run=False,
+                members=members,
+                ok=True,
+            )
+        except Exception:
+            return result
 
     def _classify_complexity(self, topic: str) -> Dict[str, Any]:
         t = (topic or "").lower()

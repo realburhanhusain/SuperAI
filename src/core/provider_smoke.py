@@ -51,6 +51,67 @@ def available_smoke_targets() -> List[Dict[str, Any]]:
     return out
 
 
+def smoke_harness(
+    *,
+    allow_live: bool = False,
+    prompt: str = "Reply with exactly: pong",
+) -> Dict[str, Any]:
+    """
+    N8 harness only — never claims live multi-vendor pass without keys.
+
+    Default: inventory targets + mock dry path; live only if allow_live and
+    credentials exist. Does not set ok=True for live success unless real calls ran.
+    """
+    targets = available_smoke_targets()
+    inventory = [
+        {
+            "provider": t["provider"],
+            "model": t["model"],
+            "credentialed": t in targets if t.get("env") else t["provider"] == "ollama",
+            "env": t.get("env"),
+        }
+        for t in SMOKE_TARGETS
+    ]
+    if not allow_live:
+        return {
+            "ok": True,
+            "live": False,
+            "harness": True,
+            "message": (
+                "Smoke harness only — live multi-vendor smoke postponed by policy. "
+                "Pass allow_live=True when credentials are ready."
+            ),
+            "targets_known": len(SMOKE_TARGETS),
+            "targets_credentialed": len(targets),
+            "inventory": inventory,
+            "live_passed": False,
+            "live_claimed": False,
+            "contract": "superai.smoke.harness.v1",
+        }
+    if not targets:
+        return {
+            "ok": True,
+            "live": False,
+            "harness": True,
+            "message": "allow_live set but no credentials/Ollama; not claiming pass",
+            "targets_credentialed": 0,
+            "inventory": inventory,
+            "live_passed": False,
+            "live_claimed": False,
+            "contract": "superai.smoke.harness.v1",
+        }
+    live = run_provider_smoke(prompt=prompt, use_mock=False)
+    return {
+        "ok": bool(live.get("ok")),
+        "live": True,
+        "harness": True,
+        "live_passed": int(live.get("passed") or 0) > 0 and int(live.get("failed") or 0) == 0,
+        "live_claimed": True,
+        "result": live,
+        "contract": "superai.smoke.harness.v1",
+    }
+
+
 def run_provider_smoke(
     prompt: str = "Reply with exactly: pong",
     use_mock: bool = False,

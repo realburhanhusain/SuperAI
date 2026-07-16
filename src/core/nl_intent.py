@@ -41,6 +41,10 @@ ACTIONS = (
     "debate",
     "search_web",
     "github",
+    "goals",
+    "bakeoff",
+    "agent_tui",
+    "profile",
     "help",
     "unknown",
 )
@@ -134,16 +138,28 @@ _ACTION_RULES: List[Tuple[str, float, str]] = [
     ("host_tools", 0.88, r"\b(host[- ]tools|check (git|docker|rclone)|tool matrix)\b"),
     ("budget", 0.9, r"\b(budget|spend limit|cost limit|how much (have i|did i) spend)\b"),
     ("backup", 0.9, r"\b(backup|restore|export (my )?profile)\b"),
-    # profile / permission as run with extras via notes
+    # S9: dedicated goals / bakeoff / agent-tui / profile intents
     (
-        "run",
-        0.86,
-        r"\b(use profile|set profile|cheap mode|local[- ]only mode|permission (plan|yolo))\b",
+        "goals",
+        0.93,
+        r"\b(goals? execute|run due goals|list goals|assistant goals?|daemon tick|"
+        r"execute (due )?goals?)\b",
     ),
     (
-        "run",
-        0.87,
-        r"\b(goals? execute|run due goals|bakeoff|agent[- ]tui)\b",
+        "bakeoff",
+        0.92,
+        r"\b(bake[- ]?off|model bakeoff|compare models|eval models)\b",
+    ),
+    (
+        "agent_tui",
+        0.93,
+        r"\b(agent[- ]tui|open agent (ui|tui)|interactive agent)\b",
+    ),
+    (
+        "profile",
+        0.9,
+        r"\b(use profile|set profile|switch profile|cheap mode|local[- ]only mode|"
+        r"quality mode|permission (plan|yolo|ask|auto))\b",
     ),
     (
         "palace",
@@ -362,6 +378,20 @@ def parse_intent(text: str) -> SuperAIIntent:
         else:
             intent.extras["github_action"] = "status"
 
+    if intent.action == "goals":
+        intent.subject = intent.subject or raw
+    elif intent.action == "bakeoff":
+        intent.subject = _extract_subject(
+            raw,
+            drop_prefixes=(
+                r"(please\s+)?(bake[- ]?off|compare models|eval models)\s*(on|for|with)?",
+            ),
+        ) or raw
+    elif intent.action == "agent_tui":
+        intent.subject = ""
+    elif intent.action == "profile":
+        intent.subject = raw
+
     if not intent.subject and intent.action not in {
         "members",
         "discover",
@@ -372,6 +402,9 @@ def parse_intent(text: str) -> SuperAIIntent:
         "host_tools",
         "install",
         "palace",
+        "goals",
+        "agent_tui",
+        "profile",
     }:
         intent.subject = raw
 
@@ -525,6 +558,20 @@ def format_planned_command(intent: SuperAIIntent) -> str:
         return f"superai github {act}"
     if a == "help":
         return "superai ask --help"
+    if a == "goals":
+        if "list" in (intent.raw or "").lower():
+            return "superai goals list"
+        if "tick" in (intent.raw or "").lower() or "daemon" in (intent.raw or "").lower():
+            return "superai goals tick"
+        return "superai goals execute"
+    if a == "bakeoff":
+        models = ",".join(intent.members) if intent.members else "gpt-4o,deepseek-chat"
+        return f"superai bakeoff {q(intent.subject or 'hello')} -m {models}"
+    if a == "agent_tui":
+        return "superai agent-tui"
+    if a == "profile":
+        prof = intent.extras.get("run_profile") or "balanced"
+        return f"superai profile use {prof}"
     if a == "review":
         cmd = ["superai", "review", q(intent.subject)]
         if intent.members:
@@ -797,7 +844,19 @@ def _h_cli_run(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
         approve=auto,
         cli_model=cli_model,
     )
-    return env.to_dict() if hasattr(env, "to_dict") else {"ok": getattr(env, "ok", False)}
+    data = env.to_dict() if hasattr(env, "to_dict") else {"ok": getattr(env, "ok", False)}
+    try:
+        from .result_contract import apply_contract
+
+        return apply_contract(
+            data if isinstance(data, dict) else {"payload": data},
+            mock=bool(cfg.use_mock),
+            dry_run=bool(intent.dry_run or cfg.use_mock),
+            members=[f"cli:{name}"],
+            ok=bool(getattr(env, "ok", data.get("ok") if isinstance(data, dict) else False)),
+        )
+    except Exception:
+        return data
 
 
 def _h_run(intent: SuperAIIntent, *, verbose: bool = False, **_: Any) -> Dict[str, Any]:
@@ -1015,6 +1074,75 @@ def _h_github(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
         return {"ok": False, "error": str(e)[:300], "hint": "superai github status"}
 
 
+def _h_goals(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    """S9: goals list / execute / daemon tick."""
+    from .assistant_goals import GoalStore
+
+    store = GoalStore()
+    low = (intent.raw or "").lower()
+    if "list" in low:
+        goals = store.list(None)
+        return {"ok": True, "goals": goals, "count": len(goals)}
+    if "tick" in low or "daemon" in low:
+        return store.daemon_tick(execute=False, notify=False, schedule_due=True)
+    return store.execute_due(max_goals=2, use_ask=True)
+
+
+def _h_bakeoff(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    """S9: model bakeoff with report."""
+    from .config import Config
+    from .model_bakeoff import bakeoff
+
+    cfg = Config()
+    models = list(intent.members) or ["gpt-4o", "deepseek-chat"]
+    return bakeoff(
+        intent.subject or intent.raw or "Reply with pong",
+        models,
+        use_mock=True if intent.dry_run else bool(cfg.use_mock),
+        report=True,
+    )
+
+
+def _h_agent_tui(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    """S9: open agent TUI (or plan-only description)."""
+    if intent.dry_run and not intent.live:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "message": "Would start: superai agent-tui",
+            "command": "superai agent-tui",
+        }
+    try:
+        from .agent_tui import run_agent_tui
+
+        run_agent_tui()
+        return {"ok": True, "message": "agent-tui session ended"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:300], "command": "superai agent-tui"}
+
+
+def _h_profile(intent: SuperAIIntent, **_: Any) -> Dict[str, Any]:
+    """S9: apply run profile / permission from NL."""
+    from .config import Config
+    from .permission_mode import normalize_mode
+    from .run_profiles import apply_profile_to_config, get_profile
+
+    cfg = Config()
+    prof = intent.extras.get("run_profile") or "balanced"
+    applied = apply_profile_to_config(cfg, str(prof))
+    if intent.extras.get("permission_mode"):
+        cfg.config["permission_mode"] = normalize_mode(
+            str(intent.extras["permission_mode"])
+        )
+    return {
+        "ok": True,
+        "run_profile": applied.get("run_profile") or prof,
+        "permission_mode": cfg.config.get("permission_mode")
+        or intent.extras.get("permission_mode"),
+        "profile": get_profile(str(prof)),
+    }
+
+
 _HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "help": _h_help,
     "members": _h_members,
@@ -1037,6 +1165,10 @@ _HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "debate": _h_debate,
     "search_web": _h_search_web,
     "github": _h_github,
+    "goals": _h_goals,
+    "bakeoff": _h_bakeoff,
+    "agent_tui": _h_agent_tui,
+    "profile": _h_profile,
 }
 
 

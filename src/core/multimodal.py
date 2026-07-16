@@ -75,3 +75,46 @@ def vision_messages(
             }
         )
     return [{"role": "user", "content": content}]
+
+
+def call_with_images(
+    model: str,
+    text: str,
+    image_paths: Optional[List[str]] = None,
+    *,
+    use_mock: bool = True,
+    system_prompt: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    S2: end-to-end vision call path — load images and pass vision_attachments
+    through ModelCaller.call → OpenAI-compatible messages.
+    """
+    from .model_caller import ModelCaller
+    from .model_registry import ModelRegistry
+    from .result_contract import apply_contract
+
+    packed = prompt_with_images(text, image_paths)
+    atts = [a for a in (packed.get("attachments") or []) if a.get("ok")]
+    caller = ModelCaller(use_mock=use_mock, registry=ModelRegistry())
+    out = caller.call(
+        model=model,
+        prompt=packed.get("prompt") or text,
+        system_prompt=system_prompt,
+        vision_attachments=atts or None,
+    )
+    if isinstance(out, dict):
+        out["vision_attachments"] = len(atts)
+        out["image_paths"] = list(image_paths or [])
+        return apply_contract(
+            out,
+            mock=bool(out.get("mock", use_mock)),
+            dry_run=False,
+            members=[model],
+            ok=str(out.get("status")) != "error",
+        )
+    return apply_contract(
+        {"response": out, "ok": True},
+        mock=use_mock,
+        members=[model],
+        ok=True,
+    )

@@ -130,17 +130,23 @@ async function status(){
         from core.memory_palace import MemoryPalace
         from core.palace_tenant import current_tenant
         from core.preferences import UserPreferenceModel
+        from core.result_contract import apply_contract
 
         cfg = Config()
         mp = MemoryPalace()
-        return {
+        payload: Dict[str, Any] = {
+            "ok": True,
+            "status": "success",
             "version": __version__,
             "mock_mode": cfg.use_mock,
+            "mock": bool(cfg.use_mock),
+            "dry_run": False,
             "tenant_id": current_tenant(cfg),
             "history": TaskHistory().count(),
             "memory": mp.get_memory_stats(),
             "preferences": UserPreferenceModel().profile_summary(),
         }
+        return apply_contract(payload, mock=bool(cfg.use_mock), dry_run=False, ok=True)
 
     @app.get("/api/agent-graph")
     def api_agent_graph(

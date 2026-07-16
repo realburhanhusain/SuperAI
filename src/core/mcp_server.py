@@ -212,6 +212,27 @@ TOOLS: List[Dict[str, Any]] = [
             }
         },
     ),
+    # S7: shared ask session with agent-tui / CLI
+    _tool(
+        "superai_ask_session",
+        "Create/load/append shared SuperAI ask session (same store as agent-tui).",
+        {
+            "action": {
+                "type": "string",
+                "description": "create | get | append | list | context",
+            },
+            "session_id": {
+                "type": "string",
+                "description": "Existing session id (optional for create)",
+            },
+            "user": {"type": "string", "description": "User text for append"},
+            "assistant": {
+                "type": "string",
+                "description": "Assistant summary for append",
+            },
+        },
+        ["action"],
+    ),
 ]
 
 
@@ -540,6 +561,41 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
             result.setdefault("mock", use_mock)
             result.setdefault("live", live and not use_mock)
         return result
+
+    if name == "superai_ask_session":
+        from .ask_session import AskSessionStore
+
+        store = AskSessionStore()
+        action = str(args.get("action") or "list").lower().strip()
+        sid = args.get("session_id")
+        if action == "create":
+            new_id = store.ensure(str(sid) if sid else None)
+            return {"ok": True, "session_id": new_id, "shared": True}
+        if action == "list":
+            return {"ok": True, "sessions": store.list_sessions()}
+        if action == "get":
+            if not sid:
+                raise ValueError("session_id required for get")
+            return {"ok": True, "session": store.get(str(sid))}
+        if action == "context":
+            if not sid:
+                raise ValueError("session_id required for context")
+            return {
+                "ok": True,
+                "session_id": sid,
+                "context": store.context_preface(str(sid)),
+            }
+        if action == "append":
+            if not sid:
+                raise ValueError("session_id required for append")
+            data = store.append_turn(
+                str(sid),
+                str(args.get("user") or ""),
+                str(args.get("assistant") or ""),
+                meta={"via": "mcp"},
+            )
+            return {"ok": True, "session_id": sid, "turns": len(data.get("turns") or [])}
+        raise ValueError("action must be create|get|append|list|context")
 
     if name == "superai_cli_discover":
         from .discovery import discover_environment

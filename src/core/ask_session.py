@@ -1,19 +1,30 @@
 """
-Multi-turn ask session store (Improvement Phase 2).
+Multi-turn ask session store (Improvement Phase 2 / MoSCoW S7).
+
+Shared root so agent-tui, MCP, and CLI `ask` use the same session files:
+  SUPERAI_ASK_SESSION_ROOT or ~/.superai/ask_sessions
 """
 
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+def default_session_root() -> Path:
+    env = (os.getenv("SUPERAI_ASK_SESSION_ROOT") or "").strip()
+    if env:
+        return Path(env)
+    return Path.home() / ".superai" / "ask_sessions"
+
+
 class AskSessionStore:
     def __init__(self, root: Optional[Path] = None):
-        self.root = Path(root or (Path.home() / ".superai" / "ask_sessions"))
+        self.root = Path(root or default_session_root())
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, sid: str) -> Path:
@@ -89,3 +100,24 @@ class AskSessionStore:
             except Exception:
                 continue
         return rows
+
+    def get(self, sid: str) -> Dict[str, Any]:
+        """Load full session (S7 shared MCP/TUI)."""
+        return self._load(sid)
+
+    def ensure(self, sid: Optional[str] = None) -> str:
+        """Return existing sid or create new shared session id."""
+        if sid:
+            p = self._path(sid)
+            if p.is_file():
+                return sid
+            # allow client-provided ids
+            data = {
+                "id": sid,
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "turns": [],
+                "shared": True,
+            }
+            self._save(sid, data)
+            return sid
+        return self.create()

@@ -507,6 +507,89 @@ def resolve_members(
     return [_enrich(parse_member_spec(c)) for c in chosen[:max_members]]
 
 
+def _is_cheap_member(mid: str) -> bool:
+    s = str(mid or "").lower()
+    if s.startswith("cli:"):
+        return True
+    cheap_tokens = (
+        "ollama",
+        "local",
+        "lmstudio",
+        "vllm",
+        "flash",
+        "mini",
+        "nano",
+        "haiku",
+        "deepseek",
+        "qwen",
+        "gemma",
+        "llama",
+        "groq",
+        "openrouter",
+    )
+    return any(t in s for t in cheap_tokens)
+
+
+def _is_premium_member(mid: str) -> bool:
+    s = str(mid or "").lower()
+    if _is_cheap_member(s):
+        return False
+    premium_tokens = (
+        "gpt-4o",
+        "gpt-4.1",
+        "o3",
+        "o4",
+        "claude-4",
+        "claude-3-5",
+        "opus",
+        "sonnet",
+        "gemini-2.5-pro",
+        "grok-3",
+        "grok-4",
+    )
+    return any(t in s for t in premium_tokens) or not s.startswith("cli:")
+
+
+def diversify_pool(
+    pool: List[str],
+    *,
+    max_members: int = 5,
+    force_premium: Optional[str] = None,
+) -> List[str]:
+    """
+    S4: ensure worker diversity — 1 premium + N cheap when possible.
+    Order: premium first, then cheap fillers, then remaining.
+    """
+    seen: List[str] = []
+    for m in pool:
+        sm = str(m).strip()
+        if sm and sm not in seen:
+            seen.append(sm)
+    if force_premium and force_premium not in seen:
+        seen.insert(0, force_premium)
+
+    premium = [m for m in seen if _is_premium_member(m)]
+    cheap = [m for m in seen if _is_cheap_member(m)]
+    other = [m for m in seen if m not in premium and m not in cheap]
+
+    out: List[str] = []
+    if force_premium:
+        out.append(force_premium)
+    elif premium:
+        out.append(premium[0])
+    elif other:
+        out.append(other[0])
+    elif seen:
+        out.append(seen[0])
+
+    for m in cheap + other + premium:
+        if m not in out:
+            out.append(m)
+        if len(out) >= max(1, max_members):
+            break
+    return out[: max(1, max_members)]
+
+
 def resolve_worker_pool(
     raw_members: Optional[Sequence[str]] = None,
     *,
@@ -516,6 +599,7 @@ def resolve_worker_pool(
     forced_primary: Optional[str] = None,
     router_primary: Optional[str] = None,
     router_failover: Optional[Sequence[str]] = None,
+    diversify: bool = True,
 ) -> List[str]:
     """
     Ordered worker/failover pool for orchestrator steps.
@@ -523,6 +607,7 @@ def resolve_worker_pool(
     prefer=router → router_primary + router_failover (+ optional forced)
     prefer=mixed|api|cli → resolve_members pool (API registry + PATH CLIs)
     forced_primary always first when set.
+    S4 diversify=True → 1 premium + N cheap when catalog allows.
     """
     pref = (prefer or "mixed").lower().strip()
     if pref not in {"mixed", "cli", "api", "router", "off"}:
@@ -552,12 +637,18 @@ def resolve_worker_pool(
                     break
         except Exception:
             pass
-        return pool[: max(1, max_members + (1 if forced_primary else 0))]
+        cap = max(1, max_members + (1 if forced_primary else 0))
+        pool = pool[:cap]
+        if diversify and pref != "off":
+            return diversify_pool(
+                pool, max_members=cap, force_premium=forced_primary or router_primary
+            )
+        return pool
 
     # Explicit or auto members from unified catalog
     specs = resolve_members(
         raw_members,
-        max_members=max_members,
+        max_members=max_members * 2 if diversify else max_members,
         prefer=pref if pref in {"mixed", "cli", "api"} else "mixed",
         role=role,
     )
@@ -580,7 +671,14 @@ def resolve_worker_pool(
         pool = [str(router_primary)]
     if not pool:
         pool = ["gpt-4o"]
-    return pool
+    cap = max(1, max_members + (1 if forced_primary else 0))
+    if diversify:
+        return diversify_pool(
+            pool[: cap * 2],
+            max_members=min(cap, max_members if not forced_primary else cap),
+            force_premium=forced_primary or router_primary,
+        )
+    return pool[:cap]
 
 
 def _enrich(spec: MemberSpec) -> MemberSpec:

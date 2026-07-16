@@ -1592,6 +1592,23 @@ def cli_run(
     except Exception:  # noqa: BLE001
         pass
 
+    # M6: stable public result envelope on cli-run
+    try:
+        from core.result_contract import apply_contract
+
+        data = apply_contract(
+            data,
+            mock=bool(cfg.use_mock),
+            dry_run=bool(dry_eff),
+            members=[f"cli:{run_name}"],
+            ok=bool(result.ok),
+        )
+        data["model_chain"] = data.get("model_chain") or [f"cli:{run_name}"]
+        if run_model:
+            data["model_chain"] = [f"cli:{run_name}@{run_model}"]
+    except Exception:
+        pass
+
     if result.ok:
         console.print(Panel(result.stdout or "(no stdout)", title=f"{name} OK", border_style="green"))
     else:
@@ -4470,15 +4487,18 @@ def side_effects_cmd(limit: int = typer.Option(30, "--limit")):
 def goals_cmd(
     action: str = typer.Argument(
         "list",
-        help="list | add | done | heartbeat | notify | schedule | execute",
+        help="list | add | done | heartbeat | notify | schedule | execute | tick",
     ),
     title: Optional[str] = typer.Argument(None, help="Goal title (for add)"),
     goal_id: Optional[str] = typer.Option(None, "--id"),
     detail: str = typer.Option("", "--detail"),
     every_hours: float = typer.Option(24.0, "--every-hours"),
     max_goals: int = typer.Option(3, "--max"),
+    execute_tick: bool = typer.Option(
+        False, "--execute", help="With tick: also run due goals (safe caps)"
+    ),
 ):
-    """Phase 8 N2: Personal assistant goals + heartbeat + messenger + execute."""
+    """Phase 8 N2: Personal assistant goals + heartbeat + messenger + execute + tick."""
     from core.assistant_goals import GoalStore
 
     store = GoalStore()
@@ -4514,6 +4534,17 @@ def goals_cmd(
         return
     if act == "execute":
         console.print_json(data=store.execute_due(max_goals=max_goals, use_ask=True))
+        return
+    if act == "tick":
+        # N2: daemon tick (schedule + heartbeat; optional execute)
+        console.print_json(
+            data=store.daemon_tick(
+                max_goals=max_goals,
+                execute=execute_tick,
+                notify=True,
+                schedule_due=True,
+            )
+        )
         return
     raise typer.Exit(1)
 
@@ -4574,6 +4605,72 @@ def agent_graph_cmd(
     from core.agent_graph import graph_from_run_result
 
     console.print_json(data=graph_from_run_result({"task_id": task_id} if task_id else {}))
+
+
+@app.command("tenant-export")
+def tenant_export_cmd(
+    tenant: Optional[str] = typer.Option(None, "--tenant", "-t"),
+    dest: Optional[str] = typer.Option(None, "--dest", "-o"),
+):
+    """N7: Export Memory Palace rows for a tenant to JSON."""
+    from core.palace_tenant import export_tenant_memories
+    from pathlib import Path
+
+    console.print_json(
+        data=export_tenant_memories(
+            tenant=tenant,
+            dest=Path(dest) if dest else None,
+        )
+    )
+
+
+@app.command("tenant-import")
+def tenant_import_cmd(
+    src: str = typer.Argument(..., help="Path to tenant export JSON"),
+    tenant: Optional[str] = typer.Option(None, "--tenant", "-t"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+):
+    """N7: Import tenant memories from export JSON."""
+    from core.palace_tenant import import_tenant_memories
+    from pathlib import Path
+
+    console.print_json(
+        data=import_tenant_memories(Path(src), tenant=tenant, dry_run=dry_run)
+    )
+
+
+@app.command("worktree-run")
+def worktree_run_cmd(
+    task: str = typer.Argument(..., help="Task to run inside a git worktree"),
+    cleanup: bool = typer.Option(True, "--cleanup/--keep"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    live: bool = typer.Option(False, "--live"),
+):
+    """N3: Run a task in an isolated git worktree subagent."""
+    from core.worktree_subagent import run_in_worktree
+
+    console.print_json(
+        data=run_in_worktree(
+            task,
+            use_mock=not live,
+            cleanup=cleanup,
+            dry_run=dry_run,
+        )
+    )
+
+
+@app.command("smoke-harness")
+def smoke_harness_cmd(
+    allow_live: bool = typer.Option(
+        False,
+        "--allow-live",
+        help="Only when credentials present; never claim pass without keys",
+    ),
+):
+    """N8: Live multi-vendor smoke HARNEST only (default: no live calls)."""
+    from core.provider_smoke import smoke_harness
+
+    console.print_json(data=smoke_harness(allow_live=allow_live))
 
 
 @app.command()

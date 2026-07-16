@@ -1,11 +1,16 @@
 """
 Short-TTL cache for multi-member review/advise boards (Improvement Phase 4).
+
+S3: optional semantic key — normalize subject + coarse embedding-hash so
+near-duplicate prompts share a board entry when SUPERAI_BOARD_SEMANTIC=1.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -17,10 +22,58 @@ def _cache_dir() -> Path:
     return d
 
 
+def _normalize_subject(subject: str) -> str:
+    s = (subject or "").lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"[^\w\s:#./@-]", "", s)
+    return s[:2000]
+
+
+def semantic_subject_key(subject: str) -> str:
+    """
+    Coarse semantic fingerprint (S3).
+    Prefer embedding hash when available; else normalized token bag hash.
+    """
+    norm = _normalize_subject(subject)
+    if not norm:
+        return "empty"
+    # Optional real embedding path (offline-safe hash of vector)
+    try:
+        if os.getenv("SUPERAI_BOARD_SEMANTIC", "1").strip() not in {
+            "0",
+            "false",
+            "no",
+        }:
+            from .embeddings import embed_text
+
+            vec = embed_text(norm)
+            if vec is not None:
+                # quantize to reduce float noise
+                if hasattr(vec, "tolist"):
+                    vals = vec.tolist()
+                else:
+                    vals = list(vec)
+                q = ",".join(f"{float(x):.3f}" for x in vals[:64])
+                return hashlib.sha256(q.encode("utf-8")).hexdigest()[:24]
+    except Exception:
+        pass
+    # Token bag: sorted unique words length>=3
+    toks = sorted({t for t in re.findall(r"[a-z0-9_]{3,}", norm)})
+    bag = " ".join(toks[:80]) or norm
+    return hashlib.sha256(bag.encode("utf-8")).hexdigest()[:24]
+
+
 def _key(subject: str, mode: str, members: list, prefer: str, dry_run: bool) -> str:
+    use_sem = os.getenv("SUPERAI_BOARD_SEMANTIC", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    subj = semantic_subject_key(subject) if use_sem else (subject or "")[:2000]
     raw = json.dumps(
         {
-            "s": (subject or "")[:2000],
+            "s": subj,
+            "sem": use_sem,
             "m": mode,
             "mem": list(members or []),
             "p": prefer,

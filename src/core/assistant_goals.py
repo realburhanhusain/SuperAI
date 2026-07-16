@@ -192,3 +192,41 @@ class GoalStore:
             "permission_mode": pmode,
             "max_goals": max_goals,
         }
+
+    def daemon_tick(
+        self,
+        *,
+        max_goals: int = 2,
+        execute: bool = False,
+        notify: bool = True,
+        schedule_due: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        N2: single daemon tick — heartbeat, optional schedule run-due,
+        notify messengers, optionally execute goals (never yolo).
+        """
+        hb = self.heartbeat()
+        schedule_out: Dict[str, Any] = {"ran": 0}
+        if schedule_due:
+            try:
+                from .schedule_store import ScheduleStore
+
+                schedule_out = {"ran": 0, "results": ScheduleStore().run_due()}
+                schedule_out["ran"] = len(schedule_out.get("results") or [])
+            except Exception as e:
+                schedule_out = {"ran": 0, "error": str(e)[:200]}
+        notify_out: Dict[str, Any] = {"sent": 0}
+        if notify:
+            notify_out = self.notify_due()
+        exec_out: Dict[str, Any] = {"executed": 0}
+        if execute:
+            exec_out = self.execute_due(max_goals=max_goals, use_ask=True)
+        return {
+            "ok": True,
+            "due_count": hb.get("count") or 0,
+            "due": hb.get("due") or [],
+            "schedule": schedule_out,
+            "notify": notify_out,
+            "execute": exec_out,
+            "tick_ts": time.time(),
+        }

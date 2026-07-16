@@ -116,6 +116,7 @@ class ModelCaller:
             except Exception:
                 pass
 
+        vision_attachments = kwargs.get("vision_attachments")
         last: Optional[Dict[str, Any]] = None
         primary_model = models_to_try[0]
         for mid in models_to_try:
@@ -125,6 +126,7 @@ class ModelCaller:
                 prompt=prompt,
                 system_prompt=system_prompt,
                 use_fallback=use_fallback,
+                vision_attachments=vision_attachments,
             )
             if last and str(last.get("status")) != "error" and not last.get(
                 "blocked"
@@ -147,6 +149,7 @@ class ModelCaller:
         prompt: str,
         system_prompt: Optional[str],
         use_fallback: bool,
+        vision_attachments: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         # Dual-registered external CLIs: cli:aider, cli:claude, …
         if str(model).startswith("cli:") or (
@@ -197,6 +200,7 @@ class ModelCaller:
                     model=model,
                     prompt=prompt,
                     system_prompt=system_prompt,
+                    vision_attachments=vision_attachments,
                 )
                 latency = time.time() - start
                 tokens = int((result.get("usage") or {}).get("total_tokens") or 0)
@@ -455,6 +459,7 @@ class ModelCaller:
         model: str,
         prompt: str,
         system_prompt: Optional[str],
+        vision_attachments: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         if self.use_mock:
             return self._mock_call(provider, model, prompt)
@@ -462,7 +467,13 @@ class ModelCaller:
         provider_l = resolve_compat_provider(provider)
         # Any known OpenAI-compat provider OR registry entry with base_url
         if get_openai_compat_config(provider_l) or self._registry_openai_endpoint(model):
-            return self._call_openai_compatible(provider_l, model, prompt, system_prompt)
+            return self._call_openai_compatible(
+                provider_l,
+                model,
+                prompt,
+                system_prompt,
+                vision_attachments=vision_attachments,
+            )
         if provider_l == "anthropic":
             return self._call_anthropic(model, prompt, system_prompt)
         if provider_l == "google":
@@ -583,6 +594,7 @@ class ModelCaller:
         model: str,
         prompt: str,
         system_prompt: Optional[str],
+        vision_attachments: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         try:
             from openai import OpenAI
@@ -591,10 +603,19 @@ class ModelCaller:
 
         base_url, api_key, _ = self._resolve_openai_endpoint(provider, model)
         client = OpenAI(api_key=api_key, base_url=base_url)
-        messages = []
+        messages: List[Dict[str, Any]] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        # S2: multimodal vision content when attachments provided
+        if vision_attachments:
+            try:
+                from .multimodal import vision_messages
+
+                messages.extend(vision_messages(prompt, vision_attachments))
+            except Exception:
+                messages.append({"role": "user", "content": prompt})
+        else:
+            messages.append({"role": "user", "content": prompt})
 
         response = client.chat.completions.create(
             model=self._model_id(model),

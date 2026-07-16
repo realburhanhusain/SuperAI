@@ -28,7 +28,8 @@ and **opt-in install wizard** (host tools + Postgres) is **complete in code**.
 | Phase 8 N1–N8 | **100% foundations** — `docs/PHASE8_PLAN.md` |
 | Improvement V2 Sprints A–D | **100%** — `docs/IMPROVEMENT_V2_PLAN.md` |
 | Improvement V3 Sprints A–D | **100%** — tool protocol, failover, cost on run, tenant write, goals safety — `docs/IMPROVEMENT_V3_PLAN.md` |
-| Phase 99 live smoke | **Postponed** |
+| MoSCoW 100% (must+should+nice) | **Code+tests complete** — `docs/MOSCOW_100_PLAN.md` (N8 smoke = harness only) |
+| Phase 99 live smoke | **Postponed** (harness: `superai smoke-harness`) |
 
 ## Recently closed (code)
 

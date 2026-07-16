@@ -1,10 +1,12 @@
 """
-Agent session TUI (Phase 8 N1).
+Agent session TUI (Phase 8 N1 / MoSCoW S1 N1 N6).
 
 Patterns inspired by open-source coding agents (Aider/OpenCode-style):
   - visible tool/model steps
   - compact prior turns
   - plan vs act permission
+  - token streaming display
+  - /diff confirm, /listen /speak voice hooks
 Uses Rich (already a SuperAI dependency) — no heavy Textual dep required.
 """
 
@@ -14,6 +16,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from rich.console import Console
+from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
@@ -89,11 +92,15 @@ def run_agent_tui(
         Panel.fit(
             f"[bold]SuperAI Agent TUI[/bold]\n"
             f"session={sid}  permission={mode_from_config(cfg)}\n"
-            f"Slash: /help /trace /compact /tool … /permission /profile /exit\n"
-            f"Tools: /tool read path=… · grep pattern=… · write · diff_apply",
+            f"Slash: /help /trace /compact /tool … /diff /listen /speak\n"
+            f"       /permission /profile /panel /stream /exit\n"
+            f"Tools: /tool read path=… · grep · write · diff_apply",
             border_style="cyan",
+            title="session",
+            subtitle="shared AskSessionStore",
         )
     )
+    stream_enabled = True
 
     while True:
         try:
@@ -113,6 +120,10 @@ def run_agent_tui(
                     Markdown(
                         "- `/trace` show tool/step events\n"
                         "- `/compact` [smart] compact context\n"
+                        "- `/panel` session summary panel\n"
+                        "- `/stream on|off` token streaming (S1)\n"
+                        "- `/diff [path]` preview git diff; confirm apply\n"
+                        "- `/listen` voice STT stub · `/speak text` TTS\n"
                         "- `/tool read path=FILE` · `/tool grep pattern=X`\n"
                         "- `/tool write path=F content=…` (respects permission)\n"
                         "- `/tool diff_apply diff=…` (plan=dry-run)\n"
@@ -123,6 +134,104 @@ def run_agent_tui(
                 continue
             if cmd == "trace":
                 render_trace(traces)
+                continue
+            if cmd == "stream":
+                stream_enabled = (arg or "on").lower() not in {"off", "0", "false"}
+                console.print(f"stream={stream_enabled}")
+                continue
+            if cmd == "panel":
+                data = store._load(sid)
+                turns = data.get("turns") or []
+                table = Table(title=f"Session {sid}", show_header=True)
+                table.add_column("#")
+                table.add_column("user")
+                table.add_column("assistant")
+                for i, t in enumerate(turns[-8:], 1):
+                    table.add_row(
+                        str(i),
+                        str(t.get("user") or "")[:40],
+                        str(t.get("assistant") or "")[:40],
+                    )
+                console.print(table)
+                console.print(
+                    Panel(
+                        f"permission={mode_from_config(cfg)}  turns={len(turns)}  "
+                        f"traces={len(traces)}",
+                        title="status",
+                        border_style="blue",
+                    )
+                )
+                continue
+            if cmd == "diff":
+                # N1: /diff confirm — show git diff, ask before apply
+                from .git_diff_apply import apply_unified_diff, check_unified_diff
+                from .pr_review import get_git_diff
+
+                ref = arg or "HEAD~1"
+                try:
+                    diff_text = get_git_diff(ref)
+                except Exception as e:
+                    console.print(f"[red]diff error: {e}[/red]")
+                    continue
+                if not (diff_text or "").strip():
+                    import subprocess
+
+                    proc = subprocess.run(
+                        ["git", "diff", "HEAD"],
+                        capture_output=True,
+                        text=True,
+                        shell=False,
+                    )
+                    diff_text = proc.stdout or ""
+                console.print(
+                    Panel(
+                        (diff_text or "(empty diff)")[:3000],
+                        title=f"git diff {ref}",
+                        border_style="magenta",
+                    )
+                )
+                try:
+                    chk = check_unified_diff(diff_text)
+                except Exception:
+                    chk = {"ok": True, "note": "check_unavailable"}
+                console.print_json(data=chk if isinstance(chk, dict) else {"check": str(chk)})
+                if mode_from_config(cfg) == "plan":
+                    console.print("[yellow]plan mode: not applying[/yellow]")
+                    continue
+                if not (diff_text or "").strip():
+                    console.print("[dim]no diff to apply[/dim]")
+                    continue
+                ans = console.input("Apply this diff? [y/N] ").strip().lower()
+                if ans in {"y", "yes"}:
+                    try:
+                        applied = apply_unified_diff(
+                            diff_text,
+                            dry_run=False,
+                            check_first=True,
+                        )
+                        console.print_json(
+                            data=applied if isinstance(applied, dict) else {"ok": True}
+                        )
+                    except Exception as e:
+                        console.print(f"[red]apply failed: {e}[/red]")
+                else:
+                    console.print("[dim]skipped apply[/dim]")
+                continue
+            if cmd == "listen":
+                from .voice_io import listen_once
+
+                r = listen_once()
+                console.print_json(data=r)
+                if r.get("ok") and r.get("text"):
+                    line = str(r["text"])
+                    # fall through to agent with spoken text
+                else:
+                    continue
+            elif cmd == "speak":
+                from .voice_io import speak
+
+                text = arg or "SuperAI agent ready."
+                console.print_json(data=speak(text))
                 continue
             if cmd == "compact":
                 data = store._load(sid)
@@ -155,8 +264,9 @@ def run_agent_tui(
                 apply_profile_to_config(cfg, arg or "balanced")
                 console.print(f"profile={cfg.config.get('run_profile')}")
                 continue
-            console.print(f"[yellow]Unknown slash: /{cmd}[/yellow]")
-            continue
+            if cmd not in {"listen"}:
+                console.print(f"[yellow]Unknown slash: /{cmd}[/yellow]")
+                continue
 
         # Inline /tool lines mixed with message
         tool_results = []
@@ -221,7 +331,7 @@ def run_agent_tui(
             action=intent.action,
             cost=out.get("estimated_cost_usd"),
         )
-        # Display
+        # Display (+ S1 token streaming)
         res = out.get("result")
         if isinstance(res, dict):
             body = (
@@ -232,10 +342,37 @@ def run_agent_tui(
             )
         else:
             body = str(res or out.get("error") or "")[:2000]
-        console.print(Panel(str(body), title=f"agent ({intent.action})", border_style="green"))
+        if stream_enabled and body:
+            try:
+                from .token_stream import stream_tokens
+
+                buf: List[str] = []
+
+                def _tok(ch: str) -> None:
+                    buf.append(ch)
+
+                with Live(console=console, refresh_per_second=12) as live:
+                    for ch in stream_tokens(str(body), chunk_size=20, on_token=_tok):
+                        live.update(
+                            Panel(
+                                "".join(buf)[:3000],
+                                title=f"agent ({intent.action}) · streaming",
+                                border_style="green",
+                            )
+                        )
+                body = "".join(buf) or body
+            except Exception:
+                console.print(
+                    Panel(str(body), title=f"agent ({intent.action})", border_style="green")
+                )
+        else:
+            console.print(
+                Panel(str(body), title=f"agent ({intent.action})", border_style="green")
+            )
         console.print(
             f"[dim]mock={out.get('mock')} dry_run={out.get('dry_run')} "
-            f"cost≈${float(out.get('estimated_cost_usd') or 0):.6f}[/dim]"
+            f"cost≈${float(out.get('estimated_cost_usd') or 0):.6f} "
+            f"session={sid}[/dim]"
         )
         if traces:
             render_trace(traces, limit=6)

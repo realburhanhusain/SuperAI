@@ -308,17 +308,27 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
             docs_note = "docs/SPLIT_PANE_TUI.md + V6 backlog N209"
             tests_note = "tests/test_split_pane_tui_n209.py"
         elif iid == "N208":
-            docs_note = "docs/TUI_ADVANCED.md (N208 mux) + V6 backlog"
-            tests_note = "tests/test_tui_advanced_n208_n215.py"
+            docs_note = "docs/TUI_ADVANCED.md (session mux + process_mux ConPTY/PTY + restore)"
+            tests_note = (
+                "tests/test_tui_advanced_n208_n215.py + "
+                "tests/test_tui_process_native_n208_n215.py + "
+                "tests/test_tui_polish_conpty_atspi_restore.py"
+            )
         elif iid == "N210":
-            docs_note = "docs/TUI_ADVANCED.md (N210 vim) + V6 backlog"
-            tests_note = "tests/test_tui_advanced_n208_n215.py"
+            docs_note = "docs/TUI_ADVANCED.md (N210 vim + live raw TTY) + V6 backlog"
+            tests_note = "tests/test_tui_advanced_n208_n215.py + tests/test_tui_live_input.py"
         elif iid == "N211":
-            docs_note = "docs/TUI_ADVANCED.md (N211 mouse) + V6 backlog"
-            tests_note = "tests/test_tui_advanced_n208_n215.py"
+            docs_note = "docs/TUI_ADVANCED.md (N211 mouse + live CSI) + V6 backlog"
+            tests_note = "tests/test_tui_advanced_n208_n215.py + tests/test_tui_live_input.py"
         elif iid == "N215":
-            docs_note = "docs/TUI_ADVANCED.md (N215 a11y) + V6 backlog"
-            tests_note = "tests/test_tui_advanced_n208_n215.py"
+            docs_note = (
+                "docs/TUI_ADVANCED.md (a11y + native SAPI/say + AT-SPI + live regions)"
+            )
+            tests_note = (
+                "tests/test_tui_advanced_n208_n215.py + "
+                "tests/test_tui_process_native_n208_n215.py + "
+                "tests/test_tui_polish_conpty_atspi_restore.py"
+            )
         elif iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
             docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs"
         return "complete", T(

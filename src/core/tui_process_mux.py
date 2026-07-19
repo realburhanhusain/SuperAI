@@ -84,6 +84,7 @@ class ProcessPane:
         self.spec = spec
         self.proc: Optional[subprocess.Popen] = None
         self.master_fd: Optional[int] = None  # unix pty
+        self.conpty = None  # Windows ConPTYSession
         self._buf: Deque[str] = deque(maxlen=5000)
         self._lock = threading.Lock()
         self._reader: Optional[threading.Thread] = None
@@ -94,14 +95,24 @@ class ProcessPane:
 
     @property
     def pid(self) -> Optional[int]:
+        if self.conpty is not None:
+            return getattr(self.conpty, "pid", None)
         return self.proc.pid if self.proc else None
 
     def alive(self) -> bool:
+        if self.conpty is not None:
+            try:
+                return bool(self.conpty.alive())
+            except Exception:
+                return False
         if not self.proc:
             return False
         return self.proc.poll() is None
 
     def status(self) -> Dict[str, Any]:
+        exit_code = self.exit_code
+        if self.proc:
+            exit_code = self.proc.poll()
         return {
             "id": self.spec.id,
             "title": self.spec.title,
@@ -110,10 +121,13 @@ class ProcessPane:
             "alive": self.alive(),
             "backend": self.backend,
             "started_at": self.started_at,
-            "exit_code": self.proc.poll() if self.proc else self.exit_code,
-            "buffer_lines": len(self._buf),
+            "exit_code": exit_code,
+            "buffer_lines": len(self._buf)
+            if self.conpty is None
+            else len(getattr(self.conpty, "_buf", self._buf)),
             "session_id": self.spec.session_id,
             "cwd": self.spec.cwd,
+            "restorable": bool(self.spec.command),
         }
 
     def start(self) -> Dict[str, Any]:
@@ -127,6 +141,7 @@ class ProcessPane:
             env.update({str(k): str(v) for k, v in self.spec.env.items()})
         cwd = self.spec.cwd or None
         self._stop.clear()
+        self.conpty = None
 
         # Prefer Unix PTY
         if self.spec.use_pty and sys.platform != "win32":
@@ -136,16 +151,29 @@ class ProcessPane:
             except Exception:
                 self._start_pipes(cmd, env, cwd)
                 self.backend = "pipe"
+        elif sys.platform == "win32" and self.spec.use_pty and conpty_available():
+            # True Windows ConPTY pseudo-console
+            try:
+                from .tui_conpty import spawn_conpty
+
+                sess, res = spawn_conpty(cmd, cwd=cwd, env=env)
+                if res.get("ok") and sess is not None:
+                    self.conpty = sess
+                    self.backend = "conpty"
+                else:
+                    self._start_pipes(cmd, env, cwd)
+                    self.backend = f"pipe(conpty_failed:{res.get('error', '?')[:40]})"
+            except Exception as e:
+                self._start_pipes(cmd, env, cwd)
+                self.backend = f"pipe(conpty_exc:{str(e)[:40]})"
         else:
-            # Windows / fallback: pipes (ConPTY optional probe only)
             self._start_pipes(cmd, env, cwd)
             self.backend = "pipe"
-            if sys.platform == "win32" and conpty_available():
-                self.backend = "pipe+conpty_available"
 
         self.started_at = _now()
-        self._reader = threading.Thread(target=self._read_loop, daemon=True)
-        self._reader.start()
+        if self.conpty is None:
+            self._reader = threading.Thread(target=self._read_loop, daemon=True)
+            self._reader.start()
         return {"ok": True, **self.status()}
 
     def _start_unix_pty(self, cmd: List[str], env: dict, cwd: Optional[str]) -> None:
@@ -233,6 +261,8 @@ class ProcessPane:
                 self._buf.append(line)
 
     def read_output(self, *, max_chars: int = 8000, clear: bool = False) -> str:
+        if self.conpty is not None:
+            return self.conpty.read_output(max_chars=max_chars, clear=clear)
         with self._lock:
             data = "".join(self._buf)
             if clear:
@@ -244,6 +274,8 @@ class ProcessPane:
     def write(self, data: str) -> Dict[str, Any]:
         if not self.alive():
             return {"ok": False, "error": "not_alive"}
+        if self.conpty is not None:
+            return self.conpty.write(data)
         payload = data if data.endswith("\n") or data.endswith("\r") else data
         try:
             raw = payload.encode("utf-8") if isinstance(payload, str) else payload
@@ -260,11 +292,19 @@ class ProcessPane:
 
     def kill(self, *, force: bool = False) -> Dict[str, Any]:
         self._stop.set()
+        if self.conpty is not None:
+            out = self.conpty.kill()
+            self.conpty = None
+            self.exit_code = out.get("exit_code")
+            return {**out, "id": self.spec.id}
         if not self.proc:
             return {"ok": True, "killed": False, "message": "no_process"}
         try:
             if sys.platform == "win32":
-                self.proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
+                try:
+                    self.proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
+                except Exception:
+                    pass
                 time.sleep(0.2)
                 if self.proc.poll() is None:
                     self.proc.kill()
@@ -294,16 +334,21 @@ class ProcessPane:
 
 
 def conpty_available() -> bool:
-    """Probe Windows ConPTY (CreatePseudoConsole) without requiring winpty."""
+    """True when Windows ConPTY API is usable."""
     if sys.platform != "win32":
         return False
     try:
-        import ctypes
+        from .tui_conpty import conpty_supported
 
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        return hasattr(kernel32, "CreatePseudoConsole")
+        return bool(conpty_supported())
     except Exception:
-        return False
+        try:
+            import ctypes
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            return hasattr(kernel32, "CreatePseudoConsole")
+        except Exception:
+            return False
 
 
 def default_shell_command() -> List[str]:
@@ -319,22 +364,33 @@ class ProcessMux:
     tmux-like process multiplexer managed by SuperAI.
     """
 
-    def __init__(self, *, persist: bool = True):
+    def __init__(self, *, persist: bool = True, auto_restore: Optional[bool] = None):
         self.persist = persist
         self.panes: Dict[str, ProcessPane] = {}
         self.active_id: Optional[str] = None
         self.name: str = "proc-default"
+        self._saved_specs: List[PaneSpec] = []
         self._load_meta()
+        # Auto-restore when SUPERAI_PMUX_RESTORE=1 (or explicit auto_restore=True)
+        if auto_restore is None:
+            auto_restore = (os.getenv("SUPERAI_PMUX_RESTORE") or "").lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        if auto_restore and self._saved_specs:
+            self.restore(start=True)
 
     def _load_meta(self) -> None:
         path = process_mux_path()
+        self._saved_specs = []
         if not path.is_file():
             return
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             self.name = str(data.get("name") or self.name)
             self.active_id = data.get("active_id")
-            # metadata only — processes are not resurrected automatically
             self._saved_specs = [
                 PaneSpec.from_dict(p) for p in (data.get("panes") or []) if isinstance(p, dict)
             ]
@@ -344,27 +400,100 @@ class ProcessMux:
     def _save_meta(self) -> None:
         if not self.persist:
             return
-        panes = []
+        # Merge live panes + any saved specs not currently live (preserve restore list)
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for spec in self._saved_specs:
+            if spec.id and spec.command:
+                by_id[spec.id] = spec.to_dict()
         for p in self.panes.values():
             d = p.spec.to_dict()
             d["last_pid"] = p.pid
             d["alive"] = p.alive()
-            panes.append(d)
-        # also keep inactive saved specs that were never started this session
+            d["backend"] = p.backend
+            by_id[p.spec.id] = d
+            # keep saved specs in sync
+            self._upsert_saved(p.spec)
         path = process_mux_path()
         path.write_text(
             json.dumps(
                 {
                     "name": self.name,
                     "active_id": self.active_id,
-                    "panes": panes,
+                    "panes": list(by_id.values()),
                     "updated_at": _now(),
                     "platform": sys.platform,
                     "conpty_available": conpty_available(),
+                    "conpty_backend": "conpty" if conpty_available() else "pipe",
                 },
                 indent=2,
             ),
             encoding="utf-8",
+        )
+
+    def _upsert_saved(self, spec: PaneSpec) -> None:
+        for i, s in enumerate(self._saved_specs):
+            if s.id == spec.id:
+                self._saved_specs[i] = spec
+                return
+        self._saved_specs.append(spec)
+
+    def saved_specs(self) -> List[Dict[str, Any]]:
+        return [s.to_dict() for s in self._saved_specs]
+
+    def restore(
+        self,
+        *,
+        start: bool = True,
+        only_ids: Optional[Sequence[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Resurrect process panes from persisted metadata.
+
+        start=True spawns each command again (new PIDs). Specs without a command are skipped.
+        """
+        from .spend_guard import ensure_public_result
+
+        want = set(only_ids) if only_ids else None
+        restored = []
+        errors = []
+        for spec in list(self._saved_specs):
+            if want is not None and spec.id not in want:
+                continue
+            if not spec.command:
+                errors.append({"id": spec.id, "error": "no_command"})
+                continue
+            if spec.id in self.panes and self.panes[spec.id].alive():
+                restored.append({"id": spec.id, "already_alive": True})
+                continue
+            pane = ProcessPane(spec)
+            self.panes[spec.id] = pane
+            if self.active_id is None:
+                self.active_id = spec.id
+            entry: Dict[str, Any] = {"id": spec.id, "title": spec.title, "command": spec.command}
+            if start:
+                entry["start"] = pane.start()
+                entry["ok"] = bool(entry["start"].get("ok"))
+                if not entry["ok"]:
+                    errors.append(entry)
+                else:
+                    restored.append(entry)
+            else:
+                entry["ok"] = True
+                entry["started"] = False
+                restored.append(entry)
+        if restored and self.active_id not in self.panes:
+            self.active_id = next(iter(self.panes), None)
+        self._save_meta()
+        return ensure_public_result(
+            {
+                "ok": len(errors) == 0,
+                "restored": restored,
+                "errors": errors,
+                "pane_count": len(self.panes),
+                "active_id": self.active_id,
+                "bar": self.status_bar(),
+            },
+            ok=len(errors) == 0 or len(restored) > 0,
         )
 
     def status(self) -> Dict[str, Any]:
@@ -377,11 +506,19 @@ class ProcessMux:
                 "active_id": self.active_id,
                 "pane_count": len(self.panes),
                 "panes": [p.status() for p in self.panes.values()],
+                "saved_count": len(self._saved_specs),
+                "saved": self.saved_specs(),
                 "bar": self.status_bar(),
                 "platform": sys.platform,
                 "conpty_available": conpty_available(),
+                "conpty": (
+                    {"supported": True, "module": "core.tui_conpty"}
+                    if conpty_available()
+                    else {"supported": False}
+                ),
                 "external": external_mux_tools(),
                 "path": str(process_mux_path()),
+                "auto_restore_env": os.getenv("SUPERAI_PMUX_RESTORE") or "",
             },
             ok=True,
         )
@@ -438,10 +575,12 @@ class ProcessMux:
         pane = ProcessPane(spec)
         self.panes[pid] = pane
         self.active_id = pid
+        self._upsert_saved(spec)
         result: Dict[str, Any] = {"ok": True, "created": spec.to_dict()}
         if start:
             result["start"] = pane.start()
             result["ok"] = bool(result["start"].get("ok"))
+            result["backend"] = pane.backend
         self._save_meta()
         result["bar"] = self.status_bar()
         result["active_id"] = self.active_id
@@ -516,6 +655,9 @@ class ProcessMux:
         pid = pane_id or self.active_id
         if not pid or pid not in self.panes:
             return ensure_public_result({"ok": False, "error": "pane_not_found"}, ok=False)
+        # Keep spec in _saved_specs for restore; only stop the live process
+        spec = self.panes[pid].spec
+        self._upsert_saved(spec)
         out = self.panes[pid].kill(force=force)
         del self.panes[pid]
         if self.active_id == pid:
@@ -633,11 +775,13 @@ PROCESS_MUX_HELP = """
 | `/pmux kill-all` | Kill all panes |
 | `/pmux link <session_id>` | Link pane ↔ SuperAI session |
 | `/pmux tmux [name]` | Create external tmux session if installed |
+| `/pmux restore` | Respawn panes from saved metadata |
 | `/pmux help` | This help |
 
-CLI: `superai process-mux status|shell|spawn|read|write|kill|…`
+CLI: `superai process-mux status|shell|spawn|read|write|kill|restore|…`
 
-Backends: Unix **PTY** when available; Windows **pipes** (+ ConPTY capability probe).
+Backends: Unix **PTY**; Windows **ConPTY** (true pseudo-console) with pipe fallback.
+Restore: `SUPERAI_PMUX_RESTORE=1` auto-respawns saved panes on ProcessMux init.
 """
 
 
@@ -689,6 +833,19 @@ def handle_pmux_slash(arg: str = "", *, mux: Optional[ProcessMux] = None) -> Dic
         return {**mux.link_session(rest[0] if rest else ""), "handled": True}
     if sub in {"tmux"}:
         return {**tmux_new_session(rest[0] if rest else "superai"), "handled": True}
+    if sub in {"restore", "respawn"}:
+        only = rest if rest else None
+        return {**mux.restore(start=True, only_ids=only), "handled": True}
+    if sub in {"saved", "meta"}:
+        return ensure_public_result(
+            {
+                "ok": True,
+                "handled": True,
+                "saved": mux.saved_specs(),
+                "path": str(process_mux_path()),
+            },
+            ok=True,
+        )
     if sub in {"help", "?"}:
         return ensure_public_result({"ok": True, "handled": True, "help": PROCESS_MUX_HELP}, ok=True)
     return ensure_public_result(
@@ -696,7 +853,7 @@ def handle_pmux_slash(arg: str = "", *, mux: Optional[ProcessMux] = None) -> Dic
             "ok": False,
             "handled": True,
             "error": "unknown_pmux_subcommand",
-            "help": "status|shell|spawn|superai|select|next|prev|write|read|kill|kill-all|link|tmux|help",
+            "help": "status|shell|spawn|superai|select|next|prev|write|read|kill|kill-all|link|tmux|restore|saved|help",
         },
         ok=False,
     )

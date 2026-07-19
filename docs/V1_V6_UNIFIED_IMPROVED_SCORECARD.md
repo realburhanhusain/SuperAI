@@ -1113,8 +1113,8 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Multiplexed sessions (tmux-like)
-- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N208 mux) + V6 backlog
-- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (session mux + process_mux ConPTY/PTY + restore)
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py + tests/test_tui_process_native_n208_n215.py + tests/test_tui_polish_conpty_atspi_restore.py
 - **Still incomplete:** —
 
 ### N209 — Split-pane TUI
@@ -1133,8 +1133,8 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Vim keys in TUI
-- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N210 vim) + V6 backlog
-- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N210 vim + live raw TTY) + V6 backlog
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py + tests/test_tui_live_input.py
 - **Still incomplete:** —
 
 ### N211 — Optional mouse support
@@ -1143,8 +1143,8 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Optional mouse support
-- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N211 mouse) + V6 backlog
-- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N211 mouse + live CSI) + V6 backlog
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py + tests/test_tui_live_input.py
 - **Still incomplete:** —
 
 ### N213 — Optional voice channel
@@ -1163,8 +1163,8 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Screen-reader friendly TUI
-- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (N215 a11y) + V6 backlog
-- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py
+- **Documentation (thorough):** YES — docs/TUI_ADVANCED.md (a11y + native SAPI/say + AT-SPI + live regions)
+- **Tests (full):** YES — tests/test_tui_advanced_n208_n215.py + tests/test_tui_process_native_n208_n215.py + tests/test_tui_polish_conpty_atspi_restore.py
 - **Still incomplete:** —
 
 ### N227 — Pre/post tool hooks

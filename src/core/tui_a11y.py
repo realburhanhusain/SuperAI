@@ -382,6 +382,14 @@ def handle_a11y_slash(arg: str = "", *, ctl: Optional[A11yController] = None) ->
         from .tui_a11y_native import handle_native_a11y_slash
 
         return handle_native_a11y_slash(rest or "status")
+    if sub in {"atspi", "at-spi"}:
+        from .tui_atspi import announce_atspi, detect_atspi
+
+        if rest:
+            return {**announce_atspi(rest), "handled": True}
+        return ensure_public_result(
+            {"ok": True, "handled": True, "detect": detect_atspi()}, ok=True
+        )
 
     if sub in {"", "status", "st"}:
         out = {**ctl.status(), "handled": True}

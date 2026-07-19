@@ -329,11 +329,21 @@ def announce_native(
                 lambda: speak_macos_say(text),
             ]
         )
-    elif prefer in {"spd", "spd-say"} or (
+    elif prefer in {"spd", "spd-say", "atspi"} or (
         prefer == "auto" and system == "linux"
     ):
+        # AT-SPI D-Bus + speech-dispatcher chain
+        def _atspi():
+            try:
+                from .tui_atspi import announce_atspi
+
+                return announce_atspi(text)
+            except Exception as e:
+                return {"ok": False, "error": str(e)[:200], "backend": "atspi"}
+
         spoken = _try_chain(
             [
+                _atspi,
                 lambda: speak_linux_spd(text),
                 lambda: speak_linux_espeak(text),
             ]
@@ -432,9 +442,9 @@ NATIVE_A11Y_HELP = """
 |----|---------|
 | Windows | SAPI / System.Speech + UIA live region file (Narrator-friendly) |
 | macOS | `say` + notification (VoiceOver users hear spoken output) |
-| Linux | `spd-say` / espeak + notify-send + live region file |
+| Linux | **AT-SPI2** (`org.a11y.Bus`) + FDO notifications + `spd-say` / espeak |
 
-CLI: `superai a11y native|native-say|backends`
+CLI: `superai a11y native|native-say|backends|atspi`
 """
 
 

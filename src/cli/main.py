@@ -5200,21 +5200,23 @@ def split_tui_cmd(
 def process_mux_cmd(
     action: str = typer.Argument(
         "status",
-        help="status|shell|spawn|superai|select|next|prev|write|read|kill|kill-all|link|tmux|help",
+        help="status|shell|spawn|superai|select|next|prev|write|read|kill|kill-all|link|tmux|restore|saved|help",
     ),
     value: Optional[str] = typer.Argument(
         None, help="Command, pane id, text, or session id depending on action"
     ),
 ):
-    """N208: OS process multiplexer (PTY/pipe panes — tmux-like without external tmux)."""
+    """N208: OS process multiplexer (Unix PTY / Windows ConPTY / pipes) + restore."""
     from core.tui_process_mux import PROCESS_MUX_HELP, ProcessMux, handle_pmux_slash
 
     act = (action or "status").lower().strip()
     if act in {"help", "?"}:
         console.print(PROCESS_MUX_HELP)
         return
-    if act in {"status", "list", "next", "prev", "kill-all", "killall"}:
+    if act in {"status", "list", "next", "prev", "kill-all", "killall", "saved", "restore"}:
         arg = "kill-all" if act in {"killall"} else act
+        if act == "restore" and value:
+            arg = f"restore {value}"
     elif act in {"shell", "sh"}:
         arg = f"shell {value or 'shell'}".strip()
     elif act in {"spawn", "run"}:
@@ -5381,23 +5383,33 @@ def tui_live_cmd(
 def a11y_cmd(
     action: str = typer.Argument(
         "status",
-        help="status|on|off|brief|normal|verbose|render|native|backends|help",
+        help="status|on|off|brief|normal|verbose|render|native|backends|atspi|help",
     ),
     value: Optional[str] = typer.Argument(
         None, help="announce text, verbosity, or native subcommand"
     ),
 ):
-    """N215: Screen-reader TUI + native OS bridges (SAPI/say/spd-say/UIA)."""
+    """N215: Screen-reader TUI + native OS bridges (SAPI/say/AT-SPI/spd-say/UIA)."""
     from core.tui_a11y import A11Y_HELP, A11yController, handle_a11y_slash, linearize_frame
     from core.tui_a11y_native import NATIVE_A11Y_HELP, detect_backends, handle_native_a11y_slash
+    from core.tui_atspi import ATSPI_HELP, announce_atspi, detect_atspi
 
     act = (action or "status").lower().strip()
     if act in {"help", "?"}:
         console.print(A11Y_HELP)
         console.print(NATIVE_A11Y_HELP)
+        console.print(ATSPI_HELP)
         return
     if act in {"backends", "native-status"}:
-        console.print_json(data={"ok": True, "backends": detect_backends()})
+        console.print_json(
+            data={"ok": True, "backends": detect_backends(), "atspi": detect_atspi()}
+        )
+        return
+    if act in {"atspi", "at-spi"}:
+        if value:
+            console.print_json(data=announce_atspi(value))
+        else:
+            console.print_json(data={"ok": True, "detect": detect_atspi()})
         return
     if act == "native":
         console.print_json(data=handle_native_a11y_slash(value or "status"))

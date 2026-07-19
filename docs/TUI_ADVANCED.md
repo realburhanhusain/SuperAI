@@ -378,11 +378,20 @@ In agent TUI: `/pmux shell` · `/pmux spawn …` · `/pmux read` · `/pmux link 
 
 | Backend | When |
 |---------|------|
-| Unix **PTY** | `pty.openpty` available |
-| Windows **pipes** | Always; ConPTY capability probed |
+| Unix **PTY** | `pty.openpty` |
+| Windows **ConPTY** | True pseudo-console via `CreatePseudoConsole` (`tui_conpty.py`) |
+| Windows **pipes** | Fallback if ConPTY fails |
 | External **tmux** | Optional helper when `tmux` on PATH |
 
-Metadata: `~/.superai/tui/process_mux.json`  
+**Restore after restart**
+
+```powershell
+superai process-mux restore          # respawn all saved panes
+$env:SUPERAI_PMUX_RESTORE = "1"      # auto-restore on ProcessMux init
+superai process-mux saved            # list metadata
+```
+
+Metadata: `~/.superai/tui/process_mux.json` (commands + titles; new PIDs on restore)  
 Session link bridges process panes ↔ `SessionMux` agent sessions.
 
 ### N215 native screen-reader bridges
@@ -391,19 +400,22 @@ Session link bridges process panes ↔ `SessionMux` agent sessions.
 |----|----------|
 | Windows | SAPI.SpVoice / System.Speech (PowerShell) + UIA live region files |
 | macOS | `say` + notification (VoiceOver users hear speech) |
-| Linux | `spd-say` / espeak-ng + `notify-send` + live region file |
+| Linux | **AT-SPI2** (`org.a11y.Bus`) + FDO Notifications + `spd-say` / espeak + `atspi_live.txt` |
 
 ```powershell
 superai a11y backends
 superai a11y native
 superai a11y native-say "Hello SuperAI"
 superai a11y native prefer file
+superai a11y atspi
+superai a11y atspi "Hello AT-SPI"
 ```
 
 Live region files (Narrator / watchers):
 
 - `~/.superai/tui/uia_live_region.txt`
 - `~/.superai/tui/uia_live_region.utf16.txt`
+- `~/.superai/tui/atspi_live.txt` (Linux AT-SPI poll file)
 - `~/.superai/tui/a11y_live.txt` (append log)
 
 ### Env
@@ -414,6 +426,7 @@ Live region files (Narrator / watchers):
 | `SUPERAI_TUI_LIVE=1` | Prefer live raw when TTY |
 | `SUPERAI_A11Y_VOICE=1` | Also use `voice_io.speak` |
 | `SUPERAI_A11Y_NATIVE=0` | Disable native TTS bridge (file/landmarks remain) |
+| `SUPERAI_PMUX_RESTORE=1` | Auto-respawn process panes from metadata on init |
 
 ---
 
@@ -421,7 +434,7 @@ Live region files (Narrator / watchers):
 
 ```powershell
 $env:PYTHONPATH = "src"
-pytest tests/test_tui_advanced_n208_n215.py tests/test_tui_live_input.py tests/test_tui_process_native_n208_n215.py -q
+pytest tests/test_tui_advanced_n208_n215.py tests/test_tui_live_input.py tests/test_tui_process_native_n208_n215.py tests/test_tui_polish_conpty_atspi_restore.py -q
 ```
 
 Coverage includes: session mux; **process mux spawn/read/write/kill**; vim; mouse; a11y landmarks; **native backends / UIA file**; live CSI/editor.

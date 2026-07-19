@@ -1,16 +1,18 @@
 # TUI Advanced — N208 · N210 · N211 · N215
 
-**Status:** Production-ready  
+**Status:** Production-ready **with live TTY input**  
 **Related:** [SPLIT_PANE_TUI.md](SPLIT_PANE_TUI.md) (N209)  
-**Tests:** `tests/test_tui_advanced_n208_n215.py`  
-**Agent integration:** `src/core/superai_agent/tui.py`
+**Tests:** `tests/test_tui_advanced_n208_n215.py`, `tests/test_tui_live_input.py`  
+**Agent integration:** `src/core/superai_agent/tui.py`  
+**Live stack:** `tui_raw_input.py` · `tui_live_session.py`
 
 | ID | Feature | Module | CLI |
 |----|---------|--------|-----|
 | **N208** | Multiplexed sessions (tmux-like) | `src/core/tui_mux.py` | `superai mux` |
-| **N210** | Vim keys | `src/core/tui_vim.py` | `superai vim-keys` |
-| **N211** | Optional mouse | `src/core/tui_mouse.py` | `superai mouse` |
-| **N215** | Screen-reader mode | `src/core/tui_a11y.py` | `superai a11y` |
+| **N210** | Vim keys (**live** single-key) | `src/core/tui_vim.py` | `superai vim-keys` |
+| **N211** | Optional mouse (**live** CSI) | `src/core/tui_mouse.py` | `superai mouse` |
+| **N215** | Screen-reader mode (**live** announce file) | `src/core/tui_a11y.py` | `superai a11y` |
+| — | Live TTY reader | `src/core/tui_raw_input.py` | `superai tui-live` |
 
 ---
 
@@ -19,10 +21,15 @@
 ```text
 superai agent / split-tui
         │
-        ├─ SessionMux (N208)     windows → agent session ids
-        ├─ VimEngine (N210)      NORMAL / INSERT / COMMAND
-        ├─ MouseController (N211) SGR parse + hit-test → focus/scroll
-        ├─ A11yController (N215)  linear landmarks vs Rich layout
+        ├─ tui_live_session (default on TTY)
+        │     ├─ RawTTY  msvcrt (Windows) / termios cbreak (Unix)
+        │     ├─ CSI assembly (arrows, mouse SGR 1006)
+        │     └─ LineEditor (INSERT)
+        │
+        ├─ SessionMux (N208)     windows → agent session ids · live status bar
+        ├─ VimEngine (N210)      NORMAL / INSERT / COMMAND · single-key live
+        ├─ MouseController (N211) SGR parse + hit-test → focus/scroll live
+        ├─ A11yController (N215)  landmarks + live file + bell
         └─ split_pane_tui (N209)  pane focus / layouts
 ```
 
@@ -139,9 +146,23 @@ superai vim-keys help
 /vim on|off|status|normal|insert|help|feed <keys>
 ```
 
-### Line-oriented TUI note
+### Live input (implemented)
 
-The agent loop uses `input()` lines. In **NORMAL** mode, a typed line is interpreted as a **key sequence** (`j`, `gg`, `ZZ`, …). Full single-keystroke raw mode would need a raw terminal reader; the engine itself is complete and testable.
+On a real TTY, `superai agent` enables **raw/cbreak** input by default:
+
+| Mode | Live behavior |
+|------|----------------|
+| NORMAL | Each keystroke → vim engine immediately (`j`/`k`/`gg`/…) |
+| INSERT | Line editor (arrows, backspace, Ctrl-W word delete) until Enter |
+| COMMAND | Live `:` buffer until Enter |
+
+Force cooked line mode: `SUPERAI_TUI_LIVE=0`  
+Force live when possible: `SUPERAI_TUI_LIVE=1` (default when TTY)
+
+```powershell
+superai tui-live status
+superai tui-live demo-keys "jk"
+```
 
 ### API
 
@@ -208,11 +229,22 @@ ev = parse_mouse_event("\x1b[<0;10;5M")
 print(ctl.handle_event(ev).to_dict())
 ```
 
-### Limits (honest)
+### Live mouse (implemented)
 
-- Line `input()` cannot receive raw CSI mouse events without a raw reader  
-- Parser + hit-test + config + slash **demo-click** are production-complete  
-- Raw reader can call `handle_sequence()` when available  
+When `/mouse on` and the agent TUI is on a TTY:
+
+1. `RawTTY` emits DECSET `1000/1002/1006`  
+2. SGR CSI sequences are assembled live  
+3. Clicks → `focus_pane` (N209) + frame redraw  
+4. Wheel → scroll actions + a11y announce  
+
+```powershell
+superai mouse on
+superai tui-live demo-mouse sgr:0;10;5
+superai agent   # live mouse while TTY
+```
+
+Non-TTY (CI/pipes) falls back to cooked input; `superai mouse hit` still simulates clicks.
 
 ---
 
@@ -253,9 +285,21 @@ Cost approximately $0.00. …
 | `normal` | + tools + events (default) |
 | `verbose` | Longer message excerpts |
 
-### Live announcements
+### Live announcements (implemented)
 
-Mode changes, mux switches, and agent completion can enqueue `ANNOUNCE:` lines.
+| Channel | Behavior |
+|---------|----------|
+| In-frame | `ANNOUNCE:` prefix when `/a11y on` |
+| Live file | Append-only `~/.superai/tui/a11y_live.txt` (tail-friendly) |
+| Bell | ASCII BEL on each `announce()` |
+| Voice | Optional: `SUPERAI_A11Y_VOICE=1` → `voice_io.speak` |
+
+Mode changes, mux switches, scroll/focus, and agent completion call `announce(..., immediate=True)`.
+
+```powershell
+# Watch live announcements in another terminal
+Get-Content $env:USERPROFILE\.superai\tui\a11y_live.txt -Wait -Tail 20
+```
 
 ### CLI / slash
 
@@ -307,14 +351,38 @@ Inside:
 
 ---
 
+## Live mode summary (boundaries closed)
+
+| Former boundary | Live implementation |
+|-----------------|---------------------|
+| Line-only vim sequences | **RawTTY** single-key NORMAL / live INSERT editor |
+| Mouse parse without CSI delivery | **RawTTY** + DECSET 1006 delivers SGR to `MouseController` |
+| A11y only in-frame text | **Live file** + BEL + optional voice |
+| Mux bar static until re-prompt | Redraw + announce on every window switch |
+
+| Still intentional (product scope) | Why |
+|-----------------------------------|-----|
+| Not a full OS tmux/zellij | N208 is SuperAI session windows, not PTY process mux |
+| Not AT-SPI / native VoiceOver | Portable landmarks + live file work across OSes |
+
+### Env
+
+| Variable | Effect |
+|----------|--------|
+| `SUPERAI_TUI_LIVE=0` | Force cooked `input()` (CI-friendly) |
+| `SUPERAI_TUI_LIVE=1` | Prefer live raw when TTY |
+| `SUPERAI_A11Y_VOICE=1` | Speak live announcements |
+
+---
+
 ## Testing
 
 ```powershell
 $env:PYTHONPATH = "src"
-pytest tests/test_tui_advanced_n208_n215.py -q
+pytest tests/test_tui_advanced_n208_n215.py tests/test_tui_live_input.py -q
 ```
 
-Coverage includes: mux CRUD/cycle/persist/slash; vim modes/counts/ctrl-w/commands; mouse SGR/X10/hit/wheel; a11y landmarks/announce/verbosity; help strings.
+Coverage includes: mux CRUD; vim modes; mouse SGR/hit; a11y landmarks/live file; **CSI assembly; line editor; live_capabilities; demo CLI**.
 
 ---
 
@@ -322,20 +390,13 @@ Coverage includes: mux CRUD/cycle/persist/slash; vim modes/counts/ctrl-w/command
 
 | ID | Criterion | Evidence |
 |----|-----------|----------|
-| N208 | Production mux + CLI + slash + tests + docs | `tui_mux.py` + this doc |
-| N210 | Production vim engine + CLI + slash + tests + docs | `tui_vim.py` |
-| N211 | Production mouse parse/hit + CLI + slash + tests + docs | `tui_mouse.py` |
-| N215 | Production SR linearization + CLI + slash + tests + docs | `tui_a11y.py` |
+| N208 | Production mux + live status bar + CLI + tests + docs | `tui_mux.py` |
+| N210 | Production vim + **live keys** + CLI + tests + docs | `tui_vim.py` + `tui_raw_input.py` |
+| N211 | Production mouse + **live CSI** + CLI + tests + docs | `tui_mouse.py` + RawTTY |
+| N215 | Production SR + **live announce file** + CLI + tests + docs | `tui_a11y.py` |
+| Live | Cross-platform raw reader + session loop | `tui_live_session.py` |
 | All | Agent TUI integration | `superai_agent/tui.py` |
-| All | Thorough tests | `test_tui_advanced_n208_n215.py` |
-
-### Explicit non-goals
-
-| Not claimed | Why |
-|-------------|-----|
-| Full OS tmux/zellij replacement | Process mux is N208 scope boundary |
-| Raw tty single-keystroke loop | Engine ready; line mode works today |
-| Full AT-SPI / VoiceOver bridge | Landmark plain text is the portable approach |
+| All | Thorough tests | `test_tui_advanced_*` + `test_tui_live_input.py` |
 
 ---
 

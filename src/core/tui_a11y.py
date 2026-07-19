@@ -11,6 +11,7 @@ N215 — Screen-reader friendly TUI.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -182,10 +183,29 @@ def linearize_frame(
     return "\n\n".join(parts).strip() + "\n"
 
 
+def live_announce_path() -> Path:
+    """File SR tools / tail can watch for live announcements."""
+    p = Path.home() / ".superai" / "tui" / "a11y_live.txt"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def write_live_announcement(text: str) -> Path:
+    """Append timestamped announcement for live SR consumers."""
+    path = live_announce_path()
+    line = f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} {text.strip()}\n"
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(line)
+    return path
+
+
 @dataclass
 class A11yController:
     cfg: A11yConfig = field(default_factory=load_a11y_config)
     announcements: List[str] = field(default_factory=list)
+    live_file: bool = True
+    live_bell: bool = True
+    live_voice: bool = False
 
     def enable(self, on: bool = True, *, persist: bool = True) -> Dict[str, Any]:
         from .spend_guard import ensure_public_result
@@ -196,7 +216,12 @@ class A11yController:
         msg = "Screen reader mode on." if on else "Screen reader mode off."
         self.announce(msg)
         return ensure_public_result(
-            {"ok": True, "enabled": self.cfg.enabled, "announcement": msg},
+            {
+                "ok": True,
+                "enabled": self.cfg.enabled,
+                "announcement": msg,
+                "live_file": str(live_announce_path()),
+            },
             ok=True,
         )
 
@@ -217,13 +242,40 @@ class A11yController:
             {"ok": True, "verbosity": level}, ok=True
         )
 
-    def announce(self, text: str) -> str:
+    def announce(self, text: str, *, immediate: bool = True) -> str:
+        """
+        Queue announcement; when immediate, also write live file + optional bell/voice.
+        """
         text = (text or "").strip()
         if not text:
             return ""
         if self.cfg.announce_live:
             self.announcements.append(text)
             self.announcements = self.announcements[-50:]
+        if immediate and (self.cfg.enabled or self.cfg.announce_live):
+            try:
+                if self.live_file:
+                    write_live_announcement(text)
+            except Exception:
+                pass
+            if self.live_bell:
+                try:
+                    import sys
+
+                    sys.stdout.write("\a")
+                    sys.stdout.flush()
+                except Exception:
+                    pass
+            if self.live_voice or (
+                self.cfg.enabled and (os.getenv("SUPERAI_A11Y_VOICE") or "").lower()
+                in {"1", "true", "yes"}
+            ):
+                try:
+                    from .voice_io import speak
+
+                    speak(text[:200])
+                except Exception:
+                    pass
         return text
 
     def pop_announcements(self) -> List[str]:
@@ -243,6 +295,9 @@ class A11yController:
                 "include_landmarks": self.cfg.include_landmarks,
                 "pending_announcements": list(self.announcements),
                 "path": str(a11y_config_path()),
+                "live_file": str(live_announce_path()),
+                "live_bell": self.live_bell,
+                "live_voice_env": (os.getenv("SUPERAI_A11Y_VOICE") or ""),
             },
             ok=True,
         )

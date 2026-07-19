@@ -5277,6 +5277,64 @@ def mouse_cmd(
     console.print_json(data=handle_mouse_slash(arg))
 
 
+@app.command("tui-live")
+def tui_live_cmd(
+    action: str = typer.Argument(
+        "status", help="status|caps|demo-keys|demo-mouse"
+    ),
+    value: Optional[str] = typer.Argument(
+        None, help="For demo-keys: characters to parse; demo-mouse: sgr payload"
+    ),
+):
+    """Live TTY capabilities for vim/mouse (N210/N211 raw input)."""
+    from core.tui_live_session import live_capabilities, live_enabled
+    from core.tui_raw_input import feed_chars_to_events
+
+    act = (action or "status").lower().strip()
+    if act in {"status", "caps"}:
+        data = live_capabilities()
+        data["live_enabled"] = live_enabled()
+        data["env_SUPERAI_TUI_LIVE"] = __import__("os").getenv("SUPERAI_TUI_LIVE")
+        console.print_json(data=data)
+        return
+    if act in {"demo-keys", "keys"}:
+        events, pending = feed_chars_to_events(value or "jk\x1b[A")
+        console.print_json(
+            data={
+                "ok": True,
+                "events": [e.to_dict() for e in events],
+                "pending": pending,
+            }
+        )
+        return
+    if act in {"demo-mouse", "mouse"}:
+        from core.tui_raw_input import feed_chars_to_events as feed
+        from core.tui_mouse import MouseController
+
+        seq = value or "\x1b[<0;10;5M"
+        if seq.startswith("sgr:"):
+            body = seq[4:]
+            if ";" in body:
+                b, x, y = body.split(";")[:3]
+            else:
+                b, x, y = body.split(":")[:3]
+            seq = f"\x1b[<{b};{x};{y}M"
+        events, _ = feed(seq)
+        ctl = MouseController()
+        ctl.enable(True, persist=False)
+        ctl.set_layout("classic")
+        actions = []
+        for e in events:
+            if e.kind == "mouse":
+                actions.append(ctl.handle_sequence(e.mouse_seq or e.raw).to_dict())
+        console.print_json(
+            data={"ok": True, "events": [e.to_dict() for e in events], "actions": actions}
+        )
+        return
+    console.print("[red]Unknown action. Use: status|caps|demo-keys|demo-mouse[/red]")
+    raise typer.Exit(1)
+
+
 @app.command("a11y")
 def a11y_cmd(
     action: str = typer.Argument(

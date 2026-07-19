@@ -348,61 +348,50 @@ def run_superai_agent_tui(
             border_style="cyan",
         )
     )
+    from core.tui_live_session import (
+        live_capabilities,
+        live_enabled,
+        process_cooked_vim_line,
+        read_line_or_action,
+    )
+
+    caps = live_capabilities()
+    console.print(
+        f"[dim]live_input={'on' if live_enabled() else 'off'} "
+        f"tty={caps.get('tty')} platform={caps.get('platform')} "
+        f"(SUPERAI_TUI_LIVE=0 to force cooked)[/dim]"
+    )
     _print_frame()
 
     while True:
-        prompt = "[bold green]you>[/bold green] "
-        if vim_eng.enabled and vim_eng.mode == "normal":
-            prompt = "[bold yellow]NORMAL>[/bold yellow] "
-        elif vim_eng.enabled and vim_eng.mode == "command":
-            prompt = f"[bold magenta]:{vim_eng.command_buf}[/bold magenta] "
-        try:
-            line = console.input(prompt).rstrip("\n")
-        except (EOFError, KeyboardInterrupt):
+        result = read_line_or_action(
+            vim_eng=vim_eng,
+            mouse_ctl=mouse_ctl,
+            a11y=a11y,
+            apply_nav=_apply_nav_action,
+            console=console,
+        )
+        if result.kind == "quit":
             console.print()
             break
-        # N210: when vim normal mode, treat short line as key sequence
-        if vim_eng.enabled and vim_eng.mode == "normal" and line and not line.startswith("/"):
-            # multi-char sequences like gg, ZZ or single keys
-            if line == ":":
-                act = vim_eng.feed(":")
-                console.print(f"[dim]{vim_eng.mode_indicator()}[/dim]")
-                continue
-            actions = []
-            i = 0
-            while i < len(line):
-                # handle gg / ZZ as digraphs
-                if i + 1 < len(line) and line[i : i + 2] in {"gg", "ZZ", "ZQ"}:
-                    # feed as pending-aware two keys
-                    actions.append(vim_eng.feed(line[i]))
-                    actions.append(vim_eng.feed(line[i + 1]))
-                    i += 2
-                else:
-                    actions.append(vim_eng.feed(line[i]))
-                    i += 1
-            quit_req = False
-            for act in actions:
-                if act.name == "quit":
-                    quit_req = True
-                    break
-                if act.name == "submit_command":
-                    parsed = vim_eng.parse_command(act.arg)
-                    if parsed.name == "quit":
-                        quit_req = True
-                        break
-                    _apply_nav_action(parsed.name, count=parsed.count, arg=parsed.arg)
-                elif act.name == "enter_insert":
-                    pass
-                elif act.name not in {"none", "passthrough", "unknown"}:
-                    _apply_nav_action(act.name, count=act.count, arg=act.arg)
-            if quit_req:
-                break
-            _print_frame(f"vim={vim_eng.mode_indicator()}")
-            if vim_eng.mode == "insert":
-                continue
+        if result.kind == "redraw":
+            _print_frame(
+                f"live={vim_eng.mode_indicator() if vim_eng.enabled else 'on'}"
+            )
             continue
-        if vim_eng.enabled and vim_eng.mode == "command":
-            # entire line is command body if user typed after :
+        if result.kind == "empty":
+            continue
+
+        line = (result.line or "").rstrip("\n")
+        # Cooked fallback: NORMAL mode key-sequence lines
+        if not live_enabled() and vim_eng.enabled and vim_eng.mode == "normal":
+            handled = process_cooked_vim_line(line, vim_eng, _apply_nav_action)
+            if handled is not None:
+                if handled.kind == "quit":
+                    break
+                _print_frame(f"vim={vim_eng.mode_indicator()}")
+                continue
+        if vim_eng.enabled and vim_eng.mode == "command" and not live_enabled():
             parsed = vim_eng.parse_command(line)
             vim_eng.set_mode("normal")
             if parsed.name == "quit":

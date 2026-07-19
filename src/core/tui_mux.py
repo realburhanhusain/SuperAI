@@ -7,7 +7,8 @@ Manages multiple SuperAI agent sessions as "windows" in a named mux:
 - status bar string for TUI
 - persist under ~/.superai/tui/mux.json
 
-This is an application-level mux (not a process multiplexer like real tmux).
+For OS-level process panes (PTY/pipe workers), see `tui_process_mux.ProcessMux`
+and CLI `superai process-mux` / agent `/pmux`.
 """
 
 from __future__ import annotations

@@ -244,7 +244,8 @@ class A11yController:
 
     def announce(self, text: str, *, immediate: bool = True) -> str:
         """
-        Queue announcement; when immediate, also write live file + optional bell/voice.
+        Queue announcement; when immediate, also write live file + optional bell/voice
+        and native OS screen-reader bridge (N215).
         """
         text = (text or "").strip()
         if not text:
@@ -264,6 +265,20 @@ class A11yController:
 
                     sys.stdout.write("\a")
                     sys.stdout.flush()
+                except Exception:
+                    pass
+            # Native OS bridge (SAPI / say / spd-say / UIA live region)
+            native_on = (os.getenv("SUPERAI_A11Y_NATIVE") or "1").lower() not in {
+                "0",
+                "false",
+                "off",
+                "no",
+            }
+            if native_on and (self.cfg.enabled or self.live_voice):
+                try:
+                    from .tui_a11y_native import announce_native
+
+                    announce_native(text)
                 except Exception:
                     pass
             if self.live_voice or (
@@ -336,19 +351,21 @@ A11Y_HELP = """
 
 | Command | Action |
 |---------|--------|
-| `/a11y` `/a11y status` | Config + pending announcements |
+| `/a11y` `/a11y status` | Config + pending announcements + native backends |
 | `/a11y on` | Enable linear SR-friendly output |
 | `/a11y off` | Disable (Rich panels resume) |
 | `/a11y brief\\|normal\\|verbose` | Verbosity |
+| `/a11y native …` | OS bridges (SAPI / say / spd-say / UIA file) |
 | `/a11y help` | This help |
 
 **When enabled**
 - Frame is printed as plain text with landmarks:
   `[banner: session]…[/banner: session]`, `[main: messages]`, etc.
 - Live announcements prefixed with `ANNOUNCE:`
+- Live file + UIA live region + native TTS when available
 - Avoids reliance on color or box-drawing for structure
 
-CLI: `superai a11y status|on|off|verbosity|render|help`
+CLI: `superai a11y status|on|off|verbosity|render|native|help`
 """
 
 
@@ -360,8 +377,21 @@ def handle_a11y_slash(arg: str = "", *, ctl: Optional[A11yController] = None) ->
     sub = (parts[0] if parts else "status").lower()
     rest = parts[1] if len(parts) > 1 else ""
 
+    # N215 native bridge subcommands: /a11y native …
+    if sub in {"native", "sr-native", "uia", "sapi"}:
+        from .tui_a11y_native import handle_native_a11y_slash
+
+        return handle_native_a11y_slash(rest or "status")
+
     if sub in {"", "status", "st"}:
-        return {**ctl.status(), "handled": True}
+        out = {**ctl.status(), "handled": True}
+        try:
+            from .tui_a11y_native import detect_backends
+
+            out["native_backends"] = detect_backends()
+        except Exception:
+            pass
+        return out
     if sub in {"on", "enable", "1", "true"}:
         return {**ctl.enable(True), "handled": True}
     if sub in {"off", "disable", "0", "false"}:
@@ -371,7 +401,12 @@ def handle_a11y_slash(arg: str = "", *, ctl: Optional[A11yController] = None) ->
     if sub in {"verbosity", "verb"} and rest:
         return {**ctl.set_verbosity(rest.strip()), "handled": True}
     if sub in {"help", "?"}:
-        return ensure_public_result({"ok": True, "handled": True, "help": A11Y_HELP}, ok=True)
+        from .tui_a11y_native import NATIVE_A11Y_HELP
+
+        return ensure_public_result(
+            {"ok": True, "handled": True, "help": A11Y_HELP + "\n" + NATIVE_A11Y_HELP},
+            ok=True,
+        )
     if sub in {"announce"} and rest:
         msg = ctl.announce(rest)
         return ensure_public_result({"ok": True, "handled": True, "announcement": msg}, ok=True)
@@ -380,7 +415,7 @@ def handle_a11y_slash(arg: str = "", *, ctl: Optional[A11yController] = None) ->
             "ok": False,
             "handled": True,
             "error": "unknown_a11y_subcommand",
-            "help": "status|on|off|brief|normal|verbose|announce|help",
+            "help": "status|on|off|brief|normal|verbose|announce|native|help",
         },
         ok=False,
     )

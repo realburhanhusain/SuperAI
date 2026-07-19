@@ -5196,6 +5196,48 @@ def split_tui_cmd(
     raise typer.Exit(1)
 
 
+@app.command("process-mux")
+def process_mux_cmd(
+    action: str = typer.Argument(
+        "status",
+        help="status|shell|spawn|superai|select|next|prev|write|read|kill|kill-all|link|tmux|help",
+    ),
+    value: Optional[str] = typer.Argument(
+        None, help="Command, pane id, text, or session id depending on action"
+    ),
+):
+    """N208: OS process multiplexer (PTY/pipe panes — tmux-like without external tmux)."""
+    from core.tui_process_mux import PROCESS_MUX_HELP, ProcessMux, handle_pmux_slash
+
+    act = (action or "status").lower().strip()
+    if act in {"help", "?"}:
+        console.print(PROCESS_MUX_HELP)
+        return
+    if act in {"status", "list", "next", "prev", "kill-all", "killall"}:
+        arg = "kill-all" if act in {"killall"} else act
+    elif act in {"shell", "sh"}:
+        arg = f"shell {value or 'shell'}".strip()
+    elif act in {"spawn", "run"}:
+        arg = f"spawn {value or ''}".strip()
+    elif act in {"superai"}:
+        arg = f"superai {value or 'status'}".strip()
+    elif act in {"select"}:
+        arg = f"select {value or 0}"
+    elif act in {"write", "send"}:
+        arg = f"write {value or ''}".strip()
+    elif act in {"read"}:
+        arg = "read"
+    elif act in {"kill"}:
+        arg = f"kill {value}".strip() if value is not None else "kill"
+    elif act in {"link"}:
+        arg = f"link {value or ''}".strip()
+    elif act in {"tmux"}:
+        arg = f"tmux {value or 'superai'}".strip()
+    else:
+        arg = f"{act} {value or ''}".strip()
+    console.print_json(data=handle_pmux_slash(arg, mux=ProcessMux(persist=True)))
+
+
 @app.command("mux")
 def mux_cmd(
     action: str = typer.Argument(
@@ -5339,16 +5381,29 @@ def tui_live_cmd(
 def a11y_cmd(
     action: str = typer.Argument(
         "status",
-        help="status|on|off|brief|normal|verbose|render|help",
+        help="status|on|off|brief|normal|verbose|render|native|backends|help",
     ),
-    value: Optional[str] = typer.Argument(None, help="announce text or verbosity"),
+    value: Optional[str] = typer.Argument(
+        None, help="announce text, verbosity, or native subcommand"
+    ),
 ):
-    """N215: Screen-reader friendly TUI mode."""
+    """N215: Screen-reader TUI + native OS bridges (SAPI/say/spd-say/UIA)."""
     from core.tui_a11y import A11Y_HELP, A11yController, handle_a11y_slash, linearize_frame
+    from core.tui_a11y_native import NATIVE_A11Y_HELP, detect_backends, handle_native_a11y_slash
 
     act = (action or "status").lower().strip()
     if act in {"help", "?"}:
         console.print(A11Y_HELP)
+        console.print(NATIVE_A11Y_HELP)
+        return
+    if act in {"backends", "native-status"}:
+        console.print_json(data={"ok": True, "backends": detect_backends()})
+        return
+    if act == "native":
+        console.print_json(data=handle_native_a11y_slash(value or "status"))
+        return
+    if act in {"native-say", "say"}:
+        console.print_json(data=handle_native_a11y_slash(f"say {value or 'SuperAI ready'}"))
         return
     if act == "render":
         ctl = A11yController()

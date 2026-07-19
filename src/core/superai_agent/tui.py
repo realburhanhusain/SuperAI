@@ -33,12 +33,13 @@ HELP = """
 **Permission:** `/permission plan|ask|auto|yolo`  
 **Sessions:** `/new` `/sessions` `/resume id` `/export` `/undo`  
 **Mux (N208):** `/mux status|new|next|prev|select|kill|rename|attach|list`  
+**Process mux (N208 OS):** `/pmux shell|spawn|read|write|kill|next|tmux`  
 **Changes:** `/changeset` `/apply` `/reject` (staged writes)  
 **Tools:** `/tools` · tool loop runs automatically  
 **Split-pane (N209):** `/layout` `/split` `/focus` `/cycle` `/hide` `/show` `/ratio` `/panes` `/layouts` `/split-help`  
 **Vim (N210):** `/vim on|off|status|help` · Esc=NORMAL in vim mode  
 **Mouse (N211):** `/mouse on|off|status|help`  
-**A11y (N215):** `/a11y on|off|brief|normal|verbose|status|help`  
+**A11y (N215):** `/a11y on|off|brief|normal|verbose|native|status|help`  
 **Voice:** `/listen [sec]` `/speak [text]` `/voice status|on|off|auto on|off|queue …`  
 **Other:** `/cost` `/trace` `/help` `/exit`
 
@@ -213,9 +214,11 @@ def run_superai_agent_tui(
     from core.tui_a11y import A11Y_HELP, A11yController, handle_a11y_slash
     from core.tui_mouse import MOUSE_HELP, MouseController, handle_mouse_slash
     from core.tui_mux import MUX_HELP, SessionMux, handle_mux_slash
+    from core.tui_process_mux import PROCESS_MUX_HELP, ProcessMux, handle_pmux_slash
     from core.tui_vim import VIM_HELP, create_engine, handle_vim_slash
 
     mux = SessionMux(persist=True)
+    pmux = ProcessMux(persist=True)
     mux.sync_active_session(
         state.id, title=getattr(state, "title", "") or state.id, agent=state.agent
     )
@@ -344,7 +347,7 @@ def run_superai_agent_tui(
         Panel.fit(
             "[bold]SuperAI agent[/bold]\n"
             "Multi-agent · mux · split-pane · vim/mouse/a11y (N208–N215)\n"
-            "Type /help · /mux · /vim · /mouse · /a11y · plain text runs the agent",
+            "Type /help · /mux · /pmux · /vim · /mouse · /a11y · plain text runs the agent",
             border_style="cyan",
         )
     )
@@ -414,9 +417,20 @@ def run_superai_agent_tui(
                 console.print(Markdown(HELP))
                 console.print(Markdown(SPLIT_HELP))
                 console.print(Markdown(MUX_HELP))
+                console.print(Markdown(PROCESS_MUX_HELP))
                 console.print(Markdown(VIM_HELP))
                 console.print(Markdown(MOUSE_HELP))
                 console.print(Markdown(A11Y_HELP))
+                continue
+            # N208 process mux (OS panes)
+            if cmd in {"pmux", "process-mux", "proc", "pane"}:
+                out = handle_pmux_slash(arg, mux=pmux)
+                if out.get("help"):
+                    console.print(Markdown(str(out["help"])))
+                else:
+                    console.print_json(data=out)
+                a11y.announce(pmux.status_bar())
+                _print_frame(f"pmux={pmux.status_bar()}")
                 continue
             # N208 mux
             if cmd in {"mux", "window", "w"}:

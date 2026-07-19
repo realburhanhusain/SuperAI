@@ -351,19 +351,60 @@ Inside:
 
 ---
 
-## Live mode summary (boundaries closed)
+## Live mode + former “intentional” gaps (now implemented)
 
-| Former boundary | Live implementation |
-|-----------------|---------------------|
+| Former boundary | Implementation |
+|-----------------|----------------|
 | Line-only vim sequences | **RawTTY** single-key NORMAL / live INSERT editor |
-| Mouse parse without CSI delivery | **RawTTY** + DECSET 1006 delivers SGR to `MouseController` |
-| A11y only in-frame text | **Live file** + BEL + optional voice |
-| Mux bar static until re-prompt | Redraw + announce on every window switch |
+| Mouse parse without CSI delivery | **RawTTY** + DECSET 1006 → `MouseController` |
+| A11y only in-frame text | Live file + BEL + voice |
+| Session mux only (no processes) | **`ProcessMux`** — real subprocess panes (Unix PTY / Win pipes) |
+| No native SR bridge | **`tui_a11y_native`** — SAPI / `say` / spd-say / UIA live region |
 
-| Still intentional (product scope) | Why |
-|-----------------------------------|-----|
-| Not a full OS tmux/zellij | N208 is SuperAI session windows, not PTY process mux |
-| Not AT-SPI / native VoiceOver | Portable landmarks + live file work across OSes |
+### N208 process mux (OS panes)
+
+```powershell
+superai process-mux status
+superai process-mux shell
+superai process-mux spawn "python -c print(1)"
+superai process-mux read
+superai process-mux write "echo hi"
+superai process-mux next
+superai process-mux kill
+superai process-mux tmux superai   # if host tmux installed
+```
+
+In agent TUI: `/pmux shell` · `/pmux spawn …` · `/pmux read` · `/pmux link <session_id>`
+
+| Backend | When |
+|---------|------|
+| Unix **PTY** | `pty.openpty` available |
+| Windows **pipes** | Always; ConPTY capability probed |
+| External **tmux** | Optional helper when `tmux` on PATH |
+
+Metadata: `~/.superai/tui/process_mux.json`  
+Session link bridges process panes ↔ `SessionMux` agent sessions.
+
+### N215 native screen-reader bridges
+
+| OS | Backends |
+|----|----------|
+| Windows | SAPI.SpVoice / System.Speech (PowerShell) + UIA live region files |
+| macOS | `say` + notification (VoiceOver users hear speech) |
+| Linux | `spd-say` / espeak-ng + `notify-send` + live region file |
+
+```powershell
+superai a11y backends
+superai a11y native
+superai a11y native-say "Hello SuperAI"
+superai a11y native prefer file
+```
+
+Live region files (Narrator / watchers):
+
+- `~/.superai/tui/uia_live_region.txt`
+- `~/.superai/tui/uia_live_region.utf16.txt`
+- `~/.superai/tui/a11y_live.txt` (append log)
 
 ### Env
 
@@ -371,7 +412,8 @@ Inside:
 |----------|--------|
 | `SUPERAI_TUI_LIVE=0` | Force cooked `input()` (CI-friendly) |
 | `SUPERAI_TUI_LIVE=1` | Prefer live raw when TTY |
-| `SUPERAI_A11Y_VOICE=1` | Speak live announcements |
+| `SUPERAI_A11Y_VOICE=1` | Also use `voice_io.speak` |
+| `SUPERAI_A11Y_NATIVE=0` | Disable native TTS bridge (file/landmarks remain) |
 
 ---
 
@@ -379,10 +421,10 @@ Inside:
 
 ```powershell
 $env:PYTHONPATH = "src"
-pytest tests/test_tui_advanced_n208_n215.py tests/test_tui_live_input.py -q
+pytest tests/test_tui_advanced_n208_n215.py tests/test_tui_live_input.py tests/test_tui_process_native_n208_n215.py -q
 ```
 
-Coverage includes: mux CRUD; vim modes; mouse SGR/hit; a11y landmarks/live file; **CSI assembly; line editor; live_capabilities; demo CLI**.
+Coverage includes: session mux; **process mux spawn/read/write/kill**; vim; mouse; a11y landmarks; **native backends / UIA file**; live CSI/editor.
 
 ---
 
@@ -390,13 +432,12 @@ Coverage includes: mux CRUD; vim modes; mouse SGR/hit; a11y landmarks/live file;
 
 | ID | Criterion | Evidence |
 |----|-----------|----------|
-| N208 | Production mux + live status bar + CLI + tests + docs | `tui_mux.py` |
-| N210 | Production vim + **live keys** + CLI + tests + docs | `tui_vim.py` + `tui_raw_input.py` |
-| N211 | Production mouse + **live CSI** + CLI + tests + docs | `tui_mouse.py` + RawTTY |
-| N215 | Production SR + **live announce file** + CLI + tests + docs | `tui_a11y.py` |
-| Live | Cross-platform raw reader + session loop | `tui_live_session.py` |
-| All | Agent TUI integration | `superai_agent/tui.py` |
-| All | Thorough tests | `test_tui_advanced_*` + `test_tui_live_input.py` |
+| N208 | Session mux + **process mux (PTY/pipes)** + CLI + tests + docs | `tui_mux.py` + `tui_process_mux.py` |
+| N210 | Vim + live keys | `tui_vim.py` + `tui_raw_input.py` |
+| N211 | Mouse + live CSI | `tui_mouse.py` + RawTTY |
+| N215 | SR landmarks + live file + **native OS bridges** | `tui_a11y.py` + `tui_a11y_native.py` |
+| Live | Raw reader + session loop | `tui_live_session.py` |
+| All | Agent TUI + thorough tests + docs | `TUI_ADVANCED.md` |
 
 ---
 

@@ -139,6 +139,11 @@ class ProcessPane:
         env = os.environ.copy()
         if self.spec.env:
             env.update({str(k): str(v) for k, v in self.spec.env.items()})
+        # Python (and some other runtimes) fully-buffer stdout when not a TTY.
+        # Process-mux captures via pipes/PTY readers — force unbuffered child
+        # stdout so short-lived prints are visible before process exit.
+        # Harmless for non-Python children (unknown env var ignored).
+        env.setdefault("PYTHONUNBUFFERED", "1")
         cwd = self.spec.cwd or None
         self._stop.clear()
         self.conpty = None
@@ -206,6 +211,8 @@ class ProcessPane:
             "bufsize": 0,
         }
         if sys.platform == "win32":
+            # Enables CTRL_BREAK_EVENT in kill(); does not by itself delay exit,
+            # but Windows Python cold-start can still take several seconds.
             kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
             # text mode False for binary-safe
         self.proc = subprocess.Popen(cmd, **kwargs)
@@ -217,6 +224,14 @@ class ProcessPane:
             elif self.proc and self.proc.stdout:
                 self._read_stream(self.proc.stdout)
         finally:
+            # Drain any last bytes after the main loop (process exit / pipe EOF).
+            try:
+                if self.master_fd is not None:
+                    self._drain_fd(self.master_fd)
+                elif self.proc and self.proc.stdout:
+                    self._drain_stream(self.proc.stdout)
+            except Exception:
+                pass
             if self.proc:
                 self.exit_code = self.proc.poll()
 
@@ -238,7 +253,33 @@ class ProcessPane:
             except Exception:
                 break
 
+    def _drain_fd(self, fd: int) -> None:
+        """Non-blocking best-effort drain after reader loop ends."""
+        try:
+            import select
+
+            while True:
+                r, _, _ = select.select([fd], [], [], 0)
+                if not r:
+                    break
+                data = os.read(fd, 4096)
+                if not data:
+                    break
+                self._append(data.decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+
     def _read_stream(self, stream) -> None:
+        # Prefer os.read on the raw FD when available: more predictable wake-ups
+        # on Windows anonymous pipes than buffered FileIO.read under load.
+        raw_fd: Optional[int] = None
+        try:
+            raw_fd = stream.fileno()
+        except Exception:
+            raw_fd = None
+        if raw_fd is not None and sys.platform == "win32":
+            self._read_stream_win_fd(raw_fd)
+            return
         while not self._stop.is_set():
             try:
                 data = stream.read(4096)
@@ -254,6 +295,100 @@ class ProcessPane:
                 self._append(text)
             except Exception:
                 break
+
+    def _read_stream_win_fd(self, fd: int) -> None:
+        """Windows pipe reader using os.read + PeekNamedPipe for non-blocking poll."""
+        import msvcrt
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        PeekNamedPipe = kernel32.PeekNamedPipe
+        PeekNamedPipe.argtypes = [
+            wintypes.HANDLE,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+            ctypes.POINTER(wintypes.DWORD),
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        PeekNamedPipe.restype = wintypes.BOOL
+
+        try:
+            handle = msvcrt.get_osfhandle(fd)
+        except Exception:
+            # Fall back to blocking os.read loop
+            handle = None
+
+        while not self._stop.is_set():
+            try:
+                if handle is not None:
+                    avail = wintypes.DWORD(0)
+                    ok = PeekNamedPipe(
+                        handle, None, 0, None, ctypes.byref(avail), None
+                    )
+                    if not ok:
+                        # Pipe closed or broken
+                        if self.proc and self.proc.poll() is not None:
+                            break
+                        time.sleep(0.02)
+                        continue
+                    if avail.value == 0:
+                        if self.proc and self.proc.poll() is not None:
+                            # Process dead and no more data
+                            break
+                        time.sleep(0.02)
+                        continue
+                    to_read = min(int(avail.value), 4096)
+                else:
+                    to_read = 4096
+                data = os.read(fd, to_read)
+                if not data:
+                    if self.proc and self.proc.poll() is not None:
+                        break
+                    time.sleep(0.02)
+                    continue
+                self._append(data.decode("utf-8", errors="replace"))
+            except OSError:
+                break
+            except Exception:
+                break
+
+    def _drain_stream(self, stream) -> None:
+        """Best-effort drain after reader loop (non-blocking where possible)."""
+        try:
+            if sys.platform == "win32":
+                import msvcrt
+                import ctypes
+                from ctypes import wintypes
+
+                try:
+                    fd = stream.fileno()
+                    handle = msvcrt.get_osfhandle(fd)
+                except Exception:
+                    return
+                kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                avail = wintypes.DWORD(0)
+                if not kernel32.PeekNamedPipe(handle, None, 0, None, ctypes.byref(avail), None):
+                    return
+                while avail.value > 0:
+                    chunk = os.read(fd, min(int(avail.value), 4096))
+                    if not chunk:
+                        break
+                    self._append(chunk.decode("utf-8", errors="replace"))
+                    avail = wintypes.DWORD(0)
+                    if not kernel32.PeekNamedPipe(handle, None, 0, None, ctypes.byref(avail), None):
+                        break
+                return
+            # Unix: brief non-blocking drain
+            data = stream.read() if hasattr(stream, "read") else b""
+            if data:
+                if isinstance(data, bytes):
+                    self._append(data.decode("utf-8", errors="replace"))
+                else:
+                    self._append(str(data))
+        except Exception:
+            pass
 
     def _append(self, text: str) -> None:
         with self._lock:
@@ -786,7 +921,8 @@ Restore: `SUPERAI_PMUX_RESTORE=1` auto-respawns saved panes on ProcessMux init.
 
 
 def handle_pmux_slash(arg: str = "", *, mux: Optional[ProcessMux] = None) -> Dict[str, Any]:
-    from .spend_guard import ensure_public_result
+    """Process-mux slash — always returns M008 result envelope."""
+    from .foundation_safety import tui_envelope
 
     mux = mux or ProcessMux(persist=True)
     parts = (arg or "").strip().split()
@@ -794,61 +930,63 @@ def handle_pmux_slash(arg: str = "", *, mux: Optional[ProcessMux] = None) -> Dic
     rest = parts[1:]
 
     if sub in {"", "status", "st", "list", "ls"}:
-        return {**mux.status(), "handled": True}
+        return tui_envelope({**mux.status(), "handled": True})
     if sub in {"shell", "sh"}:
         title = " ".join(rest) if rest else "shell"
-        return {**mux.spawn_shell(title=title), "handled": True}
+        return tui_envelope({**mux.spawn_shell(title=title), "handled": True})
     if sub in {"spawn", "run", "exec"}:
         if not rest:
-            return ensure_public_result(
-                {"ok": False, "handled": True, "error": "usage: /pmux spawn <cmd…>"}, ok=False
+            return tui_envelope(
+                {"ok": False, "handled": True, "error": "usage: /pmux spawn <cmd…>"},
+                ok=False,
             )
         # on Windows, join as shell command for convenience
         if sys.platform == "win32" and len(rest) > 0:
-            return {
-                **mux.spawn(
-                    [os.environ.get("COMSPEC", "cmd.exe"), "/c", " ".join(rest)],
-                    title=rest[0][:40],
-                ),
-                "handled": True,
-            }
-        return {**mux.spawn(rest, title=rest[0][:40]), "handled": True}
+            return tui_envelope(
+                {
+                    **mux.spawn(
+                        [os.environ.get("COMSPEC", "cmd.exe"), "/c", " ".join(rest)],
+                        title=rest[0][:40],
+                    ),
+                    "handled": True,
+                }
+            )
+        return tui_envelope({**mux.spawn(rest, title=rest[0][:40]), "handled": True})
     if sub in {"superai", "sai"}:
-        return {**mux.spawn_superai(rest or ["status"]), "handled": True}
+        return tui_envelope({**mux.spawn_superai(rest or ["status"]), "handled": True})
     if sub in {"select", "s"}:
-        return {**mux.select(rest[0] if rest else "0"), "handled": True}
+        return tui_envelope({**mux.select(rest[0] if rest else "0"), "handled": True})
     if sub in {"next", "n"}:
-        return {**mux.next_pane(), "handled": True}
+        return tui_envelope({**mux.next_pane(), "handled": True})
     if sub in {"prev", "p"}:
-        return {**mux.prev_pane(), "handled": True}
+        return tui_envelope({**mux.prev_pane(), "handled": True})
     if sub in {"write", "send", "w"}:
-        return {**mux.write(" ".join(rest)), "handled": True}
+        return tui_envelope({**mux.write(" ".join(rest)), "handled": True})
     if sub in {"read", "out", "capture"}:
-        return {**mux.read(), "handled": True}
+        return tui_envelope({**mux.read(), "handled": True})
     if sub in {"kill", "x"}:
-        return {**mux.kill(rest[0] if rest else None), "handled": True}
+        return tui_envelope({**mux.kill(rest[0] if rest else None), "handled": True})
     if sub in {"kill-all", "killall"}:
-        return {**mux.kill_all(), "handled": True}
+        return tui_envelope({**mux.kill_all(), "handled": True})
     if sub in {"link"}:
-        return {**mux.link_session(rest[0] if rest else ""), "handled": True}
+        return tui_envelope({**mux.link_session(rest[0] if rest else ""), "handled": True})
     if sub in {"tmux"}:
-        return {**tmux_new_session(rest[0] if rest else "superai"), "handled": True}
+        return tui_envelope({**tmux_new_session(rest[0] if rest else "superai"), "handled": True})
     if sub in {"restore", "respawn"}:
         only = rest if rest else None
-        return {**mux.restore(start=True, only_ids=only), "handled": True}
+        return tui_envelope({**mux.restore(start=True, only_ids=only), "handled": True})
     if sub in {"saved", "meta"}:
-        return ensure_public_result(
+        return tui_envelope(
             {
                 "ok": True,
                 "handled": True,
                 "saved": mux.saved_specs(),
                 "path": str(process_mux_path()),
             },
-            ok=True,
         )
     if sub in {"help", "?"}:
-        return ensure_public_result({"ok": True, "handled": True, "help": PROCESS_MUX_HELP}, ok=True)
-    return ensure_public_result(
+        return tui_envelope({"ok": True, "handled": True, "help": PROCESS_MUX_HELP})
+    return tui_envelope(
         {
             "ok": False,
             "handled": True,

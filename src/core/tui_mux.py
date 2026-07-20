@@ -385,8 +385,8 @@ CLI: `superai mux status|new|list|select|next|prev|kill|rename|attach`
 
 
 def handle_mux_slash(arg: str = "", *, mux: Optional[SessionMux] = None) -> Dict[str, Any]:
-    """Parse `/mux …` argument string."""
-    from .spend_guard import ensure_public_result
+    """Parse `/mux …` argument string. Always returns M008 result envelope."""
+    from .foundation_safety import tui_envelope
 
     mux = mux or SessionMux()
     parts = (arg or "").strip().split(maxsplit=1)
@@ -394,34 +394,33 @@ def handle_mux_slash(arg: str = "", *, mux: Optional[SessionMux] = None) -> Dict
     rest = parts[1] if len(parts) > 1 else ""
 
     if sub in {"", "status", "st"}:
-        return {**mux.status(), "handled": True}
+        return tui_envelope({**mux.status(), "handled": True})
     if sub in {"list", "ls"}:
-        return ensure_public_result(
+        return tui_envelope(
             {"ok": True, "handled": True, "windows": mux.list_windows(), "bar": mux.status_bar()},
-            ok=True,
         )
     if sub in {"new", "c", "create"}:
-        return {**mux.new_window(title=rest), "handled": True}
+        return tui_envelope({**mux.new_window(title=rest), "handled": True})
     if sub in {"attach", "a"}:
-        return {**mux.attach(rest), "handled": True}
+        return tui_envelope({**mux.attach(rest), "handled": True})
     if sub in {"select", "s", "goto"}:
         if rest.isdigit() or (rest.startswith("-") and rest[1:].isdigit()):
-            return {**mux.select(int(rest)), "handled": True}
-        return {**mux.select_by_id(rest), "handled": True}
+            return tui_envelope({**mux.select(int(rest)), "handled": True})
+        return tui_envelope({**mux.select_by_id(rest), "handled": True})
     if sub in {"next", "n", "+"}:
-        return {**mux.next_window(), "handled": True}
+        return tui_envelope({**mux.next_window(), "handled": True})
     if sub in {"prev", "p", "previous", "-"}:
-        return {**mux.prev_window(), "handled": True}
+        return tui_envelope({**mux.prev_window(), "handled": True})
     if sub in {"kill", "x", "close"}:
         idx = int(rest) if rest.strip().isdigit() else None
-        return {**mux.kill_window(idx), "handled": True}
+        return tui_envelope({**mux.kill_window(idx), "handled": True})
     if sub in {"rename", "r"}:
-        return {**mux.rename(rest), "handled": True}
+        return tui_envelope({**mux.rename(rest), "handled": True})
     if sub in {"name", "mux-name"}:
-        return {**mux.rename_mux(rest), "handled": True}
+        return tui_envelope({**mux.rename_mux(rest), "handled": True})
     if sub in {"help", "?"}:
-        return ensure_public_result({"ok": True, "handled": True, "help": MUX_HELP}, ok=True)
-    return ensure_public_result(
+        return tui_envelope({"ok": True, "handled": True, "help": MUX_HELP})
+    return tui_envelope(
         {
             "ok": False,
             "handled": True,

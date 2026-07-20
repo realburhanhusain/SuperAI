@@ -358,19 +358,20 @@ CLI: `superai mouse status|on|off|parse|hit|help`
 
 
 def handle_mouse_slash(arg: str = "", *, ctl: Optional[MouseController] = None) -> Dict[str, Any]:
+    from .foundation_safety import tui_envelope
     from .spend_guard import ensure_public_result
 
     ctl = ctl or MouseController()
     parts = (arg or "").strip().split()
     sub = (parts[0] if parts else "status").lower()
     if sub in {"", "status", "st"}:
-        return {**ctl.status(), "handled": True}
+        return tui_envelope({**ctl.status(), "handled": True})
     if sub in {"on", "enable", "1", "true"}:
-        return {**ctl.enable(True), "handled": True}
+        return tui_envelope({**ctl.enable(True), "handled": True})
     if sub in {"off", "disable", "0", "false"}:
-        return {**ctl.enable(False), "handled": True}
+        return tui_envelope({**ctl.enable(False), "handled": True})
     if sub in {"help", "?"}:
-        return ensure_public_result({"ok": True, "handled": True, "help": MOUSE_HELP}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, "help": MOUSE_HELP})
     if sub in {"parse"} and len(parts) >= 2:
         # parts[1] may be escaped; allow sgr:btn;x;y or sgr:btn:x:y
         seq = " ".join(parts[1:])

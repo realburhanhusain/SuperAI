@@ -253,12 +253,40 @@ def route_trivial(prompt: str) -> Dict[str, Any]:
 
 # --- Evidence map for scorecard % ---
 COMPLETION_EVIDENCE: Dict[str, Dict[str, Any]] = {
-    "M001": {"pct": 100, "modules": ["call_lifecycle", "spend_guard", "public_surface", "mcp_safety"]},
+    "M001": {
+        "pct": 100,
+        "modules": [
+            "call_lifecycle",
+            "spend_guard",
+            "public_surface",
+            "mcp_safety",
+            "foundation_safety.audit_m001",
+            "SPEND_PATHS registry",
+        ],
+    },
     "M002": {"pct": 100, "modules": ["cost_accounting", "call_lifecycle.post_call"]},
-    "M008": {"pct": 100, "modules": ["public_surface.emit_public", "result_contract", "public_api"]},
+    "M008": {
+        "pct": 100,
+        "modules": [
+            "public_surface.emit_public",
+            "result_contract",
+            "public_api",
+            "foundation_safety.tui_envelope",
+            "all TUI slash handlers",
+        ],
+    },
     "M015": {"pct": 100, "modules": ["injection_defense", "tool_protocol"]},
     "M017": {"pct": 100, "modules": ["cancel_token", "call_lifecycle", "multi_cli_advisory"]},
-    "M018": {"pct": 100, "modules": ["tool_timeouts", "model_timeouts", "model_caller"]},
+    "M018": {
+        "pct": 100,
+        "modules": [
+            "tool_timeouts",
+            "model_timeouts",
+            "model_caller",
+            "subprocess_safety",
+            "foundation_safety.audit_m018",
+        ],
+    },
     "M027": {"pct": 100, "modules": ["model_caller.call_stream", "token_stream"]},
     "M050": {"pct": 100, "modules": ["bandit_router", "model_caller bandit reorder", "post_call update"]},
     "M061": {"pct": 100, "modules": ["learning_engine.promote_durable"]},

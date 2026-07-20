@@ -449,7 +449,7 @@ CLI: `superai a11y native|native-say|backends|atspi`
 
 
 def handle_native_a11y_slash(arg: str = "", *, bridge: Optional[NativeA11yBridge] = None) -> Dict[str, Any]:
-    from .spend_guard import ensure_public_result
+    from .foundation_safety import tui_envelope
 
     br = bridge or NativeA11yBridge()
     parts = (arg or "").strip().split(maxsplit=1)
@@ -457,21 +457,21 @@ def handle_native_a11y_slash(arg: str = "", *, bridge: Optional[NativeA11yBridge
     rest = parts[1] if len(parts) > 1 else ""
 
     if sub in {"", "status", "st", "backends"}:
-        return {**br.status(), "handled": True}
+        return tui_envelope({**br.status(), "handled": True})
     if sub in {"on", "enable"}:
-        return {**br.enable(True), "handled": True}
+        return tui_envelope({**br.enable(True), "handled": True})
     if sub in {"off", "disable"}:
-        return {**br.enable(False), "handled": True}
+        return tui_envelope({**br.enable(False), "handled": True})
     if sub in {"prefer"} and rest:
-        return {**br.set_prefer(rest.strip().split()[0]), "handled": True}
+        return tui_envelope({**br.set_prefer(rest.strip().split()[0]), "handled": True})
     if sub in {"say", "speak", "announce"} and rest:
-        return {**br.announce(rest), "handled": True}
+        return tui_envelope({**br.announce(rest), "handled": True})
     if sub in {"help", "?"}:
-        return ensure_public_result({"ok": True, "handled": True, "help": NATIVE_A11Y_HELP}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, "help": NATIVE_A11Y_HELP})
     # bare "native" with no sub → status
     if sub == "native":
-        return {**br.status(), "handled": True}
-    return ensure_public_result(
+        return tui_envelope({**br.status(), "handled": True})
+    return tui_envelope(
         {
             "ok": False,
             "handled": True,

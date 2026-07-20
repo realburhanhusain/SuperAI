@@ -25,27 +25,37 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **226** |
-| **INCOMPLETE** | **289** |
+| **COMPLETE (production + docs + tests)** | **229** |
+| **INCOMPLETE** | **286** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **43.6%**
-- **Average percent (incomplete only):** **30.8%**
-- **Average percent (all non-refuse):** **61.3%**
+- **Strict completion rate (complete / (total − refuse)):** **44.2%**
+- **Average percent (incomplete only):** **30.2%**
+- **Average percent (all non-refuse):** **61.4%**
 
 ### Note for validators
 
 - Do **not** treat the older `V1_V6_UNIFIED_SCORECARD.md` full@100% rows as complete under this bar.
 - MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.
-- M001/M008-style “everywhere” claims remain **incomplete** until exhaustive path coverage is proven.
+- M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).
 
 ---
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 226
+**Count:** 229
+
+### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
 
 ### M003 — Pre-flight cost estimate before multi-member boards
 
@@ -93,6 +103,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Side-effect audit log (write/delete/run, run_id)
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M008 — Stable result contract on every public command
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Stable result contract on every public command
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -163,6 +183,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Tenant isolation for shared memory
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M018 — Timeouts on model, CLI, and tool ops
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Timeouts on model, CLI, and tool ops
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -2311,7 +2341,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 289
+**Count:** 286
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2340,19 +2370,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** CancelToken agent+boards+stream
 - **Partially implemented:** —
 - **Still incomplete:** Edge cases on all worker types
-
-### M018 — Timeouts on model, CLI, and tool ops
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **90%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — model_timeouts + tool_timeouts
-- **Thorough documentation?** YES — V6 M018
-- **Fully tested?** YES — test_foundation_complete_must
-- **Fully implemented:** model_timeouts + tool_timeouts
-- **Partially implemented:** —
-- **Still incomplete:** Not every subprocess path instrumented
 
 ### V2-B3 — Sprint B — Smart session compact
 
@@ -2392,32 +2409,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** cost_accounting
 - **Partially implemented:** —
 - **Still incomplete:** Estimate fallbacks remain
-
-### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — call_lifecycle + spend_guard on major paths
-- **Thorough documentation?** YES — V6 backlog M001
-- **Fully tested?** YES — test_foundation_lift/complete_must
-- **Fully implemented:** call_lifecycle + spend_guard on major paths
-- **Partially implemented:** —
-- **Still incomplete:** Not proven on literally every CLI subcommand
-
-### M008 — Stable result contract on every public command
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — result_contract + MCP wrap + emit_public
-- **Thorough documentation?** YES — V6 M008
-- **Fully tested?** YES — test_result_contract
-- **Fully implemented:** result_contract + MCP wrap + emit_public
-- **Partially implemented:** —
-- **Still incomplete:** Not every interactive TUI command returns envelope
 
 ### M027 — Real token streaming where supported
 

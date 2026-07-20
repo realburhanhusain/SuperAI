@@ -401,36 +401,36 @@ Toggle in TUI: `/vim on|off|status|help`
 
 
 def handle_vim_slash(arg: str = "", *, engine: Optional[VimEngine] = None) -> Dict[str, Any]:
-    from .spend_guard import ensure_public_result
+    from .foundation_safety import tui_envelope
 
     eng = engine or create_engine()
     parts = (arg or "").strip().split(maxsplit=1)
     sub = (parts[0] if parts else "status").lower()
     if sub in {"", "status", "st"}:
-        return ensure_public_result({"ok": True, "handled": True, **eng.status()}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, **eng.status()})
     if sub in {"on", "enable", "1", "true"}:
         eng.enable(True)
         cfg = load_vim_config()
         cfg.enabled = True
         save_vim_config(cfg)
-        return ensure_public_result({"ok": True, "handled": True, **eng.status()}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, **eng.status()})
     if sub in {"off", "disable", "0", "false"}:
         eng.enable(False)
         cfg = load_vim_config()
         cfg.enabled = False
         save_vim_config(cfg)
-        return ensure_public_result({"ok": True, "handled": True, **eng.status()}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, **eng.status()})
     if sub in {"normal", "insert"}:
         eng.set_mode(sub)
-        return ensure_public_result({"ok": True, "handled": True, **eng.status()}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, **eng.status()})
     if sub in {"help", "?"}:
-        return ensure_public_result({"ok": True, "handled": True, "help": VIM_HELP}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, "help": VIM_HELP})
     if sub in {"feed"} and len(parts) > 1:
         acts = [a.to_dict() for a in eng.feed_sequence(parts[1])]
-        return ensure_public_result(
-            {"ok": True, "handled": True, "actions": acts, **eng.status()}, ok=True
+        return tui_envelope(
+            {"ok": True, "handled": True, "actions": acts, **eng.status()},
         )
-    return ensure_public_result(
+    return tui_envelope(
         {
             "ok": False,
             "handled": True,

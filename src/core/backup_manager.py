@@ -512,7 +512,9 @@ class BackupManager:
                 targets.append(str(manifest))
             for local in targets:
                 cmd = ["rclone", "copy", local, f"{remote}:{remote_path}"]
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                from .subprocess_safety import run as safe_run
+
+                result = safe_run(cmd, kind="rclone", capture_output=True, text=True)
                 if result.returncode != 0:
                     print(f"[BackupManager] rclone failed: {result.stderr}")
                     return False
@@ -552,7 +554,9 @@ class BackupManager:
                 "manifest_*.json",
             ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            from .subprocess_safety import run as safe_run
+
+            result = safe_run(cmd, kind="rclone", capture_output=True, text=True)
             if result.returncode != 0:
                 return {
                     "ok": False,

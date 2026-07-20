@@ -100,9 +100,12 @@ def apply_unified_diff(
         if proc.returncode == 0:
             out: Dict[str, Any] = {"ok": True, "method": "git_apply", "check": check}
             if commit:
-                subprocess.run(["git", "add", "-A"], cwd=str(root), check=False)
-                c = subprocess.run(
+                from .subprocess_safety import run as safe_run
+
+                safe_run(["git", "add", "-A"], kind="git", cwd=str(root), check=False)
+                c = safe_run(
                     ["git", "commit", "-m", message],
+                    kind="git",
                     cwd=str(root),
                     capture_output=True,
                     text=True,

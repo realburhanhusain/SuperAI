@@ -257,10 +257,11 @@ def run_agent_tui(
                     console.print(f"[red]diff error: {e}[/red]")
                     continue
                 if not (diff_text or "").strip():
-                    import subprocess
+                    from .subprocess_safety import run as safe_run
 
-                    proc = subprocess.run(
+                    proc = safe_run(
                         ["git", "diff", "HEAD"],
+                        kind="git",
                         capture_output=True,
                         text=True,
                         shell=False,

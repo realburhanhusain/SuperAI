@@ -125,6 +125,10 @@ V6_MUST_COMPLETE = {
     "M092",  # mock_fixtures + tests
     "M094",  # web auth + web_app
     "M099",  # THREAT_MODEL.md thorough doc
+    # Foundation safety exhaustive path proof (D360-grade)
+    "M001",  # hard budget — call_lifecycle + SPEND_PATHS + foundation_safety.audit_m001
+    "M008",  # result envelope — tui_envelope + all TUI slash handlers + audit_m008
+    "M018",  # timeouts — subprocess_safety + model_timeouts + audit_m018
     # MOS-N6 voice: code + tests + this session (docs: MOSCOW plan N6 section)
     # V6 N213 maps separately
 }
@@ -167,12 +171,10 @@ COMPLETE_IDS = (
 # Explicit incomplete notes for borderline items that were previously over-claimed as full
 STRICT_INCOMPLETE: dict[str, Triple] = {
     # Pillars may be True but pct<100 ⇒ incomplete (intent not fully production-met)
-    "M001": T(True, True, True, 85, "call_lifecycle + spend_guard on major paths", "V6 backlog M001", "test_foundation_lift/complete_must", "Not proven on literally every CLI subcommand"),
+    # M001/M008/M018 moved to V6_MUST_COMPLETE after foundation_safety exhaustive audits
     "M002": T(True, True, True, 90, "cost_accounting on ModelCaller post_call", "V6 M002", "test_foundation_lift", "Some paths still estimate when provider omits usage"),
-    "M008": T(True, True, True, 85, "result_contract + MCP wrap + emit_public", "V6 M008", "test_result_contract", "Not every interactive TUI command returns envelope"),
     "M015": T(True, False, True, 70, "injection_defense on tool results", "Backlog only; no dedicated security doc depth", "test_foundation_complete_must", "Thorough injection threat docs incomplete"),
     "M017": T(True, True, True, 90, "CancelToken agent+boards+stream", "V6 M017", "tests cancel", "Edge cases on all worker types"),
-    "M018": T(True, True, True, 90, "model_timeouts + tool_timeouts", "V6 M018", "test_foundation_complete_must", "Not every subprocess path instrumented"),
     "M027": T(True, True, True, 85, "call_stream SSE + fallback", "V6 M027", "test_improvement_v4 stream", "Not all providers proven live"),
     "M050": T(True, True, True, 80, "bandit reorder+update", "V6 M050", "bandit tests partial", "Not continuous-product UI"),
     "M061": T(True, True, True, 85, "promote_durable", "learning docs partial", "test_foundation_complete_must", "Product UX incomplete"),
@@ -462,7 +464,7 @@ def main() -> None:
         "",
         "- Do **not** treat the older `V1_V6_UNIFIED_SCORECARD.md` full@100% rows as complete under this bar.",
         "- MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.",
-        "- M001/M008-style “everywhere” claims remain **incomplete** until exhaustive path coverage is proven.",
+        "- M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).",
         "",
         "---",
         "",

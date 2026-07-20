@@ -13,8 +13,11 @@ from .workspace import workspace_root
 
 def get_git_diff(ref: str = "HEAD~1") -> str:
     root = workspace_root()
-    proc = subprocess.run(
+    from .subprocess_safety import run as safe_run
+
+    proc = safe_run(
         ["git", "diff", ref],
+        kind="git",
         cwd=str(root),
         capture_output=True,
         text=True,

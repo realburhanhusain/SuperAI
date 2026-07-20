@@ -16,6 +16,13 @@ DEFAULTS = {
     "diff_apply": 60.0,
     "model": 180.0,
     "cli": 300.0,
+    # M018 host/tool kinds (subprocess_safety)
+    "git": 60.0,
+    "gh": 60.0,
+    "rclone": 300.0,
+    "host": 60.0,
+    "backup": 300.0,
+    "default": 60.0,
 }
 
 

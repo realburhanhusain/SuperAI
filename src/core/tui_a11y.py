@@ -370,6 +370,7 @@ CLI: `superai a11y status|on|off|verbosity|render|native|help`
 
 
 def handle_a11y_slash(arg: str = "", *, ctl: Optional[A11yController] = None) -> Dict[str, Any]:
+    from .foundation_safety import tui_envelope
     from .spend_guard import ensure_public_result
 
     ctl = ctl or A11yController()
@@ -381,14 +382,14 @@ def handle_a11y_slash(arg: str = "", *, ctl: Optional[A11yController] = None) ->
     if sub in {"native", "sr-native", "uia", "sapi"}:
         from .tui_a11y_native import handle_native_a11y_slash
 
-        return handle_native_a11y_slash(rest or "status")
+        return tui_envelope(handle_native_a11y_slash(rest or "status"))
     if sub in {"atspi", "at-spi"}:
         from .tui_atspi import announce_atspi, detect_atspi
 
         if rest:
-            return {**announce_atspi(rest), "handled": True}
-        return ensure_public_result(
-            {"ok": True, "handled": True, "detect": detect_atspi()}, ok=True
+            return tui_envelope({**announce_atspi(rest), "handled": True})
+        return tui_envelope(
+            {"ok": True, "handled": True, "detect": detect_atspi()},
         )
 
     if sub in {"", "status", "st"}:
@@ -399,25 +400,24 @@ def handle_a11y_slash(arg: str = "", *, ctl: Optional[A11yController] = None) ->
             out["native_backends"] = detect_backends()
         except Exception:
             pass
-        return out
+        return tui_envelope(out)
     if sub in {"on", "enable", "1", "true"}:
-        return {**ctl.enable(True), "handled": True}
+        return tui_envelope({**ctl.enable(True), "handled": True})
     if sub in {"off", "disable", "0", "false"}:
-        return {**ctl.enable(False), "handled": True}
+        return tui_envelope({**ctl.enable(False), "handled": True})
     if sub in {"brief", "normal", "verbose"}:
-        return {**ctl.set_verbosity(sub), "handled": True}
+        return tui_envelope({**ctl.set_verbosity(sub), "handled": True})
     if sub in {"verbosity", "verb"} and rest:
-        return {**ctl.set_verbosity(rest.strip()), "handled": True}
+        return tui_envelope({**ctl.set_verbosity(rest.strip()), "handled": True})
     if sub in {"help", "?"}:
         from .tui_a11y_native import NATIVE_A11Y_HELP
 
-        return ensure_public_result(
+        return tui_envelope(
             {"ok": True, "handled": True, "help": A11Y_HELP + "\n" + NATIVE_A11Y_HELP},
-            ok=True,
         )
     if sub in {"announce"} and rest:
         msg = ctl.announce(rest)
-        return ensure_public_result({"ok": True, "handled": True, "announcement": msg}, ok=True)
+        return tui_envelope({"ok": True, "handled": True, "announcement": msg})
     return ensure_public_result(
         {
             "ok": False,

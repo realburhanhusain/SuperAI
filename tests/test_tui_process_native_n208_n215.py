@@ -43,6 +43,25 @@ def test_conpty_probe_bool(home):
     assert isinstance(pmux.conpty_available(), bool)
 
 
+def _wait_pane_output(mux, needle: str, *, timeout: float = 15.0) -> str:
+    """Poll process-mux output until needle appears or timeout.
+
+    Windows Python cold-start for ``python -c`` commonly takes 2–5s here;
+    a 1.5s wait was a major source of flaky test_spawn_and_read_python.
+    """
+    deadline = time.time() + timeout
+    got = ""
+    while time.time() < deadline:
+        r = mux.read()
+        # read() returns the full buffer (clear=False); don't double-concat
+        got = r.get("output") or ""
+        if needle in got:
+            return got
+        time.sleep(0.1)
+    r = mux.read()
+    return r.get("output") or got
+
+
 def test_spawn_and_read_python(home):
     tmp, pmux, _ = home
     mux = pmux.ProcessMux(persist=True)
@@ -55,15 +74,14 @@ def test_spawn_and_read_python(home):
     )
     assert out["ok"] is True
     assert out["active_id"]
-    # wait for output
-    for _ in range(30):
-        r = mux.read()
-        if "hello-pmux" in (r.get("output") or ""):
-            break
-        time.sleep(0.05)
+    got = _wait_pane_output(mux, "hello-pmux", timeout=15.0)
     r = mux.read()
     assert r["ok"] is True
-    assert "hello-pmux" in (r.get("output") or "")
+    pane = mux.active()
+    st_pane = pane.status() if pane else {}
+    assert "hello-pmux" in got, (
+        f"missing output after wait; got={got!r} pane={st_pane} backend={out.get('backend')}"
+    )
     st = mux.status()
     assert st["pane_count"] >= 1
     assert "py" in st["bar"] or "•" in st["bar"] or "○" in st["bar"]
@@ -86,14 +104,8 @@ def test_spawn_write_echo(home):
     assert out["ok"] is True
     w = mux.write("ping-line\n")
     assert w.get("ok") is True
-    got = ""
-    for _ in range(40):
-        r = mux.read()
-        got += r.get("output") or ""
-        if "ping-line" in got:
-            break
-        time.sleep(0.05)
-    assert "ping-line" in got
+    got = _wait_pane_output(mux, "ping-line", timeout=15.0)
+    assert "ping-line" in got, f"echo missing; got={got!r}"
     mux.kill_all()
 
 

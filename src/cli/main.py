@@ -3213,8 +3213,11 @@ def git_helper(
 
     cwd = str(workspace_root())
     if action == "status":
-        r = subprocess.run(
+        from core.subprocess_safety import run as safe_run
+
+        r = safe_run(
             ["git", "status", "-sb"],
+            kind="git",
             cwd=cwd,
             capture_output=True,
             text=True,
@@ -6091,7 +6094,7 @@ def voice_cmd(
 def foundation_check_cmd(
     item: str = typer.Argument(
         "all",
-        help="Item id e.g. M001 or 'all' for must foundation suite",
+        help="Item id e.g. M001/M008/M018 or 'all' / 'safety' for foundation suite",
     ),
 ):
     """Run offline checks for foundation completion evidence (V1–V6)."""
@@ -6103,11 +6106,15 @@ def foundation_check_cmd(
         mcp_parity,
         verify_top30_contracts,
     )
+    from core.foundation_safety import audit_all, audit_m001, audit_m008, audit_m018
     from core.public_api import wrap_public_result
     from core.public_surface import emit_public, set_json_mode
 
     set_json_mode(True)
     suite = {
+        "M001": audit_m001(),
+        "M008": audit_m008(),
+        "M018": audit_m018(),
         "M090": verify_top30_contracts(),
         "M093": mcp_parity(),
         "M100": dashboard_state(),
@@ -6115,8 +6122,11 @@ def foundation_check_cmd(
         "M062": learning_resolve_conflicts(),
         "M063": learning_distill(),
     }
-    if item and item.upper() != "ALL":
-        key = item.upper()
+    key = (item or "all").upper()
+    if key in {"SAFETY", "FOUNDATION-SAFETY"}:
+        emit_public(audit_all(), print_json=True, record_spend=False)
+        return
+    if key != "ALL":
         data = suite.get(key) or wrap_public_result(
             {"ok": False, "error": f"no suite for {key}", "available": list(suite)},
             ok=False,
@@ -6124,8 +6134,15 @@ def foundation_check_cmd(
         )
         emit_public(data, print_json=True, record_spend=False)
         return
+    # Include combined safety proof in full suite
+    safety = audit_all()
     emit_public(
-        {"ok": True, "suite": suite, "count": len(suite)},
+        {
+            "ok": bool(safety.get("ok")),
+            "suite": suite,
+            "safety": safety,
+            "count": len(suite),
+        },
         mock=True,
         print_json=True,
         record_spend=False,

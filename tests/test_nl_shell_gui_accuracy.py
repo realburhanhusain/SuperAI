@@ -17,8 +17,28 @@ def test_parse_shell_from_nl():
 
     assert parse_shell_from_nl("run shell: echo hi") == "echo hi"
     assert parse_shell_from_nl("execute in terminal: git status") == "git status"
+    assert parse_shell_from_nl("execute command: dir") == "dir"
     assert parse_shell_from_nl("$ dir") == "dir"
     assert parse_shell_from_nl("just chatting") is None
+    # MOS-S9: bare execute + product subject is not a shell phrase
+    assert parse_shell_from_nl("execute due goals") is None
+    assert parse_shell_from_nl("execute goals") is None
+
+
+def test_mos_s9_execute_due_goals_not_shell():
+    """Regression: shell NL used to steal 'execute due goals' → action=shell."""
+    from core.nl_intent import parse_intent
+
+    for phrase in (
+        "execute due goals",
+        "execute goals",
+        "run due goals",
+        "goals execute",
+        "list goals",
+    ):
+        intent = parse_intent(phrase)
+        assert intent.action == "goals", (phrase, intent.action, intent.subject)
+        assert intent.action != "shell"
 
 
 def test_deny_rm_root():

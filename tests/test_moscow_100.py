@@ -181,7 +181,11 @@ def test_s7_shared_ask_session(tmp_path, monkeypatch):
 def test_s9_nl_goals_bakeoff_profile_agent():
     from core.nl_intent import parse_intent
 
-    assert parse_intent("execute due goals").action == "goals"
+    # Must not be stolen by OS-shell NL ("execute …" over-match)
+    goals_intent = parse_intent("execute due goals")
+    assert goals_intent.action == "goals"
+    assert goals_intent.action != "shell"
+    assert parse_intent("execute goals").action == "goals"
     assert parse_intent("run a bakeoff on hello").action == "bakeoff"
     assert parse_intent("open agent tui").action == "agent_tui"
     p = parse_intent("use cheap mode")

@@ -67,18 +67,25 @@ def parse_shell_from_nl(text: str) -> Optional[str]:
     Extract shell command from NL phrases like:
       run shell: ls -la
       execute in terminal: dir
+      execute command: dir
       $ git status
       shell> pytest -q
+
+    Bare ``execute …`` / ``exec …`` without an explicit shell/command marker
+    must NOT match — product intents like ``execute due goals`` (MOS-S9) would
+    otherwise be stolen as OS shell subjects.
     """
     raw = (text or "").strip()
     if not raw:
         return None
-    # Explicit markers
+    # Explicit markers only. Do not match bare "execute X" / "exec X":
+    # both optional groups on the old exec(?:ute)? pattern made any
+    # "execute <words>" look like a shell command.
     m = re.match(
         r"^(?:"
         r"run\s+(?:in\s+)?(?:shell|terminal|bash|powershell|cmd)|"
         r"execute\s+in\s+(?:shell|terminal|bash|powershell|cmd)|"
-        r"exec(?:ute)?(?:\s+command)?(?:\s+in\s+(?:shell|terminal))?"
+        r"exec(?:ute)?\s+command(?:\s+in\s+(?:shell|terminal))?"
         r"|shell|bash|powershell|cmd"
         r")\s*[:\-]?\s+(.+)$",
         raw,

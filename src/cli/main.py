@@ -6106,6 +6106,8 @@ def foundation_check_cmd(
         mcp_parity,
         verify_top30_contracts,
     )
+    from core.cancel_token import audit_m017
+    from core.cost_accounting import audit_m002
     from core.foundation_safety import audit_all, audit_m001, audit_m008, audit_m018
     from core.public_api import wrap_public_result
     from core.public_surface import emit_public, set_json_mode
@@ -6113,7 +6115,9 @@ def foundation_check_cmd(
     set_json_mode(True)
     suite = {
         "M001": audit_m001(),
+        "M002": audit_m002(),
         "M008": audit_m008(),
+        "M017": audit_m017(),
         "M018": audit_m018(),
         "M090": verify_top30_contracts(),
         "M093": mcp_parity(),

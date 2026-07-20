@@ -522,8 +522,26 @@ def multi_cli_board(
     # Parallel opinions (Sprint C S2) with ordered results
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    # M017 — bind board cancel token (Ctrl+C / programmatic)
+    from .cancel_token import CancelToken, cancelled_envelope, current, set_current
+
+    board_token = current() or CancelToken(name="multi_cli_board")
+    prev_tok = current()
+    set_current(board_token)
+
     def _one(m: str) -> Dict[str, Any]:
         # Cooperative cancel across board workers (V6 M017)
+        set_current(board_token)
+        if board_token.is_cancelled():
+            return {
+                "ok": False,
+                "member_id": m,
+                "cli": m,
+                "verdict": "advise",
+                "error": board_token.reason or "cancelled",
+                "error_code": "cancelled",
+                "cancelled": True,
+            }
         try:
             from .call_lifecycle import check_cancel
 
@@ -549,11 +567,16 @@ def multi_cli_board(
             approve=approve,
             use_mock=dry_run,
         )
+        if board_token.is_cancelled():
+            op = dict(op) if isinstance(op, dict) else {"ok": False}
+            op["cancelled"] = True
+            op["error_code"] = op.get("error_code") or "cancelled"
         _prog(f"board_member_end:{m}:{op.get('verdict')}")
         return op
 
     opinions: List[Dict[str, Any]] = []
     early_exit = False
+    board_cancelled = False
     # Board preflight cost estimate (V6 M003)
     try:
         from .board_preflight import enforce_or_allow
@@ -576,27 +599,91 @@ def multi_cli_board(
     except Exception:
         pass
     # V5 S7: sequential first-2 consensus early-exit when >2 members (saves cost)
-    if len(raw) > 2:
-        opinions.append(_one(raw[0]))
-        if len(raw) > 1:
-            opinions.append(_one(raw[1]))
-        v0 = str((opinions[0] or {}).get("verdict") or "").lower()
-        v1 = str((opinions[1] or {}).get("verdict") or "").lower() if len(opinions) > 1 else ""
-        if (
-            v0
-            and v1
-            and v0 == v1
-            and opinions[0].get("ok")
-            and opinions[1].get("ok")
-        ):
-            early_exit = True
-            _prog(f"board_early_exit:consensus:{v0}")
+    try:
+        if board_token.is_cancelled():
+            board_cancelled = True
+            opinions = [
+                {
+                    "ok": False,
+                    "member_id": m,
+                    "cli": m,
+                    "verdict": "advise",
+                    "error": "cancelled",
+                    "error_code": "cancelled",
+                    "cancelled": True,
+                }
+                for m in raw
+            ]
+        elif len(raw) > 2:
+            opinions.append(_one(raw[0]))
+            if board_token.is_cancelled():
+                board_cancelled = True
+            elif len(raw) > 1:
+                opinions.append(_one(raw[1]))
+            if board_token.is_cancelled():
+                board_cancelled = True
+            v0 = str((opinions[0] or {}).get("verdict") or "").lower() if opinions else ""
+            v1 = (
+                str((opinions[1] or {}).get("verdict") or "").lower()
+                if len(opinions) > 1
+                else ""
+            )
+            if (
+                not board_cancelled
+                and v0
+                and v1
+                and v0 == v1
+                and opinions[0].get("ok")
+                and opinions[1].get("ok")
+            ):
+                early_exit = True
+                _prog(f"board_early_exit:consensus:{v0}")
+            elif not board_cancelled:
+                rest = raw[2:]
+                workers = min(4, max(1, len(rest)))
+                if rest:
+                    with ThreadPoolExecutor(max_workers=workers) as pool:
+                        futs = {pool.submit(_one, m): m for m in rest}
+                        by_m = {}
+                        for fut in as_completed(futs):
+                            m = futs[fut]
+                            try:
+                                by_m[m] = fut.result()
+                            except Exception as e:
+                                by_m[m] = {
+                                    "ok": False,
+                                    "member_id": m,
+                                    "cli": m,
+                                    "verdict": "advise",
+                                    "error": str(e)[:200],
+                                }
+                            if board_token.is_cancelled():
+                                board_cancelled = True
+                                for pending in futs:
+                                    pending.cancel()
+                        opinions.extend([by_m[m] for m in rest if m in by_m])
         else:
-            rest = raw[2:]
-            workers = min(4, max(1, len(rest)))
-            if rest:
+            workers = min(4, max(1, len(raw)))
+            if workers == 1:
+                for m in raw:
+                    if board_token.is_cancelled():
+                        board_cancelled = True
+                        opinions.append(
+                            {
+                                "ok": False,
+                                "member_id": m,
+                                "cli": m,
+                                "verdict": "advise",
+                                "error": "cancelled",
+                                "error_code": "cancelled",
+                                "cancelled": True,
+                            }
+                        )
+                        continue
+                    opinions.append(_one(m))
+            else:
                 with ThreadPoolExecutor(max_workers=workers) as pool:
-                    futs = {pool.submit(_one, m): m for m in rest}
+                    futs = {pool.submit(_one, m): m for m in raw}
                     by_m = {}
                     for fut in as_completed(futs):
                         m = futs[fut]
@@ -610,37 +697,27 @@ def multi_cli_board(
                                 "verdict": "advise",
                                 "error": str(e)[:200],
                             }
-                    opinions.extend([by_m[m] for m in rest if m in by_m])
-    else:
-        workers = min(4, max(1, len(raw)))
-        if workers == 1:
-            opinions = [_one(m) for m in raw]
-        else:
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                futs = {pool.submit(_one, m): m for m in raw}
-                by_m = {}
-                for fut in as_completed(futs):
-                    m = futs[fut]
-                    try:
-                        by_m[m] = fut.result()
-                    except Exception as e:
-                        by_m[m] = {
-                            "ok": False,
-                            "member_id": m,
-                            "cli": m,
-                            "verdict": "advise",
-                            "error": str(e)[:200],
-                        }
-                opinions = [by_m[m] for m in raw if m in by_m]
+                        if board_token.is_cancelled():
+                            board_cancelled = True
+                            for pending in futs:
+                                pending.cancel()
+                    opinions = [by_m[m] for m in raw if m in by_m]
+    finally:
+        set_current(prev_tok)
+
     board = merge_board(opinions)
+    if board_cancelled or any(
+        isinstance(o, dict) and o.get("cancelled") for o in opinions
+    ):
+        board_cancelled = True
+        board["cancelled"] = True
     if early_exit:
         board["early_exit"] = True
         board["members_skipped"] = max(0, len(raw) - len(opinions))
-    # Cost/token rollup from opinions (mock estimates when dry_run)
-    tokens = 0
-    cost = 0.0
+    # M002 cost/token rollup from opinions via cost_accounting
     model_chain: List[str] = []
     any_mock = bool(dry_run)
+    priced_parts: List[Dict[str, Any]] = []
     for op in opinions:
         if not isinstance(op, dict):
             continue
@@ -649,19 +726,35 @@ def multi_cli_board(
             model_chain.append(str(mid))
         if op.get("mock") or op.get("dry_run"):
             any_mock = True
-        try:
-            tokens += int((op.get("usage") or {}).get("total_tokens") or op.get("tokens") or 0)
-        except (TypeError, ValueError):
-            pass
-        try:
-            cost += float(op.get("estimated_cost_usd") or 0.0)
-        except (TypeError, ValueError):
-            pass
+        part = dict(op)
+        if mid and not part.get("model"):
+            part["model"] = mid
+        priced_parts.append(part)
+    try:
+        from .cost_accounting import aggregate_costs
+
+        agg = aggregate_costs(priced_parts)
+        tokens = int(agg.get("tokens") or 0)
+        cost = float(agg.get("estimated_cost_usd") or 0.0)
+        cost_source = str(agg.get("cost_source") or "mixed")
+    except Exception:
+        tokens = 0
+        cost = 0.0
+        cost_source = "estimate"
+        for op in priced_parts:
+            try:
+                tokens += int((op.get("usage") or {}).get("total_tokens") or op.get("tokens") or 0)
+            except (TypeError, ValueError):
+                pass
+            try:
+                cost += float(op.get("estimated_cost_usd") or 0.0)
+            except (TypeError, ValueError):
+                pass
     if tokens <= 0:
-        # deterministic offline estimate
-        tokens = max(1, len(subject or "") // 4) * max(1, len(opinions))
-    if cost <= 0 and opinions:
-        cost = round(0.00001 * tokens, 6)
+        tokens = max(1, len(subject or "") // 4) * max(1, len(opinions) or 1)
+        if cost <= 0 and opinions:
+            cost_source = "estimate"
+        # CLI boards are typically $0; leave cost at 0 unless members priced themselves
 
     mem_ids: List[str] = []
     result: Dict[str, Any] = {
@@ -680,8 +773,15 @@ def multi_cli_board(
         "model_chain": model_chain or list(raw[: max(1, max_clis)]),
         "tokens": tokens,
         "estimated_cost_usd": cost,
+        "cost_source": cost_source,
         "memory_ids": mem_ids,
+        "cancelled": board_cancelled,
+        "status": "cancelled" if board_cancelled else "success",
+        "ok": (not board_cancelled) and True,
     }
+    if board_cancelled:
+        result["error"] = "cancelled"
+        result["error_code"] = "cancelled"
 
     if write_memory:
         try:

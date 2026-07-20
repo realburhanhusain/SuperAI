@@ -2005,6 +2005,25 @@ class SuperAIOrchestrator:
 
         try:
             while remaining:
+                # M017 cooperative cancel between orchestrator batches
+                try:
+                    from .cancel_token import is_cancelled
+
+                    if is_cancelled():
+                        self._event("cancelled", remaining=sorted(remaining))
+                        for sid in list(remaining):
+                            records_by_id[sid] = {
+                                "step_id": sid,
+                                "ok": False,
+                                "status": "cancelled",
+                                "error": "cancelled",
+                                "error_code": "cancelled",
+                            }
+                            remaining.discard(sid)
+                            completed.add(sid)
+                        break
+                except Exception:
+                    pass
                 ready = [
                     by_id[sid]
                     for sid in sorted(remaining)
@@ -2075,6 +2094,22 @@ class SuperAIOrchestrator:
                                 progress_ctx.advance(task_prog)
                 else:
                     for step in batch:
+                        try:
+                            from .cancel_token import is_cancelled
+
+                            if is_cancelled():
+                                records_by_id[step.step_id] = {
+                                    "step_id": step.step_id,
+                                    "ok": False,
+                                    "status": "cancelled",
+                                    "error": "cancelled",
+                                    "error_code": "cancelled",
+                                }
+                                completed.add(step.step_id)
+                                remaining.discard(step.step_id)
+                                continue
+                        except Exception:
+                            pass
                         if task_prog is not None and progress_ctx is not None:
                             progress_ctx.update(
                                 task_prog,

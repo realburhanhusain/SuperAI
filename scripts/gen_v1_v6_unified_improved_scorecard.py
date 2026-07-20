@@ -74,6 +74,7 @@ V4_COMPLETE = {
     # V4-M1/M2/M4/S3/DOD-1: code strong but "every path" docs/tests not exhaustive → incomplete
 }
 V5_COMPLETE = {
+    "V5-M3",  # CancelToken — closed with M017 exhaustive wire-up
     "V5-M5", "V5-M6", "V5-M7", "V5-M8",
     "V5-S1", "V5-S2", "V5-S3", "V5-S4", "V5-S5", "V5-S6", "V5-S7", "V5-S10",
 }
@@ -127,7 +128,9 @@ V6_MUST_COMPLETE = {
     "M099",  # THREAT_MODEL.md thorough doc
     # Foundation safety exhaustive path proof (D360-grade)
     "M001",  # hard budget — call_lifecycle + SPEND_PATHS + foundation_safety.audit_m001
+    "M002",  # accurate cost — cost_accounting usage×registry + cost_source + board rollup
     "M008",  # result envelope — tui_envelope + all TUI slash handlers + audit_m008
+    "M017",  # cooperative cancel — cancel_token + board/council/agent/orchestrator
     "M018",  # timeouts — subprocess_safety + model_timeouts + audit_m018
     # MOS-N6 voice: code + tests + this session (docs: MOSCOW plan N6 section)
     # V6 N213 maps separately
@@ -171,10 +174,9 @@ COMPLETE_IDS = (
 # Explicit incomplete notes for borderline items that were previously over-claimed as full
 STRICT_INCOMPLETE: dict[str, Triple] = {
     # Pillars may be True but pct<100 ⇒ incomplete (intent not fully production-met)
-    # M001/M008/M018 moved to V6_MUST_COMPLETE after foundation_safety exhaustive audits
-    "M002": T(True, True, True, 90, "cost_accounting on ModelCaller post_call", "V6 M002", "test_foundation_lift", "Some paths still estimate when provider omits usage"),
+    # M001/M002/M008/M018 moved to V6_MUST_COMPLETE after exhaustive audits
     "M015": T(True, False, True, 70, "injection_defense on tool results", "Backlog only; no dedicated security doc depth", "test_foundation_complete_must", "Thorough injection threat docs incomplete"),
-    "M017": T(True, True, True, 90, "CancelToken agent+boards+stream", "V6 M017", "tests cancel", "Edge cases on all worker types"),
+    # M017 moved to V6_MUST_COMPLETE after cancel_token exhaustive wire-up
     "M027": T(True, True, True, 85, "call_stream SSE + fallback", "V6 M027", "test_improvement_v4 stream", "Not all providers proven live"),
     "M050": T(True, True, True, 80, "bandit reorder+update", "V6 M050", "bandit tests partial", "Not continuous-product UI"),
     "M061": T(True, True, True, 85, "promote_durable", "learning docs partial", "test_foundation_complete_must", "Product UX incomplete"),
@@ -201,7 +203,7 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     "V4-DOD-1": T(True, True, True, 85, "spend_guard sweep", "V4 DoD", "tests", "Residual thin wrappers"),
     "V5-M1": T(True, True, True, 85, "public_api.wrap key paths", "V5 plan", "test_improvement_v5", "Not all CLI cmds"),
     "V5-M2": T(True, True, True, 85, "MCP superai_run budget", "V5 plan", "mcp tests", "Full MCP parity matrix incomplete"),
-    "V5-M3": T(True, True, True, 90, "CancelToken agent", "V5 plan", "tests", "All board workers edge cases"),
+    # V5-M3 closed with M017 exhaustive cancel wire-up
     "V5-M4": T(True, True, True, 90, "cost_accounting", "V5 plan", "tests", "Estimate fallbacks remain"),
     "V1-P1-1": T(True, True, True, 85, "result_contract", "IMPROVEMENT_PLAN P1", "test_result_contract", "Not all surfaces"),
     "V1-P1-3": T(True, True, True, 85, "budget foundation", "P1 plan", "tests", "Universal ceiling incomplete"),

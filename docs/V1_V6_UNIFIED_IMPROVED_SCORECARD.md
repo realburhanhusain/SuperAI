@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **229** |
-| **INCOMPLETE** | **286** |
+| **COMPLETE (production + docs + tests)** | **232** |
+| **INCOMPLETE** | **283** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **44.2%**
-- **Average percent (incomplete only):** **30.2%**
-- **Average percent (all non-refuse):** **61.4%**
+- **Strict completion rate (complete / (total − refuse)):** **44.8%**
+- **Average percent (incomplete only):** **29.6%**
+- **Average percent (all non-refuse):** **61.5%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 229
+**Count:** 232
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -53,6 +53,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M002 — Accurate cost from real tokens × registry rates
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Accurate cost from real tokens × registry rates
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -183,6 +193,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Tenant isolation for shared memory
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M017 — Cancel / Ctrl+C stops workers cooperatively
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Cancel / Ctrl+C stops workers cooperatively
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -2127,6 +2147,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V5-M3 — M3 — Cooperative cancel (CancelToken)
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M3 — Cooperative cancel (CancelToken)
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
 ### V5-M5 — M5 — Error taxonomy
 
 - **Track:** V1-V5
@@ -2341,35 +2371,9 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 286
+**Count:** 283
 
 Sub-order: foundation-like → stub → absent (heuristic).
-
-### M002 — Accurate cost from real tokens × registry rates
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **90%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — cost_accounting on ModelCaller post_call
-- **Thorough documentation?** YES — V6 M002
-- **Fully tested?** YES — test_foundation_lift
-- **Fully implemented:** cost_accounting on ModelCaller post_call
-- **Partially implemented:** —
-- **Still incomplete:** Some paths still estimate when provider omits usage
-
-### M017 — Cancel / Ctrl+C stops workers cooperatively
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **90%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — CancelToken agent+boards+stream
-- **Thorough documentation?** YES — V6 M017
-- **Fully tested?** YES — tests cancel
-- **Fully implemented:** CancelToken agent+boards+stream
-- **Partially implemented:** —
-- **Still incomplete:** Edge cases on all worker types
 
 ### V2-B3 — Sprint B — Smart session compact
 
@@ -2383,19 +2387,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** session_compact
 - **Partially implemented:** —
 - **Still incomplete:** Decision/todo edge cases
-
-### V5-M3 — M3 — Cooperative cancel (CancelToken)
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **90%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — CancelToken agent
-- **Thorough documentation?** YES — V5 plan
-- **Fully tested?** YES — tests
-- **Fully implemented:** CancelToken agent
-- **Partially implemented:** —
-- **Still incomplete:** All board workers edge cases
 
 ### V5-M4 — M4 — Accurate cost from registry
 

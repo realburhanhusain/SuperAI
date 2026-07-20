@@ -113,8 +113,32 @@ class AgentRuntime:
 
         t0 = time.time()
         run_id = new_run_id()
-        token = cancel_token or CancelToken()
+        token = cancel_token or CancelToken(name=f"agent:{session_id or 'new'}")
+        # Bind for this run; SIGINT install is opt-in via SUPERAI_AGENT_SIGINT=1
+        import os as _os
+
+        _install_sig = (_os.environ.get("SUPERAI_AGENT_SIGINT") or "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
         set_current(token)
+        _sig_on = False
+        if _install_sig:
+            from ..cancel_token import install_sigint_handler
+
+            _sig_on = install_sigint_handler(token)
+
+        def _cleanup_cancel() -> None:
+            if _sig_on:
+                try:
+                    from ..cancel_token import uninstall_sigint_handler
+
+                    uninstall_sigint_handler()
+                except Exception:
+                    pass
+            set_current(None)
+
         bus = get_progress_bus()
         if session is None:
             if session_id:
@@ -149,6 +173,7 @@ class AgentRuntime:
                 blocked["session_id"] = session.id
                 blocked["run_id"] = run_id
                 append_event(run_id, "budget_block", ok=False, detail=blocked.get("error"))
+                _cleanup_cancel()
                 return RunResult(
                     ok=False,
                     response=str(blocked.get("error") or "budget_blocked"),
@@ -170,6 +195,7 @@ class AgentRuntime:
                 if not ready.get("ok"):
                     msg = f"model_not_ready:{mid}:{ready.get('error') or ready}"
                     append_event(run_id, "readiness_block", ok=False, detail=msg)
+                    _cleanup_cancel()
                     return RunResult(
                         ok=False,
                         response=msg,
@@ -591,7 +617,7 @@ class AgentRuntime:
             cache_put("agent", user_text, d, agent=role.id, model=mid)
         except Exception:
             pass
-        set_current(None)
+        _cleanup_cancel()
         return result
 
     def _history_text(self, session: SessionState, max_msgs: int = 12) -> str:

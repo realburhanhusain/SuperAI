@@ -8,7 +8,7 @@ from core.multi_cli_advisory import multi_cli_board
 
 def test_smart_max_members():
     assert smart_max_members("short?", default=3) <= 2
-    assert smart_max_members("x" * 500, default=3, hard_cap=5) >= 3
+    assert smart_max_members("x " * 500, default=3, hard_cap=5) >= 3
 
 
 def test_board_cache_roundtrip(tmp_path, monkeypatch):

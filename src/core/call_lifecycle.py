@@ -91,36 +91,17 @@ def post_call(
     latency = (time.time() - started) if started else float(result.get("latency") or 0)
     result.setdefault("latency", round(latency, 4))
 
-    # Cost from usage or estimate
+    # M002: prefer real usage × registry rates; mark estimates honestly
     try:
-        from .cost_accounting import estimate_call, from_usage
+        from .cost_accounting import attach_cost_fields
 
-        usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
-        total = int(
-            usage.get("total_tokens")
-            or result.get("tokens")
-            or 0
+        result = attach_cost_fields(
+            result, model=model, prompt=prompt, registry=registry
         )
-        if total <= 0:
-            est = estimate_call(model, prompt, registry=registry)
-            total = int(est.get("tokens") or 0)
-            # Prefer real usage when present; else estimate from prompt + response
-            resp_len = len(str(result.get("response") or ""))
-            total = max(total, len(prompt or "") // 4 + resp_len // 4 + 20)
-        cost = from_usage(
-            model,
-            total_tokens=total,
-            prompt_tokens=int(usage.get("prompt_tokens") or 0),
-            completion_tokens=int(usage.get("completion_tokens") or 0),
-            registry=registry,
-        )
-        result["tokens"] = int(cost.get("tokens") or total)
-        result["estimated_cost_usd"] = float(cost.get("estimated_cost_usd") or 0)
-        result["rate_per_1k"] = cost.get("rate_per_1k")
-        result.setdefault("model", model)
     except Exception:
         result.setdefault("tokens", int(result.get("tokens") or 0))
         result.setdefault("estimated_cost_usd", float(result.get("estimated_cost_usd") or 0))
+        result.setdefault("cost_source", "estimate")
 
     success = (
         result.get("ok") is not False

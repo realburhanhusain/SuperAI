@@ -264,7 +264,16 @@ COMPLETION_EVIDENCE: Dict[str, Dict[str, Any]] = {
             "SPEND_PATHS registry",
         ],
     },
-    "M002": {"pct": 100, "modules": ["cost_accounting", "call_lifecycle.post_call"]},
+    "M002": {
+        "pct": 100,
+        "modules": [
+            "cost_accounting.from_usage",
+            "cost_accounting.attach_cost_fields",
+            "cost_accounting.aggregate_costs",
+            "call_lifecycle.post_call",
+            "council/multi_cli rollup",
+        ],
+    },
     "M008": {
         "pct": 100,
         "modules": [
@@ -276,7 +285,18 @@ COMPLETION_EVIDENCE: Dict[str, Dict[str, Any]] = {
         ],
     },
     "M015": {"pct": 100, "modules": ["injection_defense", "tool_protocol"]},
-    "M017": {"pct": 100, "modules": ["cancel_token", "call_lifecycle", "multi_cli_advisory"]},
+    "M017": {
+        "pct": 100,
+        "modules": [
+            "cancel_token",
+            "call_lifecycle",
+            "multi_cli_advisory",
+            "council",
+            "orchestrator",
+            "superai_agent.runtime",
+            "audit_m017",
+        ],
+    },
     "M018": {
         "pct": 100,
         "modules": [

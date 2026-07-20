@@ -85,9 +85,21 @@ class Council:
         # Stage 0: simple vs complex classification
         stage0 = self._classify_complexity(topic)
 
-        # Stage 1: structured proposals
+        # Stage 1: structured proposals (M017 cooperative cancel between members)
+        from .cancel_token import cancelled_envelope, is_cancelled
+
         proposals: List[Dict[str, Any]] = []
         for m in members:
+            if is_cancelled():
+                return cancelled_envelope(
+                    reason="cancelled",
+                    extra={
+                        "topic": topic,
+                        "members": members,
+                        "proposals": proposals,
+                        "stage": "proposals",
+                    },
+                )
             prompt = (
                 "You are a council member. Respond with ONLY valid JSON:\n"
                 '{"stance":"short label","vote_key":"snake_case_key",'
@@ -99,15 +111,34 @@ class Council:
             if doc_block:
                 prompt += f"\nReference documents:\n{doc_block[:6000]}\n"
             raw = self.caller.call(model=m, prompt=prompt)
+            if raw.get("cancelled") or raw.get("status") == "cancelled":
+                return cancelled_envelope(
+                    reason="cancelled",
+                    extra={"topic": topic, "members": members, "proposals": proposals},
+                )
             parsed = self._parse_member_json(str(raw.get("response") or ""), m)
             parsed["model"] = m
             parsed["raw_mock"] = bool(raw.get("mock"))
+            # carry cost fields for M002 rollup
+            for k in ("tokens", "estimated_cost_usd", "cost_source", "usage"):
+                if k in raw:
+                    parsed[k] = raw[k]
             proposals.append(parsed)
 
         # Stage 2: optional critique pass
         critiques: List[Dict[str, Any]] = []
         if with_critique and len(proposals) >= 2:
             for i, p in enumerate(proposals):
+                if is_cancelled():
+                    return cancelled_envelope(
+                        reason="cancelled",
+                        extra={
+                            "topic": topic,
+                            "proposals": proposals,
+                            "critiques": critiques,
+                            "stage": "critique",
+                        },
+                    )
                 other = proposals[(i + 1) % len(proposals)]
                 prompt = (
                     f"Topic: {topic}\nPeer stance: {other.get('summary')}\n"
@@ -164,14 +195,38 @@ class Council:
             )
         except Exception:
             pass
-        # M6 + spend record + public envelope
+        # M002 + spend record + public envelope — aggregate real member costs
         try:
+            from .cost_accounting import aggregate_costs
             from .spend_guard import budget_record, ensure_public_result
 
-            toks = 0
-            for p in proposals:
-                toks += 200
-            budget_record(usd=0.0 if getattr(self.caller, "use_mock", False) else 0.05 * len(members), tokens=toks)
+            parts = []
+            for p in proposals or []:
+                if isinstance(p, dict):
+                    parts.append(p)
+            for c in critiques or []:
+                if isinstance(c, dict):
+                    parts.append(c)
+            if isinstance(decision, dict):
+                parts.append(decision)
+            agg = aggregate_costs(parts)
+            result["tokens"] = int(agg.get("tokens") or 0)
+            result["estimated_cost_usd"] = float(agg.get("estimated_cost_usd") or 0)
+            result["cost_source"] = agg.get("cost_source") or "mixed"
+            # Fallback headroom only when nothing priced yet and live
+            if (
+                result["estimated_cost_usd"] <= 0
+                and result["tokens"] <= 0
+                and not getattr(self.caller, "use_mock", False)
+            ):
+                result["tokens"] = 200 * max(1, len(members))
+                result["estimated_cost_usd"] = round(0.05 * max(1, len(members)), 6)
+                result["cost_source"] = "estimate"
+            if not getattr(self.caller, "use_mock", False):
+                budget_record(
+                    usd=float(result["estimated_cost_usd"] or 0),
+                    tokens=int(result["tokens"] or 0),
+                )
             return ensure_public_result(
                 result,
                 mock=bool(getattr(self.caller, "use_mock", False)),

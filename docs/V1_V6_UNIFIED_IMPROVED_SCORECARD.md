@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **232** |
-| **INCOMPLETE** | **283** |
+| **COMPLETE (production + docs + tests)** | **233** |
+| **INCOMPLETE** | **282** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **44.8%**
-- **Average percent (incomplete only):** **29.6%**
-- **Average percent (all non-refuse):** **61.5%**
+- **Strict completion rate (complete / (total − refuse)):** **45.0%**
+- **Average percent (incomplete only):** **29.5%**
+- **Average percent (all non-refuse):** **61.6%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 232
+**Count:** 233
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1287,6 +1287,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### S116 — Commit message + branch naming helpers
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Commit message + branch naming helpers
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
 ### S118 — `git apply`-compatible patch format
 
 - **Track:** V6
@@ -2371,7 +2381,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 283
+**Count:** 282
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2935,19 +2945,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Full production hardening + tests + docs
 
 ### S115 — License/compliance check on new deps
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
-### S116 — Commit message + branch naming helpers
 
 - **Track:** V6
 - **Complete?** **NO**

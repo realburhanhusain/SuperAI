@@ -130,8 +130,12 @@ V6_MUST_COMPLETE = {
     "M001",  # hard budget — call_lifecycle + SPEND_PATHS + foundation_safety.audit_m001
     "M002",  # accurate cost — cost_accounting usage×registry + cost_source + board rollup
     "M008",  # result envelope — tui_envelope + all TUI slash handlers + audit_m008
+    "M015",  # prompt injection — prompt_injection module + scan/wrap CLI + PROMPT_INJECTION_DEFENSE.md + tests
     "M017",  # cooperative cancel — cancel_token + board/council/agent/orchestrator
     "M018",  # timeouts — subprocess_safety + model_timeouts + audit_m018
+    "M080",  # exit codes — exit_codes module + exit-codes CLI + EXIT_CODES.md + tests
+    "M081",  # high-quality help — CLI docstrings/examples + CLI_HELP_AND_COMPLETION.md + tests
+    "M082",  # shell completion — completion show/install CLI + CLI_HELP_AND_COMPLETION.md + tests
     # MOS-N6 voice: code + tests + this session (docs: MOSCOW plan N6 section)
     # V6 N213 maps separately
 }
@@ -142,7 +146,7 @@ V6_SHOULD_COMPLETE = {
 }
 # fix - S ids
 V6_S_COMPLETE = {
-    "S101", "S102", "S107", "S118", "S122", "S125", "S126",
+    "S101", "S102", "S107", "S116", "S118", "S122", "S125", "S126",
     "S151", "S152", "S157", "S161", "S171", "S177", "S196", "S198", "S199", "S200",
     "S103", "S130", "S131", "S133", "S134", "S135",
 }

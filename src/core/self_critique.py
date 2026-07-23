@@ -28,7 +28,7 @@ class SelfCritiqueResult:
     score: float = 100.0
 
 
-def run_self_critique_pass(file_path: str) -> SelfCritiqueResult:
+def run_self_critique_pass(file_path: str, strict: bool = True) -> SelfCritiqueResult:
     """Perform self-critique audit on python code file."""
     p = Path(file_path)
     if not p.exists() or p.suffix != ".py":
@@ -83,9 +83,12 @@ def run_self_critique_pass(file_path: str) -> SelfCritiqueResult:
     deduction = len(findings) * 5.0
     final_score = max(0.0, 100.0 - deduction)
     has_errors = any(f.severity == "ERROR" for f in findings)
+    has_warnings = any(f.severity == "WARNING" for f in findings)
+
+    passed = not has_errors if not strict else (not has_errors and not has_warnings and final_score >= 90.0)
 
     return SelfCritiqueResult(
-        passed=not has_errors,
+        passed=passed,
         file_path=file_path,
         findings=findings,
         score=final_score,

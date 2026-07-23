@@ -25,6 +25,7 @@ def test_self_critique_missing_docstring():
         tf.write("def no_docstring():\n    return False\n")
         tf_path = tf.name
 
-    res = run_self_critique_pass(tf_path)
+    res = run_self_critique_pass(tf_path, strict=True)
+    assert res.passed is False
     assert len(res.findings) >= 1
     assert any(f.category == "DOCS" for f in res.findings)

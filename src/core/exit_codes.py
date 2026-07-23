@@ -67,6 +67,25 @@ EXIT_CODES_TABLE = [
 ]
 
 
+def from_exception(exc: Exception) -> int:
+    """Map Exception instance to standardized SuperAI exit code integer."""
+    if exc is None:
+        return OK
+    if hasattr(exc, "exit_code") and isinstance(getattr(exc, "exit_code"), int):
+        return int(getattr(exc, "exit_code"))
+    if isinstance(exc, FileNotFoundError):
+        return USAGE
+    if isinstance(exc, PermissionError):
+        return PERMISSION
+    if isinstance(exc, TimeoutError):
+        return TIMEOUT
+    if isinstance(exc, KeyboardInterrupt):
+        return CANCELLED
+    if isinstance(exc, ValueError):
+        return USAGE
+    return GENERAL
+
+
 def from_result(result: Dict[str, Any]) -> int:
     """Map result payload dictionary to exit code."""
     if not isinstance(result, dict):

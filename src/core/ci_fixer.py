@@ -39,9 +39,10 @@ def analyze_ci_log_paste(log_text: str) -> CIFixerResult:
     lines = log_text.splitlines()
 
     # Pytest failure pattern: FAILED tests/test_foo.py::test_bar - AssertionError: ...
-    pytest_failed_pattern = re.compile(r"FAILED\s+([^\s:]+)(?:::[^\s]+)?(?:\s+-\s+(.*))?")
-    # Import error pattern: ModuleNotFoundError: No module named 'foo'
+    pytest_failed_pattern = re.compile(r"FAILED\s+([^\s:]+)(?::([0-9]+))?(?:::[^\s]+)?(?:\s+-\s+(.*))?")
     import_err_pattern = re.compile(r"ModuleNotFoundError:\s+No module named\s+'([^']+)'")
+    syntax_err_pattern = re.compile(r"SyntaxError:\s+(.*)\s+in\s+([^\s,:]+)(?::([0-9]+))?")
+    timeout_err_pattern = re.compile(r"(?i)(timed out|timeout)\s*(?:after\s*([0-9]+)s)?")
 
     for idx, line in enumerate(lines):
         line_str = line.strip()
@@ -49,12 +50,20 @@ def analyze_ci_log_paste(log_text: str) -> CIFixerResult:
         match_failed = pytest_failed_pattern.search(line_str)
         if match_failed:
             f_path = match_failed.group(1)
-            err_msg = match_failed.group(2) or "Test assertion failed"
+            line_no = int(match_failed.group(2)) if match_failed.group(2) else 0
+            err_msg = match_failed.group(3) or "Test assertion failed"
+
+            # Check if previous lines contain file:line info
+            if line_no == 0 and idx > 0:
+                line_match = re.search(r"([^\s:]+\.py):([0-9]+):", lines[idx - 1])
+                if line_match:
+                    line_no = int(line_match.group(2))
+
             findings.append(
                 CIFailureFinding(
                     failure_type="TEST_FAILURE",
                     failing_file=f_path,
-                    line_number=0,
+                    line_number=line_no,
                     error_summary=err_msg,
                     suggested_patch=f"Run `pytest {f_path}` locally and update assertion expectations.",
                 )
@@ -70,6 +79,33 @@ def analyze_ci_log_paste(log_text: str) -> CIFixerResult:
                     line_number=0,
                     error_summary=f"Missing dependency module '{missing_mod}'",
                     suggested_patch=f"Add '{missing_mod}' to dependency manifest and run `pip install {missing_mod}`.",
+                )
+            )
+
+        match_syntax = syntax_err_pattern.search(line_str)
+        if match_syntax:
+            s_msg = match_syntax.group(1)
+            s_file = match_syntax.group(2)
+            s_line = int(match_syntax.group(3)) if match_syntax.group(3) else 0
+            findings.append(
+                CIFailureFinding(
+                    failure_type="SYNTAX_ERROR",
+                    failing_file=s_file,
+                    line_number=s_line,
+                    error_summary=f"Syntax error: {s_msg}",
+                    suggested_patch=f"Fix invalid python syntax in {s_file} at line {s_line}.",
+                )
+            )
+
+        match_timeout = timeout_err_pattern.search(line_str)
+        if match_timeout and not any(f.failure_type == "TIMEOUT" for f in findings):
+            findings.append(
+                CIFailureFinding(
+                    failure_type="TIMEOUT",
+                    failing_file="CLI / Test Subprocess",
+                    line_number=0,
+                    error_summary="Command or test run timed out",
+                    suggested_patch="Increase test timeout or optimize slow synchronous blocking operations.",
                 )
             )
 

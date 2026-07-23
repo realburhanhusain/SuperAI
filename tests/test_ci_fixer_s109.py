@@ -32,3 +32,12 @@ def test_analyze_module_not_found_ci_log():
     assert res.has_failures is True
     assert any(f.failure_type == "IMPORT_ERROR" for f in res.findings)
     assert "pytest_mock" in res.findings[0].suggested_patch
+
+
+def test_analyze_syntax_and_timeout_ci_log():
+    log_text = "SyntaxError: invalid syntax in src/core/main.py:42\nCommand timed out after 300s"
+    res = analyze_ci_log_paste(log_text)
+    assert res.has_failures is True
+    types = [f.failure_type for f in res.findings]
+    assert "SYNTAX_ERROR" in types
+    assert "TIMEOUT" in types

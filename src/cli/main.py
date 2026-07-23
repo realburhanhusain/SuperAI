@@ -7772,6 +7772,7 @@ def completion_install_cmd(
     shell: str = typer.Option("powershell", "--shell", "-s", help="bash|zsh|powershell|fish"),
 ):
     """Install shell completion for SuperAI CLI into user shell profile."""
+    from pathlib import Path
     sh = shell.lower().strip()
     home = Path.home()
     profile_map = {

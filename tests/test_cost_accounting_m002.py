@@ -97,6 +97,34 @@ def test_attach_cost_fields_estimates_without_usage():
     assert out["tokens"] > 0
 
 
+def test_from_result_mock_never_claims_usage():
+    from core.cost_accounting import from_result
+
+    out = from_result(
+        {
+            "ok": True,
+            "mock": True,
+            "model": "gpt-4o",
+            "response": "hello",
+            # fake usage must not become cost_source=usage on mock path
+            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        },
+        model="gpt-4o",
+    )
+    assert out["cost_source"] == "estimate"
+    assert out.get("is_estimate") is True
+    assert out.get("estimate_method") == "chars_div4_plus_headroom"
+
+
+def test_estimate_call_local_stays_zero_local():
+    from core.cost_accounting import estimate_call
+
+    e = estimate_call("cli:claude", "hello world " * 20)
+    assert e["cost_source"] == "zero_local"
+    assert e.get("is_estimate") is True
+    assert e["estimated_cost_usd"] == 0.0
+
+
 def test_aggregate_costs_board_rollup():
     from core.cost_accounting import aggregate_costs
 

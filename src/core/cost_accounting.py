@@ -237,19 +237,36 @@ def from_usage(
 
 
 def from_result(result: Any, model: str = "", *, registry: Any = None) -> Dict[str, Any]:
-    """Extract usage from a call result dict and price it."""
+    """Extract usage from a call result dict and price it.
+
+    Honesty rules:
+    - Missing usage → ``cost_source=estimate`` (never invent ``usage``).
+    - Mock / dry_run results → estimate (or zero_local for local/cli models),
+      even if a caller stuffed fake token counts.
+    - Heuristic registry rates still surface via ``pricing_source``.
+    """
     if not isinstance(result, dict):
         return from_usage(model or "unknown", total_tokens=0, registry=registry, cost_source="estimate")
     m = str(model or result.get("model") or "unknown")
+    mockish = bool(
+        result.get("mock")
+        or result.get("dry_run")
+        or result.get("use_mock")
+        or str(result.get("mode") or "").lower() in {"mock", "dry_run", "dry-run"}
+    )
     usage = normalize_usage(result)
-    if usage["total_tokens"] <= 0 and usage["prompt_tokens"] <= 0:
-        # no usage → estimate
-        return estimate_call(
+    if mockish or (usage["total_tokens"] <= 0 and usage["prompt_tokens"] <= 0):
+        # no real usage (or mock path) → estimate
+        out = estimate_call(
             m,
-            str(result.get("prompt") or "") + str(result.get("response") or result.get("content") or ""),
+            str(result.get("prompt") or "")
+            + str(result.get("response") or result.get("content") or ""),
             registry=registry,
         )
-    return from_usage(
+        if mockish:
+            out["mock"] = True
+        return out
+    out = from_usage(
         m,
         total_tokens=usage["total_tokens"],
         prompt_tokens=usage["prompt_tokens"],
@@ -257,13 +274,29 @@ def from_result(result: Any, model: str = "", *, registry: Any = None) -> Dict[s
         registry=registry,
         cost_source="usage",
     )
+    # If rates were only heuristic, mark for automation (tokens still metered)
+    if out.get("pricing_source") == "heuristic":
+        out["rate_is_estimate"] = True
+    return out
 
 
 def estimate_call(model: str, prompt: str = "", *, registry: Any = None) -> Dict[str, Any]:
-    """Rough pre-call / fallback estimate (~4 chars/token + reply headroom)."""
+    """Rough pre-call / fallback estimate (~4 chars/token + reply headroom).
+
+    Local/CLI models keep ``cost_source=zero_local`` (honest $0) while still
+    reporting an estimated token volume for capacity planning.
+    """
     tokens = max(50, len(prompt or "") // 4 + 80)
-    out = from_usage(model, total_tokens=tokens, registry=registry, cost_source="estimate")
-    out["cost_source"] = "estimate"
+    if is_local_or_cli(model):
+        out = from_usage(model, total_tokens=tokens, registry=registry, cost_source="zero_local")
+        out["cost_source"] = "zero_local"
+    else:
+        out = from_usage(model, total_tokens=tokens, registry=registry, cost_source="estimate")
+        out["cost_source"] = "estimate"
+    out["is_estimate"] = True
+    out["estimate_method"] = "chars_div4_plus_headroom"
+    if out.get("pricing_source") == "heuristic":
+        out["rate_is_estimate"] = True
     return out
 
 

@@ -40,6 +40,7 @@ def test_hierarchy_decompose_and_run(tmp_path: Path, monkeypatch):
 
 def test_external_cli_model_call(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("SUPERAI_MOCK_MODE", "1")
     reg = ModelRegistry()
     reg.register_external_clis_as_models()
     caller = ModelCaller(use_mock=True, registry=reg)

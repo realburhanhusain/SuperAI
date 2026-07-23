@@ -37,7 +37,8 @@ class ModelCaller:
         health_store: Optional[ProviderHealthStore] = None,
     ):
         if use_mock is None:
-            self.use_mock = not self._has_any_api_key()
+            mock_env = (os.getenv("SUPERAI_MOCK_MODE") or "").lower() in ("1", "true", "yes")
+            self.use_mock = mock_env or not self._has_any_api_key()
         else:
             self.use_mock = use_mock
         self.registry = registry
@@ -449,12 +450,7 @@ class ModelCaller:
                 raise
 
         if self.use_mock:
-            try:
-                return self.load_balancer.execute_with_fallback(
-                    candidates, model, _invoke, max_retries_per_provider=0
-                )
-            except Exception:  # noqa: BLE001
-                return self._mock_call(primary, model, prompt)
+            return self._mock_call(primary, model, prompt)
 
         try:
             return self.load_balancer.execute_with_fallback(
@@ -588,7 +584,7 @@ class ModelCaller:
         except Exception:  # noqa: BLE001
             require_approval = True
 
-        dry = bool(self.use_mock)
+        dry = bool(self.use_mock) or (os.getenv("SUPERAI_MOCK_MODE") or "").lower() in ("1", "true", "yes")
         try:
             avail = ExternalCLIRegistry().available()
             if cli_name not in avail:

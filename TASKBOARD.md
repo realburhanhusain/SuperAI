@@ -70,11 +70,11 @@
 
 | Field | Value |
 |-------|--------|
-| **When** | 2026-07-16 |
-| **What** | Improvement V3 Sprints A–D complete; Phase 99 smoke postponed |
-| **Plan** | `docs/IMPROVEMENT_V3_PLAN.md` |
-| **Verify** | `pytest -m unit -q` · `pytest tests/test_improvement_v3.py -q` |
-| **Prior** | V2 A–D + Phase 8 |
+| **When** | 2026-07-23 |
+| **What** | Resume unfinished foundation depth: **V2-B3** session_compact edge cases (role/content turns, done-checkbox/status filtering, nested message parts); **V5-M4/M002** cost estimate honesty (mock never claims usage, local stays zero_local, is_estimate/estimate_method); WIP SUPERAI_MOCK_MODE mock-path honesty in model_caller |
+| **Verify** | \pytest tests/test_session_compact_v2b3.py tests/test_cost_accounting_m002.py tests/test_foundation_lift.py::test_session_compact_preserves_todos -q\ (20 passed) |
+| **Still open** | Broader V6 foundation backlog (live streaming providers, learning UX productization, MCP parity matrix, Phase 99 host smoke) — not claimed closed |
+| **Prior** | 2026-07-20 M001/M002/M008/M017/M018 foundation close at f874837 |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

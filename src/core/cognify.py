@@ -341,6 +341,24 @@ def cognify(
     else:
         extracted = extract_llm(text, model=model)
 
+    # P6: map free labels → core ontology (provisional on unknown / weak conf)
+    try:
+        from .ontology import apply_ontology_to_extraction
+
+        apply_ont = True
+        if (os.getenv("SUPERAI_ONTOLOGY") or "").strip().lower() in {
+            "0",
+            "false",
+            "off",
+            "no",
+        }:
+            apply_ont = False
+        extracted = apply_ontology_to_extraction(extracted, enabled=apply_ont)
+    except Exception as e:  # noqa: BLE001
+        extracted = dict(extracted or {})
+        extracted["ontology_applied"] = False
+        extracted["ontology_error"] = str(e)[:200]
+
     entities = extracted.get("entities") or []
     relations = extracted.get("relations") or []
 
@@ -359,9 +377,15 @@ def cognify(
         "edges_written": 0,
         "palace_memory_id": None,
         "provisional": sum(1 for e in entities if e.get("provisional")),
+        "ontology_applied": bool(extracted.get("ontology_applied")),
+        "ontology_version": extracted.get("ontology_version"),
+        "provisional_entities": extracted.get("provisional_entities"),
+        "provisional_relations": extracted.get("provisional_relations"),
         "entities_sample": entities[:10],
         "relations_sample": relations[:10],
     }
+    if extracted.get("ontology_error"):
+        report["ontology_error"] = extracted["ontology_error"]
     if extracted.get("llm_error"):
         report["llm_error"] = extracted["llm_error"]
     if extracted.get("cost_source"):
@@ -422,13 +446,16 @@ def cognify(
                 "provisional": bool(e.get("provisional")),
                 "cognify": True,
             }
+            if e.get("ontology"):
+                props["ontology"] = e.get("ontology")
+            node_wing = wing or e.get("wing")
             out = graph.upsert_node(
                 name=name,
                 type=typ,
                 properties=props,
                 source_memory_id=memory_id,
                 dataset_id=dataset_id,
-                wing=wing,
+                wing=node_wing,
                 room=room,
             )
             if out.get("ok"):
@@ -439,17 +466,20 @@ def cognify(
             rel = str(r.get("relation") or "RELATED_TO").strip() or "RELATED_TO"
             if not frm or not to:
                 continue
+            edge_props = {
+                "confidence": r.get("confidence"),
+                "provisional": bool(r.get("provisional")),
+                "cognify": True,
+            }
+            if r.get("ontology"):
+                edge_props["ontology"] = r.get("ontology")
             out = graph.upsert_edge(
                 from_name=frm,
                 to_name=to,
                 from_type=str(r.get("from_type") or "Entity"),
                 to_type=str(r.get("to_type") or "Entity"),
                 relation=rel,
-                properties={
-                    "confidence": r.get("confidence"),
-                    "provisional": bool(r.get("provisional")),
-                    "cognify": True,
-                },
+                properties=edge_props,
                 source_memory_id=memory_id,
                 dataset_id=dataset_id,
             )

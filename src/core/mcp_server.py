@@ -237,6 +237,24 @@ TOOLS: List[Dict[str, Any]] = [
         },
     ),
     _tool(
+        "superai_ontology",
+        "Memory ontology (P6): show, validate, or map a free type/relation label.",
+        {
+            "action": {
+                "type": "string",
+                "description": "show | validate | map (default show)",
+            },
+            "label": {
+                "type": "string",
+                "description": "For map: free type or relation label",
+            },
+            "kind": {
+                "type": "string",
+                "description": "For map: type | relation (default type)",
+            },
+        },
+    ),
+    _tool(
         "superai_learn",
         "Write back a completed outcome into central Memory Palace (learning + result snippet).",
         {
@@ -681,6 +699,23 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
             store_palace=bool(args.get("store_palace", True)),
             glob_pat=str(args.get("glob") or "*.md"),
         )
+
+    if name == "superai_ontology":
+        from .ontology import MemoryOntology, clear_ontology_cache, default_ontology_path
+
+        clear_ontology_cache()
+        ont = MemoryOntology.load(default_ontology_path())
+        action = str(args.get("action") or "show").lower()
+        if action == "show":
+            return ont.show()
+        if action == "validate":
+            return ont.validate()
+        if action == "map":
+            label = str(args.get("label") or "")
+            if not label:
+                raise ValueError("label required for map")
+            return ont.map_label(label, kind=str(args.get("kind") or "type"))
+        raise ValueError("action must be show|validate|map")
 
     if name == "superai_memory_palace":
         from .memory_palace import MemoryPalace

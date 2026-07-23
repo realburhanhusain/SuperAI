@@ -783,6 +783,11 @@ session_app = typer.Typer(
 )
 app.add_typer(session_app, name="memory-session")
 
+ontology_app = typer.Typer(
+    help="Memory ontology (P6): show, validate, map labels, induce report"
+)
+app.add_typer(ontology_app, name="ontology")
+
 
 def _print_session(data: dict, *, title: str = "Session memory") -> None:
     try:
@@ -1197,6 +1202,138 @@ def kg_path_cmd(
         dataset_id=dataset,
     )
     _print_kg(out, title="KG path")
+
+
+def _print_ontology(data: dict, *, title: str = "Ontology") -> None:
+    try:
+        from core.public_surface import emit_public, json_mode
+
+        if json_mode():
+            emit_public(data, print_json=True, record_spend=False)
+            return
+    except Exception:
+        pass
+    lines = [f"[bold]{title}[/bold]", "", str(data.get("message") or "")]
+    for key in (
+        "ok",
+        "name",
+        "version",
+        "path",
+        "type",
+        "relation",
+        "provisional",
+        "reason",
+        "mapped_from",
+        "entity_type_count",
+        "relation_count",
+    ):
+        if key in data and data.get(key) is not None:
+            lines.append(f"{key}: {data.get(key)}")
+    if data.get("entity_types"):
+        lines.append("types: " + ", ".join(str(x) for x in data["entity_types"]))
+    if data.get("relations") and isinstance(data["relations"], list):
+        lines.append("relations: " + ", ".join(str(x) for x in data["relations"]))
+    if data.get("errors"):
+        for e in data["errors"]:
+            lines.append(f"error: {e}")
+    if data.get("warnings"):
+        for w in data["warnings"][:10]:
+            lines.append(f"warn: {w}")
+    if data.get("unknown_types"):
+        lines.append(f"unknown_types: {len(data['unknown_types'])}")
+        for row in data["unknown_types"][:8]:
+            lines.append(f"  • {row.get('label')} (n={row.get('count')})")
+    console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="yellow"))
+    if data.get("ok") is False:
+        raise typer.Exit(1)
+
+
+@ontology_app.command("show")
+def ontology_show_cmd(
+    path: Optional[str] = typer.Option(
+        None, "--path", help="Override ontology YAML path"
+    ),
+):
+    """Show core entity types, relations, and governance summary."""
+    from core.ontology import MemoryOntology, clear_ontology_cache, default_ontology_path
+
+    clear_ontology_cache()
+    ont = MemoryOntology.load(path if path else default_ontology_path())
+    _print_ontology(ont.show(), title="Ontology show")
+
+
+@ontology_app.command("validate")
+def ontology_validate_cmd(
+    path: Optional[str] = typer.Option(
+        None, "--path", help="Override ontology YAML path"
+    ),
+):
+    """Validate ontology YAML structure and cross-references."""
+    from core.ontology import MemoryOntology, clear_ontology_cache, default_ontology_path
+
+    clear_ontology_cache()
+    ont = MemoryOntology.load(path if path else default_ontology_path())
+    _print_ontology(ont.validate(), title="Ontology validate")
+
+
+@ontology_app.command("map")
+def ontology_map_cmd(
+    label: str = typer.Argument(..., help="Free type or relation label"),
+    kind: str = typer.Option(
+        "type", "--kind", "-k", help="type | relation"
+    ),
+    path: Optional[str] = typer.Option(None, "--path"),
+):
+    """Map a free label to a core type or relation (provisional if unknown)."""
+    from core.ontology import MemoryOntology, clear_ontology_cache, default_ontology_path
+
+    clear_ontology_cache()
+    ont = MemoryOntology.load(path if path else default_ontology_path())
+    out = ont.map_label(label, kind=kind)
+    out.setdefault(
+        "message",
+        f"Mapped {kind} {label!r} → {out.get('type') or out.get('relation')}"
+        f" (provisional={out.get('provisional')})",
+    )
+    _print_ontology(out, title="Ontology map")
+
+
+@ontology_app.command("induce")
+def ontology_induce_cmd(
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    path: Optional[str] = typer.Option(None, "--path"),
+):
+    """
+    Offline induce report from current graph type/relation frequencies.
+
+    Does not mutate the ontology file (LLM induce is opt-in later).
+    """
+    from collections import Counter
+
+    from core.knowledge_graph import get_default_graph
+    from core.ontology import MemoryOntology, clear_ontology_cache, default_ontology_path
+
+    clear_ontology_cache()
+    ont = MemoryOntology.load(path if path else default_ontology_path())
+    kg = get_default_graph()
+    nodes = kg.query_nodes(dataset_id=dataset, limit=5000)
+    type_counts: Counter = Counter()
+    for n in nodes.get("nodes") or []:
+        type_counts[str(n.get("type") or "Entity")] += 1
+    # edges via status only — path/list may not expose all; best-effort query
+    rel_counts: Counter = Counter()
+    try:
+        st = kg.status()
+        # if graph exposes recent edges later; for now leave empty unless method exists
+        if hasattr(kg, "query_edges"):
+            edges = kg.query_edges(dataset_id=dataset, limit=5000)  # type: ignore[attr-defined]
+            for e in edges.get("edges") or []:
+                rel_counts[str(e.get("relation") or "RELATED_TO")] += 1
+        _ = st
+    except Exception:
+        pass
+    out = ont.induce_from_counts(dict(type_counts), dict(rel_counts))
+    _print_ontology(out, title="Ontology induce")
 
 
 @app.command("cognify")

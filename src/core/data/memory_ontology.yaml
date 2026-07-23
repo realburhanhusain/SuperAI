@@ -1,0 +1,138 @@
+# SuperAI core memory ontology (Memory Roadmap P6 / Cognee gap 6)
+# Hybrid model: fixed core types + aliases; unknown labels → provisional.
+# Governance: see docs/ONTOLOGY.md — edit this file in PRs; do not invent types ad-hoc in code.
+
+version: "1.0"
+name: superai_core_memory
+description: >
+  Controlled vocabulary for SuperAI knowledge graph + cognify.
+  Core types are fixed; free labels map via aliases or stay provisional.
+
+# Confidence at or above this maps aliases/core types as non-provisional.
+map_confidence_threshold: 0.7
+
+entity_types:
+  Person:
+    description: People — colleagues, owners, stewards, agents as people
+    aliases: [person, people, human, user, engineer, owner, steward, colleague]
+    wing: people
+  System:
+    description: Software/platforms/services (Cloud SQL, Dataplex, SuperAI, …)
+    aliases: [system, service, platform, tool, app, application, database, api]
+    wing: technical
+  Dataset:
+    description: Data assets — BQ datasets, tables, entry groups, filesets
+    aliases: [dataset, table, schema, entry_group, data_asset]
+    wing: technical
+  Decision:
+    description: Architecture or product decisions
+    aliases: [decision, choice, adr, rfc]
+    wing: learning
+  RiskControl:
+    description: Controls, policies, DLP, Policy Tags, compliance measures
+    aliases: [riskcontrol, risk_control, control, policy, dlp, guardrail]
+    wing: learning
+  Project:
+    description: Named initiatives (D360, SuperAI, LifeBrain, …)
+    aliases: [project, initiative, program, product]
+    wing: agentic
+  Document:
+    description: Docs, demos, MRs, emails as references
+    aliases: [document, doc, file, email, mr, pr, ticket, note]
+    wing: learning
+  Concept:
+    description: Abstract concepts / headings from cognify
+    aliases: [concept, topic, theme, idea]
+    wing: learning
+  Entity:
+    description: Generic fallback entity (always allowed; often provisional)
+    aliases: [entity, thing, object, unknown]
+    wing: learning
+    provisional_by_default: true
+
+# Directed relation catalog. domain/range empty list = any core type allowed.
+relations:
+  USES:
+    description: Subject uses object as a dependency or runtime dependency
+    domain: [System, Project, Person, Dataset]
+    range: [System, Dataset, Project]
+    aliases: [uses, use, utilizes, depends_on_soft]
+  OWNS:
+    description: Ownership / stewardship
+    domain: [Person, Project, System]
+    range: [System, Dataset, Project, Document]
+    aliases: [owns, own, owner_of, stewards]
+  DEPENDS_ON:
+    description: Hard dependency
+    domain: [System, Project, Dataset]
+    range: [System, Dataset, Project]
+    aliases: [depends_on, depends, requires, needs]
+  PROTECTS:
+    description: Control protects an asset
+    domain: [RiskControl, System]
+    range: [System, Dataset, Document, Project]
+    aliases: [protects, protect, secures, guards]
+  WORKS_WITH:
+    description: Collaboration between people (or person↔system loosely)
+    domain: [Person, System]
+    range: [Person, System]
+    aliases: [works_with, collaborates, partners]
+  RELATED_TO:
+    description: Soft / unspecified link (always allowed; often provisional)
+    domain: []
+    range: []
+    aliases: [related_to, related, links, about]
+    always_allowed: true
+  IS_A:
+    description: Type assertion (entity is a type label)
+    domain: []
+    range: []
+    aliases: [is_a, isa, type_of, instance_of]
+    always_allowed: true
+  PART_OF:
+    description: Composition / membership
+    domain: [System, Dataset, Document, Person, Concept]
+    range: [Project, System, Dataset, Document]
+    aliases: [part_of, belongs_to, member_of, in]
+
+# Default wing when entity type is known but caller did not pass wing
+wing_defaults:
+  Person: people
+  System: technical
+  Dataset: technical
+  Decision: learning
+  RiskControl: learning
+  Project: agentic
+  Document: learning
+  Concept: learning
+  Entity: learning
+
+# Known high-value names → preferred type (overrides weak extractors)
+known_entities:
+  Cloud SQL: System
+  Dataplex: System
+  BigQuery: System
+  PostgreSQL: System
+  Postgres: System
+  Analytics Hub: System
+  Knowledge Catalog: System
+  Policy Tags: RiskControl
+  Banking App: System
+  SuperAI: System
+  MemPalace: System
+  MemBrain: System
+  Grok: System
+  Claude: System
+  D360: Project
+  LifeBrain: Project
+  SuperAI Project: Project
+
+governance:
+  owners:
+    - SuperAI maintainers
+  change_process: >
+    Edit memory_ontology.yaml via PR. Do not hardcode new core types in
+    cognify/knowledge_graph without updating this file and tests.
+  provisional_policy: >
+    Unknown types and edge domain/range violations are stored with
+    provisional=true rather than rejected, so offline extract stays useful.

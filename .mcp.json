@@ -1,9 +1,20 @@
 {
   "mcpServers": {
     "mempalace": {
-      "command": "mempalace-mcp",
+      "command": "C:/Users/burhan.husain/.local/bin/mempalace-mcp.exe",
       "env": {
         "MEMPALACE_MCP_ALLOW_PEER_WRITER": "1"
+      }
+    },
+    "membrain": {
+      "command": "C:/Python314/python.exe",
+      "args": [
+        "C:/Users/burhan.husain/.grok/mcp-servers/membrain_mcp_server.py"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "MEMBRAIN_SCHEMA": "membrain",
+        "MEMBRAIN_MCP_TIMEOUT": "120"
       }
     }
   }

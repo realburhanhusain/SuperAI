@@ -118,7 +118,8 @@ Each **Phase 0.x** below is a spike. **Phase 1+** is production build only after
 | 7 | Dataset / namespace product model | **P7** (early hooks in P1–P3) |
 | 8 | Turn-capture agent lifecycle hooks | **P8** (uses P3 session layer) |
 
-**Also related (out of 1–8 but noted):** OTEL, multi-language clients, managed cloud — **Phase 9+ backlog**, not required to close 1–8.
+**Also related (out of 1–8):** OTEL, multi-language clients, managed cloud, host hooks — **Phase 9+**  
+**P9 land:** `core.memory_otel` + `core.memory_cloud` + `core.host_hooks` + thin clients + CLI/MCP — see `docs/PHASE9_MEMORY.md`
 
 ---
 
@@ -598,7 +599,7 @@ The **spikes** are the first concrete work packages inside Phase 0.
 7. ~~P7 datasets / namespaces~~ **Done**  
 8. ~~P8 agent turn capture / SessionEnd~~ **Done**  
 9. ~~Offline eval harness (P1–P8)~~ **Done** — `superai memory-eval` / `docs/MEMORY_EVAL.md`  
-10. Optional later: host hooks → SuperAI capture MCP; Phase 9+ (OTEL/multi-client) if requested  
+10. ~~Phase 9+ OTEL / multi-client / cloud surface / host hooks~~ **Done** — `docs/PHASE9_MEMORY.md`  
 11. AGY scorecard remaining open items are **AGY-owned** (see Hardening Wave on TASKBOARD)  
 
 ---

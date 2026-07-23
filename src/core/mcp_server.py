@@ -308,6 +308,61 @@ TOOLS: List[Dict[str, Any]] = [
         },
     ),
     _tool(
+        "superai_host_hook",
+        "Host IDE lifecycle → session capture (P9+). action=emit|batch|install_snippet.",
+        {
+            "action": {
+                "type": "string",
+                "description": "emit|batch|install_snippet (default emit)",
+            },
+            "event": {
+                "type": "string",
+                "description": "user_prompt|tool_result|assistant_final|precompact|session_end|start",
+            },
+            "content": {"type": "string"},
+            "tool": {"type": "string"},
+            "session_id": {"type": "string"},
+            "dataset_id": {"type": "string"},
+            "level": {"type": "string"},
+            "events": {
+                "type": "array",
+                "description": "For batch: list of {event,content,tool,...}",
+                "items": {"type": "object"},
+            },
+            "host": {
+                "type": "string",
+                "description": "For install_snippet: claude|grok|cursor",
+            },
+        },
+    ),
+    _tool(
+        "superai_memory_cloud",
+        "Managed memory cloud status/configure/dry-sync (P9+; local-first).",
+        {
+            "action": {
+                "type": "string",
+                "description": "status|configure|dry_sync (default status)",
+            },
+            "api_base": {"type": "string"},
+            "dsn": {"type": "string"},
+            "region": {"type": "string"},
+            "tenant": {"type": "string"},
+            "enabled": {"type": "boolean"},
+            "dataset_id": {"type": "string"},
+        },
+    ),
+    _tool(
+        "superai_memory_otel",
+        "Memory OTEL span status/list/demo (P9+; mock-first).",
+        {
+            "action": {
+                "type": "string",
+                "description": "status|list|demo (default status)",
+            },
+            "limit": {"type": "integer"},
+        },
+    ),
+    _tool(
         "superai_learn",
         "Write back a completed outcome into central Memory Palace (learning + result snippet).",
         {
@@ -883,6 +938,68 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
                 source="mcp_stream",
             )
         raise ValueError("action must be config|start|turn|end|stream")
+
+    if name == "superai_host_hook":
+        from .host_hooks import emit_host_batch, emit_host_event, hook_install_snippet
+
+        action = str(args.get("action") or "emit").lower()
+        if action in {"install_snippet", "install", "snippet"}:
+            return hook_install_snippet(str(args.get("host") or "claude"))
+        if action == "batch":
+            events = args.get("events") or []
+            if not isinstance(events, list):
+                raise ValueError("events must be a list")
+            return emit_host_batch(
+                events,
+                session_id=str(args["session_id"]) if args.get("session_id") else None,
+                dataset_id=str(args["dataset_id"]) if args.get("dataset_id") else None,
+                level=str(args["level"]) if args.get("level") else None,
+            )
+        event = str(args.get("event") or args.get("hook") or "user_prompt")
+        return emit_host_event(
+            event,
+            content=str(args["content"]) if args.get("content") is not None else None,
+            tool=str(args["tool"]) if args.get("tool") else None,
+            session_id=str(args["session_id"]) if args.get("session_id") else None,
+            dataset_id=str(args["dataset_id"]) if args.get("dataset_id") else None,
+            level=str(args["level"]) if args.get("level") else None,
+        )
+
+    if name == "superai_memory_cloud":
+        from .memory_cloud import configure, dry_run_sync, status as cloud_status
+
+        action = str(args.get("action") or "status").lower()
+        if action == "status":
+            return cloud_status()
+        if action == "configure":
+            return configure(
+                api_base=str(args["api_base"]) if args.get("api_base") else None,
+                dsn=str(args["dsn"]) if args.get("dsn") else None,
+                region=str(args["region"]) if args.get("region") else None,
+                tenant=str(args["tenant"]) if args.get("tenant") else None,
+                enabled=bool(args["enabled"]) if "enabled" in args else None,
+            )
+        if action in {"dry_sync", "dry-sync", "sync"}:
+            return dry_run_sync(str(args.get("dataset_id") or "default"))
+        raise ValueError("action must be status|configure|dry_sync")
+
+    if name == "superai_memory_otel":
+        from .memory_otel import get_memory_otel, memory_span
+
+        action = str(args.get("action") or "status").lower()
+        otel = get_memory_otel()
+        if action == "status":
+            return otel.status()
+        if action == "list":
+            spans = otel.list_spans(limit=int(args.get("limit") or 20))
+            return {"ok": True, "count": len(spans), "spans": spans, "product": "memory_otel"}
+        if action == "demo":
+            with memory_span("memory.demo", attributes={"operation": "demo", "ok": True}):
+                pass
+            st = otel.status()
+            st["message"] = "Demo span recorded. " + str(st.get("message") or "")
+            return st
+        raise ValueError("action must be status|list|demo")
 
     if name == "superai_memory_palace":
         from .memory_palace import MemoryPalace

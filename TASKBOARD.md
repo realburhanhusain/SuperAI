@@ -75,11 +75,15 @@
 | `[x]` | Memory roadmap **P1–P8** shipped (`144bba5`) |
 | `[x]` | Offline eval harness `core.memory_eval` + `superai memory-eval` |
 | `[x]` | Docs `docs/MEMORY_EVAL.md` + `tests/test_memory_eval_offline.py` |
-| `[ ]` | Optional later: host Claude/Grok hooks → `superai_capture` MCP |
-| `[ ]` | Optional later: Phase 9+ (OTEL / multi-client) only if requested |
+| `[x]` | **Phase 9+** OTEL / cloud / host-hooks / multi-client (`docs/PHASE9_MEMORY.md`) |
+| `[x]` | CLI: `otel`, `cloud`, `host-hook` · MCP: `superai_memory_otel`, `superai_memory_cloud`, `superai_host_hook` |
+| `[x]` | Thin clients: `clients/python`, `clients/typescript` + API contract |
 | `[!]` | Live multi-provider smoke remains Phase 99 host gate |
+| `[!]` | Real cloud control plane / OTLP collector — host-gated optional |
 
-**Verify:** `pytest tests/test_memory_eval_offline.py -q` · `superai memory-eval`
+**Verify:**  
+`pytest tests/test_memory_eval_offline.py tests/test_phase9_memory.py -q`  
+`superai memory-eval` · `superai otel demo` · `superai cloud status`
 
 ---
 

@@ -463,7 +463,7 @@ def recall(
         elif not session_id:
             notes.append("no session_id; session strategy returned empty")
 
-    return {
+    out = {
         "ok": True,
         "product": "recall_router",
         "query": q,
@@ -474,7 +474,13 @@ def recall(
         "count": len(hits),
         "hits": hits,
         "session_id": session_id,
-        "dataset_id": dataset_id,
         "notes": notes,
         "message": f"{len(hits)} hit(s) via strategy={used} ({reason})",
     }
+    try:
+        from .memory_otel import instrument_report
+
+        out = instrument_report("recall", out)
+    except Exception:
+        pass
+    return out

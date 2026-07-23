@@ -7954,6 +7954,177 @@ def memory_eval_cmd(
         raise typer.Exit(1)
 
 
+# --- Phase 9+ memory: OTEL / managed cloud / host hooks (Grok track) ---
+
+otel_app = typer.Typer(help="Memory OpenTelemetry-compatible spans (Phase 9+)")
+app.add_typer(otel_app, name="otel")
+
+
+@otel_app.command("status")
+def otel_status_cmd():
+    """Show memory OTEL mode, buffer size, export path."""
+    from core.memory_otel import get_memory_otel
+    from core.public_surface import emit_public, json_mode
+
+    out = get_memory_otel().status()
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        return
+    console.print(Panel.fit(str(out.get("message") or out), border_style="cyan"))
+
+
+@otel_app.command("list")
+def otel_list_cmd(
+    limit: int = typer.Option(20, "--limit", "-n"),
+):
+    """List recent in-process memory spans."""
+    from core.memory_otel import get_memory_otel
+    from core.public_surface import emit_public, json_mode
+
+    spans = get_memory_otel().list_spans(limit=limit)
+    out = {"ok": True, "count": len(spans), "spans": spans, "product": "memory_otel"}
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        return
+    for s in spans:
+        console.print(
+            f"• {s.get('name')} status={s.get('status')} "
+            f"ms={s.get('duration_ms')} attrs={s.get('attributes')}"
+        )
+
+
+@otel_app.command("demo")
+def otel_demo_cmd():
+    """Record a demo span (offline)."""
+    from core.memory_otel import memory_span, get_memory_otel
+    from core.public_surface import emit_public, json_mode
+
+    with memory_span("memory.demo", attributes={"operation": "demo", "ok": True}):
+        pass
+    out = get_memory_otel().status()
+    out["message"] = "Demo span recorded. " + str(out.get("message") or "")
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        return
+    console.print(out["message"])
+
+
+cloud_app = typer.Typer(help="Managed memory cloud surface (Phase 9+; local-first honesty)")
+app.add_typer(cloud_app, name="cloud")
+
+
+@cloud_app.command("status")
+def cloud_status_cmd():
+    """Show managed-cloud config and health (offline-safe)."""
+    from core.memory_cloud import status as cloud_status
+    from core.public_surface import emit_public, json_mode
+
+    out = cloud_status()
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        return
+    console.print(Panel.fit(str(out.get("message") or out), border_style="blue"))
+
+
+@cloud_app.command("configure")
+def cloud_configure_cmd(
+    api_base: Optional[str] = typer.Option(None, "--api-base", help="https://… cloud API"),
+    dsn: Optional[str] = typer.Option(None, "--dsn", help="Optional remote DSN (password redacted in status)"),
+    region: Optional[str] = typer.Option(None, "--region"),
+    tenant: Optional[str] = typer.Option(None, "--tenant"),
+    enable: bool = typer.Option(False, "--enable"),
+    disable: bool = typer.Option(False, "--disable"),
+):
+    """Persist local cloud config (token via SUPERAI_MEMORY_CLOUD_TOKEN env)."""
+    from core.memory_cloud import configure
+    from core.public_surface import emit_public, json_mode
+
+    enabled = True if enable else (False if disable else None)
+    out = configure(
+        api_base=api_base,
+        dsn=dsn,
+        region=region,
+        tenant=tenant,
+        enabled=enabled,
+    )
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        if not out.get("ok"):
+            raise typer.Exit(1)
+        return
+    console.print(out.get("message") or out)
+    if not out.get("ok"):
+        raise typer.Exit(1)
+
+
+@cloud_app.command("dry-sync")
+def cloud_dry_sync_cmd(
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+):
+    """Plan a dataset push to cloud without network write."""
+    from core.memory_cloud import dry_run_sync
+    from core.public_surface import emit_public, json_mode
+
+    out = dry_run_sync(dataset)
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        if not out.get("ok"):
+            raise typer.Exit(1)
+        return
+    console.print(Panel.fit(str(out.get("message") or out), border_style="blue"))
+    if not out.get("ok"):
+        raise typer.Exit(1)
+
+
+host_hook_app = typer.Typer(help="Host IDE capture hooks → session memory (Phase 9+)")
+app.add_typer(host_hook_app, name="host-hook")
+
+
+@host_hook_app.command("emit")
+def host_hook_emit_cmd(
+    event: str = typer.Argument(..., help="user_prompt|tool_result|assistant_final|precompact|session_end|start"),
+    content: Optional[str] = typer.Option(None, "--content", "-c"),
+    session: Optional[str] = typer.Option(None, "--session", "-s"),
+    tool: Optional[str] = typer.Option(None, "--tool"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    level: Optional[str] = typer.Option(None, "--level", "-L"),
+):
+    """Emit one host lifecycle event into SuperAI session capture."""
+    from core.host_hooks import emit_host_event
+    from core.public_surface import emit_public, json_mode
+
+    out = emit_host_event(
+        event,
+        content=content,
+        tool=tool,
+        session_id=session,
+        dataset_id=dataset,
+        level=level,
+    )
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        if not out.get("ok") and not out.get("skipped"):
+            raise typer.Exit(1)
+        return
+    console.print(out.get("message") or out)
+
+
+@host_hook_app.command("install-snippet")
+def host_hook_install_snippet_cmd(
+    host: str = typer.Option("claude", "--host", help="claude|grok|cursor"),
+):
+    """Print manual MCP/hook install snippets (does not modify host config)."""
+    from core.host_hooks import hook_install_snippet
+    from core.public_surface import emit_public, json_mode
+
+    out = hook_install_snippet(host)
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        return
+    console.print(out.get("message"))
+    console.print_json(data={k: out[k] for k in out if k not in {"message", "ok", "product"}})
+
+
 if __name__ == "__main__":
     app()
 

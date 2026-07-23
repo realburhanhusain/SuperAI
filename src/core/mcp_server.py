@@ -370,46 +370,35 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
     """Dispatch MCP tool call — used by stdio and HTTP transports."""
     if not name:
         raise ValueError("tool name required")
-    # MCP/CLI safety parity (M093): budget gate for spend tools before dispatch
+    args = args or {}
+    # MCP/CLI safety parity (M093): full wrap_mcp_tool gates (budget, live env, permission, jail)
     try:
-        from .mcp_safety import SPEND_TOOLS
-        from .public_api import wrap_public_result
-        from .spend_guard import budget_precheck
+        from .mcp_safety import wrap_mcp_tool
 
-        live = bool((args or {}).get("live") or (args or {}).get("live_run"))
-        if name in SPEND_TOOLS and live:
-            block = budget_precheck(estimated_usd=0.2, tokens=1000)
-            if block.get("blocked") or block.get("ok") is False:
-                return wrap_public_result(block, ok=False, record_spend=False)
-    except Exception:
-        pass
+        def _run() -> Dict[str, Any]:
+            result = _call_tool_impl(name, args)
+            if not isinstance(result, dict):
+                return {"ok": True, "result": result, "mcp_tool": name}
+            result.setdefault("mcp_tool", name)
+            return result
 
-    try:
-        result = _call_tool_impl(name, args or {})
+        live = bool(args.get("live") or args.get("live_run"))
+        return wrap_mcp_tool(
+            name,
+            _run,
+            mock=not live,
+            estimated_usd=0.2,
+            tokens=1000,
+            args=args,
+        )
     except Exception as e:
         from .public_api import wrap_public_result
 
         return wrap_public_result(
-            {"ok": False, "error": str(e)[:500], "mcp_tool": name},
+            {"ok": False, "error": str(e)[:500], "mcp_tool": name, "mcp_safety": True},
             ok=False,
             record_spend=False,
         )
-    # Always contract-wrap dict results
-    if isinstance(result, dict):
-        try:
-            from .public_api import wrap_public_result
-
-            result.setdefault("mcp_tool", name)
-            result.setdefault("mcp_safety", True)
-            return wrap_public_result(
-                result,
-                mock=result.get("mock"),
-                ok=result.get("ok", True),
-                record_spend=False,
-            )
-        except Exception:
-            return result
-    return result
 
 
 def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:

@@ -85,6 +85,51 @@ def emit_public(
     return data
 
 
+def render_public(
+    result: Any,
+    *,
+    human_fn: Any = None,
+    mock: Optional[bool] = None,
+    ok: Optional[bool] = None,
+    record_spend: bool = False,
+    force_json: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """
+    M079 helper: when global ``--json`` is on, always emit contract JSON;
+    otherwise call ``human_fn(data)`` for Rich/text UX (or print JSON if no human_fn).
+    """
+    data = emit_public(
+        result,
+        mock=mock,
+        ok=ok,
+        record_spend=record_spend,
+        print_json=False,  # decide below
+    )
+    use_json = json_mode() if force_json is None else bool(force_json)
+    if use_json:
+        try:
+            from rich.console import Console
+
+            Console().print_json(data=data)
+        except Exception:
+            print(json.dumps(data, default=str, indent=2))
+        return data
+    if callable(human_fn):
+        try:
+            human_fn(data)
+        except Exception:
+            print(json.dumps(data, default=str, indent=2))
+        return data
+    # No human renderer — still machine-friendly
+    try:
+        from rich.console import Console
+
+        Console().print_json(data=data)
+    except Exception:
+        print(json.dumps(data, default=str, indent=2))
+    return data
+
+
 def budget_gate(
     *,
     estimated_usd: float = 0.1,
@@ -144,6 +189,54 @@ TOP_30_COMMANDS = [
     "ci-why",
     "gates",
 ]
+
+# Commands known to honor global --json via emit_public / render_public / print_json contract
+JSON_CAPABLE_COMMANDS = sorted(
+    set(TOP_30_COMMANDS)
+    | {
+        "status",
+        "doctor",
+        "dashboard",
+        "learning",
+        "learnings",
+        "conflicts",
+        "reflect",
+        "spend-report",
+        "smoke-preflight",
+        "v6-status",
+        "gates",
+        "config",
+        "history",
+        "telemetry",
+        "lang",
+        "onboard",
+        "recipes",
+        "parked",
+        "phase6-smoke",
+        "project-budget",
+        "contract-smoke",
+        "context-pack",
+        "json-surface",
+    }
+)
+
+
+def json_surface_report() -> Dict[str, Any]:
+    """Offline inventory for M079 automation coverage."""
+    return {
+        "ok": True,
+        "product": "json_surface",
+        "json_mode": json_mode(),
+        "dry_run": dry_run(),
+        "capable_commands": list(JSON_CAPABLE_COMMANDS),
+        "count": len(JSON_CAPABLE_COMMANDS),
+        "global_flag": "--json",
+        "helper": "public_surface.render_public / emit_public",
+        "message": (
+            f"{len(JSON_CAPABLE_COMMANDS)} command families honor global --json "
+            "via contract envelope (emit_public/render_public)."
+        ),
+    }
 
 
 def verify_top_commands_registered(app: Any = None) -> Dict[str, Any]:

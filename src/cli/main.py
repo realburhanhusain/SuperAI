@@ -621,6 +621,8 @@ def status(
     ),
 ):
     """Show current SuperAI system status"""
+    from core.public_surface import render_public
+
     config = Config()
     history = TaskHistory()
     emb = "n/a"
@@ -634,24 +636,41 @@ def status(
         mem_count = st.get("total_memories", "n/a")
     except Exception:  # noqa: BLE001
         pass
+    payload: dict = {
+        "ok": True,
+        "product": "status",
+        "version": __version__,
+        "config_path": str(config.config_path),
+        "home": str(config.home_dir),
+        "mock_mode": bool(config.use_mock),
+        "log_level": config.get("log_level"),
+        "default_supervisor": config.default_supervisor,
+        "history_entries": history.count(),
+        "memory_count": mem_count,
+        "embedding": emb,
+    }
     if cost:
         from core.budget import BudgetGuard
 
-        payload: dict = {
-            "budget": BudgetGuard().snapshot(),
-            "enforce_budget": config.get("enforce_budget", True),
-            "run_profile": config.get("run_profile"),
-            "permission_mode": config.get("permission_mode"),
-            "mock_mode": config.use_mock,
-        }
+        payload.update(
+            {
+                "budget": BudgetGuard().snapshot(),
+                "enforce_budget": config.get("enforce_budget", True),
+                "run_profile": config.get("run_profile"),
+                "permission_mode": config.get("permission_mode"),
+            }
+        )
         try:
             from core.provider_health import ProviderHealthStore
 
-            payload["provider_health"] = ProviderHealthStore().summary() if hasattr(
-                ProviderHealthStore(), "summary"
-            ) else ProviderHealthStore().snapshot() if hasattr(
-                ProviderHealthStore(), "snapshot"
-            ) else {}
+            ph = ProviderHealthStore()
+            payload["provider_health"] = (
+                ph.summary()
+                if hasattr(ph, "summary")
+                else ph.snapshot()
+                if hasattr(ph, "snapshot")
+                else {}
+            )
         except Exception as e:
             payload["provider_health_error"] = str(e)[:200]
         try:
@@ -682,24 +701,31 @@ def status(
             }
         except Exception:
             pass
-        console.print_json(data=payload)
-        return
-    console.print(
-        Panel.fit(
-            f"[bold]SuperAI Status[/bold]\n\n"
-            f"Version: {__version__}\n"
-            f"Config: {config.config_path}\n"
-            f"Home: {config.home_dir}\n"
-            f"mock_mode: {config.use_mock}\n"
-            f"log_level: {config.get('log_level')}\n"
-            f"default_supervisor: {config.default_supervisor}\n"
-            f"history_entries: {history.count()}\n"
-            f"memory_count: {mem_count}\n"
-            f"embedding: {emb}\n"
-            f"Tracks: A–E done; F nearly done; G–I pending (see TASKBOARD.md)",
-            border_style="cyan",
+
+    def _human(data: dict) -> None:
+        console.print(
+            Panel.fit(
+                f"[bold]SuperAI Status[/bold]\n\n"
+                f"Version: {data.get('version')}\n"
+                f"Config: {data.get('config_path')}\n"
+                f"Home: {data.get('home')}\n"
+                f"mock_mode: {data.get('mock_mode')}\n"
+                f"log_level: {data.get('log_level')}\n"
+                f"default_supervisor: {data.get('default_supervisor')}\n"
+                f"history_entries: {data.get('history_entries')}\n"
+                f"memory_count: {data.get('memory_count')}\n"
+                f"embedding: {data.get('embedding')}\n"
+                + (
+                    f"budget: {data.get('budget')}\n"
+                    if cost
+                    else "Tracks: see TASKBOARD.md\n"
+                ),
+                border_style="cyan",
+            )
         )
-    )
+
+    # --cost always prefers machine-readable JSON (automation); --json forces it
+    render_public(payload, human_fn=None if cost else _human, force_json=True if cost else None)
 
 
 @app.command()
@@ -2416,6 +2442,33 @@ def dashboard_cmd(
     refresh: float = typer.Option(3.0, "--refresh", help="Refresh interval seconds"),
 ):
     """Live terminal dashboard (shared snapshot with web UI)"""
+    from core.public_surface import json_mode, render_public
+
+    if json_mode() or once:
+        # Automation / one-shot: return honest snapshot contract, not a live TUI loop
+        try:
+            from core.foundation_complete import dashboard_state
+
+            snap = dashboard_state()
+        except Exception:
+            try:
+                from scli.dashboard import SuperAIDashboard
+
+                dash = SuperAIDashboard()
+                snap = (
+                    dash.snapshot()
+                    if hasattr(dash, "snapshot")
+                    else {"ok": True, "once": once}
+                )
+            except Exception as e:
+                snap = {"ok": False, "error": str(e)[:300]}
+        if not isinstance(snap, dict):
+            snap = {"ok": True, "snapshot": snap}
+        snap.setdefault("product", "dashboard")
+        snap.setdefault("once", once)
+        render_public(snap, human_fn=None, force_json=json_mode() or once)
+        if json_mode() or once:
+            return
     from scli.dashboard import SuperAIDashboard
 
     SuperAIDashboard().run_terminal_dashboard(refresh_sec=refresh, once=once)
@@ -2906,18 +2959,26 @@ def doctor(
 ):
     """M1/M7: Health pack — env, config, smoke, next steps"""
     from core.doctor import run_doctor
+    from core.public_surface import render_public
 
     report = run_doctor(quick=quick)
-    for c in report.get("checks") or []:
-        mark = "[green]OK[/green]" if c.get("ok") else "[red]FAIL[/red]"
-        console.print(f"{mark} {c.get('name')}: {c.get('detail')}")
-    console.print(Panel.fit(
-        "\n".join(f"• {s}" for s in (report.get("next_steps") or [])),
-        title="Next steps",
-        border_style="cyan",
-    ))
-    if not report.get("ok"):
-        raise typer.Exit(1)
+    report.setdefault("product", "doctor")
+
+    def _human(data: dict) -> None:
+        for c in data.get("checks") or []:
+            mark = "[green]OK[/green]" if c.get("ok") else "[red]FAIL[/red]"
+            console.print(f"{mark} {c.get('name')}: {c.get('detail')}")
+        console.print(
+            Panel.fit(
+                "\n".join(f"• {s}" for s in (data.get("next_steps") or [])),
+                title="Next steps",
+                border_style="cyan",
+            )
+        )
+
+    out = render_public(report, human_fn=_human, ok=bool(report.get("ok")))
+    if not out.get("ok"):
+        raise typer.Exit(int(out.get("exit_code") or 1))
 
 
 @app.command("ask")
@@ -4869,9 +4930,22 @@ def eval_golden_cmd(
 @app.command("v6-status")
 def v6_status_cmd():
     """V6 phase completion report (honest done/partial/park/n/a)."""
+    from core.public_surface import render_public
     from core.v6_phase_status import phase_report
 
-    console.print_json(data=phase_report())
+    data = phase_report()
+    if not isinstance(data, dict):
+        data = {"ok": True, "report": data}
+    data.setdefault("product", "v6-status")
+    render_public(data, force_json=True)
+
+
+@app.command("json-surface")
+def json_surface_cmd():
+    """M079: list commands that honor global --json contract envelope."""
+    from core.public_surface import json_surface_report, render_public
+
+    render_public(json_surface_report(), force_json=True)
 
 
 @app.command("phase6-smoke")
@@ -5000,9 +5074,14 @@ def spec_cmd(
 @app.command("gates")
 def gates_cmd():
     """V6 S105/S106: Run quality gates (pytest/lint if present)."""
+    from core.public_surface import render_public
     from core.quality_gates import detect_and_run
 
-    console.print_json(data=detect_and_run())
+    data = detect_and_run()
+    if not isinstance(data, dict):
+        data = {"ok": True, "result": data}
+    data.setdefault("product", "gates")
+    render_public(data, force_json=True)
 
 
 @app.command("recipes")
@@ -6044,9 +6123,14 @@ def smoke_preflight_cmd(
     ),
 ):
     """W8: Inventory keys/local services + checklist before live smoke."""
+    from core.public_surface import render_public
     from core.smoke_preflight import smoke_preflight
 
-    console.print_json(data=smoke_preflight(include_readiness=readiness))
+    data = smoke_preflight(include_readiness=readiness)
+    if not isinstance(data, dict):
+        data = {"ok": True, "result": data}
+    data.setdefault("product", "smoke-preflight")
+    render_public(data, force_json=True)
 
 
 @app.command()
@@ -6161,12 +6245,15 @@ def board_preflight_cmd(
 @app.command("spend-report")
 def spend_report_cmd(days: int = typer.Option(7, "--days", "-d")):
     """Daily/weekly spend report + cache stats (V6 S134/S135)."""
-    from core.public_api import wrap_public_result
+    from core.public_surface import render_public
     from core.spend_report import spend_report
 
-    console.print_json(
-        data=wrap_public_result(spend_report(days=days), mock=True, record_spend=False)
-    )
+    data = spend_report(days=days)
+    if not isinstance(data, dict):
+        data = {"ok": True, "report": data}
+    data.setdefault("product", "spend-report")
+    data.setdefault("days", days)
+    render_public(data, force_json=True, mock=True, record_spend=False)
 
 
 @app.command("project-budget")

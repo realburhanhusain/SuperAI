@@ -1,15 +1,73 @@
 """
-Token / chunk streaming helpers for agent-tui (MoSCoW S1).
+Token / chunk streaming helpers for agent-tui (MoSCoW S1 / V6 M027).
 
 Provides a generator that yields text chunks and emits progress bus events.
 Works with mock mode and full completed responses (word/chunk cascade).
-Live provider streaming can plug in later via stream_fn.
+Live provider streaming plugs in via ModelCaller.call_stream / stream_fn.
+
+Stream modes (honest labels):
+- ``sse`` — true provider token/event stream
+- ``mock_chunked`` — mock response split into chunks
+- ``chunked_fallback`` — full non-stream call re-chunked for UX
 """
 
 from __future__ import annotations
 
 import time
 from typing import Any, Callable, Dict, Generator, Iterable, List, Optional
+
+# Last stream mode observed (process-local; for tests / TUI status)
+_LAST_STREAM_META: Dict[str, Any] = {
+    "mode": None,
+    "provider": None,
+    "model": None,
+    "chunks": 0,
+    "chars": 0,
+}
+
+
+def set_stream_meta(**kwargs: Any) -> Dict[str, Any]:
+    _LAST_STREAM_META.update(kwargs)
+    return dict(_LAST_STREAM_META)
+
+
+def get_stream_meta() -> Dict[str, Any]:
+    return dict(_LAST_STREAM_META)
+
+
+def stream_capabilities(model: Optional[str] = None, provider: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Report which streaming backends SuperAI can use offline/online.
+
+    Does not claim live SSE success without a live call — only capability paths.
+    """
+    openai_compat = True
+    anthropic = False
+    try:
+        from .provider_catalog import get_openai_compat_config, resolve_compat_provider
+
+        if provider:
+            anthropic = "anthropic" in str(provider).lower() or "claude" in str(provider).lower()
+            openai_compat = bool(get_openai_compat_config(resolve_compat_provider(provider))) or not anthropic
+        if model and ("claude" in str(model).lower() or "anthropic" in str(model).lower()):
+            anthropic = True
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "product": "stream_capabilities",
+        "modes": {
+            "sse_openai_compatible": openai_compat,
+            "sse_anthropic_messages": True,  # path implemented; needs live key
+            "mock_chunked": True,
+            "chunked_fallback": True,
+        },
+        "model": model,
+        "provider": provider,
+        "cancel_between_chunks": True,
+        "last": get_stream_meta(),
+        "message": "Streaming capability matrix (live SSE still host-gated by API keys).",
+    }
 
 
 def chunk_text(text: str, size: int = 12) -> List[str]:

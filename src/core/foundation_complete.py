@@ -336,7 +336,15 @@ COMPLETION_EVIDENCE: Dict[str, Dict[str, Any]] = {
             "foundation_safety.audit_m018",
         ],
     },
-    "M027": {"pct": 100, "modules": ["model_caller.call_stream", "token_stream"]},
+    "M027": {
+        "pct": 100,
+        "modules": [
+            "model_caller.call_stream",
+            "model_caller._stream_anthropic",
+            "token_stream.stream_capabilities",
+            "token_stream.set_stream_meta",
+        ],
+    },
     "M050": {"pct": 100, "modules": ["bandit_router", "model_caller bandit reorder", "post_call update"]},
     "M061": {
         "pct": 100,
@@ -363,12 +371,27 @@ COMPLETION_EVIDENCE: Dict[str, Dict[str, Any]] = {
         ],
     },
     "M068": {"pct": 100, "modules": ["preferences.bias_candidates", "model_caller sticky"]},
-    "M079": {"pct": 100, "modules": ["public_surface --json", "CLI callback"]},
+    "M079": {
+        "pct": 100,
+        "modules": [
+            "public_surface --json",
+            "public_surface.render_public",
+            "CLI status/doctor/dashboard/json-surface",
+        ],
+    },
     "M080": {"pct": 100, "modules": ["exit_codes", "emit_public exit_code"]},
     "M081": {"pct": 100, "modules": ["typer help on all commands", "rich help text"]},
     "M082": {"pct": 100, "modules": ["typer add_completion=True"]},
     "M090": {"pct": 100, "modules": ["public_surface.TOP_30", "contract_registry", "verify_top30"]},
-    "M093": {"pct": 100, "modules": ["mcp_safety", "mcp_server.call_tool wrap"]},
+    "M093": {
+        "pct": 100,
+        "modules": [
+            "mcp_safety.safety_matrix",
+            "mcp_safety.wrap_mcp_tool",
+            "mcp_server.call_tool",
+            "CLI_PARITY map",
+        ],
+    },
     "M100": {"pct": 100, "modules": ["dashboard_state", "status --cost mock_vs_live"]},
 }
 

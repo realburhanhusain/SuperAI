@@ -71,10 +71,11 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | M061–M063 learning product UX: superai learning subapp (status/list/promote/conflicts/distill/deprecate), lifecycle_status + list_lifecycle APIs, docs/LEARNING_LIFECYCLE.md; prior commit ab976c4 closed V2-B3 + cost honesty |
-| **Verify** | pytest tests/test_learning_lifecycle_m061_m063.py tests/test_learning_engine_gaps.py -q (10 passed) |
-| **Still open** | M027 live streaming, M079 JSON-all-commands, M093 MCP matrix, Phase 99 host smoke |
-| **Prior** | ab976c4 foundation compact/cost honesty |
+| **What** | M079 JSON surface (
+ender_public, status/doctor/dashboard/json-surface); M027 streaming (Anthropic SSE path, stream meta, capabilities); M093 MCP safety matrix depth (CLI parity, live gate, permission/jail wrap) |
+| **Verify** | pytest tests/test_m079_m027_m093.py tests/test_foundation_complete_must.py::test_mcp_safety_matrix tests/test_foundation_complete_must.py::test_mcp_call_tool_contract_wrap -q (7 passed) |
+| **Still open** | Phase 99 live multi-provider smoke (host keys) |
+| **Prior** | 135dfc5 learning lifecycle; ab976c4 compact/cost honesty |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

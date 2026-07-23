@@ -73,7 +73,12 @@ class ModelCaller:
         """
         V4 M4 / M027: yield text chunks from provider stream when available.
         Honors CancelToken between chunks. Falls back to chunking full call().
+
+        Stream meta (token_stream.get_stream_meta): mode in
+        {mock_chunked, sse, chunked_fallback}.
         """
+        from .token_stream import chunk_text, set_stream_meta
+
         def _cancelled() -> bool:
             try:
                 from .call_lifecycle import check_cancel
@@ -82,6 +87,15 @@ class ModelCaller:
             except Exception:
                 return False
 
+        info = self.registry.get_model(model) if self.registry else None
+        provider = (
+            (info.provider if info else None)
+            or kwargs.get("provider")
+            or self._resolve_provider(model)
+        )
+        chunks = 0
+        chars = 0
+
         if self.use_mock:
             full = self.call(
                 model=model,
@@ -89,24 +103,73 @@ class ModelCaller:
                 system_prompt=system_prompt,
                 use_fallback=False,
                 skip_budget=True,
-                **{k: v for k, v in kwargs.items() if k != "skip_budget"},
+                **{k: v for k, v in kwargs.items() if k not in {"skip_budget", "provider"}},
             )
             text = str(full.get("response") or "")
-            from .token_stream import chunk_text
-
             for ch in chunk_text(text, 24):
                 if _cancelled():
+                    set_stream_meta(
+                        mode="mock_chunked",
+                        provider=provider,
+                        model=model,
+                        chunks=chunks,
+                        chars=chars,
+                        cancelled=True,
+                    )
                     return
+                chunks += 1
+                chars += len(ch)
                 yield ch
+            set_stream_meta(
+                mode="mock_chunked",
+                provider=provider,
+                model=model,
+                chunks=chunks,
+                chars=chars,
+                cancelled=False,
+            )
             return
+
+        # Prefer Anthropic Messages SSE for claude/anthropic models
+        prov_l = str(provider or "").lower()
+        model_l = str(model or "").lower()
+        if "anthropic" in prov_l or "claude" in prov_l or "claude" in model_l:
+            try:
+                for piece in self._stream_anthropic(
+                    model=model, prompt=prompt, system_prompt=system_prompt
+                ):
+                    if _cancelled():
+                        set_stream_meta(
+                            mode="sse",
+                            provider="anthropic",
+                            model=model,
+                            chunks=chunks,
+                            chars=chars,
+                            cancelled=True,
+                        )
+                        return
+                    if piece:
+                        chunks += 1
+                        chars += len(piece)
+                        yield piece
+                if chunks:
+                    set_stream_meta(
+                        mode="sse",
+                        provider="anthropic",
+                        model=model,
+                        chunks=chunks,
+                        chars=chars,
+                        cancelled=False,
+                    )
+                    return
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Anthropic stream failed; trying OpenAI-compat: %s", e)
 
         # Try OpenAI-compatible streaming; on empty/failure fall back to full call
         streamed_any = False
         try:
             from openai import OpenAI
 
-            info = self.registry.get_model(model) if self.registry else None
-            provider = info.provider if info else self._resolve_provider(model)
             base_url, api_key, _ = self._resolve_openai_endpoint(provider, model)
             client = OpenAI(api_key=api_key, base_url=base_url)
             messages: List[Dict[str, Any]] = []
@@ -138,16 +201,34 @@ class ModelCaller:
             )
             for event in stream:
                 if _cancelled():
+                    set_stream_meta(
+                        mode="sse",
+                        provider=provider,
+                        model=model,
+                        chunks=chunks,
+                        chars=chars,
+                        cancelled=True,
+                    )
                     return
                 try:
                     delta = event.choices[0].delta
                     piece = getattr(delta, "content", None) or ""
                     if piece:
                         streamed_any = True
+                        chunks += 1
+                        chars += len(piece)
                         yield piece
                 except Exception:
                     continue
             if streamed_any:
+                set_stream_meta(
+                    mode="sse",
+                    provider=provider,
+                    model=model,
+                    chunks=chunks,
+                    chars=chars,
+                    cancelled=False,
+                )
                 return
         except Exception:
             streamed_any = False
@@ -157,15 +238,70 @@ class ModelCaller:
             prompt=prompt,
             system_prompt=system_prompt,
             use_fallback=True,
-            **{k: v for k, v in kwargs.items() if k not in {"stream", "skip_budget"}},
+            **{k: v for k, v in kwargs.items() if k not in {"stream", "skip_budget", "provider"}},
         )
         text = str(full.get("response") or full.get("error") or "")
-        from .token_stream import chunk_text
-
         for ch in chunk_text(text, 24):
             if _cancelled():
+                set_stream_meta(
+                    mode="chunked_fallback",
+                    provider=provider,
+                    model=model,
+                    chunks=chunks,
+                    chars=chars,
+                    cancelled=True,
+                )
                 return
+            chunks += 1
+            chars += len(ch)
             yield ch
+        set_stream_meta(
+            mode="chunked_fallback",
+            provider=provider,
+            model=model,
+            chunks=chunks,
+            chars=chars,
+            cancelled=False,
+        )
+
+    def _stream_anthropic(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+    ):
+        """
+        Anthropic Messages API streaming (SSE). Requires ANTHROPIC_API_KEY.
+        Yields text deltas only.
+        """
+        import os
+
+        api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY not set")
+        try:
+            import anthropic  # type: ignore
+        except ImportError as e:
+            raise RuntimeError("anthropic package not installed") from e
+
+        client = anthropic.Anthropic(api_key=api_key)
+        model_id = self._model_id(model)
+        # Strip provider prefix if present
+        if "/" in model_id:
+            model_id = model_id.split("/", 1)[-1]
+        kwargs: Dict[str, Any] = {
+            "model": model_id,
+            "max_tokens": 2048,
+            "messages": [{"role": "user", "content": prompt or ""}],
+            "stream": True,
+        }
+        if system_prompt:
+            kwargs["system"] = system_prompt
+        with client.messages.stream(**{k: v for k, v in kwargs.items() if k != "stream"}) as stream:
+            for text in stream.text_stream:
+                if text:
+                    yield text
 
     def call(
         self,
@@ -473,42 +609,17 @@ class ModelCaller:
         system_prompt: Optional[str] = None,
     ):
         """
-        Streaming foundation (F2.5).
+        Streaming foundation (F2.5 / M027).
 
-        Yields text chunks. Live OpenAI-compatible streaming when available;
-        otherwise yields a single chunk from a normal call.
+        Delegates to ``call_stream`` so OpenAI-compat SSE, Anthropic SSE,
+        mock chunking, and chunked fallback share one honest path.
         """
-        info = self.registry.get_model(model) if self.registry else None
-        prov = provider or (info.provider if info else self._resolve_provider(model))
-
-        if self.use_mock:
-            full = self._mock_call(prov, model, prompt)
-            text = str(full.get("response") or "")
-            # Fake stream in small pieces
-            step = max(1, len(text) // 4)
-            for i in range(0, len(text), step):
-                yield text[i : i + step]
-            return
-
-        # Live streaming for OpenAI-compatible providers (catalog + registry base_url)
-        prov_l = resolve_compat_provider(prov)
-        if get_openai_compat_config(prov_l) or self._registry_openai_endpoint(model):
-            try:
-                yield from self._stream_openai_compatible(
-                    prov_l,
-                    model,
-                    prompt,
-                    system_prompt,
-                )
-                return
-            except Exception as e:  # noqa: BLE001
-                logger.warning("Stream failed (%s); falling back to non-stream", e)
-
-        # Fallback: non-streaming single yield
-        result = self.call(
-            provider=prov, model=model, prompt=prompt, system_prompt=system_prompt
+        yield from self.call_stream(
+            model=model,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            provider=provider,
         )
-        yield str(result.get("response") or "")
 
     def _stream_openai_compatible(
         self,

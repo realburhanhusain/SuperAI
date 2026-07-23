@@ -29,6 +29,9 @@ MUTATING_TOOLS: Set[str] = {
     "superai_memory_store",
     "superai_learn",
     "superai_memory_palace",  # promote can write
+    "superai_kg_upsert",
+    "superai_session",  # remember/promote/clear mutate
+    "superai_cognify",
     "cli_run",
     "superai_cli_run",
     "superai_run",
@@ -44,6 +47,10 @@ CLI_PARITY: Dict[str, str] = {
     "superai_memory_store": "memory store",
     "superai_memory_context": "context-pack",
     "superai_learn": "learnings / learning promote",
+    "superai_kg_query": "kg query|path|status",
+    "superai_kg_upsert": "kg upsert-node|upsert-edge",
+    "superai_session": "memory-session *",
+    "superai_cognify": "cognify",
     "superai_ask": "ask",
     "superai_ask_session": "ask --session / ask-session",
     "superai_run": "do / agent",
@@ -104,11 +111,62 @@ def wrap_mcp_tool(
         except Exception:
             mode = "ask"
     if mode in {"plan", "read"} and name in MUTATING_TOOLS:
-        apply_flag = args.get("apply")
-        if apply_flag is not True and name == "superai_memory_palace":
-            # allow read-only palace actions
-            action = str(args.get("action") or "").lower()
-            if action in {"layout", "browse", "clusters", "suggest", "snapshot", ""}:
+        action = str(args.get("action") or "").lower()
+        # allow read-only actions on multi-action tools
+        if name == "superai_memory_palace" and action in {
+            "layout",
+            "browse",
+            "clusters",
+            "suggest",
+            "snapshot",
+            "",
+        }:
+            pass
+        elif name == "superai_session" and action in {
+            "status",
+            "list",
+            "recall",
+            "",
+        }:
+            pass
+        elif name == "superai_kg_upsert":
+            return wrap_public_result(
+                {
+                    "ok": False,
+                    "error": f"permission_mode={mode} blocks mutating MCP tool {name}",
+                    "error_code": "permission",
+                    "tool": name,
+                    "mcp_safety": True,
+                },
+                mock=mock,
+                ok=False,
+                record_spend=False,
+            )
+        elif name in {
+            "superai_memory_palace",
+            "superai_session",
+            "superai_cognify",
+            "superai_memory_store",
+            "superai_learn",
+            "superai_run",
+            "superai_agent",
+            "cli_run",
+            "superai_cli_run",
+        }:
+            # mutating actions on multi-action tools, or fully mutating tools
+            if name == "superai_session" and action in {
+                "status",
+                "list",
+                "recall",
+            }:
+                pass
+            elif name == "superai_memory_palace" and action in {
+                "layout",
+                "browse",
+                "clusters",
+                "suggest",
+                "snapshot",
+            }:
                 pass
             else:
                 return wrap_public_result(
@@ -123,19 +181,6 @@ def wrap_mcp_tool(
                     ok=False,
                     record_spend=False,
                 )
-        elif name != "superai_memory_palace":
-            return wrap_public_result(
-                {
-                    "ok": False,
-                    "error": f"permission_mode={mode} blocks mutating MCP tool {name}",
-                    "error_code": "permission",
-                    "tool": name,
-                    "mcp_safety": True,
-                },
-                mock=mock,
-                ok=False,
-                record_spend=False,
-            )
 
     # Workspace jail for path-like args
     for path_key in ("path", "file", "cwd", "workdir", "workspace"):

@@ -1,10 +1,11 @@
 # SuperAI Memory Roadmap — Cognee-class gaps 1–8
 
-**Status:** Implementation in progress — **P1 + P2 shipped**  
+**Status:** Implementation in progress — **P1 + P2 + P3 shipped (end-to-end)**  
 **Date:** 2026-07-23  
 **Repo tip at drafting:** `6035caa` (master)  
-**P1 land:** `core.knowledge_graph` + `superai kg` + `docs/KNOWLEDGE_GRAPH.md` + `tests/test_knowledge_graph_p1.py`  
-**P2 land:** `core.cognify` + `superai cognify` + `docs/COGNIFY.md` + `tests/test_cognify_p2.py`  
+**P1 land:** `core.knowledge_graph` + `superai kg` + MCP `superai_kg_*` + docs/tests  
+**P2 land:** `core.cognify` + `superai cognify` + MCP `superai_cognify` + docs/tests  
+**P3 land:** `core.session_memory` + `superai memory-session` + MCP `superai_session` + docs/tests  
 **Compare-to:** [Cognee](https://github.com/topoteretes/cognee) (open-source agent knowledge-graph memory)  
 **Baseline SuperAI:** `MemoryPalace` (vectors + wings/rooms) + `LearningEngine` (promote / conflict / distill) + central write-back + MCP tools  
 **Related:** `docs/MEMORY_PALACE_GAPS.md` (closed wings/rooms/concurrency work — keep; this roadmap is the *next* arc)
@@ -548,7 +549,7 @@ Capture into **session memory** (not always permanent graph):
 |----|----------|------|-------|
 | D1 | Graph backend = **SQLite `kg.sqlite` co-located with palace** (optional Postgres via DSN); not Neo4j/Kuzu for v1 | 2026-07-23 | Grok |
 | D2 | Extractor = **hybrid mock rules_v2 + optional LLM JSON**; default CLI `--mode mock`; opt-in not always-on | 2026-07-23 | Grok |
-| D3 | Session store = _TBD (P0.3)_ | | |
+| D3 | Session store = **SQLite `sessions.sqlite`**; promote → palace (+ optional cognify/learning); never auto-bleed to palace | 2026-07-23 | Grok |
 | D4 | Ontology mode = _TBD (P0.4)_ | | |
 | D5 | Default recall strategy = `auto` (proposed) | 2026-07-23 | draft |
 
@@ -574,11 +575,11 @@ The **spikes** are the first concrete work packages inside Phase 0.
 
 ## Immediate next actions
 
-1. ~~P0.1 / P1 graph~~ **Done**  
-2. ~~P0.2 / P2 cognify~~ **Done** (mock-first + optional LLM)  
-3. **Next:** **P0.3 session model** then **P3** session buffer + promote  
-4. Then **P4** auto/hybrid recall  
-5. P5 multi-format (PDF/URL) after P3 or in parallel with P4  
+1. ~~P0.1 / P1 graph~~ **Done** (CLI + MCP + path + tests)  
+2. ~~P0.2 / P2 cognify~~ **Done** (mock+LLM + CLI + MCP + tests)  
+3. ~~P0.3 / P3 session~~ **Done** (full lifecycle + promote + MCP + tests)  
+4. **Next:** **P4** auto/hybrid recall (`superai recall --strategy …`)  
+5. P5 multi-format; P6 ontology; P7 datasets; P8 agent SessionEnd hooks  
 
 ---
 

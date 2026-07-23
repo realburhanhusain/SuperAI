@@ -778,6 +778,261 @@ kg_app = typer.Typer(
 )
 app.add_typer(kg_app, name="kg")
 
+session_app = typer.Typer(
+    help="Session memory buffer + promote (Memory Roadmap P3)"
+)
+app.add_typer(session_app, name="memory-session")
+
+
+def _print_session(data: dict, *, title: str = "Session memory") -> None:
+    try:
+        from core.public_surface import emit_public, json_mode
+
+        if json_mode():
+            emit_public(data, print_json=True, record_spend=False)
+            return
+    except Exception:
+        pass
+    lines = [f"[bold]{title}[/bold]", "", str(data.get("message") or "")]
+    for key in (
+        "ok",
+        "session_id",
+        "promoted",
+        "count",
+        "sessions",
+        "items",
+        "open_sessions",
+        "purged_sessions",
+        "items_deleted",
+        "strategy",
+    ):
+        if key in data and key not in {"sessions", "items", "message"}:
+            lines.append(f"{key}: {data[key]}")
+    if data.get("session"):
+        s = data["session"]
+        lines.append(
+            f"session: {s.get('id')} status={s.get('status')} "
+            f"dataset={s.get('dataset_id')} items={s.get('item_count', '?')}"
+        )
+    if data.get("sessions") and isinstance(data["sessions"], list):
+        lines.append("")
+        lines.append("[bold]Sessions[/bold]")
+        for s in data["sessions"][:20]:
+            lines.append(
+                f"• {s.get('id')} [{s.get('status')}] "
+                f"items={s.get('item_count')} {s.get('title') or ''}"
+            )
+    if data.get("items") and isinstance(data["items"], list):
+        lines.append("")
+        lines.append("[bold]Items[/bold]")
+        for it in data["items"][:20]:
+            pin = "*" if it.get("pinned") else " "
+            prom = "P" if it.get("promoted") else " "
+            lines.append(
+                f"• [{pin}{prom}] {it.get('kind')} "
+                f"imp={it.get('importance')} {str(it.get('content') or '')[:80]}"
+            )
+    if data.get("item"):
+        it = data["item"]
+        lines.append(f"item: {it.get('id')} {str(it.get('content') or '')[:100]}")
+    console.print(Panel.fit("\n".join(lines), border_style="green"))
+
+
+@session_app.command("status")
+def session_status_cmd():
+    """Show session memory store counts."""
+    from core.session_memory import get_default_session_memory
+
+    _print_session(get_default_session_memory().status(), title="Session memory status")
+
+
+@session_app.command("start")
+def session_start_cmd(
+    session_id: Optional[str] = typer.Option(None, "--id", help="Reuse/create this id"),
+    title: Optional[str] = typer.Option(None, "--title"),
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+    source: str = typer.Option("cli", "--source"),
+):
+    """Start or resume a session buffer."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().start(
+        session_id=session_id, title=title, dataset_id=dataset, source=source
+    )
+    _print_session(out, title="Session start")
+
+
+@session_app.command("list")
+def session_list_cmd(
+    status: Optional[str] = typer.Option(None, "--status"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    limit: int = typer.Option(20, "--limit", "-n"),
+):
+    """List sessions."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().list_sessions(
+        status=status, dataset_id=dataset, limit=limit
+    )
+    out.setdefault("message", f"{out.get('count', 0)} session(s)")
+    _print_session(out, title="Sessions")
+
+
+@session_app.command("remember")
+def session_remember_cmd(
+    content: str = typer.Argument(..., help="Text to keep in session buffer"),
+    session_id: str = typer.Option(..., "--session", "-s", help="Session id"),
+    kind: str = typer.Option("note", "--kind", "-k"),
+    importance: float = typer.Option(0.5, "--importance", "-i"),
+    pin: bool = typer.Option(False, "--pin", help="Mark durable (auto-promote on end)"),
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+):
+    """Add an item to the session buffer (not palace until promote)."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().remember(
+        session_id,
+        content,
+        kind=kind,
+        importance=importance,
+        pinned=pin,
+        dataset_id=dataset,
+    )
+    _print_session(out, title="Session remember")
+
+
+@session_app.command("recall")
+def session_recall_cmd(
+    session_id: str = typer.Option(..., "--session", "-s"),
+    query: Optional[str] = typer.Argument(None, help="Optional lexical filter"),
+    kind: Optional[str] = typer.Option(None, "--kind"),
+    limit: int = typer.Option(30, "--limit", "-n"),
+    hide_promoted: bool = typer.Option(False, "--hide-promoted"),
+):
+    """Recall items inside one session only (no palace bleed)."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().recall(
+        session_id,
+        query=query,
+        kind=kind,
+        include_promoted=not hide_promoted,
+        limit=limit,
+    )
+    _print_session(out, title="Session recall")
+
+
+@session_app.command("items")
+def session_items_cmd(
+    session_id: str = typer.Option(..., "--session", "-s"),
+    limit: int = typer.Option(50, "--limit", "-n"),
+    unpromoted: bool = typer.Option(False, "--unpromoted"),
+):
+    """List session items."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().list_items(
+        session_id, limit=limit, unpromoted_only=unpromoted
+    )
+    out.setdefault("message", f"{out.get('count', 0)} item(s)")
+    _print_session(out, title="Session items")
+
+
+@session_app.command("pin")
+def session_pin_cmd(
+    item_id: str = typer.Argument(..., help="Item id"),
+    session_id: str = typer.Option(..., "--session", "-s"),
+    unpin: bool = typer.Option(False, "--unpin"),
+):
+    """Pin/unpin an item for durable promote on session end."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().pin(session_id, item_id, pinned=not unpin)
+    _print_session(out, title="Session pin")
+
+
+@session_app.command("promote")
+def session_promote_cmd(
+    session_id: str = typer.Option(..., "--session", "-s"),
+    min_importance: float = typer.Option(0.0, "--min-importance"),
+    pinned_only: bool = typer.Option(False, "--pinned-only"),
+    cognify: bool = typer.Option(
+        False, "--cognify", help="Also run cognify into knowledge graph"
+    ),
+    cognify_mode: str = typer.Option("mock", "--cognify-mode"),
+    no_palace: bool = typer.Option(False, "--no-palace"),
+    learning: bool = typer.Option(
+        False, "--learning", help="Also write LearningEngine task outcomes"
+    ),
+    item_id: Optional[List[str]] = typer.Option(
+        None, "--item", help="Specific item id (repeatable)"
+    ),
+):
+    """Promote session items to Memory Palace (+ optional cognify/learning)."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().promote(
+        session_id,
+        item_ids=item_id,
+        min_importance=min_importance,
+        pinned_only=pinned_only,
+        store_palace=not no_palace,
+        cognify_graph=cognify,
+        cognify_mode=cognify_mode,
+        learning_outcome=learning,
+    )
+    _print_session(out, title="Session promote")
+
+
+@session_app.command("end")
+def session_end_cmd(
+    session_id: str = typer.Option(..., "--session", "-s"),
+    no_promote: bool = typer.Option(False, "--no-promote"),
+    min_importance: float = typer.Option(0.6, "--min-importance"),
+    cognify: bool = typer.Option(False, "--cognify"),
+    cognify_mode: str = typer.Option("mock", "--cognify-mode"),
+):
+    """End session; auto-promote pinned + high-importance items by default."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().end(
+        session_id,
+        auto_promote=not no_promote,
+        min_importance=min_importance,
+        cognify_graph=cognify,
+        cognify_mode=cognify_mode,
+    )
+    _print_session(out, title="Session end")
+
+
+@session_app.command("clear")
+def session_clear_cmd(
+    session_id: str = typer.Option(..., "--session", "-s"),
+    hard: bool = typer.Option(False, "--hard", help="Delete session row too"),
+):
+    """Clear session items (soft) or delete session (--hard)."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().clear(session_id, hard=hard)
+    _print_session(out, title="Session clear")
+
+
+@session_app.command("purge-ttl")
+def session_purge_cmd(
+    hours: float = typer.Option(72.0, "--hours"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    include_open: bool = typer.Option(False, "--include-open"),
+):
+    """Purge old ended/cleared sessions by age."""
+    from core.session_memory import get_default_session_memory
+
+    out = get_default_session_memory().purge_ttl(
+        max_age_hours=hours,
+        only_ended=not include_open,
+        dry_run=dry_run,
+    )
+    _print_session(out, title="Session purge-ttl")
+
 
 def _print_kg(data: dict, *, title: str = "Knowledge graph") -> None:
     try:

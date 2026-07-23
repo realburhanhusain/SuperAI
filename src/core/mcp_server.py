@@ -132,6 +132,76 @@ TOOLS: List[Dict[str, Any]] = [
         ["task"],
     ),
     _tool(
+        "superai_kg_query",
+        "Query SuperAI knowledge graph nodes or path between entities.",
+        {
+            "action": {
+                "type": "string",
+                "description": "status | query | path | neighbors (default query)",
+            },
+            "type": {"type": "string", "description": "Node type filter"},
+            "name": {"type": "string", "description": "Name filter / path endpoint"},
+            "from_name": {"type": "string"},
+            "to_name": {"type": "string"},
+            "node_id": {"type": "string"},
+            "hops": {"type": "integer", "description": "Max path hops (default 2)"},
+            "dataset_id": {"type": "string"},
+            "limit": {"type": "integer"},
+        },
+    ),
+    _tool(
+        "superai_kg_upsert",
+        "Upsert knowledge graph node or edge (mutating).",
+        {
+            "action": {
+                "type": "string",
+                "description": "node | edge (default node)",
+            },
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "from_name": {"type": "string"},
+            "to_name": {"type": "string"},
+            "relation": {"type": "string"},
+            "dataset_id": {"type": "string"},
+            "source_memory_id": {"type": "string"},
+        },
+    ),
+    _tool(
+        "superai_session",
+        "Session memory buffer: start/remember/recall/promote/end/clear (short-term → palace).",
+        {
+            "action": {
+                "type": "string",
+                "description": "start|remember|recall|promote|end|clear|status|list",
+            },
+            "session_id": {"type": "string"},
+            "content": {"type": "string"},
+            "query": {"type": "string"},
+            "kind": {"type": "string"},
+            "importance": {"type": "number"},
+            "pinned": {"type": "boolean"},
+            "dataset_id": {"type": "string"},
+            "min_importance": {"type": "number"},
+            "cognify": {"type": "boolean"},
+            "cognify_mode": {"type": "string"},
+        },
+    ),
+    _tool(
+        "superai_cognify",
+        "Cognify text/file into knowledge graph (mock or llm extract).",
+        {
+            "source": {
+                "type": "string",
+                "description": "Raw text or absolute file path",
+            },
+            "dataset_id": {"type": "string"},
+            "mode": {"type": "string", "description": "mock | llm"},
+            "dry_run": {"type": "boolean"},
+            "store_palace": {"type": "boolean"},
+        },
+        ["source"],
+    ),
+    _tool(
         "superai_learn",
         "Write back a completed outcome into central Memory Palace (learning + result snippet).",
         {
@@ -440,6 +510,121 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
             "store": "MemoryPalace",
             "note": "Shared central memory for all SuperAI-mediated AIs",
         }
+
+    if name == "superai_kg_query":
+        from .knowledge_graph import get_default_graph
+
+        kg = get_default_graph()
+        action = str(args.get("action") or "query").lower()
+        if action == "status":
+            return kg.status()
+        if action == "path":
+            return kg.path(
+                from_name=args.get("from_name") or args.get("name"),
+                to_name=args.get("to_name"),
+                hops=int(args.get("hops") or 2),
+                dataset_id=args.get("dataset_id"),
+            )
+        if action == "neighbors":
+            nid = str(args.get("node_id") or "")
+            if not nid:
+                raise ValueError("node_id required for neighbors")
+            return kg.neighbors(nid, dataset_id=args.get("dataset_id"))
+        return kg.query_nodes(
+            type=args.get("type"),
+            name=args.get("name"),
+            dataset_id=args.get("dataset_id"),
+            limit=int(args.get("limit") or 20),
+        )
+
+    if name == "superai_kg_upsert":
+        from .knowledge_graph import get_default_graph
+
+        kg = get_default_graph()
+        action = str(args.get("action") or "node").lower()
+        dataset = str(args.get("dataset_id") or "default")
+        if action == "edge":
+            return kg.upsert_edge(
+                from_name=args.get("from_name"),
+                to_name=args.get("to_name"),
+                relation=str(args.get("relation") or "RELATED_TO"),
+                dataset_id=dataset,
+                source_memory_id=args.get("source_memory_id"),
+            )
+        name_v = str(args.get("name") or "").strip()
+        if not name_v:
+            raise ValueError("name required for node upsert")
+        return kg.upsert_node(
+            name=name_v,
+            type=str(args.get("type") or "Entity"),
+            dataset_id=dataset,
+            source_memory_id=args.get("source_memory_id"),
+        )
+
+    if name == "superai_session":
+        from .session_memory import get_default_session_memory
+
+        sm = get_default_session_memory()
+        action = str(args.get("action") or "status").lower()
+        sid = args.get("session_id")
+        if action == "status":
+            return sm.status()
+        if action == "list":
+            return sm.list_sessions(dataset_id=args.get("dataset_id"))
+        if action == "start":
+            return sm.start(
+                session_id=sid,
+                dataset_id=str(args.get("dataset_id") or "default"),
+                source="mcp",
+            )
+        if not sid and action not in {"status", "list"}:
+            raise ValueError("session_id required")
+        if action == "remember":
+            return sm.remember(
+                str(sid),
+                str(args.get("content") or ""),
+                kind=str(args.get("kind") or "note"),
+                importance=float(args.get("importance") or 0.5),
+                pinned=bool(args.get("pinned")),
+                dataset_id=str(args.get("dataset_id") or "default"),
+                source="mcp",
+            )
+        if action == "recall":
+            return sm.recall(str(sid), query=args.get("query"))
+        if action == "promote":
+            return sm.promote(
+                str(sid),
+                min_importance=float(args.get("min_importance") or 0.0),
+                cognify_graph=bool(args.get("cognify")),
+                cognify_mode=str(args.get("cognify_mode") or "mock"),
+            )
+        if action == "end":
+            return sm.end(
+                str(sid),
+                auto_promote=True,
+                min_importance=float(args.get("min_importance") or 0.6),
+                cognify_graph=bool(args.get("cognify")),
+                cognify_mode=str(args.get("cognify_mode") or "mock"),
+            )
+        if action == "clear":
+            return sm.clear(str(sid))
+        raise ValueError(
+            "action must be start|remember|recall|promote|end|clear|status|list"
+        )
+
+    if name == "superai_cognify":
+        from .cognify import cognify as run_cognify
+
+        source = str(args.get("source") or "")
+        if not source:
+            raise ValueError("source required")
+        return run_cognify(
+            source,
+            dataset_id=str(args.get("dataset_id") or "default"),
+            mode=str(args.get("mode") or "mock"),
+            dry_run=bool(args.get("dry_run")),
+            store_palace=bool(args.get("store_palace", True)),
+        )
 
     if name == "superai_memory_palace":
         from .memory_palace import MemoryPalace

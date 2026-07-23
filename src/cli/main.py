@@ -7431,31 +7431,79 @@ def check_lint_cmd(
                     console.print(f"    - line {i['line']}: [{i['code']}] {i['message']}")
 
 
-sec_app = typer.Typer(name="security", help="Security scan hooks (V6 S114)")
-app.add_typer(sec_app, name="security")
-
-
-@sec_app.command("scan-secrets")
-def security_scan_secrets_cmd(
-    target: str = typer.Argument(..., help="File path or text payload to scan for secrets"),
+@check_app.command("license")
+def check_license_cmd(
+    manifest: str = typer.Argument(..., help="Path to dependency manifest (pyproject.toml, package.json, requirements.txt)"),
 ):
-    """Security scan hooks for secrets and API credentials (V6 S114)."""
-    from core.security_scan import scan_file_for_secrets, scan_text_for_secrets
+    """License and compliance check on dependencies (V6 S115)."""
+    from core.license_check import scan_dependency_licenses
 
-    p = Path(target)
-    if p.exists() and p.is_file():
-        res = scan_file_for_secrets(target)
+    res = scan_dependency_licenses(manifest)
+    if res.is_compliant:
+        console.print(f"[bold green]COMPLIANT ({res.total_packages} package(s)):[/bold green] No copyleft or restricted licenses detected.")
     else:
-        res = scan_text_for_secrets(target)
+        console.print(f"[bold red]COMPLIANCE ALERT ({len(res.issues)} issue(s)):[/bold red]")
+        for i in res.issues:
+            console.print(f"  • [{i.category}] {i.package_name}: {i.message}")
 
-    if not res.has_secrets:
-        console.print("[bold green]CLEAN:[/bold green] No secret leaks or exposed credentials detected.")
-    else:
-        console.print(f"[bold red]SECURITY ALERT ({len(res.findings)} secret finding(s)):[/bold red]")
-        for f in res.findings:
-            console.print(f"  • Line {f.line_number} [[cyan]{f.secret_type}[/cyan]]: {f.description} ({f.matched_snippet})")
+
+sym_app = typer.Typer(name="symbol", help="Symbol-aware code navigation (V6 S108)")
+app.add_typer(sym_app, name="symbol")
+
+
+@sym_app.command("search")
+def symbol_search_cmd(
+    query: str = typer.Argument(..., help="Symbol search query (function/class name)"),
+):
+    """Symbol-aware code navigation and search (V6 S108)."""
+    from core.symbol_nav import search_symbols
+
+    results = search_symbols(query)
+    if not results:
+        console.print(f"[yellow]No symbols found matching '{query}'.[/yellow]")
+        return
+
+    console.print(f"[bold green]Found {len(results)} symbol(s):[/bold green]")
+    for s in results:
+        console.print(f"  • [[cyan]{s.kind}[/cyan]] [bold]{s.name}[/bold] in `{s.file_path}:{s.line_number}`")
+
+
+budget_app = typer.Typer(name="budget", help="Spend budget guard commands (V6 S132)")
+app.add_typer(budget_app, name="budget")
+
+budget_cmd_app = typer.Typer(name="command", help="Per-command budget limits")
+budget_app.add_typer(budget_cmd_app, name="command")
+
+
+@budget_cmd_app.command("set")
+def budget_command_set_cmd(
+    command_name: str = typer.Argument(..., help="CLI command name (e.g. council, run, bakeoff)"),
+    max_usd: float = typer.Argument(..., help="Maximum spend ceiling in USD"),
+):
+    """Set per-command spend budget override (V6 S132)."""
+    from core.command_budget import set_command_budget
+
+    res = set_command_budget(command_name, max_usd)
+    console.print(f"[bold green]Updated command budget:[/bold green] `{res['command']}` = ${res['max_usd']:.2f}")
+
+
+# Wire git explain-pr to git_app
+try:
+    from scli.main import git_app
+except ImportError:
+    git_app = None
+
+
+@app.command("git-explain-pr")
+def git_explain_pr_standalone():
+    """Generate structured PR explanation with file-level findings (V6 S110)."""
+    from core.pr_explainer import generate_pr_explanation_from_repo
+
+    res = generate_pr_explanation_from_repo()
+    console.print(res.markdown_output)
 
 
 if __name__ == "__main__":
     app()
+
 

@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **237** |
-| **INCOMPLETE** | **278** |
+| **COMPLETE (production + docs + tests)** | **241** |
+| **INCOMPLETE** | **274** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **45.8%**
-- **Average percent (incomplete only):** **29.3%**
-- **Average percent (all non-refuse):** **62.0%**
+- **Strict completion rate (complete / (total − refuse)):** **46.5%**
+- **Average percent (incomplete only):** **29.1%**
+- **Average percent (all non-refuse):** **62.4%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 237
+**Count:** 241
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1307,12 +1307,42 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### S108 — Symbol-aware navigation (beyond grep)
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Symbol-aware navigation (beyond grep)
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### S110 — Explain PR with file-level findings
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Explain PR with file-level findings
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
 ### S114 — Security scan hooks (secrets, vulns)
 
 - **Track:** V6
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Security scan hooks (secrets, vulns)
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### S115 — License/compliance check on new deps
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: License/compliance check on new deps
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -1393,6 +1423,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Per-project budget policies
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### S132 — Per-command budget overrides
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Per-command budget overrides
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -2421,7 +2461,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 278
+**Count:** 274
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2867,33 +2907,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** Partial Should implementation may exist
 - **Still incomplete:** Full production hardening + tests + docs
 
-### S108 — Symbol-aware navigation (beyond grep)
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
 ### S109 — Fix CI failure from log paste
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
-### S110 — Explain PR with file-level findings
 
 - **Track:** V6
 - **Complete?** **NO**
@@ -2933,19 +2947,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Full production hardening + tests + docs
 
 ### S113 — DB/schema migration dry-run helper
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
-### S115 — License/compliance check on new deps
 
 - **Track:** V6
 - **Complete?** **NO**
@@ -3050,19 +3051,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Full production hardening + tests + docs
 
 ### S129 — Mid-task model demotion when task simplifies
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
-### S132 — Per-command budget overrides
 
 - **Track:** V6
 - **Complete?** **NO**

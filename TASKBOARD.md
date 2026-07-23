@@ -66,11 +66,29 @@
 | Improvement V4 A–C | `[x]` `docs/IMPROVEMENT_V4_PLAN.md` · `tests/test_improvement_v4.py` |
 | Truth file | `docs/MOSCOW_100_PLAN.md` |
 
-## AGY Hardening Wave (2026-07-23) — active
+## Grok Memory Track (2026-07-23) — active (disjoint from AGY)
+
+**Owner:** Grok · **Do not block AGY Hardening Wave**
+
+| Status | Item |
+|--------|------|
+| `[x]` | Memory roadmap **P1–P8** shipped (`144bba5`) |
+| `[x]` | Offline eval harness `core.memory_eval` + `superai memory-eval` |
+| `[x]` | Docs `docs/MEMORY_EVAL.md` + `tests/test_memory_eval_offline.py` |
+| `[ ]` | Optional later: host Claude/Grok hooks → `superai_capture` MCP |
+| `[ ]` | Optional later: Phase 9+ (OTEL / multi-client) only if requested |
+| `[!]` | Live multi-provider smoke remains Phase 99 host gate |
+
+**Verify:** `pytest tests/test_memory_eval_offline.py -q` · `superai memory-eval`
+
+---
+
+## AGY Hardening Wave (2026-07-23) — active (**AGY owns remaining open items**)
 
 **Plan:** `docs/AGY_IMPROVEMENT_PLAN.md`  
 **Findings:** `docs/AGY_HANDOFF_PENDING_AND_INCOMPLETE.md`  
-**Bar:** code + docs + tests + product wiring; no false 100% scorecard rows
+**Bar:** code + docs + tests + product wiring; no false 100% scorecard rows  
+**Note:** Grok will not pick open W1.1/W1.2/W1.5/W1.6/W3.3–W3.5/W4 while AGY completes them.
 
 ### W0 — Stabilize WIP / restore regressions
 
@@ -131,10 +149,10 @@ pytest tests/test_knowledge_graph_p1.py tests/test_cognify_p2.py tests/test_sess
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | Memory roadmap P1–P8 complete (`144bba5`); AGY deep review + hardening plan (`docs/AGY_IMPROVEMENT_PLAN.md`); Must CLI WIP green; AGY Hardening Wave tasks opened on this board |
-| **Verify** | `test_cli_help_and_completion_m081_m082.py` 8 passed (local WIP); 17 AGY IDs deep-reviewed |
-| **Still open** | AGY Hardening W0–W4 above; Phase 99 live multi-provider smoke (host keys) |
-| **Prior** | M079/M027/M093; memory P1–P8; AGY Should packs S104–S132 |
+| **What** | Grok picks offline memory eval (post P1–P8); AGY keeps remaining Hardening Wave tasks; `superai memory-eval` + TASKBOARD Grok Memory Track |
+| **Verify** | `pytest tests/test_memory_eval_offline.py -q`; AGY owns W1.1/W1.5/W1.6/W3.3–W3.5/W4 |
+| **Still open** | AGY Hardening open items; Phase 99 live smoke (host) |
+| **Prior** | Memory P1–P8; AGY deep review; hardening plan |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

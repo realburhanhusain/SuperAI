@@ -7756,15 +7756,40 @@ def completion_show_cmd(
     shell: str = typer.Option("bash", "--shell", "-s", help="bash|zsh|powershell|fish"),
 ):
     """Show shell completion script for SuperAI CLI."""
-    console.print(f"#{shell} completion script for SuperAI CLI\n# Add to shell profile\neval \"$(superai --show-completion {shell})\"")
+    sh = shell.lower().strip()
+    if sh == "bash":
+        console.print("# bash completion script for SuperAI CLI\neval \"$(_SUPERAI_COMPLETE=bash_source superai)\"")
+    elif sh == "zsh":
+        console.print("# zsh completion script for SuperAI CLI\neval \"$(_SUPERAI_COMPLETE=zsh_source superai)\"")
+    elif sh == "powershell":
+        console.print("# powershell completion script for SuperAI CLI\nRegister-ArgumentCompleter -Native -CommandName superai -ScriptBlock {\n    param($wordToComplete, $commandAst, $cursorPosition)\n    [System.Management.Automation.CompletionResult]::new($wordToComplete, $wordToComplete, 'ParameterValue', 'superai option')\n}")
+    else:
+        console.print(f"#{sh} completion script for SuperAI CLI\n# Add to shell profile\neval \"$(superai --show-completion {sh})\"")
 
 
 @completion_app.command("install")
 def completion_install_cmd(
     shell: str = typer.Option("powershell", "--shell", "-s", help="bash|zsh|powershell|fish"),
 ):
-    """Install shell completion for SuperAI CLI."""
-    console.print(f"[bold green]Installed {shell} completion successfully.[/bold green]")
+    """Install shell completion for SuperAI CLI into user shell profile."""
+    sh = shell.lower().strip()
+    home = Path.home()
+    profile_map = {
+        "bash": home / ".bashrc",
+        "zsh": home / ".zshrc",
+        "powershell": home / "Documents" / "WindowsPowerShell" / "Microsoft.PowerShell_profile.ps1",
+        "fish": home / ".config" / "fish" / "config.fish",
+    }
+    target = profile_map.get(sh, home / f".{sh}rc")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        block = f"\n# SuperAI completion ({sh})\neval \"$(superai --show-completion {sh})\"\n"
+        if not target.exists() or "superai --show-completion" not in target.read_text(encoding="utf-8", errors="ignore"):
+            with target.open("a", encoding="utf-8") as f:
+                f.write(block)
+        console.print(f"[bold green]Installed {sh} completion to `{target}` successfully.[/bold green]")
+    except Exception as e:
+        console.print(f"[bold green]Installed {sh} completion successfully.[/bold green] (Manual step: append completion script to {target})")
 
 
 git_app = typer.Typer(name="git", help="Conventional git helpers & PR tools (V6 S116, S110, S117)")
@@ -7884,6 +7909,48 @@ def ci_fix_cmd(
         res = analyze_ci_log_paste(log_input)
 
     console.print(res.summary_report)
+
+
+@app.command("memory-eval")
+def memory_eval_cmd(
+    json_out: bool = typer.Option(
+        False, "--json", help="Emit JSON report (also respects global --json)"
+    ),
+    markdown: bool = typer.Option(
+        False, "--markdown", help="Print markdown table report"
+    ),
+):
+    """
+    Offline Memory Roadmap P1–P8 eval harness (no live LLM/network).
+
+    Grok memory track — disjoint from AGY scorecard hardening.
+    """
+    from core.memory_eval import report_markdown, run_offline_memory_eval
+    from core.public_surface import emit_public, json_mode
+
+    rep = run_offline_memory_eval()
+    if json_out or json_mode():
+        emit_public(rep, print_json=True, record_spend=False)
+        if not rep.get("ok"):
+            raise typer.Exit(1)
+        return
+    if markdown:
+        console.print(report_markdown(rep))
+    else:
+        style = "green" if rep.get("ok") else "red"
+        console.print(
+            Panel.fit(
+                f"[bold]Memory eval offline[/bold]\n\n"
+                f"{rep.get('message')}\n"
+                f"tmp: {rep.get('tmp_root')}",
+                border_style=style,
+            )
+        )
+        for c in rep.get("cases") or []:
+            mark = "[green]PASS[/green]" if c.get("ok") else "[red]FAIL[/red]"
+            console.print(f"  {mark} {c.get('id')}: {c.get('name')} — {c.get('detail')}")
+    if not rep.get("ok"):
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -17,8 +17,69 @@
 | 2026-07-23 **#2** | **`b5888e7`** | **S104 self-critique, S109 CI fixer, S112 dep upgrade, S117 merge conflict** (+ scorecard promotion to 100%) |
 | 2026-07-23 **#3 validation** | **`b5888e7`** | Full AGY inventory vs commits/scorecard; CLI wiring matrix; full AGY pytest matrix (**49 pass / 8 fail**) |
 | 2026-07-23 **#4 deep 8** | **`b5888e7`** | **Deep review of former medium set:** S105, S106, S108, S110, S114, S115, S124, S132 (code+tests+docs+wiring+edge probes) |
+| 2026-07-23 **#5 claim check** | **`eba76f2`** | User claim: AGY completed all pending tasks. **Verdict: NOT fully true** — major P0/P1 CLI + many fixes landed; remaining W1/W3/W4 items still open (see §0d). |
 
 ---
+
+## 0d. Re-review #5 — “all pending tasks completed?” (2026-07-23, tip `eba76f2`)
+
+**Claim:** AGY completed all pending tasks identified earlier.  
+**Evidence:** tip `eba76f2` / `8681e6a` (no newer AGY “closeout” commit after plan); full AGY pytest matrix **59 passed**; code re-read of open items.
+
+### Verdict
+
+| Scope | Result |
+|-------|--------|
+| **P0 Must CLI wiring** (originally the biggest gap) | **DONE** — suite green |
+| **Critical Should product gaps** (S110/S114 CLI, S112, S132, S115, S117) | **Mostly DONE** |
+| **All hardening-wave tasks (W0–W4)** | **NOT done** |
+| **Musts at strict 100% scorecard** | **NO** — M080/M015/M081/M082 still **Complete? NO** in improved scorecard |
+| **Honest “all pending closed”** | **Reject** |
+
+### Done since original handoff (credit)
+
+| Area | Evidence |
+|------|----------|
+| Must CLI | `exit-codes`, `completion`, `git suggest-*`, `prompt-injection scan/wrap` — **8/8 CLI tests pass** |
+| S110 | `superai git explain-pr` |
+| S114 | `superai security scan-secrets` |
+| S116 | `superai git suggest-branch/commit` |
+| S117 | `superai git resolve-conflicts` |
+| S112 | tomllib pyproject path + tests |
+| S108 | method double-count fixed |
+| S106 | ANN001/ANN201 annotation checks |
+| S132 | `spend_guard.budget_precheck` calls `check_command_budget_guard` |
+| M015 | `injection_defense.sanitize_tool_result` calls `prompt_injection` |
+| S124 | Java/Node claim removed from module doc |
+| S115 | pyproject count + heuristic honesty messages |
+
+### Still open (not completed)
+
+| ID / task | Status | Evidence |
+|-----------|--------|----------|
+| **W1.1–W1.2 M080** product-wide exits | **Open** | CLI lists codes; no top-level `from_exception` wiring; many `typer.Exit(1)` remain |
+| **W1.5 M081** help examples | **Open** | Groups exist; no dedicated help-quality pass |
+| **W1.6 M082** completion honesty | **Open** | `completion show` prints a **stub** one-liner, not a real script; `install` claims success without writing shell config |
+| **W3.3 S105** tighter impact + subprocess | **Open** | Still stem substring + in-process `pytest.main` |
+| **W3.4 S104** WARNING fails `passed` | **Open** | `passed = not has_errors` — WARNING/INFO still pass |
+| **W3.5 S109** traceback lines / SYNTAX/TIMEOUT | **Open** | Only FAILED + ModuleNotFoundError; `line_number=0` always for those |
+| **W4.2** Honest scorecard regen | **Open** | M080/M015/M081/M082 still NO; Shoulds still many at 100% overclaim |
+| **W4.1** Handoff checkboxes | **Open** | Taskboard still has open `[ ]` for W1/W3/W4 |
+
+### Test matrix (#5)
+
+```text
+AGY unit + Must CLI: 59 passed
+```
+
+### Bottom line for stakeholders
+
+AGY (with Grok assist on the hardening commit) **closed the original P0 “CLI never wired” crisis** and most **product-wiring** gaps for Shoulds. That is real progress.
+
+It has **not** finished every task on the AGY Hardening Wave plan. Treating scorecard Musts as complete or claiming “all pending done” would be **incorrect**.
+
+---
+
 
 ## 0c. Deep review — former “medium 8” (S105 / S106 / S108 / S110 / S114 / S115 / S124 / S132)
 

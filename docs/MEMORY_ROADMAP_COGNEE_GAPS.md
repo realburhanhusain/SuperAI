@@ -597,7 +597,9 @@ The **spikes** are the first concrete work packages inside Phase 0.
 6. ~~P6 ontology hybrid~~ **Done**  
 7. ~~P7 datasets / namespaces~~ **Done**  
 8. ~~P8 agent turn capture / SessionEnd~~ **Done**  
-9. Optional hardening / eval set; leave AGY scorecard modules unless coordinated  
+9. ~~Offline eval harness (P1–P8)~~ **Done** — `superai memory-eval` / `docs/MEMORY_EVAL.md`  
+10. Optional later: host hooks → SuperAI capture MCP; Phase 9+ (OTEL/multi-client) if requested  
+11. AGY scorecard remaining open items are **AGY-owned** (see Hardening Wave on TASKBOARD)  
 
 ---
 

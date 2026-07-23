@@ -944,6 +944,87 @@ def kg_path_cmd(
     _print_kg(out, title="KG path")
 
 
+@app.command("cognify")
+def cognify_cmd(
+    source: str = typer.Argument(
+        ...,
+        help="File path, directory (*.md), or raw text",
+    ),
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+    mode: str = typer.Option(
+        "mock",
+        "--mode",
+        "-m",
+        help="mock (rules, offline) | llm (live extract when keys present)",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Extract only; do not write graph or palace"
+    ),
+    no_palace: bool = typer.Option(
+        False, "--no-palace", help="Skip MemoryPalace summary store"
+    ),
+    wing: Optional[str] = typer.Option(None, "--wing"),
+    room: Optional[str] = typer.Option(None, "--room"),
+    glob_pat: str = typer.Option("*.md", "--glob", help="When source is a directory"),
+):
+    """
+    Cognify text/file into the knowledge graph (Memory Roadmap P2).
+
+    Default --mode mock is offline-safe (rule extractor). Use --mode llm for
+    live model extraction (budget-aware).
+    """
+    from core.cognify import cognify, cognify_paths
+    from core.public_surface import emit_public, json_mode
+    from pathlib import Path as _P
+
+    p = _P(source)
+    if p.is_dir():
+        out = cognify_paths(
+            [source],
+            dataset_id=dataset,
+            mode=mode,
+            dry_run=dry_run,
+            store_palace=not no_palace,
+            glob_pat=glob_pat,
+        )
+    else:
+        out = cognify(
+            source,
+            dataset_id=dataset,
+            mode=mode,
+            dry_run=dry_run,
+            store_palace=not no_palace,
+            wing=wing,
+            room=room,
+        )
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        if not out.get("ok"):
+            raise typer.Exit(int(out.get("exit_code") or 1))
+        return
+    # human panel
+    lines = [
+        "[bold]Cognify[/bold]",
+        "",
+        str(out.get("message") or ""),
+        f"mode: {out.get('mode')}",
+        f"dataset: {out.get('dataset_id') or dataset}",
+        f"entities_found: {out.get('entities_found') or out.get('files')}",
+        f"relations_found: {out.get('relations_found')}",
+        f"nodes_written: {out.get('nodes_written')}",
+        f"edges_written: {out.get('edges_written')}",
+    ]
+    if out.get("palace_memory_id"):
+        lines.append(f"palace_memory_id: {out.get('palace_memory_id')}")
+    if out.get("dry_run"):
+        lines.append("dry_run: true")
+    if out.get("llm_error"):
+        lines.append(f"llm_error: {out.get('llm_error')}")
+    console.print(Panel.fit("\n".join(str(x) for x in lines if x is not None), border_style="cyan"))
+    if not out.get("ok"):
+        raise typer.Exit(1)
+
+
 def _learning_engine():
     from core.learning_engine import LearningEngine
     from core.memory_palace import MemoryPalace

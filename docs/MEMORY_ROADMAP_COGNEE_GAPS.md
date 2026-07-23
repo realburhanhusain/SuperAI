@@ -1,9 +1,10 @@
 # SuperAI Memory Roadmap — Cognee-class gaps 1–8
 
-**Status:** Implementation started — **P0.1 decided + P1 shipped**  
+**Status:** Implementation in progress — **P1 + P2 shipped**  
 **Date:** 2026-07-23  
 **Repo tip at drafting:** `6035caa` (master)  
 **P1 land:** `core.knowledge_graph` + `superai kg` + `docs/KNOWLEDGE_GRAPH.md` + `tests/test_knowledge_graph_p1.py`  
+**P2 land:** `core.cognify` + `superai cognify` + `docs/COGNIFY.md` + `tests/test_cognify_p2.py`  
 **Compare-to:** [Cognee](https://github.com/topoteretes/cognee) (open-source agent knowledge-graph memory)  
 **Baseline SuperAI:** `MemoryPalace` (vectors + wings/rooms) + `LearningEngine` (promote / conflict / distill) + central write-back + MCP tools  
 **Related:** `docs/MEMORY_PALACE_GAPS.md` (closed wings/rooms/concurrency work — keep; this roadmap is the *next* arc)
@@ -546,7 +547,7 @@ Capture into **session memory** (not always permanent graph):
 | ID | Decision | Date | Owner |
 |----|----------|------|-------|
 | D1 | Graph backend = **SQLite `kg.sqlite` co-located with palace** (optional Postgres via DSN); not Neo4j/Kuzu for v1 | 2026-07-23 | Grok |
-| D2 | Extractor = _TBD (P0.2)_ | | |
+| D2 | Extractor = **hybrid mock rules_v2 + optional LLM JSON**; default CLI `--mode mock`; opt-in not always-on | 2026-07-23 | Grok |
 | D3 | Session store = _TBD (P0.3)_ | | |
 | D4 | Ontology mode = _TBD (P0.4)_ | | |
 | D5 | Default recall strategy = `auto` (proposed) | 2026-07-23 | draft |
@@ -573,11 +574,11 @@ The **spikes** are the first concrete work packages inside Phase 0.
 
 ## Immediate next actions
 
-1. ~~Run **P0.1 graph storage spike**~~ **Done** — D1 = co-located SQL graph.  
-2. ~~Start **P1 implementation**~~ **Done** — `superai kg` + tests.  
-3. **Next:** **P0.2 cognify extraction spike** then **P2** (mock extract → graph).  
-4. In parallel or after: **P0.3 session model** (unblocks P3/P8).  
-5. Defer P5 multi-format until P2 mock cognify works.
+1. ~~P0.1 / P1 graph~~ **Done**  
+2. ~~P0.2 / P2 cognify~~ **Done** (mock-first + optional LLM)  
+3. **Next:** **P0.3 session model** then **P3** session buffer + promote  
+4. Then **P4** auto/hybrid recall  
+5. P5 multi-format (PDF/URL) after P3 or in parallel with P4  
 
 ---
 

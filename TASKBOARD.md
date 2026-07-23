@@ -78,12 +78,14 @@
 | `[x]` | **Phase 9+** OTEL / cloud / host-hooks / multi-client (`docs/PHASE9_MEMORY.md`) |
 | `[x]` | CLI: `otel`, `cloud`, `host-hook` · MCP: `superai_memory_otel`, `superai_memory_cloud`, `superai_host_hook` |
 | `[x]` | Thin clients: `clients/python`, `clients/typescript` + API contract |
+| `[ ]` | P9 residuals P9-R1…R7 (non-host depth) — see `docs/PHASE9_MEMORY.md` § Residual follow-ups |
 | `[!]` | Live multi-provider smoke remains Phase 99 host gate |
 | `[!]` | Real cloud control plane / OTLP collector — host-gated optional |
 
 **Verify:**  
 `pytest tests/test_memory_eval_offline.py tests/test_phase9_memory.py -q`  
-`superai memory-eval` · `superai otel demo` · `superai cloud status`
+`superai memory-eval` · `superai otel demo` · `superai cloud status`  
+**Residuals:** `docs/PHASE9_MEMORY.md` (P9-R1 span coverage … P9-R7 eval extension)
 
 ---
 

@@ -119,7 +119,8 @@ Each **Phase 0.x** below is a spike. **Phase 1+** is production build only after
 | 8 | Turn-capture agent lifecycle hooks | **P8** (uses P3 session layer) |
 
 **Also related (out of 1–8):** OTEL, multi-language clients, managed cloud, host hooks — **Phase 9+**  
-**P9 land:** `core.memory_otel` + `core.memory_cloud` + `core.host_hooks` + thin clients + CLI/MCP — see `docs/PHASE9_MEMORY.md`
+**P9 land:** `core.memory_otel` + `core.memory_cloud` + `core.host_hooks` + thin clients + CLI/MCP — see `docs/PHASE9_MEMORY.md`  
+**P9 residuals (non-host):** `docs/PHASE9_MEMORY.md` § **Residual follow-ups (non-host)** (P9-R1…R7)
 
 ---
 

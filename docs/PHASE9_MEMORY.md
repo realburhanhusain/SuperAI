@@ -84,8 +84,33 @@ Both default to `superai --json …` subprocess — no direct DB access.
 - Mandatory OpenTelemetry dependency  
 - Live network tests in CI  
 
+## Residual follow-ups (non-host)
+
+Shipped = vertical slice works offline. These are **product depth** items still open
+(not host-gated smoke; not “phase unbuilt”). Track here rather than only in chat.
+
+| ID | Area | Residual | Suggested direction |
+|----|------|----------|---------------------|
+| **P9-R1** | OTEL coverage | Spans are light: recall uses `instrument_report`; cognify / ingest / capture / dataset not fully span-wrapped | Add `memory_span` / `instrument_report` on those hot paths; keep content redaction |
+| **P9-R2** | OTEL SDK path | `SUPERAI_MEMORY_OTEL=sdk` is best-effort if `opentelemetry` is installed; no exporter/endpoint UX | Document env for OTLP endpoint when SDK present; optional `otel configure` later |
+| **P9-R3** | Cloud push | `cloud dry-sync` only builds export + plan (`network_write: false`) | Define push protocol + auth; real upload behind explicit `--apply` + reachability |
+| **P9-R4** | Multi-client HTTP | Thin clients default to `superai --json` subprocess | Optional HTTP JSON client when `SUPERAI_HTTP_BASE` / web surface is stable |
+| **P9-R5** | Client packaging | Python/TS clients live under `clients/` only | Optional publish as installable packages (pip/npm) with version pin to CLI |
+| **P9-R6** | Host-hook install | `host-hook install-snippet` prints MCP/hooks JSON only | Keep manual by design; optional guided checklist CLI (still no silent rewrite of host config) |
+| **P9-R7** | Eval × P9 | `memory-eval` covers P1–P8 smoke, not OTEL/cloud/host-hook cases | Extend offline eval with otel buffer + host-hook emit + cloud status local_only |
+
+### Host-gated (do not treat as in-repo “todo” for offline CI)
+
+- Live OTLP collector / production exporter proof  
+- Real managed SuperAI Cloud control plane + live `/health` proof  
+- Auto-writing Claude Code / Grok / Cursor `settings.json`  
+- Phase 99 multi-provider live smoke  
+
+See also: `TASKBOARD.md` → **Grok Memory Track** `[!]` rows.
+
 ## Related
 
 - P1–P8 roadmap: `docs/MEMORY_ROADMAP_COGNEE_GAPS.md`  
 - Capture: `docs/SESSION_CAPTURE.md`  
 - Offline eval: `docs/MEMORY_EVAL.md`  
+- API contract: `docs/clients/MEMORY_API_CONTRACT.md`  

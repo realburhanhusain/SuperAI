@@ -184,8 +184,10 @@ class MemoryOtel:
             self.export_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.export_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(span.to_dict(), default=str) + "\n")
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001
+            # Surface export failure (AGY P9: was silent pass)
+            span.attributes = dict(span.attributes or {})
+            span.attributes["export_error"] = f"{type(e).__name__}:{str(e)[:120]}"
 
     @contextmanager
     def span(

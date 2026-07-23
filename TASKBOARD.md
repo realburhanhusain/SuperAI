@@ -86,6 +86,7 @@
 | `[x]` | MR-5 P7 export edge names + session wipe on forget |
 | `[x]` | MR-6 P8 agent/tui auto-capture (in-process) |
 | `[x]` | P9-R2…R7 offline productization (env help, cloud push --apply, HTTP client, checklist, eval cases) |
+| `[x]` | **AGY Grok handoff gaps** (`docs/GROK_HANDOFF_PENDING_AND_INCOMPLETE.md`) P6/P1/P3/P4/P5/P7/P8 integrity |
 | `[!]` | Live multi-provider smoke remains Phase 99 host gate |
 | `[!]` | Real cloud control plane / OTLP collector — host-gated optional |
 
@@ -137,7 +138,7 @@
 
 - [x] W3.1 S108 method double-count fix + test
 - [x] W3.2 S106 public annotation checks (ANN001/ANN201)
-- [ ] W3.3 S105 tighter match / subprocess option **(AGY)**
+- [x] W3.3 S105 subprocess isolation option (`use_subprocess=True` default) — landed in AGY `b65d06a` (stem match still crude)
 - [x] W3.4 S104 WARNING fails pass (strict) — **code closed in `8efe54e`** (board synced #6)
 - [ ] W3.5 S109 traceback lines or honest types **(AGY — partial: SYNTAX/TIMEOUT present; not full fixer)**
 - [x] W3.6 S124 drop Java/Node claim in module doc
@@ -164,11 +165,11 @@ pytest tests/test_knowledge_graph_p1.py tests/test_cognify_p2.py tests/test_sess
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | Grok re-review **#6** rejected AGY “all gaps closed”; handoff §0e + TASKBOARD sync; then implement memory residual **MR-1…** |
-| **Verify** | Handoff §0e; AGY Should pack green; residual backlog checklist |
-| **Still open (AGY)** | W1.1/W1.2/W1.5/W1.6, W3.3, W3.5 partial, W4.2/W4.4; Musts M080/M015/M081/M082 Complete? NO |
-| **Still open (Grok)** | Host-gated live smoke / real SaaS only (`[!]` rows) |
-| **Prior** | Memory residual MR-1…P9-R7 closed offline; AGY #6 reject remains for AGY-owned opens |
+| **What** | Reviewed AGY `b65d06a`; closed Grok handoff integrity gaps (P1–P8) |
+| **Verify** | `pytest tests/test_grok_handoff_gaps.py tests/test_memory_residual_mr.py -q` |
+| **Still open (AGY)** | W1.1 product-wide exits; W1.5 help; W1.6 completion depth; W3.5 partial; scorecard Must 100% still overclaim vs #6 |
+| **Still open (Grok)** | Host-gated live smoke only; optional BFS/TTL scale polish |
+| **Prior** | Residual MR-1…P9-R7; AGY #6; AGY S105 subprocess + Grok gap file |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

@@ -85,14 +85,17 @@ def _keyword_search(
     room: Optional[str] = None,
     dataset_id: Optional[str] = None,
     include_shared: bool = True,
+    errors: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     tokens = [t for t in re.split(r"\W+", (query or "").lower()) if len(t) >= 2]
     if not tokens:
         return []
     try:
         all_m = palace.get_all_memories() or []
-    except Exception:
-        all_m = []
+    except Exception as e:  # noqa: BLE001
+        if errors is not None:
+            errors.append(f"keyword_palace:{type(e).__name__}:{str(e)[:120]}")
+        return []
     if dataset_id:
         try:
             from .memory_dataset import filter_by_dataset
@@ -100,8 +103,9 @@ def _keyword_search(
             all_m = filter_by_dataset(
                 all_m, dataset_id, include_shared=include_shared
             )
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001
+            if errors is not None:
+                errors.append(f"keyword_dataset_filter:{type(e).__name__}")
     scored: List[Dict[str, Any]] = []
     tag_set = {t.lower() for t in (tags or [])}
     for m in all_m:
@@ -144,6 +148,7 @@ def _vector_search(
     room: Optional[str] = None,
     dataset_id: Optional[str] = None,
     include_shared: bool = True,
+    errors: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     try:
         hits = palace.query_semantic(
@@ -156,8 +161,15 @@ def _vector_search(
             include_shared=include_shared,
         )
     except TypeError:
-        hits = palace.query_semantic(query, top_k=top_k)
-    except Exception:
+        try:
+            hits = palace.query_semantic(query, top_k=top_k)
+        except Exception as e:  # noqa: BLE001
+            if errors is not None:
+                errors.append(f"vector:{type(e).__name__}:{str(e)[:120]}")
+            return []
+    except Exception as e:  # noqa: BLE001
+        if errors is not None:
+            errors.append(f"vector:{type(e).__name__}:{str(e)[:120]}")
         return []
     out = []
     for h in hits or []:
@@ -350,53 +362,68 @@ def recall(
         except Exception:
             dataset_id = None
 
-    # lazy load defaults
+    # lazy load defaults (surface init failures as degraded, not silent abort)
+    subsystem_errors: List[str] = []
     if palace is None and strat in {"vector", "keyword", "hybrid", "auto", "session"}:
         try:
             from .memory_palace import MemoryPalace
 
             palace = MemoryPalace()
-        except Exception:
+        except Exception as e:  # noqa: BLE001
             palace = None
+            subsystem_errors.append(f"palace_init:{type(e).__name__}:{str(e)[:120]}")
     if kg is None and strat in {"graph", "hybrid"}:
         try:
             from .knowledge_graph import get_default_graph
 
             kg = get_default_graph()
-        except Exception:
+        except Exception as e:  # noqa: BLE001
             kg = None
+            subsystem_errors.append(f"kg_init:{type(e).__name__}:{str(e)[:120]}")
     if session_memory is None and strat == "session" and session_id:
         try:
             from .session_memory import get_default_session_memory
 
             session_memory = get_default_session_memory()
-        except Exception:
+        except Exception as e:  # noqa: BLE001
             session_memory = None
+            subsystem_errors.append(f"session_init:{type(e).__name__}:{str(e)[:120]}")
 
     hits: List[Dict[str, Any]] = []
     used = strat
     notes: List[str] = []
+    search_errors: List[str] = []
 
     if strat == "vector":
-        hits = _vector_search(
-            palace,
-            q,
-            top_k=top_k,
-            tags=tags,
-            wing=wing,
-            room=room,
-            dataset_id=dataset_id,
-        ) if palace else []
+        if not palace:
+            notes.append("vector strategy degraded: palace unavailable")
+            hits = []
+        else:
+            hits = _vector_search(
+                palace,
+                q,
+                top_k=top_k,
+                tags=tags,
+                wing=wing,
+                room=room,
+                dataset_id=dataset_id,
+                errors=search_errors,
+            )
     elif strat == "keyword":
-        hits = _keyword_search(
-            palace,
-            q,
-            top_k=top_k,
-            tags=tags,
-            wing=wing,
-            room=room,
-            dataset_id=dataset_id,
-        ) if palace else []
+        if not palace:
+            notes.append("keyword strategy degraded: palace unavailable")
+            hits = []
+        else:
+            hits = _keyword_search(
+                palace,
+                q,
+                top_k=top_k,
+                tags=tags,
+                wing=wing,
+                room=room,
+                dataset_id=dataset_id,
+                errors=search_errors,
+            )
     elif strat == "graph":
         hits = _graph_search(kg, q, top_k=top_k, dataset_id=dataset_id)
     elif strat == "hybrid":
@@ -409,10 +436,13 @@ def recall(
                 wing=wing,
                 room=room,
                 dataset_id=dataset_id,
+                errors=search_errors,
             )
             if palace
             else []
         )
+        if not palace:
+            notes.append("hybrid: palace unavailable (vector/keyword skipped)")
         g = _graph_search(kg, q, top_k=top_k, dataset_id=dataset_id)
         k = (
             _keyword_search(
@@ -423,6 +453,7 @@ def recall(
                 wing=wing,
                 room=room,
                 dataset_id=dataset_id,
+                errors=search_errors,
             )
             if palace
             else []
@@ -453,6 +484,7 @@ def recall(
                     wing=wing,
                     room=room,
                     dataset_id=dataset_id,
+                    errors=search_errors,
                 )
                 if palace
                 else []
@@ -462,6 +494,11 @@ def recall(
             notes.append(f"vector={len(v)} graph={len(g)}")
         elif not session_id:
             notes.append("no session_id; session strategy returned empty")
+
+    degraded = bool(subsystem_errors or search_errors)
+    if degraded:
+        notes.extend(subsystem_errors)
+        notes.extend(search_errors)
 
     out = {
         "ok": True,
@@ -475,7 +512,13 @@ def recall(
         "hits": hits,
         "session_id": session_id,
         "notes": notes,
-        "message": f"{len(hits)} hit(s) via strategy={used} ({reason})",
+        "degraded": degraded,
+        "subsystem_errors": subsystem_errors or None,
+        "search_errors": search_errors or None,
+        "message": (
+            f"{len(hits)} hit(s) via strategy={used} ({reason})"
+            + ("; DEGRADED" if degraded else "")
+        ),
     }
     try:
         from .memory_otel import instrument_report

@@ -92,10 +92,17 @@ def test_strip_html():
 
 def test_jsonl_load():
     raw = '{"text":"Cloud SQL uses Dataplex."}\n{"content":"Policy Tags protects data."}\n'
-    text, label = load_jsonl_text(raw)
+    text, label, meta = load_jsonl_text(raw)
     assert label == "jsonl"
     assert "Cloud SQL" in text
     assert "Policy Tags" in text
+    assert meta.get("invalid_lines") == 0
+
+    bad = '{"ok":true}\nnot-json\n{"x":1}\n'
+    text2, label2, meta2 = load_jsonl_text(bad)
+    assert label2 == "jsonl"
+    assert meta2.get("invalid_lines") == 1
+    assert "not-json" not in text2
 
 
 def test_pdf_basic_extractor():

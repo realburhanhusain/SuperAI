@@ -300,19 +300,35 @@ def _json_to_text(obj: Any) -> str:
     return str(obj)[:50_000]
 
 
-def load_jsonl_text(raw: str) -> Tuple[str, str]:
-    """Return (text, format_label) for JSONL content."""
+def load_jsonl_text(
+    raw: str, *, keep_invalid_raw: bool = False
+) -> Tuple[str, str, Dict[str, Any]]:
+    """
+    Return (text, format_label, meta) for JSONL content.
+
+    Invalid JSON lines are **not** silently treated as good data:
+    they are counted in meta['invalid_lines'] and skipped by default
+    (or kept as raw when keep_invalid_raw=True, still flagged).
+    """
     lines_out: List[str] = []
-    for i, line in enumerate(raw.splitlines()):
+    invalid: List[Dict[str, Any]] = []
+    for i, line in enumerate(raw.splitlines(), start=1):
         line = line.strip()
         if not line:
             continue
         try:
             obj = json.loads(line)
             lines_out.append(_json_to_text(obj))
-        except json.JSONDecodeError:
-            lines_out.append(line)
-    return "\n\n".join(lines_out), "jsonl"
+        except json.JSONDecodeError as e:
+            invalid.append({"line": i, "error": str(e)[:120]})
+            if keep_invalid_raw:
+                lines_out.append(f"[invalid_jsonl_line_{i}] {line}")
+    meta = {
+        "invalid_lines": len(invalid),
+        "invalid_samples": invalid[:10],
+        "valid_lines": len(lines_out) - (len(invalid) if keep_invalid_raw else 0),
+    }
+    return "\n\n".join(lines_out), "jsonl", meta
 
 
 def load_json_text(raw: str) -> Tuple[str, str]:
@@ -548,14 +564,20 @@ def load_local_file(
             "source_path": str(resolved),
         }
     label = fmt
+    extra_meta: Dict[str, Any] = {}
     if fmt == "jsonl":
-        text, label = load_jsonl_text(raw)
+        text, label, jl_meta = load_jsonl_text(raw)
+        extra_meta["jsonl"] = jl_meta
+        if jl_meta.get("invalid_lines"):
+            extra_meta["jsonl_warning"] = (
+                f"{jl_meta['invalid_lines']} invalid JSONL line(s) skipped"
+            )
     elif fmt in {"json", "email_json"}:
         text, label = load_json_text(raw)
     else:
         text = raw
         label = fmt
-    return {
+    out = {
         "ok": True,
         "text": text,
         "format": label,
@@ -563,6 +585,11 @@ def load_local_file(
         "source_kind": "file",
         "bytes": len(raw.encode("utf-8", errors="replace")),
     }
+    if extra_meta:
+        out["meta"] = extra_meta
+        if extra_meta.get("jsonl", {}).get("invalid_lines"):
+            out["warnings"] = [extra_meta["jsonl_warning"]]
+    return out
 
 
 def expand_paths(
@@ -741,17 +768,21 @@ def ingest(
                         }
                     )
                     continue
+                meta = {
+                    k: loaded.get(k)
+                    for k in ("extractor", "pages", "bytes")
+                    if loaded.get(k) is not None
+                }
+                if isinstance(loaded.get("meta"), dict):
+                    meta.update(loaded["meta"])
                 items.append(
                     {
                         "source": loaded.get("source_path") or str(fpath),
                         "format": loaded.get("format"),
                         "source_kind": "file",
                         "text": loaded.get("text") or "",
-                        "meta": {
-                            k: loaded.get(k)
-                            for k in ("extractor", "pages", "bytes")
-                            if loaded.get(k) is not None
-                        },
+                        "meta": meta,
+                        "warnings": loaded.get("warnings"),
                     }
                 )
             if expanded.get("truncated"):
@@ -791,7 +822,13 @@ def ingest(
             mp = palace or MemoryPalace()
         except Exception as e:  # noqa: BLE001
             report["palace_error"] = str(e)[:200]
+            report["degraded"] = True
+            report["ok"] = False
+            report["error_code"] = report.get("error_code") or "palace_init"
             mp = None
+            report.setdefault("warnings", []).append(
+                f"MemoryPalace init failed; chunks will not be stored: {type(e).__name__}"
+            )
 
     for item in items:
         if item.get("ok") is False and "text" not in item:
@@ -825,6 +862,11 @@ def ingest(
         entry["chunks"] = len(chunks)
         if fmt_label == "code":
             entry["chunker"] = "code_boundary"
+        if item.get("meta"):
+            entry.setdefault("meta", {}).update(item["meta"])
+        if item.get("warnings"):
+            entry["warnings"] = item["warnings"]
+            report.setdefault("warnings", []).extend(item["warnings"])
 
         if dry_run:
             entry["dry_run"] = True
@@ -833,6 +875,11 @@ def ingest(
             continue
 
         ids: List[str] = []
+        if store_palace and mp is None and not report.get("palace_error"):
+            # store requested but palace never created
+            entry["palace_skipped"] = True
+            entry["warning"] = "palace unavailable; chunks not stored"
+            report["degraded"] = True
         if store_palace and mp is not None:
             for idx, ch in enumerate(chunks):
                 try:

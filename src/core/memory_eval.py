@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -131,7 +132,16 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p1_kg", "P1", "knowledge graph", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p1_kg",
+                "P1",
+                "knowledge graph",
+                False,
+                str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P2 cognify
     try:

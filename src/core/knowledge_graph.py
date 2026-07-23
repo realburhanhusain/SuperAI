@@ -266,23 +266,35 @@ class KnowledgeGraph:
 
         def _do() -> Dict[str, Any]:
             with self._Session() as s:
-                row, created = self._upsert_node_unlocked(
-                    s,
-                    name=name_n,
-                    type=type,
-                    node_id=node_id,
-                    properties=properties,
-                    source_memory_id=source_memory_id,
-                    dataset_id=dataset_id,
-                    wing=wing,
-                    room=room,
-                )
-                s.commit()
-                return {
-                    "ok": True,
-                    "created": created,
-                    "node": self._node_dict(row),
-                }
+                try:
+                    row, created = self._upsert_node_unlocked(
+                        s,
+                        name=name_n,
+                        type=type,
+                        node_id=node_id,
+                        properties=properties,
+                        source_memory_id=source_memory_id,
+                        dataset_id=dataset_id,
+                        wing=wing,
+                        room=room,
+                    )
+                    s.commit()
+                    return {
+                        "ok": True,
+                        "created": created,
+                        "node": self._node_dict(row),
+                    }
+                except Exception as e:  # noqa: BLE001
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
+                    return {
+                        "ok": False,
+                        "error": str(e)[:300],
+                        "error_code": "db",
+                        "message": f"upsert_node failed: {type(e).__name__}",
+                    }
 
         return self._locked(_do)
 
@@ -375,7 +387,19 @@ class KnowledgeGraph:
                     if source_memory_id:
                         edge.source_memory_id = source_memory_id
                     created = False
-                s.commit()
+                try:
+                    s.commit()
+                except Exception as e:  # noqa: BLE001
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
+                    return {
+                        "ok": False,
+                        "error": str(e)[:300],
+                        "error_code": "db",
+                        "message": f"upsert_edge failed: {type(e).__name__}",
+                    }
                 return {
                     "ok": True,
                     "created": created,
@@ -397,6 +421,7 @@ class KnowledgeGraph:
         dataset_id: Optional[str] = None,
         wing: Optional[str] = None,
         limit: int = 50,
+        offset: int = 0,
     ) -> Dict[str, Any]:
         with self._Session() as s:
             q = select(KGNodeRow)
@@ -408,11 +433,16 @@ class KnowledgeGraph:
                 q = q.where(KGNodeRow.dataset_id == dataset_id)
             if wing:
                 q = q.where(KGNodeRow.wing == wing)
-            q = q.limit(max(1, min(int(limit), 500)))
+            # P7: pagination — allow larger pages (was hard-capped at 500)
+            page = max(1, min(int(limit), 2000))
+            off = max(0, int(offset or 0))
+            q = q.offset(off).limit(page)
             rows = list(s.execute(q).scalars().all())
         return {
             "ok": True,
             "count": len(rows),
+            "offset": off,
+            "limit": page,
             "nodes": [self._node_dict(r) for r in rows],
         }
 

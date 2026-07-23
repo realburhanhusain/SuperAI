@@ -208,16 +208,14 @@ class MemoryOntology:
             provisional = bool(meta.get("provisional_by_default"))
             if conf is not None and conf < self.map_threshold and core == _DEFAULT_TYPE:
                 provisional = True
-            if conf is not None and conf < self.map_threshold and core not in {
-                "Person",
-                "System",
-                "Dataset",
-                "Decision",
-                "RiskControl",
-                "Project",
-                "Document",
-            }:
-                # weak confidence on soft types → provisional
+            # Weak confidence: only force provisional for types *not* in the
+            # loaded ontology (YAML may define Concept, etc. beyond the old
+            # hardcoded core set — AGY Grok handoff P6 fix).
+            if (
+                conf is not None
+                and conf < self.map_threshold
+                and core not in self.entity_types
+            ):
                 provisional = True
             return {
                 "type": core,

@@ -50,8 +50,16 @@ _HOOK_KINDS = {
     "end": "session_end",
 }
 
-_DEFAULT_SUMMARY_CHARS = 2000
-_DEFAULT_TOOL_CHARS = 1200
+# Overridable via SUPERAI_CAPTURE_MAX_CHARS (AGY P8: avoid silent permanent loss)
+def _summary_chars() -> int:
+    try:
+        return max(500, int(os.getenv("SUPERAI_CAPTURE_MAX_CHARS") or "8000"))
+    except (TypeError, ValueError):
+        return 8000
+
+
+_DEFAULT_SUMMARY_CHARS = 8000  # raised from 2000; still truncates very long prompts
+_DEFAULT_TOOL_CHARS = 4000
 
 
 def resolve_capture_level(explicit: Optional[str] = None) -> str:
@@ -285,7 +293,7 @@ class SessionCapture:
             importance=importance if importance is not None else 0.5,
             pinned=pinned,
             meta={**(meta or {}), "hook": hook_l},
-            max_chars=max_chars or _DEFAULT_SUMMARY_CHARS,
+            max_chars=max_chars or _summary_chars(),
         )
 
     def user_prompt(
@@ -303,7 +311,7 @@ class SessionCapture:
             importance=importance if importance is not None else 0.55,
             pinned=pinned,
             meta={**(meta or {}), "hook": "user_prompt"},
-            max_chars=max_chars or _DEFAULT_SUMMARY_CHARS,
+            max_chars=max_chars or _summary_chars(),
         )
 
     def tool_result(
@@ -346,7 +354,7 @@ class SessionCapture:
             importance=importance if importance is not None else 0.6,
             pinned=pinned,
             meta={**(meta or {}), "hook": "assistant_final"},
-            max_chars=max_chars or _DEFAULT_SUMMARY_CHARS,
+            max_chars=max_chars or _summary_chars(),
         )
 
     def precompact(
@@ -672,7 +680,20 @@ def install_tool_capture_hooks(cap: Optional[SessionCapture] = None) -> Dict[str
             return
         try:
             active.tool_result(name, result if isinstance(result, dict) else {"output": result})
-        except Exception:
+        except Exception as e:  # noqa: BLE001
+            # Surface drop instead of silent return (AGY P8)
+            try:
+                active.events.append(
+                    {
+                        "ok": False,
+                        "hook": "tool_result",
+                        "error": str(e)[:200],
+                        "tool": name,
+                        "dropped": True,
+                    }
+                )
+            except Exception:
+                pass
             return
 
     hook_mod.register_post(_post)

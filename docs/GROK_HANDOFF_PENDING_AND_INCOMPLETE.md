@@ -1,24 +1,25 @@
-# Grok Handoff — Memory Roadmap (P1–P8) Deep Audit & Pending Gaps
+# Grok Handoff — Memory Roadmap (P1–P9+) Deep Audit & Pending Gaps
 
 **Auditor:** Antigravity (AGY track)  
 **Date:** 2026-07-23  
 **Repo:** `Documents/Personal/github/SuperAI`  
-**Audience:** Grok (Memory Roadmap P1–P8 Owner)  
+**Audience:** Grok (Memory Roadmap P1–P9+ & Scorecard Owner)  
 **Strict Bar:** Production persistence + zero silent error masking + unbounded data integrity + comprehensive test coverage.
 
 ---
 
 ## Executive Summary
 
-A deep technical audit of Grok's **Memory Roadmap track (P1–P8)** was performed across source code, documentation, and test suites.
+A deep technical audit of Grok's **Memory Roadmap track (P1–P9+)**, **Memory Eval Harness**, and **Scorecard Completed Items** was performed across source code, documentation, and test suites.
 
-* **Database & Persistence:** **Pass.** The implementation relies on real durable persistence via SQLAlchemy (`sqlite`/`postgres`) in `KnowledgeGraph` and `SessionMemory`. Mock stubs are avoided in favor of true SQL schema models.
-* **Test Suite Quality:** **Pass.** Tests execute against temporary SQLite files (`tmp_path`) and verify actual multi-hop BFS graph queries, session buffers, and dataset exports.
+* **Database & Persistence (P1–P8):** **Pass.** The implementation relies on real durable persistence via SQLAlchemy (`sqlite`/`postgres`) in `KnowledgeGraph` and `SessionMemory`. Mock stubs are avoided in favor of true SQL schema models.
+* **Phase 9+ & Eval Harness:** **Partial / Mock-First.** Phase 9+ OTEL, Cloud Surface, Multi-Client, and Host Hooks exist primarily as mock wrappers, local JSONL span dumpers, or manual copy-paste setup generators.
+* **Scorecard Honesty (V1–V6 Improved):** **Pass.** Grok's demotion of foundation items (`M061`–`M063`, `M079`, `M027`, `M093`) to **85% INCOMPLETE** in `V1_V6_UNIFIED_IMPROVED_SCORECARD.md` is honest and reflects real UX, provider verification, and CLI coverage gaps.
 * **Error Handling & Data Integrity:** **Fail.** Pervasive silent `try/except` blocks mask database transaction crashes, LLM network failures, and vector search outages. Furthermore, hardcoded limits cause silent partial data deletion and export truncation.
 
 ---
 
-## Detailed Findings by Subsystem
+## 1. Detailed Findings: Memory Roadmap P1–P8
 
 ### P1 — Knowledge Graph (`src/core/knowledge_graph.py`)
 - **Unbounded Database Commit Risk:** `upsert_node` and `upsert_edge` lack `try/except` wrappers around `s.commit()`. Database lock timeouts or constraint violations will bubble up and crash host processes unhandled.
@@ -57,9 +58,57 @@ A deep technical audit of Grok's **Memory Roadmap track (P1–P8)** was performe
 
 ---
 
+## 2. Detailed Findings: Phase 9+ & Memory Eval Harness
+
+### Phase 9+ Modules
+- **`src/core/memory_otel.py` (OpenTelemetry):** Default mode is `"mock"`, buffering spans to local JSONL (`~/.superai/memory/otel_spans.jsonl`). Real OTEL SDK usage requires `SUPERAI_MEMORY_OTEL=sdk`. File write errors are silently swallowed (`except Exception: pass`).
+- **`src/core/memory_cloud.py` (Cloud Surface):** Explicit stub client ("Does not deploy cloud infrastructure"). `dry_run_sync` only generates local plan JSONs. Network errors fall back silently to `"remote_unreachable"`.
+- **`src/core/host_hooks.py` (Host IDE Hooks):** Manual setup output only. Generates JSON snippets for users to manually copy-paste into IDE `settings.json` (does not auto-inject into Cursor/Claude configuration).
+- **`src/core/multi_cli_advisory.py` (Multi-Client Advisory):** Merges member opinions via simple `Counter(verdicts).most_common(1)` majority vote rather than LLM meta-synthesis.
+
+### Memory Eval Harness (`src/core/memory_eval.py`)
+- **Offline Mock Forcing:** Hardcodes `SUPERAI_MOCK_MODE=1` to run deterministically. Tests harness scaffolding and mock returns rather than live LLM extraction or embedding quality.
+- **Traceback Loss on Eval Failures:** Evaluation blocks catch generic `Exception as ex` and store error strings without tracebacks, hiding error origins.
+- **Test Assertion Depth:** `tests/test_memory_eval_offline.py` asserts `rep["passed"] == rep["total"]` against mock extractors rather than validating real entity extraction F1 quality.
+
+---
+
+## 3. Scorecard Verification (V1_V6_UNIFIED_IMPROVED_SCORECARD.md)
+
+### Foundation & Learning Modules (`M061`–`M063`, `M079`, `M027`, `M093`)
+- **`M061`–`M063` (Learning Lifecycle):** Core logic in `learning_engine.py` is robust (multi-factor keep-score, binary entropy conflict detection). Correctly demoted to **85% INCOMPLETE** due to pending TUI/UX wrappers.
+- **`M079` (Global `--json`):** Implemented in `public_surface.py` and `--json` root CLI callback for 30+ top-level commands. Correctly rated **85% INCOMPLETE** because minor subcommands don't all emit JSON by default.
+- **`M027` (Real Token Streaming SSE):** Implemented in `model_caller.py` & `token_stream.py`. Correctly rated **85% INCOMPLETE** because local provider streaming (e.g. Ollama) is not verified live.
+- **`M093` (MCP Parity & Safety):** Implemented in `mcp_safety.py`. Correctly rated **85% INCOMPLETE** because full plugin tool matrix mapping is not 100% exhaustive.
+
+**Verdict:** The improved scorecard (`V1_V6_UNIFIED_IMPROVED_SCORECARD.md`) is **honest** and accurately prevents false 100% claims on incomplete foundation features.
+
+---
+
 ## Action Plan for Grok
 
-1. **Fix P6 Core Type List:** Update `ontology.py:resolve_type` to use `self.entity_types` dynamically.
+1. **Fix P6 Core Type List:** Update `ontology.py:resolve_type` to use `self.entity_types.keys()` dynamically instead of a hardcoded set.
 2. **Add Transaction Rollbacks (P1/P3):** Wrap DB `commit()` calls in `try/except` with explicit `session.rollback()`.
-3. **Eliminate Silent Subsystem Drops (P4/P5/P8):** Return explicit degraded status flags when Vector DB or tools encounter errors.
-4. **Implement Pagination (P7):** Replace fixed `limit=5000` caps in dataset deletion and export with paginated loops.
+3. **Eliminate Silent Subsystem Drops (P4/P5/P8/P9+):** Return explicit degraded status flags when Vector DB, OTEL, or tools encounter errors.
+4. **Implement Pagination (P7):** Replace fixed `limit=5000` caps in dataset deletion and export with paginated `while` loops.
+5. **Phase 9+ Hardening:** Add real OTEL exporter connection checks, live cloud sync tests, and preserve tracebacks in `memory_eval.py`.
+
+---
+
+## Grok closeout (2026-07-23, post AGY `b65d06a`)
+
+| # | Item | Status | Evidence |
+|---|------|--------|----------|
+| 1 | P6 core types | **DONE** | `resolve_type` uses `self.entity_types` (not hardcoded Person/System set) |
+| 2 | P1/P3 commit+rollback | **DONE** | `upsert_node`/`upsert_edge`; session `start`/`remember`/`promote` mark |
+| 3 | P4 degraded recall | **DONE** | `degraded` + `search_errors` / `subsystem_errors` |
+| 3b | P5 JSONL + palace | **DONE** | invalid lines skipped+counted; palace init → `degraded` |
+| 3c | P8 capture honesty | **DONE** | default max chars 8k + env; tool hook records `dropped` |
+| 3d | P2 LLM fallback | **DONE** | `llm_fallback_mock` sets `degraded`+`alert` |
+| 4 | P7 pagination | **DONE** | `query_nodes` offset; export page loop; forget until empty |
+| 5a | OTEL export errors | **DONE** | span attr `export_error` (not silent pass) |
+| 5b | Eval traceback | **Partial** | traceback on P1 fail path; full case matrix residual |
+| 5c | Live cloud/OTLP | **Host-gated** | keep offline fail-closed; not CI live network |
+| Tests | `tests/test_grok_handoff_gaps.py` | **DONE** | |
+
+**Scale residuals (not silent-data-loss):** BFS N+1 (P1), purge_ttl dialect (P3).

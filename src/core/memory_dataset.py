@@ -365,12 +365,18 @@ def export_dataset(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     memories: List[Dict[str, Any]] = []
+    truncated = False
     try:
         from .memory_palace import MemoryPalace
 
         mp = palace or MemoryPalace()
         all_m = mp.get_all_memories() or []
-        memories = filter_by_dataset(all_m, did, include_shared=False)[:limit]
+        filtered = filter_by_dataset(all_m, did, include_shared=False)
+        if limit and len(filtered) > limit:
+            truncated = True
+            memories = filtered[:limit]
+        else:
+            memories = filtered
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": f"palace:{e}"[:300], "error_code": "palace"}
 
@@ -380,8 +386,23 @@ def export_dataset(
         from .knowledge_graph import KnowledgeGraph, get_default_graph
 
         graph = kg or get_default_graph()
-        q = graph.query_nodes(dataset_id=did, limit=limit)
-        nodes = q.get("nodes") or []
+        # P7: paginate node export (no silent hard 5000/500 cutoff)
+        page = 500
+        offset = 0
+        hard_cap = max(int(limit or 50_000), page)
+        while True:
+            q = graph.query_nodes(dataset_id=did, limit=page, offset=offset)
+            batch = q.get("nodes") or []
+            if not batch:
+                break
+            nodes.extend(batch)
+            offset += len(batch)
+            if len(batch) < page:
+                break
+            if len(nodes) >= hard_cap:
+                truncated = True
+                nodes = nodes[:hard_cap]
+                break
         id_to_node = {str(n.get("id")): n for n in nodes if n.get("id")}
         # collect edges for those nodes — MR-5: enrich with from_name/to_name
         seen_e: Set[str] = set()
@@ -435,6 +456,7 @@ def export_dataset(
         "product": "superai_dataset_export",
         "dataset_id": did,
         "exported_at": _now(),
+        "truncated": truncated,
         "counts": {
             "memories": len(memories),
             "nodes": len(nodes),
@@ -465,9 +487,11 @@ def export_dataset(
         "dataset_id": did,
         "path": str(out_path.resolve()),
         "counts": manifest["counts"],
+        "truncated": truncated,
         "message": (
             f"Exported dataset {did}: {manifest['counts']['memories']} memories, "
             f"{manifest['counts']['nodes']} nodes, {manifest['counts']['edges']} edges"
+            + (" (TRUNCATED at limit)" if truncated else "")
         ),
     }
     try:
@@ -705,11 +729,18 @@ def forget_dataset(
             deleted_n = int(out.get("nodes_deleted") or 0)
             deleted_e = int(out.get("edges_deleted") or 0)
         else:
-            nodes = graph.query_nodes(dataset_id=did, limit=5000).get("nodes") or []
-            for n in nodes:
-                if n.get("id"):
-                    r = graph.delete_node(str(n["id"]))
-                    deleted_n += int(r.get("deleted") or 0)
+            # P7: paginate deletes until empty (no silent 5000 cap)
+            page = 500
+            safety = 0
+            while safety < 10_000:
+                safety += 1
+                batch = graph.query_nodes(dataset_id=did, limit=page).get("nodes") or []
+                if not batch:
+                    break
+                for n in batch:
+                    if n.get("id"):
+                        r = graph.delete_node(str(n["id"]))
+                        deleted_n += int(r.get("deleted") or 0)
     except Exception as e:  # noqa: BLE001
         return {
             "ok": False,
@@ -717,21 +748,31 @@ def forget_dataset(
             "memories_deleted": deleted_m,
         }
 
-    # MR-5: session ↔ dataset lifecycle — clear session buffers stamped with this dataset
+    # MR-5 + P7: session lifecycle — paginate clears until empty
     sessions_cleared = 0
     try:
         from .session_memory import SessionMemory
 
         sm = SessionMemory()
-        for sess in sm.list_sessions(dataset_id=did, limit=500).get("sessions") or []:
-            sid = sess.get("id")
-            if not sid:
-                continue
-            try:
-                sm.clear(str(sid), delete_items=True, hard=True)
-                sessions_cleared += 1
-            except Exception:
-                pass
+        safety = 0
+        while safety < 10_000:
+            safety += 1
+            batch = sm.list_sessions(dataset_id=did, limit=200).get("sessions") or []
+            if not batch:
+                break
+            progressed = False
+            for sess in batch:
+                sid = sess.get("id")
+                if not sid:
+                    continue
+                try:
+                    sm.clear(str(sid), delete_items=True, hard=True)
+                    sessions_cleared += 1
+                    progressed = True
+                except Exception:
+                    pass
+            if not progressed:
+                break
     except Exception:
         pass
 

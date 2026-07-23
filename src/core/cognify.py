@@ -255,6 +255,8 @@ def extract_llm(text: str, *, model: Optional[str] = None) -> Dict[str, Any]:
             fb = extract_mock(text)
             fb["mode"] = "llm_fallback_mock"
             fb["llm_error"] = "no_json"
+            fb["degraded"] = True
+            fb["alert"] = "LLM returned no JSON; used mock extract (not silent)"
             return fb
         data = json.loads(raw[start : end + 1])
         ents = data.get("entities") or []
@@ -273,6 +275,8 @@ def extract_llm(text: str, *, model: Optional[str] = None) -> Dict[str, Any]:
         fb = extract_mock(text)
         fb["mode"] = "llm_fallback_mock"
         fb["llm_error"] = str(e)[:300]
+        fb["degraded"] = True
+        fb["alert"] = f"LLM extract failed ({type(e).__name__}); used mock extract"
         return fb
 
 
@@ -388,6 +392,9 @@ def cognify(
         report["ontology_error"] = extracted["ontology_error"]
     if extracted.get("llm_error"):
         report["llm_error"] = extracted["llm_error"]
+    if extracted.get("degraded") or extracted.get("mode") == "llm_fallback_mock":
+        report["degraded"] = True
+        report["alert"] = extracted.get("alert") or "cognify degraded (LLM→mock fallback)"
     if extracted.get("cost_source"):
         report["cost_source"] = extracted["cost_source"]
         report["estimated_cost_usd"] = extracted.get("estimated_cost_usd")

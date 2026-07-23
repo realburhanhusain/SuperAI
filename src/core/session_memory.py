@@ -160,39 +160,51 @@ class SessionMemory:
 
         def _do() -> Dict[str, Any]:
             with self._Session() as s:
-                existing = s.get(SessionRow, sid)
-                now = _now()
-                if existing:
-                    existing.updated_at = now
-                    if title:
-                        existing.title = title
-                    if existing.status == "cleared":
-                        existing.status = "open"
-                        existing.ended_at = None
+                try:
+                    existing = s.get(SessionRow, sid)
+                    now = _now()
+                    if existing:
+                        existing.updated_at = now
+                        if title:
+                            existing.title = title
+                        if existing.status == "cleared":
+                            existing.status = "open"
+                            existing.ended_at = None
+                        s.commit()
+                        return {
+                            "ok": True,
+                            "created": False,
+                            "session": self._sess_dict(existing),
+                        }
+                    row = SessionRow(
+                        id=sid,
+                        title=title,
+                        dataset_id=dataset_id or "default",
+                        source=source or "cli",
+                        status="open",
+                        created_at=now,
+                        updated_at=now,
+                        meta=dict(meta or {}),
+                    )
+                    s.add(row)
                     s.commit()
                     return {
                         "ok": True,
-                        "created": False,
-                        "session": self._sess_dict(existing),
+                        "created": True,
+                        "session": self._sess_dict(row),
+                        "message": f"Session started {sid}",
                     }
-                row = SessionRow(
-                    id=sid,
-                    title=title,
-                    dataset_id=dataset_id or "default",
-                    source=source or "cli",
-                    status="open",
-                    created_at=now,
-                    updated_at=now,
-                    meta=dict(meta or {}),
-                )
-                s.add(row)
-                s.commit()
-                return {
-                    "ok": True,
-                    "created": True,
-                    "session": self._sess_dict(row),
-                    "message": f"Session started {sid}",
-                }
+                except Exception as e:  # noqa: BLE001
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
+                    return {
+                        "ok": False,
+                        "error": str(e)[:300],
+                        "error_code": "db",
+                        "message": f"session start failed: {type(e).__name__}",
+                    }
 
         return self._locked(_do)
 
@@ -262,38 +274,50 @@ class SessionMemory:
 
         def _do() -> Dict[str, Any]:
             with self._Session() as s:
-                sess = s.get(SessionRow, session_id)
-                if not sess:
+                try:
+                    sess = s.get(SessionRow, session_id)
+                    if not sess:
+                        return {
+                            "ok": False,
+                            "error": "session not found",
+                            "error_code": "not_found",
+                        }
+                    if sess.status == "cleared":
+                        sess.status = "open"
+                        sess.ended_at = None
+                    now = _now()
+                    item = SessionItemRow(
+                        id=_new_id("it"),
+                        session_id=session_id,
+                        kind=(kind or "note").lower(),
+                        content=content,
+                        importance=float(max(0.0, min(1.0, importance))),
+                        pinned=1 if pinned else 0,
+                        promoted=0,
+                        tags=",".join(tags or []),
+                        meta=dict(meta or {}),
+                        created_at=now,
+                    )
+                    s.add(item)
+                    sess.updated_at = now
+                    s.commit()
+                    return {
+                        "ok": True,
+                        "item": self._item_dict(item),
+                        "session_id": session_id,
+                        "message": f"Remembered item {item.id} in session {session_id}",
+                    }
+                except Exception as e:  # noqa: BLE001
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
                     return {
                         "ok": False,
-                        "error": "session not found",
-                        "error_code": "not_found",
+                        "error": str(e)[:300],
+                        "error_code": "db",
+                        "message": f"remember failed: {type(e).__name__}",
                     }
-                if sess.status == "cleared":
-                    sess.status = "open"
-                    sess.ended_at = None
-                now = _now()
-                item = SessionItemRow(
-                    id=_new_id("it"),
-                    session_id=session_id,
-                    kind=(kind or "note").lower(),
-                    content=content,
-                    importance=float(max(0.0, min(1.0, importance))),
-                    pinned=1 if pinned else 0,
-                    promoted=0,
-                    tags=",".join(tags or []),
-                    meta=dict(meta or {}),
-                    created_at=now,
-                )
-                s.add(item)
-                sess.updated_at = now
-                s.commit()
-                return {
-                    "ok": True,
-                    "item": self._item_dict(item),
-                    "session_id": session_id,
-                    "message": f"Remembered item {item.id} in session {session_id}",
-                }
 
         return self._locked(_do)
 
@@ -443,6 +467,7 @@ class SessionMemory:
         palace_ids: List[str] = []
         cognify_reports: List[Dict[str, Any]] = []
         promoted_item_ids: List[str] = []
+        learning_errors: List[Dict[str, Any]] = []
 
         mp = None
         if store_palace:
@@ -523,41 +548,62 @@ class SessionMemory:
                         latency=0.0,
                         steps_completed=1,
                     )
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001
+                    learning_errors.append(
+                        {"item_id": it.id, "error": str(e)[:200]}
+                    )
 
             promoted_item_ids.append(it.id)
 
-        def _mark() -> None:
+        def _mark() -> Dict[str, Any]:
             with self._Session() as s:
-                for iid in promoted_item_ids:
-                    row = s.get(SessionItemRow, iid)
-                    if not row:
-                        continue
-                    row.promoted = 1
-                    # map palace id if we stored in order
-                    idx = promoted_item_ids.index(iid)
-                    if idx < len(palace_ids):
-                        row.palace_memory_id = palace_ids[idx]
-                sess = s.get(SessionRow, session_id)
-                if sess:
-                    sess.updated_at = _now()
-                s.commit()
+                try:
+                    for iid in promoted_item_ids:
+                        row = s.get(SessionItemRow, iid)
+                        if not row:
+                            continue
+                        row.promoted = 1
+                        # map palace id if we stored in order
+                        idx = promoted_item_ids.index(iid)
+                        if idx < len(palace_ids):
+                            row.palace_memory_id = palace_ids[idx]
+                    sess = s.get(SessionRow, session_id)
+                    if sess:
+                        sess.updated_at = _now()
+                    s.commit()
+                    return {"ok": True}
+                except Exception as e:  # noqa: BLE001
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
+                    return {
+                        "ok": False,
+                        "error": str(e)[:300],
+                        "error_code": "db",
+                    }
 
-        self._locked(_mark)
+        mark_out = self._locked(_mark)
 
         return {
-            "ok": True,
+            "ok": bool(mark_out.get("ok", True)),
             "product": "session_promote",
             "session_id": session_id,
             "promoted": len(promoted_item_ids),
             "item_ids": promoted_item_ids,
             "palace_ids": palace_ids,
             "cognify": cognify_reports if cognify_graph else None,
+            "learning_errors": learning_errors or None,
+            "mark_error": mark_out.get("error"),
             "dataset_id": dataset_id,
             "message": (
                 f"Promoted {len(promoted_item_ids)} item(s) "
                 f"(palace={len(palace_ids)}, cognify={bool(cognify_graph)})"
+                + (
+                    f"; learning_errors={len(learning_errors)}"
+                    if learning_errors
+                    else ""
+                )
             ),
         }
 

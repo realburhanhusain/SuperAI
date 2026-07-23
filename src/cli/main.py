@@ -773,6 +773,176 @@ learning_app = typer.Typer(
 )
 app.add_typer(learning_app, name="learning")
 
+kg_app = typer.Typer(
+    help="Knowledge graph (Memory Roadmap P1): nodes, edges, path query"
+)
+app.add_typer(kg_app, name="kg")
+
+
+def _print_kg(data: dict, *, title: str = "Knowledge graph") -> None:
+    try:
+        from core.public_surface import emit_public, json_mode
+
+        if json_mode():
+            emit_public(data, print_json=True, record_spend=False)
+            return
+    except Exception:
+        pass
+    msg = data.get("message") or title
+    lines = [f"[bold]{title}[/bold]", "", str(msg)]
+    for key in (
+        "ok",
+        "nodes",
+        "edges",
+        "count",
+        "found",
+        "length",
+        "created",
+        "datasets",
+        "dsn",
+        "backend",
+    ):
+        if key in data and key != "message":
+            val = data[key]
+            if isinstance(val, (list, dict)) and key in {"nodes", "edges", "path"}:
+                continue
+            lines.append(f"{key}: {val}")
+    if data.get("node"):
+        n = data["node"]
+        lines.append(f"node: [{n.get('type')}] {n.get('name')} ({n.get('id')})")
+    if data.get("edge"):
+        e = data["edge"]
+        lines.append(
+            f"edge: {e.get('from_id')} -[{e.get('relation')}]-> {e.get('to_id')}"
+        )
+    if data.get("nodes") and isinstance(data["nodes"], list):
+        lines.append("")
+        lines.append("[bold]Nodes[/bold]")
+        for n in data["nodes"][:20]:
+            lines.append(f"• [{n.get('type')}] {n.get('name')} ({n.get('id')})")
+    if data.get("path") and isinstance(data["path"], list):
+        lines.append("")
+        lines.append("[bold]Path[/bold]")
+        for step in data["path"]:
+            n = step.get("node") or {}
+            via = step.get("via_relation_from_prev")
+            extra = f"  via {via}" if via else ""
+            lines.append(f"• [{n.get('type')}] {n.get('name')} ({n.get('id')}){extra}")
+    console.print(Panel.fit("\n".join(lines), border_style="magenta"))
+
+
+@kg_app.command("status")
+def kg_status_cmd():
+    """Show knowledge graph node/edge counts."""
+    from core.knowledge_graph import get_default_graph
+
+    _print_kg(get_default_graph().status(), title="KG status")
+
+
+@kg_app.command("upsert-node")
+def kg_upsert_node_cmd(
+    name: str = typer.Argument(..., help="Node display name"),
+    type: str = typer.Option("Entity", "--type", "-t"),
+    node_id: Optional[str] = typer.Option(None, "--id"),
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+    wing: Optional[str] = typer.Option(None, "--wing"),
+    room: Optional[str] = typer.Option(None, "--room"),
+    memory_id: Optional[str] = typer.Option(None, "--memory-id", help="Link palace memory id"),
+):
+    """Create or update a graph node."""
+    from core.knowledge_graph import get_default_graph
+
+    out = get_default_graph().upsert_node(
+        name=name,
+        type=type,
+        node_id=node_id,
+        dataset_id=dataset,
+        wing=wing,
+        room=room,
+        source_memory_id=memory_id,
+    )
+    out.setdefault(
+        "message",
+        f"{'Created' if out.get('created') else 'Updated'} node {name}",
+    )
+    _print_kg(out, title="KG upsert-node")
+
+
+@kg_app.command("upsert-edge")
+def kg_upsert_edge_cmd(
+    relation: str = typer.Option("RELATED_TO", "--rel", "-r"),
+    from_name: Optional[str] = typer.Option(None, "--from", help="From node name"),
+    to_name: Optional[str] = typer.Option(None, "--to", help="To node name"),
+    from_id: Optional[str] = typer.Option(None, "--from-id"),
+    to_id: Optional[str] = typer.Option(None, "--to-id"),
+    from_type: str = typer.Option("Entity", "--from-type"),
+    to_type: str = typer.Option("Entity", "--to-type"),
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+    weight: float = typer.Option(1.0, "--weight", "-w"),
+    memory_id: Optional[str] = typer.Option(None, "--memory-id"),
+):
+    """Create or update a directed edge (creates missing nodes by name)."""
+    from core.knowledge_graph import get_default_graph
+
+    out = get_default_graph().upsert_edge(
+        from_id=from_id,
+        to_id=to_id,
+        from_name=from_name,
+        to_name=to_name,
+        from_type=from_type,
+        to_type=to_type,
+        relation=relation,
+        dataset_id=dataset,
+        weight=weight,
+        source_memory_id=memory_id,
+    )
+    out.setdefault(
+        "message",
+        f"{'Created' if out.get('created') else 'Updated'} edge {relation}",
+    )
+    _print_kg(out, title="KG upsert-edge")
+
+
+@kg_app.command("query")
+def kg_query_cmd(
+    type: Optional[str] = typer.Option(None, "--type", "-t"),
+    name: Optional[str] = typer.Option(None, "--name", "-n"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    wing: Optional[str] = typer.Option(None, "--wing"),
+    limit: int = typer.Option(20, "--limit", "-l"),
+):
+    """Query nodes by type/name/dataset/wing."""
+    from core.knowledge_graph import get_default_graph
+
+    out = get_default_graph().query_nodes(
+        type=type, name=name, dataset_id=dataset, wing=wing, limit=limit
+    )
+    out.setdefault("message", f"{out.get('count', 0)} node(s)")
+    _print_kg(out, title="KG query")
+
+
+@kg_app.command("path")
+def kg_path_cmd(
+    from_name: Optional[str] = typer.Option(None, "--from"),
+    to_name: Optional[str] = typer.Option(None, "--to"),
+    from_id: Optional[str] = typer.Option(None, "--from-id"),
+    to_id: Optional[str] = typer.Option(None, "--to-id"),
+    hops: int = typer.Option(2, "--hops", "-h", help="Max hops (1–6)"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+):
+    """Shortest path between two nodes (BFS, undirected)."""
+    from core.knowledge_graph import get_default_graph
+
+    out = get_default_graph().path(
+        from_id=from_id,
+        to_id=to_id,
+        from_name=from_name,
+        to_name=to_name,
+        hops=hops,
+        dataset_id=dataset,
+    )
+    _print_kg(out, title="KG path")
+
 
 def _learning_engine():
     from core.learning_engine import LearningEngine

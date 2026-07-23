@@ -279,6 +279,35 @@ TOOLS: List[Dict[str, Any]] = [
         },
     ),
     _tool(
+        "superai_capture",
+        "Agent turn capture (P8): config|start|turn|end|stream into session memory.",
+        {
+            "action": {
+                "type": "string",
+                "description": "config|start|turn|end|stream (default config)",
+            },
+            "session_id": {"type": "string"},
+            "hook": {
+                "type": "string",
+                "description": "user_prompt|tool_result|assistant_final|precompact|session_end",
+            },
+            "content": {"type": "string"},
+            "tool": {"type": "string"},
+            "level": {
+                "type": "string",
+                "description": "off|session|session+promote|full-cognify",
+            },
+            "dataset_id": {"type": "string"},
+            "turns": {
+                "type": "array",
+                "description": "For stream: list of turn objects",
+                "items": {"type": "object"},
+            },
+            "auto_end": {"type": "boolean"},
+            "install_hooks": {"type": "boolean"},
+        },
+    ),
+    _tool(
         "superai_learn",
         "Write back a completed outcome into central Memory Palace (learning + result snippet).",
         {
@@ -789,6 +818,71 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         raise ValueError(
             "action must be list|create|use|status|export|import|forget"
         )
+
+    if name == "superai_capture":
+        from .session_capture import (
+            SessionCapture,
+            capture_config,
+            install_tool_capture_hooks,
+            process_turn_stream,
+            set_active_capture,
+        )
+
+        action = str(args.get("action") or "config").lower()
+        if action == "config":
+            return capture_config()
+        if action == "start":
+            cap = SessionCapture.start(
+                session_id=str(args["session_id"]) if args.get("session_id") else None,
+                dataset_id=str(args["dataset_id"]) if args.get("dataset_id") else None,
+                level=str(args["level"]) if args.get("level") else None,
+                source="mcp",
+            )
+            set_active_capture(cap)
+            if args.get("install_hooks"):
+                install_tool_capture_hooks(cap)
+            return cap.status()
+        if action == "turn":
+            sid = str(args.get("session_id") or "")
+            if not sid:
+                raise ValueError("session_id required for turn")
+            cap = SessionCapture.start(
+                session_id=sid,
+                dataset_id=str(args["dataset_id"]) if args.get("dataset_id") else None,
+                level=str(args["level"]) if args.get("level") else None,
+                source="mcp",
+            )
+            hook = str(args.get("hook") or "user_prompt")
+            if hook.lower() in {"tool_result", "tool"}:
+                return cap.tool_result(
+                    str(args.get("tool") or "tool"),
+                    {"ok": True, "summary": str(args.get("content") or "")},
+                )
+            return cap.capture(hook, args.get("content"))
+        if action == "end":
+            sid = str(args.get("session_id") or "")
+            if not sid:
+                raise ValueError("session_id required for end")
+            cap = SessionCapture.start(
+                session_id=sid,
+                dataset_id=str(args["dataset_id"]) if args.get("dataset_id") else None,
+                level=str(args["level"]) if args.get("level") else None,
+                source="mcp",
+            )
+            return cap.session_end()
+        if action == "stream":
+            turns = args.get("turns") or []
+            if not isinstance(turns, list):
+                raise ValueError("turns must be a list")
+            return process_turn_stream(
+                turns,
+                session_id=str(args["session_id"]) if args.get("session_id") else None,
+                level=str(args["level"]) if args.get("level") else None,
+                dataset_id=str(args["dataset_id"]) if args.get("dataset_id") else None,
+                auto_end=bool(args.get("auto_end", True)),
+                source="mcp_stream",
+            )
+        raise ValueError("action must be config|start|turn|end|stream")
 
     if name == "superai_memory_palace":
         from .memory_palace import MemoryPalace

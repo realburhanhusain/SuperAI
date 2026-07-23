@@ -793,6 +793,11 @@ dataset_app = typer.Typer(
 )
 app.add_typer(dataset_app, name="dataset")
 
+capture_app = typer.Typer(
+    help="Agent turn capture into session memory (P8): start, turn, end, stream, config"
+)
+app.add_typer(capture_app, name="capture")
+
 
 def _print_session(data: dict, *, title: str = "Session memory") -> None:
     try:
@@ -1295,6 +1300,174 @@ def _print_dataset(data: dict, *, title: str = "Dataset") -> None:
     console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="cyan"))
     if data.get("ok") is False:
         raise typer.Exit(1)
+
+
+def _print_capture(data: dict, *, title: str = "Capture") -> None:
+    try:
+        from core.public_surface import emit_public, json_mode
+
+        if json_mode():
+            emit_public(data, print_json=True, record_spend=False)
+            return
+    except Exception:
+        pass
+    lines = [f"[bold]{title}[/bold]", "", str(data.get("message") or "")]
+    for key in (
+        "ok",
+        "session_id",
+        "level",
+        "dataset_id",
+        "enabled",
+        "turns_processed",
+        "items_count",
+        "skipped",
+        "capture_promoted",
+        "capture_cognify",
+    ):
+        if key in data and data.get(key) is not None:
+            lines.append(f"{key}: {data.get(key)}")
+    if data.get("levels"):
+        lines.append("levels: " + ", ".join(str(x) for x in data["levels"]))
+    if data.get("storage"):
+        lines.append(f"storage: {data['storage']}")
+    for it in (data.get("items") or [])[:12]:
+        lines.append(
+            f"• [{it.get('kind')}] {str(it.get('content') or '')[:90]}"
+        )
+    if data.get("error"):
+        lines.append(f"error: {data.get('error')}")
+    console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="magenta"))
+    if data.get("ok") is False:
+        raise typer.Exit(1)
+
+
+@capture_app.command("config")
+def capture_config_cmd():
+    """Show capture levels, env, and storage paths (privacy)."""
+    from core.session_capture import capture_config
+
+    _print_capture(capture_config(), title="Capture config")
+
+
+@capture_app.command("start")
+def capture_start_cmd(
+    session_id: Optional[str] = typer.Option(None, "--id", "-s"),
+    title: str = typer.Option("agent capture", "--title"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    level: str = typer.Option(
+        "session",
+        "--level",
+        "-L",
+        help="off|session|session+promote|full-cognify",
+    ),
+    install_hooks: bool = typer.Option(
+        False, "--hooks", help="Install tool post-hooks for this process"
+    ),
+):
+    """Start a capture-bound session buffer."""
+    from core.session_capture import SessionCapture, install_tool_capture_hooks, set_active_capture
+
+    cap = SessionCapture.start(
+        session_id=session_id,
+        title=title,
+        dataset_id=dataset,
+        level=level,
+        source="cli",
+    )
+    set_active_capture(cap)
+    if install_hooks:
+        install_tool_capture_hooks(cap)
+    _print_capture(cap.status(), title="Capture start")
+
+
+@capture_app.command("turn")
+def capture_turn_cmd(
+    hook: str = typer.Argument(
+        ..., help="user_prompt|tool_result|assistant_final|precompact|session_end"
+    ),
+    content: Optional[str] = typer.Argument(None, help="Text content (not for session_end)"),
+    session_id: str = typer.Option(..., "--session", "-s"),
+    tool: Optional[str] = typer.Option(None, "--tool", help="For tool_result"),
+    level: Optional[str] = typer.Option(None, "--level", "-L"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+):
+    """Record one capture hook into an existing or new session."""
+    from core.session_capture import SessionCapture
+
+    cap = SessionCapture.start(
+        session_id=session_id,
+        dataset_id=dataset,
+        level=level,
+        source="cli",
+    )
+    if hook.lower() in {"tool_result", "tool"}:
+        out = cap.tool_result(tool or "tool", {"ok": True, "summary": content or ""})
+    else:
+        out = cap.capture(hook, content)
+    out.setdefault("session_id", cap.session_id)
+    out.setdefault("level", cap.level)
+    out.setdefault("message", f"Captured {hook} → session {cap.session_id}")
+    _print_capture(out, title="Capture turn")
+
+
+@capture_app.command("end")
+def capture_end_cmd(
+    session_id: str = typer.Option(..., "--session", "-s"),
+    level: Optional[str] = typer.Option(None, "--level", "-L"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    cognify_mode: str = typer.Option("mock", "--cognify-mode"),
+):
+    """End capture session (promote/cognify per level)."""
+    from core.session_capture import SessionCapture
+
+    cap = SessionCapture.start(
+        session_id=session_id,
+        dataset_id=dataset,
+        level=level,
+        source="cli",
+    )
+    out = cap.session_end(cognify_mode=cognify_mode)
+    _print_capture(out, title="Capture end")
+
+
+@capture_app.command("stream")
+def capture_stream_cmd(
+    turns_json: str = typer.Argument(
+        ...,
+        help='JSON list of turns, e.g. [{"hook":"user_prompt","content":"hi"}]',
+    ),
+    session_id: Optional[str] = typer.Option(None, "--session", "-s"),
+    level: str = typer.Option("session", "--level", "-L"),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    no_end: bool = typer.Option(False, "--no-end", help="Do not auto session_end"),
+):
+    """
+    Process a JSON turn stream offline (E2E / tests / agents).
+
+    Example:
+      superai capture stream "[{\\"hook\\":\\"user_prompt\\",\\"content\\":\\"hi\\"},{\\"hook\\":\\"assistant_final\\",\\"content\\":\\"hello\\"}]"
+    """
+    import json as _json
+
+    from core.session_capture import process_turn_stream
+
+    try:
+        turns = _json.loads(turns_json)
+    except Exception as e:
+        console.print(f"[red]Invalid JSON: {e}[/red]")
+        raise typer.Exit(2)
+    if not isinstance(turns, list):
+        console.print("[red]turns_json must be a JSON list[/red]")
+        raise typer.Exit(2)
+    out = process_turn_stream(
+        turns,
+        session_id=session_id,
+        level=level,
+        dataset_id=dataset,
+        auto_end=not no_end,
+        source="cli_stream",
+    )
+    _print_capture(out, title="Capture stream")
 
 
 @dataset_app.command("list")

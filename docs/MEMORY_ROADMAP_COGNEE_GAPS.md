@@ -1,6 +1,6 @@
 # SuperAI Memory Roadmap — Cognee-class gaps 1–8
 
-**Status:** Implementation in progress — **P1–P7 shipped (end-to-end)**  
+**Status:** **P1–P8 shipped (end-to-end)** — Cognee gaps 1–8 closed under SuperAI  
 **Date:** 2026-07-23  
 **Repo tip at drafting:** `6035caa` (master)  
 **P1 land:** `core.knowledge_graph` + `superai kg` + MCP `superai_kg_*` + docs/tests  
@@ -10,7 +10,8 @@
 **P5 land:** `core.ingest` + `superai ingest` + MCP `superai_ingest` + docs/tests (text/md/jsonl/pdf/url)  
 **P6 land:** `core.ontology` + `data/memory_ontology.yaml` + `superai ontology` + MCP `superai_ontology` + cognify mapping  
 **P7 land:** `core.memory_dataset` + `superai dataset` + MCP `superai_dataset` + palace/recall isolation  
-**Coordination:** Parallel AGY work on V1–V6 scorecard (M015/M080/M081/M082/S116) — keep file touch sets disjoint.  
+**P8 land:** `core.session_capture` + `superai capture` + MCP `superai_capture` + tool post-hooks  
+**Coordination:** Parallel AGY work on V1–V6 scorecard — keep file touch sets disjoint.  
 **Compare-to:** [Cognee](https://github.com/topoteretes/cognee) (open-source agent knowledge-graph memory)  
 **Baseline SuperAI:** `MemoryPalace` (vectors + wings/rooms) + `LearningEngine` (promote / conflict / distill) + central write-back + MCP tools  
 **Related:** `docs/MEMORY_PALACE_GAPS.md` (closed wings/rooms/concurrency work — keep; this roadmap is the *next* arc)
@@ -488,10 +489,12 @@ Capture into **session memory** (not always permanent graph):
 
 ### Definition of Done
 
-- [ ] One end-to-end agent session produces session buffer + promotable items  
-- [ ] Toggle off works  
-- [ ] Docs: privacy + storage paths  
-- [ ] Offline tests with fake turn stream  
+- [x] One end-to-end agent session produces session buffer + promotable items  
+- [x] Toggle off works  
+- [x] Docs: privacy + storage paths (`docs/SESSION_CAPTURE.md`)  
+- [x] Offline tests with fake turn stream (`tests/test_session_capture_p8.py`)  
+
+**Shipped:** `src/core/session_capture.py`, CLI `superai capture`, MCP `superai_capture`, optional `core.hooks` post-tool install.
 
 ---
 
@@ -593,8 +596,8 @@ The **spikes** are the first concrete work packages inside Phase 0.
 5. ~~P5 multi-format ingest~~ **Done**  
 6. ~~P6 ontology hybrid~~ **Done**  
 7. ~~P7 datasets / namespaces~~ **Done**  
-8. **Next:** P8 agent SessionEnd hooks  
-9. Leave scorecard files / exit_codes / prompt_injection / git_helpers to AGY unless coordinated  
+8. ~~P8 agent turn capture / SessionEnd~~ **Done**  
+9. Optional hardening / eval set; leave AGY scorecard modules unless coordinated  
 
 ---
 

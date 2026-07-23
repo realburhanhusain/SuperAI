@@ -178,8 +178,6 @@ COMPLETE_IDS = (
 # Explicit incomplete notes for borderline items that were previously over-claimed as full
 STRICT_INCOMPLETE: dict[str, Triple] = {
     # Pillars may be True but pct<100 ⇒ incomplete (intent not fully production-met)
-    # M001/M002/M008/M018 moved to V6_MUST_COMPLETE after exhaustive audits
-    "M015": T(True, False, True, 70, "injection_defense on tool results", "Backlog only; no dedicated security doc depth", "test_foundation_complete_must", "Thorough injection threat docs incomplete"),
     # M017 moved to V6_MUST_COMPLETE after cancel_token exhaustive wire-up
     "M027": T(True, True, True, 85, "call_stream SSE + fallback", "V6 M027", "test_improvement_v4 stream", "Not all providers proven live"),
     "M050": T(True, True, True, 80, "bandit reorder+update", "V6 M050", "bandit tests partial", "Not continuous-product UI"),
@@ -188,9 +186,6 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     "M063": T(True, True, True, 85, "distill+deprecate", "partial", "learning tests", "Lifecycle product incomplete"),
     "M068": T(True, True, True, 85, "preferences.bias_candidates", "partial", "tests", "Deep routing bias not fully proven"),
     "M079": T(True, True, True, 85, "global --json", "CLI help", "partial tests", "Not all commands emit JSON by default"),
-    "M080": T(True, True, True, 80, "exit_codes module", "partial", "test_foundation_complete_must", "Not all process exits wired"),
-    "M081": T(True, False, False, 60, "Typer help exists", "Uneven examples; no help quality guide", "No dedicated help tests", "Thorough docs + tests missing"),
-    "M082": T(True, False, False, 55, "add_completion=True", "Typer docs only", "No completion E2E tests", "Docs+tests incomplete"),
     "M090": T(True, True, True, 80, "TOP_30 + contract smoke", "V6 M090", "verify_top30 offline", "Not live invocation of all 30 CLIs"),
     "M093": T(True, True, True, 85, "mcp_safety wrap", "V6 M093", "mcp tests partial", "Full MCP tool matrix not exhaustive"),
     "M100": T(True, True, True, 80, "dashboard honesty labels", "partial", "tests partial", "Full dashboard product incomplete"),

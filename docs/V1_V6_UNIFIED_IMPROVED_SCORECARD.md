@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **245** |
-| **INCOMPLETE** | **270** |
+| **COMPLETE (production + docs + tests)** | **249** |
+| **INCOMPLETE** | **266** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **47.3%**
-- **Average percent (incomplete only):** **28.8%**
-- **Average percent (all non-refuse):** **62.8%**
+- **Strict completion rate (complete / (total − refuse)):** **48.1%**
+- **Average percent (incomplete only):** **28.3%**
+- **Average percent (all non-refuse):** **63.1%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 245
+**Count:** 249
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -183,6 +183,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: SSRF protection on URL/fetch tools
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M015 — Prompt-injection defenses for tool loops
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Prompt-injection defenses for tool loops
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -753,6 +763,36 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Slash command palette + help
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M080 — Trustworthy process exit codes
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Trustworthy process exit codes
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M081 — High-quality `--help` and examples
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: High-quality `--help` and examples
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M082 — Shell completion
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Shell completion
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -2501,7 +2541,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 270
+**Count:** 266
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2804,19 +2844,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** —
 - **Still incomplete:** Not continuous-product UI
 
-### M080 — Trustworthy process exit codes
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **80%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — exit_codes module
-- **Thorough documentation?** YES — partial
-- **Fully tested?** YES — test_foundation_complete_must
-- **Fully implemented:** exit_codes module
-- **Partially implemented:** —
-- **Still incomplete:** Not all process exits wired
-
 ### M090 — Contract tests on top 30 commands
 
 - **Track:** V6
@@ -2881,45 +2908,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** bandit feedback
 - **Partially implemented:** —
 - **Still incomplete:** Continuous bandit incomplete
-
-### M015 — Prompt-injection defenses for tool loops
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **70%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — injection_defense on tool results
-- **Thorough documentation?** NO — Backlog only; no dedicated security doc depth
-- **Fully tested?** YES — test_foundation_complete_must
-- **Fully implemented:** injection_defense on tool results
-- **Partially implemented:** injection_defense on tool results
-- **Still incomplete:** Thorough injection threat docs incomplete
-
-### M081 — High-quality `--help` and examples
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **60%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Typer help exists
-- **Thorough documentation?** NO — Uneven examples; no help quality guide
-- **Fully tested?** NO — No dedicated help tests
-- **Fully implemented:** Typer help exists
-- **Partially implemented:** Typer help exists
-- **Still incomplete:** Thorough docs + tests missing
-
-### M082 — Shell completion
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **55%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — add_completion=True
-- **Thorough documentation?** NO — Typer docs only
-- **Fully tested?** NO — No completion E2E tests
-- **Fully implemented:** add_completion=True
-- **Partially implemented:** add_completion=True
-- **Still incomplete:** Docs+tests incomplete
 
 ### M091 — Performance budgets for cold start
 

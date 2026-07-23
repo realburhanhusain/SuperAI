@@ -56,8 +56,12 @@ def find_impacted_tests(
     return sorted(list(impacted))
 
 
+import subprocess
+import sys
+
+
 def run_impacted_tests(
-    modified_files: List[str], repo_root: Optional[Path] = None
+    modified_files: List[str], repo_root: Optional[Path] = None, use_subprocess: bool = True
 ) -> Dict[str, Any]:
     """Discover and execute impacted pytest files."""
     impacted = find_impacted_tests(modified_files, repo_root=repo_root)
@@ -71,16 +75,26 @@ def run_impacted_tests(
             "count": 0,
         }
 
-    import pytest
-
-    # Run pytest on the discovered test files
-    ret_code = pytest.main(["-q", "--tb=short"] + impacted)
-    passed = ret_code == 0
+    if use_subprocess:
+        try:
+            cmd = [sys.executable, "-m", "pytest", "-q", "--tb=short"] + impacted
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            ret_code = res.returncode
+            passed = ret_code == 0
+            msg = res.stdout if passed else (res.stderr or res.stdout or "Pytest failure")
+        except Exception as e:
+            return {"ok": False, "impacted_tests": impacted, "exit_code": 1, "count": len(impacted), "message": str(e), "status": "failed"}
+    else:
+        import pytest
+        ret_code = pytest.main(["-q", "--tb=short"] + impacted)
+        passed = ret_code == 0
+        msg = "Success" if passed else "Pytest failure"
 
     return {
         "ok": passed,
         "impacted_tests": impacted,
         "exit_code": ret_code,
         "count": len(impacted),
+        "message": msg,
         "status": "success" if passed else "failed",
     }

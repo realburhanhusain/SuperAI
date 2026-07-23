@@ -77,7 +77,9 @@ def test_distill_jaccard(engine: LearningEngine):
         )
     out = engine.distill_knowledge(task_type="coding", min_memories=4)
     assert "method" in out
-    assert out["method"].startswith("jaccard")
+    # Hash backend → jaccard; ST backend → embedding_cosine
+    assert "jaccard" in out["method"] or "embedding" in out["method"]
+    assert out.get("deletes_rows") is False
     # May or may not distill depending on similarity; should not crash
     assert "groups_analyzed" in out
 

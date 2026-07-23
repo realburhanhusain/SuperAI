@@ -43,6 +43,12 @@ def test_lifecycle_status_and_list(engine: LearningEngine):
     assert st["total_learnings"] >= 4
     assert "active" in st["buckets"]
     assert st["product"] == "learning.lifecycle_status"
+    # Honesty: hash embeddings under SUPERAI_EMBEDDING_HASH=1
+    emb = st.get("embedding") or {}
+    assert emb.get("is_hash") is True
+    assert emb.get("quality") == "lexical_hash"
+    assert st.get("honesty", {}).get("conflict_resolve")
+    assert "deprecates" in st["honesty"]["conflict_resolve"].lower()
 
     listed = engine.list_lifecycle("all", limit=10)
     assert listed["count"] >= 1
@@ -53,6 +59,15 @@ def test_lifecycle_status_and_list(engine: LearningEngine):
         "deprecated",
         "distilled",
     }
+
+
+def test_distill_noop_clear_message(engine: LearningEngine):
+    _seed(engine, 2)
+    out = engine.distill_knowledge(min_memories=10)
+    assert out.get("distilled") is False
+    assert out.get("noop") is True
+    assert "Not enough memories" in (out.get("message") or "")
+    assert out.get("deletes_rows") is False
 
 
 def test_promote_durable_product(engine: LearningEngine):
@@ -93,6 +108,11 @@ def test_resolve_conflicts_product_fields(engine: LearningEngine):
     resolved = engine.resolve_conflicts(auto_resolve=True)
     assert "conflicts_found" in resolved
     assert resolved.get("method")
+    assert resolved.get("deletes_rows") is False
+    assert resolved.get("action") == "deprecate_metadata_only"
+    assert "not deleted" in (resolved.get("message") or "").lower() or resolved.get(
+        "conflicts_resolved", 0
+    ) == 0
 
 
 def test_foundation_complete_learning_surface(tmp_path: Path, monkeypatch):

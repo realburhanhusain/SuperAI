@@ -1,6 +1,6 @@
 # Learning lifecycle product surface (M061–M063)
 
-**Updated:** 2026-07-23  
+**Updated:** 2026-07-24  
 
 SuperAI stores task outcomes as **learnings** in Memory Palace. This surface
 covers the product UX for promoting durable patterns, resolving conflicts, and
@@ -9,7 +9,7 @@ distilling/deprecating redundant memories.
 ## Commands
 
 ```powershell
-# Dashboard — counts + top durable previews
+# Dashboard — counts + top durable previews + embedding honesty
 superai learning status
 
 # List by bucket
@@ -47,7 +47,7 @@ Legacy commands still work: `superai learnings`, `superai conflicts`, `superai r
 |--------|---------|
 | **active** | Learning not durable and not deprecated |
 | **durable** | Promoted pattern (`metadata.durable` / tag `durable`) |
-| **deprecated** | Superseded, conflict-loser, or manual deprecate |
+| **deprecated** | Superseded, conflict-loser, or manual deprecate (**rows retained**) |
 | **distilled** | Summary memory from `distill_knowledge` |
 
 ## API (library)
@@ -64,16 +64,23 @@ from core.foundation_complete import (
 ```
 
 Or via `LearningEngine`: `lifecycle_status()`, `list_lifecycle()`, `promote_durable()`,
-`resolve_conflicts()`, `distill_knowledge()`, `deprecate_memory()`.
+`resolve_conflicts()`, `distill_knowledge()`, `deprecate_memory()`,
+`embedding_backend_info()`.
 
-## Honesty
+## Honesty (product quality, not just tests)
 
-- Offline/unit tests use hash embeddings + local Memory Palace.
-- Conflict resolve deprecates **lower multi-factor scores**; it does not delete rows.
-- Distill requires enough similar learnings; may no-op with a clear message.
+| Topic | Behavior |
+|-------|----------|
+| **Embeddings** | Default offline path often uses **hash embeddings** when `sentence-transformers` is not installed or `SUPERAI_EMBEDDING_HASH=1`. That is **not** a real semantic model — it weakens palace semantic search, clustering, and distill near-dup quality (not only unit-test fidelity). |
+| **Conflict detect** | Success-rate **binary entropy** per `(task_type, model)` — does **not** use vector similarity. |
+| **Conflict resolve** | Keeps highest **multi-factor score**; **deprecates** lower scores (metadata + tags). **Does not delete rows.** |
+| **Distill** | Near-dup via **embedding cosine** when a real ST model is loaded; else **Jaccard**. Requires enough learnings (`min_memories`, groups ≥4). May **no-op** with a clear `noop` / message. Deprecates dups; writes summary memory. |
+| **Enable real semantics** | `pip install sentence-transformers` (or `pip install -e ".[embeddings]"`), unset `SUPERAI_EMBEDDING_HASH`, optional `SUPERAI_EMBEDDING_MODEL=...`. |
+
+`learning status` / `lifecycle_status()` expose `embedding` + `honesty` fields for operators.
 
 ## Verify
 
 ```powershell
-pytest tests/test_learning_lifecycle_m061_m063.py tests/test_learning_engine_gaps.py -q
+pytest tests/test_learning_lifecycle_m061_m063.py tests/test_learning_engine_gaps.py tests/test_learning.py -q
 ```

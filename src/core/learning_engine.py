@@ -27,6 +27,85 @@ class LearningEngine:
         self.history_file = os.path.expanduser("~/.superai/learning_history.json")
         self._ensure_history_file()
 
+    def embedding_backend_info(self) -> Dict[str, Any]:
+        """
+        Honest embedding backend for Memory Palace / learning similarity.
+
+        Hash embeddings are always available offline but are **not** a real
+        semantic model — conflict clustering and distill near-dup detection
+        are weaker than sentence-transformers / EmbeddingGemma.
+        """
+        emb_id = str(getattr(self.memory, "embedding_id", "") or "unknown")
+        prefer_hash = (os.getenv("SUPERAI_EMBEDDING_HASH") or "").lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        is_hash = (
+            prefer_hash
+            or "hash" in emb_id.lower()
+            or emb_id.lower() in {"superai-hash-embedding", "hashembeddingfunction"}
+        )
+        try:
+            import sentence_transformers  # noqa: F401
+
+            st_installed = True
+        except ImportError:
+            st_installed = False
+        quality = "lexical_hash" if is_hash else "semantic_model"
+        note = (
+            "Hash embeddings active (no sentence-transformers / model load). "
+            "Conflict detect is success-entropy (not vector); distill near-dup "
+            "uses Jaccard unless a real embedding model is installed. "
+            "Install: pip install 'superai[embeddings]' or sentence-transformers; "
+            "unset SUPERAI_EMBEDDING_HASH to enable."
+            if is_hash
+            else f"Semantic embeddings active ({emb_id})."
+        )
+        return {
+            "embedding_id": emb_id,
+            "is_hash": is_hash,
+            "sentence_transformers_installed": st_installed,
+            "quality": quality,
+            "affects": [
+                "memory_palace_semantic_search",
+                "memory_clustering",
+                "learning_distill_near_dup",
+            ],
+            "does_not_affect": [
+                "conflict_detect_entropy",  # success-rate based
+                "multi_factor_keep_score",
+            ],
+            "message": note,
+        }
+
+    def _cosine(self, a: List[float], b: List[float]) -> float:
+        if not a or not b or len(a) != len(b):
+            return 0.0
+        dot = sum(x * y for x, y in zip(a, b))
+        na = math.sqrt(sum(x * x for x in a)) or 1.0
+        nb = math.sqrt(sum(x * x for x in b)) or 1.0
+        return max(0.0, min(1.0, dot / (na * nb)))
+
+    def _content_similarity(self, a: str, b: str) -> Tuple[float, str]:
+        """
+        Similarity for distill near-dup.
+
+        Prefer real embeddings when palace is not on hash backend; else Jaccard.
+        Returns (score, method).
+        """
+        info = self.embedding_backend_info()
+        if not info.get("is_hash"):
+            try:
+                fn = getattr(self.memory, "embedding_function", None)
+                if fn is not None:
+                    va, vb = fn([a or "", b or ""])
+                    return self._cosine(list(va), list(vb)), "embedding_cosine"
+            except Exception:
+                pass
+        return self._jaccard(a, b), "jaccard"
+
     def _ensure_history_file(self) -> None:
         os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
         if not os.path.exists(self.history_file):
@@ -588,6 +667,7 @@ class LearningEngine:
             if not self._is_deprecated(m) and not self._is_durable(m)
         ]
         conflicts = self.detect_conflicts()
+        emb = self.embedding_backend_info()
         return {
             "ok": True,
             "product": "learning.lifecycle_status",
@@ -603,6 +683,7 @@ class LearningEngine:
                 "deprecated": len(deprecated),
                 "distilled": len(distilled),
             },
+            "embedding": emb,
             "top_durable": [
                 {
                     "id": m.get("id"),
@@ -615,8 +696,14 @@ class LearningEngine:
             "message": (
                 f"{len(learnings)} learnings — "
                 f"{len(durable)} durable, {len(active)} active, "
-                f"{len(deprecated)} deprecated, {len(conflicts)} conflict group(s)"
+                f"{len(deprecated)} deprecated, {len(conflicts)} conflict group(s); "
+                f"embeddings={emb.get('quality')}"
             ),
+            "honesty": {
+                "conflict_resolve": "deprecates lower multi-factor scores; does not delete rows",
+                "distill": "requires enough similar learnings; may no-op with clear message",
+                "embeddings": emb.get("message"),
+            },
         }
 
     def list_lifecycle(
@@ -695,17 +782,21 @@ class LearningEngine:
         """
         Resolve conflicts by multi-factor scoring:
         keep highest-scoring memories (prefer successful, important, recent);
-        deprecate failures and low-score duplicates more aggressively.
+        **deprecate** failures and low-score duplicates (does **not** delete rows).
         """
         conflicts = self.detect_conflicts()
         resolved_count = 0
         resolved_details: List[Dict[str, Any]] = []
+        emb = self.embedding_backend_info()
 
         if not auto_resolve:
             return {
                 "conflicts_found": len(conflicts),
                 "conflicts_resolved": 0,
                 "resolved_details": [],
+                "deletes_rows": False,
+                "action": "deprecate_metadata_only",
+                "embedding": emb,
                 "message": "Auto-resolve disabled; conflicts listed only.",
             }
 
@@ -766,19 +857,34 @@ class LearningEngine:
 
                 factor = 0.25 if is_fail else 0.45
                 new_imp = max(0.05, float(mem.get("importance") or 0.5) * factor)
-                ok = self.memory.update_metadata(
-                    mid,
-                    {
-                        "importance": round(new_imp, 4),
-                        "deprecated": True,
-                        "deprecated_reason": (
-                            "Conflict resolve — lower multi-factor score "
-                            f"(score={round(score, 3)} vs keep={round(keep_score, 3)})"
-                        ),
-                        "resolved_into": keep.get("id"),
-                        "resolve_method": "multi_factor_score",
-                    },
+                reason = (
+                    "Conflict resolve — lower multi-factor score "
+                    f"(score={round(score, 3)} vs keep={round(keep_score, 3)}); "
+                    "row kept, marked deprecated"
                 )
+                # Prefer full deprecate path (tags + metadata); fall back to metadata
+                dep = self.deprecate_memory(str(mid), reason=reason)
+                ok = bool(dep.get("ok"))
+                if not ok:
+                    ok = self.memory.update_metadata(
+                        mid,
+                        {
+                            "importance": round(new_imp, 4),
+                            "deprecated": True,
+                            "deprecated_reason": reason,
+                            "resolved_into": keep.get("id"),
+                            "resolve_method": "multi_factor_score",
+                        },
+                    )
+                else:
+                    self.memory.update_metadata(
+                        mid,
+                        {
+                            "importance": round(new_imp, 4),
+                            "resolved_into": keep.get("id"),
+                            "resolve_method": "multi_factor_score",
+                        },
+                    )
                 if ok:
                     resolved_count += 1
                     deprecated_ids.append(mid)
@@ -800,8 +906,12 @@ class LearningEngine:
             "conflicts_resolved": resolved_count,
             "resolved_details": resolved_details,
             "method": "multi_factor_score+entropy",
+            "deletes_rows": False,
+            "action": "deprecate_metadata_only",
+            "embedding": emb,
             "message": (
-                f"Resolved {resolved_count} conflicting memories by multi-factor scoring."
+                f"Deprecated {resolved_count} lower-score conflicting memories "
+                f"(rows retained; not deleted) via multi-factor scoring."
                 if resolved_count
                 else "No conflicts required resolution."
             ),
@@ -814,9 +924,15 @@ class LearningEngine:
         similarity_threshold: float = 0.55,
     ) -> Dict[str, Any]:
         """
-        Consolidate redundant learnings using Jaccard similarity within groups.
-        Writes a consolidated summary memory; deprecates near-duplicates only.
+        Consolidate redundant learnings using content similarity within groups.
+
+        - Uses **embedding cosine** when palace is not on hash backend
+        - Falls back to **Jaccard** (lexical) under hash embeddings
+        - Writes a consolidated summary memory; deprecates near-duplicates only
+          (does not delete rows)
+        - No-ops with a clear message when not enough memories / clusters
         """
+        emb = self.embedding_backend_info()
         tags = ["learning"]
         if task_type:
             tags.append(task_type)
@@ -830,9 +946,18 @@ class LearningEngine:
         if len(memories) < min_memories:
             return {
                 "distilled": False,
-                "message": f"Not enough memories to distill (found {len(memories)})",
+                "noop": True,
+                "noop_reason": "insufficient_memories",
+                "message": (
+                    f"Not enough memories to distill "
+                    f"(found {len(memories)}, need >= {min_memories}). "
+                    "Add more learnings or lower --min-memories."
+                ),
                 "groups_analyzed": 0,
                 "groups_distilled": 0,
+                "min_memories": min_memories,
+                "embedding": emb,
+                "deletes_rows": False,
             }
 
         groups: Dict[tuple, List[Dict]] = {}
@@ -845,9 +970,12 @@ class LearningEngine:
         consolidated_ids: List[str] = []
         deprecated_count = 0
         summary_ids: List[str] = []
+        sim_method_used = "jaccard"
+        skipped_small_groups = 0
 
         for key, mem_list in groups.items():
             if len(mem_list) < 4:
+                skipped_small_groups += 1
                 continue
             mem_list.sort(key=lambda x: self._memory_score(x), reverse=True)
             top = mem_list[0]
@@ -855,15 +983,17 @@ class LearningEngine:
             cluster = [top]
             rest_keep = []
             for other in mem_list[1:]:
-                sim = self._jaccard(
+                sim, sim_method_used = self._content_similarity(
                     other.get("content") or "", top.get("content") or ""
                 )
-                # also compare to any already-kept diverse item
-                diverse = all(
-                    self._jaccard(other.get("content") or "", k.get("content") or "")
-                    < similarity_threshold
-                    for k in rest_keep
-                )
+                diverse = True
+                for k in rest_keep:
+                    dsim, _ = self._content_similarity(
+                        other.get("content") or "", k.get("content") or ""
+                    )
+                    if dsim >= similarity_threshold:
+                        diverse = False
+                        break
                 if sim >= similarity_threshold:
                     cluster.append(other)
                 elif diverse and (other.get("metadata") or {}).get("success") is True:
@@ -874,25 +1004,26 @@ class LearningEngine:
             if len(cluster) < 2:
                 continue
 
-            # Deprecate duplicates in cluster (except top)
+            # Deprecate duplicates in cluster (except top) — rows retained
             for other in cluster[1:]:
                 mid = other.get("id")
                 if not mid:
                     continue
                 current = float(other.get("importance", 0.5))
                 new_imp = max(0.08, current * 0.5)
-                ok = self.memory.update_metadata(
+                reason = (
+                    f"Distilled near-duplicate ({sim_method_used}>={similarity_threshold}); "
+                    "row kept, marked deprecated"
+                )
+                dep = self.deprecate_memory(str(mid), reason=reason)
+                ok = bool(dep.get("ok"))
+                self.memory.update_metadata(
                     mid,
                     {
                         "importance": round(new_imp, 4),
                         "consolidated": True,
                         "consolidated_into": top.get("id"),
-                        "deprecated": True,
-                        "deprecated_reason": (
-                            "Distilled near-duplicate "
-                            f"(jaccard>={similarity_threshold})"
-                        ),
-                        "distill_method": "jaccard_cluster",
+                        "distill_method": f"{sim_method_used}_cluster",
                     },
                 )
                 if ok:
@@ -907,7 +1038,8 @@ class LearningEngine:
                     bullets.append(f"- {(m.get('content') or '')[:220]}")
                 summary = (
                     f"Distilled knowledge for {t_type} / {model}\n"
-                    f"From {len(cluster)} similar learnings:\n"
+                    f"From {len(cluster)} similar learnings "
+                    f"(similarity={sim_method_used}):\n"
                     + "\n".join(bullets)
                 )
                 sid = self.memory.store(
@@ -921,6 +1053,7 @@ class LearningEngine:
                         "phase": "distill",
                         "distilled_from": [top.get("id")] + consolidated_ids[:8],
                         "deprecated": False,
+                        "similarity_method": sim_method_used,
                     },
                     importance=min(
                         1.0, float(top.get("importance") or 0.7) + 0.1
@@ -932,20 +1065,36 @@ class LearningEngine:
 
             distilled_count += 1
 
+        noop = distilled_count == 0
+        if noop:
+            msg = (
+                f"No distillable clusters (analyzed {len(groups)} group(s); "
+                f"{skipped_small_groups} group(s) had <4 members). "
+                "Need enough similar learnings per (task_type, model)."
+            )
+        else:
+            msg = (
+                f"Analyzed {len(groups)} groups. Distilled {distilled_count} "
+                f"group(s), deprecated {deprecated_count} near-duplicate(s) "
+                f"(rows retained), wrote {len(summary_ids)} summary memor(ies) "
+                f"via {sim_method_used}."
+            )
+
         return {
             "distilled": distilled_count > 0,
+            "noop": noop,
+            "noop_reason": "no_similar_clusters" if noop else None,
             "groups_analyzed": len(groups),
             "groups_distilled": distilled_count,
+            "groups_skipped_small": skipped_small_groups,
             "memories_deprecated": deprecated_count,
             "consolidated_memory_ids": consolidated_ids,
             "summary_memory_ids": summary_ids,
-            "method": "jaccard_similarity+multi_factor_score",
+            "method": f"{sim_method_used}+multi_factor_score",
             "similarity_threshold": similarity_threshold,
-            "message": (
-                f"Analyzed {len(groups)} groups. Distilled {distilled_count} "
-                f"group(s), deprecated {deprecated_count} near-duplicate(s), "
-                f"wrote {len(summary_ids)} summary memor(ies)."
-            ),
+            "deletes_rows": False,
+            "embedding": emb,
+            "message": msg,
         }
 
     def reflect(self) -> Dict[str, Any]:

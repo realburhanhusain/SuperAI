@@ -41,3 +41,16 @@ def test_analyze_syntax_and_timeout_ci_log():
     types = [f.failure_type for f in res.findings]
     assert "SYNTAX_ERROR" in types
     assert "TIMEOUT" in types
+
+
+def test_analyze_traceback_line_harvest():
+    log_text = (
+        'File "tests/test_foo.py", line 12, in test_foo\n'
+        "    assert False\n"
+        "FAILED tests/test_foo.py::test_foo - AssertionError\n"
+    )
+    res = analyze_ci_log_paste(log_text)
+    assert res.has_failures is True
+    f = res.findings[0]
+    assert f.failure_type == "TEST_FAILURE"
+    assert f.line_number == 12

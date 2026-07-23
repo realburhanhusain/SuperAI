@@ -46,12 +46,26 @@ def find_impacted_tests(
                 impacted.add(str(file_path))
             continue
 
-        # Look for matching tests/test_<stem>*.py files
+        # Prefer exact/prefix match: test_<stem>.py or test_<stem>_* (W3.3)
+        # Avoid over-broad substring (e.g. "graph" matching "telegraph")
         if tests_dir.exists():
-            for test_file in tests_dir.glob("*.py"):
-                t_stem = test_file.stem.lower()
-                if stem in t_stem or t_stem.replace("test_", "").startswith(stem):
+            for test_file in tests_dir.glob("test_*.py"):
+                t_stem = test_file.stem.lower()  # e.g. test_foo_bar
+                body = t_stem[5:] if t_stem.startswith("test_") else t_stem
+                exact = body == stem or t_stem == f"test_{stem}"
+                prefix = body.startswith(stem + "_") or body.startswith(stem + "-")
+                # also: source foo.py → tests/test_foo_p1.py when body starts with stem
+                phase_prefix = body.startswith(stem)
+                # reverse: modified tests/test_x → already handled above
+                if exact or prefix or (phase_prefix and len(stem) >= 4):
                     impacted.add(str(test_file))
+            # secondary: test files that end with _<stem>
+            if not impacted:
+                for test_file in tests_dir.glob("test_*.py"):
+                    t_stem = test_file.stem.lower()
+                    body = t_stem[5:] if t_stem.startswith("test_") else t_stem
+                    if body.endswith("_" + stem) or body.endswith("-" + stem):
+                        impacted.add(str(test_file))
 
     return sorted(list(impacted))
 

@@ -54,7 +54,7 @@ markers = [
 testpaths = ["tests"]
 
 [project.scripts]
-superai = "scli.main:app"
+superai = "scli.main:main"
 # Host CLIs (git, gh, aws, claude, …) are NOT Python deps — use:
 #   superai host-tools check|install
 #   scripts/bootstrap.ps1 | scripts/bootstrap.sh

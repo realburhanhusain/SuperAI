@@ -43,6 +43,24 @@ def analyze_ci_log_paste(log_text: str) -> CIFixerResult:
     import_err_pattern = re.compile(r"ModuleNotFoundError:\s+No module named\s+'([^']+)'")
     syntax_err_pattern = re.compile(r"SyntaxError:\s+(.*)\s+in\s+([^\s,:]+)(?::([0-9]+))?")
     timeout_err_pattern = re.compile(r"(?i)(timed out|timeout)\s*(?:after\s*([0-9]+)s)?")
+    # Traceback frames: File "path/foo.py", line 42, in test_x
+    tb_file_line = re.compile(
+        r'File\s+"([^"]+\.py)",\s+line\s+(\d+)',
+        re.I,
+    )
+    tb_file_line_alt = re.compile(r"([^\s:]+\.py):(\d+):")
+
+    def _harvest_traceback_line(idx: int) -> tuple[str, int]:
+        """Walk backwards for nearest traceback file:line (W3.5)."""
+        for j in range(idx - 1, max(-1, idx - 25), -1):
+            prev = lines[j].strip()
+            m = tb_file_line.search(prev)
+            if m:
+                return m.group(1), int(m.group(2))
+            m2 = tb_file_line_alt.search(prev)
+            if m2:
+                return m2.group(1), int(m2.group(2))
+        return "", 0
 
     for idx, line in enumerate(lines):
         line_str = line.strip()
@@ -53,11 +71,17 @@ def analyze_ci_log_paste(log_text: str) -> CIFixerResult:
             line_no = int(match_failed.group(2)) if match_failed.group(2) else 0
             err_msg = match_failed.group(3) or "Test assertion failed"
 
-            # Check if previous lines contain file:line info
-            if line_no == 0 and idx > 0:
-                line_match = re.search(r"([^\s:]+\.py):([0-9]+):", lines[idx - 1])
-                if line_match:
-                    line_no = int(line_match.group(2))
+            # Check if previous lines contain file:line info / traceback
+            if line_no == 0:
+                tb_path, tb_line = _harvest_traceback_line(idx)
+                if tb_line:
+                    line_no = tb_line
+                    if tb_path and (not f_path or f_path.endswith("py") is False):
+                        f_path = tb_path or f_path
+                elif idx > 0:
+                    line_match = re.search(r"([^\s:]+\.py):([0-9]+):", lines[idx - 1])
+                    if line_match:
+                        line_no = int(line_match.group(2))
 
             findings.append(
                 CIFailureFinding(

@@ -174,7 +174,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p2_cognify", "P2", "cognify", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p2_cognify", "P2", "cognify", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P3 session
     try:
@@ -197,7 +202,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p3_session", "P3", "session", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p3_session", "P3", "session", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P4 recall router
     try:
@@ -232,7 +242,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p4_recall", "P4", "recall", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p4_recall", "P4", "recall", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P5 ingest
     try:
@@ -262,7 +277,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p5_ingest", "P5", "ingest", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p5_ingest", "P5", "ingest", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P6 ontology
     try:
@@ -283,7 +303,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p6_ontology", "P6", "ontology", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p6_ontology", "P6", "ontology", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P7 datasets isolation
     try:
@@ -313,7 +338,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p7_dataset", "P7", "dataset", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p7_dataset", "P7", "dataset", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P8 capture stream
     try:
@@ -344,7 +374,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p8_capture", "P8", "capture", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p8_capture", "P8", "capture", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # MR-1: deeper quality metrics (cognify extraction + recall strategy ranking)
     try:
@@ -426,7 +461,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("mr1_quality", "MR-1", "quality metrics", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "mr1_quality", "MR-1", "quality metrics", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     # P9-R7: otel + host-hook + cloud local_only
     try:
@@ -449,7 +489,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p9_otel", "P9", "otel", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p9_otel", "P9", "otel", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     try:
         from core.host_hooks import emit_host_event, install_checklist
@@ -474,7 +519,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p9_host_hook", "P9", "host_hook", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p9_host_hook", "P9", "host_hook", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     try:
         from core.memory_cloud import status as cloud_status
@@ -492,7 +542,12 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
             )
         )
     except Exception as ex:  # noqa: BLE001
-        cases.append(EvalCase("p9_cloud_local", "P9", "cloud", False, str(ex)[:300]))
+        cases.append(
+            EvalCase(
+                "p9_cloud_local", "P9", "cloud", False, str(ex)[:300],
+                evidence={"traceback": traceback.format_exc()[-800:]},
+            )
+        )
 
     return cases
 

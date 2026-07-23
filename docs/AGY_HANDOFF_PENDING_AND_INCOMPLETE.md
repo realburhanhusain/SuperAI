@@ -2,7 +2,7 @@
 
 **Author:** Grok (memory roadmap track)  
 **First written:** 2026-07-23 (tip `144bba5`)  
-**Last re-review:** 2026-07-23 (tip **`7695d80`** — re-review **#6**)  
+**Last re-review:** 2026-07-24 (Hardening Wave closeout by Grok after reassignment)  
 **Repo:** `Documents/Personal/github/SuperAI`  
 **Audience:** AGY (scorecard / V1–V6 Musts & Shoulds)  
 **Strict bar:** production code + thorough docs + full tests **and** product wiring (CLI/MCP/tool paths where claimed)
@@ -19,6 +19,24 @@
 | 2026-07-23 **#4 deep 8** | **`b5888e7`** | **Deep review of former medium set:** S105, S106, S108, S110, S114, S115, S124, S132 (code+tests+docs+wiring+edge probes) |
 | 2026-07-23 **#5 claim check** | **`eba76f2`** | User claim: AGY completed all pending tasks. **Verdict: NOT fully true** — major P0/P1 CLI + many fixes landed; remaining W1/W3/W4 items still open (see §0d). |
 | 2026-07-23 **#6 claim re-check** | **`7695d80`** | User: AGY said all gaps closed again. **Verdict: REJECT** — see §0e. |
+| 2026-07-24 **#7 closeout** | (this commit) | User reassigned remaining AGY opens to Grok. **Hardening Wave W1/W3/W4 closed** with honest scorecard demotions — see §0f. |
+
+---
+
+## 0f. Hardening Wave closeout (2026-07-24)
+
+User asked Grok to finish remaining AGY open items (W1.1–W1.2, W1.5–W1.6, W3.3 stem, W3.5, W4).
+
+| Item | Status |
+|------|--------|
+| W1.1 M080 CLI entry mapping | **DONE** — `scli.main:main` + `from_exception` |
+| W1.2 residual Exit(1) honesty | **DONE** — documented migrate-on-touch; not false 100% |
+| W1.5 M081 help examples | **DONE** |
+| W1.6 M082 completion honesty | **DONE** — Typer env complete; install fail ≠ success |
+| W3.3 S105 stem match | **DONE** — prefix/exact, less over-match |
+| W3.5 S109 traceback harvest | **DONE** — File/line walkback |
+| W4.2 scorecard honesty | **DONE** — M015/M080–082 + thin Shoulds demoted from false 100% |
+| Residual | Host-gated live smoke; remaining hard-coded `Exit(1)` paths |
 
 ---
 

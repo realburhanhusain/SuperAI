@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **249** |
-| **INCOMPLETE** | **266** |
+| **COMPLETE (production + docs + tests)** | **240** |
+| **INCOMPLETE** | **275** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **48.1%**
-- **Average percent (incomplete only):** **28.3%**
-- **Average percent (all non-refuse):** **63.1%**
+- **Strict completion rate (complete / (total − refuse)):** **46.3%**
+- **Average percent (incomplete only):** **30.1%**
+- **Average percent (all non-refuse):** **62.9%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 249
+**Count:** 240
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -183,16 +183,6 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: SSRF protection on URL/fetch tools
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
-### M015 — Prompt-injection defenses for tool loops
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: Prompt-injection defenses for tool loops
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -767,36 +757,6 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
-### M080 — Trustworthy process exit codes
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: Trustworthy process exit codes
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
-### M081 — High-quality `--help` and examples
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: High-quality `--help` and examples
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
-### M082 — Shell completion
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: Shell completion
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
 ### M083 — Config get/set with validation
 
 - **Track:** V6
@@ -1317,26 +1277,6 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
-### S104 — Self-critique pass before claiming done
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: Self-critique pass before claiming done
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
-### S105 — Auto test discovery and run after edits
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: Auto test discovery and run after edits
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
 ### S106 — Lint/typecheck integration post-edit
 
 - **Track:** V6
@@ -1367,16 +1307,6 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
-### S109 — Fix CI failure from log paste
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: Fix CI failure from log paste
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
 ### S110 — Explain PR with file-level findings
 
 - **Track:** V6
@@ -1387,32 +1317,12 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
-### S112 — Dependency upgrade assistant
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: Dependency upgrade assistant
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
 ### S114 — Security scan hooks (secrets, vulns)
 
 - **Track:** V6
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Security scan hooks (secrets, vulns)
-- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
-- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
-- **Still incomplete:** —
-
-### S115 — License/compliance check on new deps
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Code (production-ready):** YES — Production-usable implementation for: License/compliance check on new deps
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -2541,9 +2451,61 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 266
+**Count:** 275
 
 Sub-order: foundation-like → stub → absent (heuristic).
+
+### M015 — Prompt-injection defenses for tool loops
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **90%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — prompt_injection + injection_defense bridge + CLI
+- **Thorough documentation?** YES — PROMPT_INJECTION_DEFENSE.md
+- **Fully tested?** YES — tests
+- **Fully implemented:** prompt_injection + injection_defense bridge + CLI
+- **Partially implemented:** —
+- **Still incomplete:** Not every tool/MCP path sanitized
+
+### M080 — Trustworthy process exit codes
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **90%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — exit_codes + CLI entry from_exception + raise_typer_exit
+- **Thorough documentation?** YES — EXIT_CODES.md
+- **Fully tested?** YES — test_exit_codes_m080
+- **Fully implemented:** exit_codes + CLI entry from_exception + raise_typer_exit
+- **Partially implemented:** —
+- **Still incomplete:** Residual hard-coded typer.Exit(1) paths remain
+
+### M081 — High-quality `--help` and examples
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **90%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — rich help + group examples
+- **Thorough documentation?** YES — CLI_HELP_AND_COMPLETION.md
+- **Fully tested?** YES — test_cli_help
+- **Fully implemented:** rich help + group examples
+- **Partially implemented:** —
+- **Still incomplete:** Not every subcommand has epilog examples
+
+### M082 — Shell completion
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **90%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — completion show/install Typer env complete
+- **Thorough documentation?** YES — CLI_HELP_AND_COMPLETION.md
+- **Fully tested?** YES — test_cli_help
+- **Fully implemented:** completion show/install Typer env complete
+- **Partially implemented:** —
+- **Still incomplete:** PowerShell native complete limited; profile install best-effort
 
 ### V2-B3 — Sprint B — Smart session compact
 
@@ -2674,6 +2636,45 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** token_stream TUI
 - **Partially implemented:** —
 - **Still incomplete:** Real provider SSE incomplete
+
+### S104 — Self-critique pass before claiming done
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **85%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — self_critique strict WARNING fail
+- **Thorough documentation?** YES — SELF_CRITIQUE.md
+- **Fully tested?** YES — test_self_critique_s104
+- **Fully implemented:** self_critique strict WARNING fail
+- **Partially implemented:** —
+- **Still incomplete:** Thin AST checks; not full DoD gate
+
+### S105 — Auto test discovery and run after edits
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **85%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — impacted runner subprocess + stem match
+- **Thorough documentation?** YES — AUTO_TEST_RUNNER.md
+- **Fully tested?** YES — test_auto_test_runner_s105
+- **Fully implemented:** impacted runner subprocess + stem match
+- **Partially implemented:** —
+- **Still incomplete:** Stem heuristics still approximate
+
+### S112 — Dependency upgrade assistant
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **85%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — dep_upgrade tomllib
+- **Thorough documentation?** YES — DEP_UPGRADE.md
+- **Fully tested?** YES — test_dep_upgrade_s112
+- **Fully implemented:** dep_upgrade tomllib
+- **Partially implemented:** —
+- **Still incomplete:** No live upgrade apply
 
 ### V1-P1-1 — Phase 1 — Stable result contract
 
@@ -2870,6 +2871,19 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** —
 - **Still incomplete:** Full dashboard product incomplete
 
+### S109 — Fix CI failure from log paste
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **80%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — CI log parse + traceback harvest
+- **Thorough documentation?** YES — CI_FIXER.md
+- **Fully tested?** YES — test_ci_fixer_s109
+- **Fully implemented:** CI log parse + traceback harvest
+- **Partially implemented:** —
+- **Still incomplete:** Advice-only fixer; not auto-patch
+
 ### V2-C5 — Sprint C — Graph HTML UI
 
 - **Track:** V1-V5
@@ -2908,6 +2922,19 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** bandit feedback
 - **Partially implemented:** —
 - **Still incomplete:** Continuous bandit incomplete
+
+### S115 — License/compliance check on new deps
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **75%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — license heuristic + pyproject count
+- **Thorough documentation?** YES — LICENSE_COMPLIANCE.md
+- **Fully tested?** YES — test_license_check_s115
+- **Fully implemented:** license heuristic + pyproject count
+- **Partially implemented:** —
+- **Still incomplete:** Not SPDX/API compliance
 
 ### M091 — Performance budgets for cold start
 

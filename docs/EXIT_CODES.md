@@ -29,7 +29,7 @@ This guarantees predictable exit semantics when integrating SuperAI into CI/CD p
 ## Usage in Code
 
 ```python
-from core.exit_codes import from_result, from_exception, BUDGET, OK
+from core.exit_codes import from_result, from_exception, raise_typer_exit, BUDGET, OK
 
 # Mapping result dictionary payload
 result = {"ok": False, "error_code": "budget", "message": "Daily ceiling hit"}
@@ -41,7 +41,20 @@ try:
 except Exception as e:
     code = from_exception(e)
     sys.exit(code)
+
+# CLI boundary (preferred)
+# raise_typer_exit(exc)  or  raise_typer_exit({"ok": False, "error_code": "validation"})
 ```
+
+## CLI product wiring (2026-07-24)
+
+| Surface | Behavior |
+|---------|----------|
+| `python -m scli.main` / `superai` entry (`main()`) | Uncaught exceptions → `from_exception` → process exit |
+| `emit_public(..., raise_exit=True)` | Uses `from_result` for `exit_code` |
+| Residual | Many command handlers still use `typer.Exit(1)` — tracked as residual; prefer `raise_typer_exit` / `from_result` on new code |
+
+Honesty: M080 is **strong but not 100%** until residual hard-coded `Exit(1)` paths are fully migrated.
 
 ---
 

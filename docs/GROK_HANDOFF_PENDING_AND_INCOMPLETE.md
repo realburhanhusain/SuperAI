@@ -107,8 +107,14 @@ A deep technical audit of Grok's **Memory Roadmap track (P1–P9+)**, **Memory E
 | 3d | P2 LLM fallback | **DONE** | `llm_fallback_mock` sets `degraded`+`alert` |
 | 4 | P7 pagination | **DONE** | `query_nodes` offset; export page loop; forget until empty |
 | 5a | OTEL export errors | **DONE** | span attr `export_error` (not silent pass) |
-| 5b | Eval traceback | **Partial** | traceback on P1 fail path; full case matrix residual |
+| 5b | Eval traceback | **DONE** | all offline eval case failures include `evidence.traceback` |
 | 5c | Live cloud/OTLP | **Host-gated** | keep offline fail-closed; not CI live network |
+| 5d | purge_ttl dialect | **DONE** | datetime-parsed ISO compare (not pure string) |
+| 5e | session end/clear DB | **DONE** | commit+rollback on end/clear |
 | Tests | `tests/test_grok_handoff_gaps.py` | **DONE** | |
 
-**Scale residuals (not silent-data-loss):** BFS N+1 (P1), purge_ttl dialect (P3).
+**Scale residual (optional):** BFS N+1 (P1) performance for very deep graphs.
+
+### Validation re-check (2026-07-24)
+
+Findings #1–4 in the action plan are **implemented in tree** (see closeout). AGY narrative above still describes pre-fix symptoms for audit history; treat closeout table as current status.

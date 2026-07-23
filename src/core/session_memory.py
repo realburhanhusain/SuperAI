@@ -643,24 +643,36 @@ class SessionMemory:
 
         def _do() -> Dict[str, Any]:
             with self._Session() as s:
-                sess = s.get(SessionRow, session_id)
-                if not sess:
+                try:
+                    sess = s.get(SessionRow, session_id)
+                    if not sess:
+                        return {
+                            "ok": False,
+                            "error": "session not found",
+                            "error_code": "not_found",
+                        }
+                    now = _now()
+                    sess.status = "ended"
+                    sess.ended_at = now
+                    sess.updated_at = now
+                    s.commit()
+                    return {
+                        "ok": True,
+                        "session": self._sess_dict(sess),
+                        "auto_promote": promo,
+                        "message": f"Session ended {session_id}",
+                    }
+                except Exception as e:  # noqa: BLE001
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
                     return {
                         "ok": False,
-                        "error": "session not found",
-                        "error_code": "not_found",
+                        "error": str(e)[:300],
+                        "error_code": "db",
+                        "message": f"session end failed: {type(e).__name__}",
                     }
-                now = _now()
-                sess.status = "ended"
-                sess.ended_at = now
-                sess.updated_at = now
-                s.commit()
-                return {
-                    "ok": True,
-                    "session": self._sess_dict(sess),
-                    "auto_promote": promo,
-                    "message": f"Session ended {session_id}",
-                }
 
         out = self._locked(_do)
         if promo is not None and out.get("ok"):
@@ -678,33 +690,45 @@ class SessionMemory:
 
         def _do() -> Dict[str, Any]:
             with self._Session() as s:
-                sess = s.get(SessionRow, session_id)
-                if not sess:
+                try:
+                    sess = s.get(SessionRow, session_id)
+                    if not sess:
+                        return {
+                            "ok": False,
+                            "error": "session not found",
+                            "error_code": "not_found",
+                        }
+                    n = 0
+                    if delete_items:
+                        n = s.execute(
+                            delete(SessionItemRow).where(
+                                SessionItemRow.session_id == session_id
+                            )
+                        ).rowcount
+                    if hard:
+                        s.execute(delete(SessionRow).where(SessionRow.id == session_id))
+                    else:
+                        sess.status = "cleared"
+                        sess.updated_at = _now()
+                    s.commit()
+                    return {
+                        "ok": True,
+                        "session_id": session_id,
+                        "items_deleted": int(n or 0),
+                        "hard": hard,
+                        "message": f"Cleared session {session_id} ({n} items)",
+                    }
+                except Exception as e:  # noqa: BLE001
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
                     return {
                         "ok": False,
-                        "error": "session not found",
-                        "error_code": "not_found",
+                        "error": str(e)[:300],
+                        "error_code": "db",
+                        "message": f"session clear failed: {type(e).__name__}",
                     }
-                n = 0
-                if delete_items:
-                    n = s.execute(
-                        delete(SessionItemRow).where(
-                            SessionItemRow.session_id == session_id
-                        )
-                    ).rowcount
-                if hard:
-                    s.execute(delete(SessionRow).where(SessionRow.id == session_id))
-                else:
-                    sess.status = "cleared"
-                    sess.updated_at = _now()
-                s.commit()
-                return {
-                    "ok": True,
-                    "session_id": session_id,
-                    "items_deleted": int(n or 0),
-                    "hard": hard,
-                    "message": f"Cleared session {session_id} ({n} items)",
-                }
 
         return self._locked(_do)
 
@@ -719,6 +743,29 @@ class SessionMemory:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=float(max_age_hours))
         cutoff_s = cutoff.isoformat()
 
+        def _parse_ts(ts: Any) -> Optional[datetime]:
+            """Parse ISO timestamp strings or datetime for dialect-safe compare."""
+            if ts is None:
+                return None
+            if isinstance(ts, datetime):
+                dt = ts
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=timezone.utc)
+                return dt
+            s = str(ts).strip()
+            if not s:
+                return None
+            try:
+                # handle trailing Z
+                if s.endswith("Z"):
+                    s = s[:-1] + "+00:00"
+                dt = datetime.fromisoformat(s)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except Exception:
+                return None
+
         def _do() -> Dict[str, Any]:
             with self._Session() as s:
                 q = select(SessionRow)
@@ -727,7 +774,12 @@ class SessionMemory:
                 victims = []
                 for r in s.execute(q).scalars().all():
                     ts = r.ended_at or r.updated_at or r.created_at
-                    if ts and ts < cutoff_s:
+                    dt = _parse_ts(ts)
+                    # Prefer parsed datetime vs cutoff; fall back to string compare
+                    if dt is not None:
+                        if dt < cutoff:
+                            victims.append(r.id)
+                    elif ts and str(ts) < cutoff_s:
                         victims.append(r.id)
                 if dry_run:
                     return {

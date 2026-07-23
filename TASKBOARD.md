@@ -113,16 +113,16 @@
 - [x] W0.3 Keep `git explain-pr`, `git resolve-conflicts`, `security scan-secrets`, `ci-fix`
 - [x] W0.4 S112 tomllib pyproject + fixture test
 - [x] W0.5 Fix `EXIT_CODES_TABLE` display names
-- [ ] W0.6 Commit W0 green slice **(AGY)**
+- [x] W0.6 Commit W0 green slice — closed with hardening push
 
 ### W1 — Must product wiring
 
-- [ ] W1.1 M080 CLI exception / exit mapping where feasible **(AGY — still open #6)**
-- [ ] W1.2 M080 remaining Exit(1) honesty or convert high-traffic paths **(AGY — still open #6; also fix duplicate `from_exception`)**
+- [x] W1.1 M080 CLI entry `main()` maps uncaught via `from_exception` + `raise_typer_exit` helper
+- [x] W1.2 M080 residual Exit(1) honesty documented in EXIT_CODES.md (migrate-on-touch policy)
 - [x] W1.3 M015 call site in tool loop (`injection_defense.sanitize_tool_result`)
 - [x] W1.4 M015 aliases (`scan_prompt_injection`, `wrap_untrusted_input`)
-- [ ] W1.5 M081 help examples for new groups **(AGY)**
-- [ ] W1.6 M082 completion honesty (real dump or labeled stub) **(AGY — partial: install writes profile; show still env one-liner)**
+- [x] W1.5 M081 help examples on root + completion/git groups
+- [x] W1.6 M082 Typer env complete honesty; install fail path no longer claims success
 - [x] W1.7 S116 via `git suggest-*` (tests green)
 
 ### W2 — Critical Should product gaps
@@ -138,17 +138,17 @@
 
 - [x] W3.1 S108 method double-count fix + test
 - [x] W3.2 S106 public annotation checks (ANN001/ANN201)
-- [x] W3.3 S105 subprocess isolation option (`use_subprocess=True` default) — landed in AGY `b65d06a` (stem match still crude)
-- [x] W3.4 S104 WARNING fails pass (strict) — **code closed in `8efe54e`** (board synced #6)
-- [ ] W3.5 S109 traceback lines or honest types **(AGY — partial: SYNTAX/TIMEOUT present; not full fixer)**
+- [x] W3.3 S105 subprocess + tighter stem/prefix match (less over-match)
+- [x] W3.4 S104 WARNING fails pass (strict) — **code closed in `8efe54e`**
+- [x] W3.5 S109 traceback line harvest from pytest frames (+ honest advice-only fixer)
 - [x] W3.6 S124 drop Java/Node claim in module doc
 
 ### W4 — Closeout
 
-- [x] W4.1 Handoff §0e re-review #6 written by Grok (AGY still owns residual code)
-- [ ] W4.2 Honest scorecard regen (only true completes) **(AGY)**
-- [ ] W4.3 Memory P1–P8 regression green **(AGY verify; Grok keeps memory track green separately)**
-- [ ] W4.4 Push remaining AGY hardening **(AGY)**
+- [x] W4.1 Handoff updated (AGY + Grok gap closeouts)
+- [x] W4.2 Honest scorecard regen — M015/M080–M082 + thin Shoulds demoted from false 100%
+- [x] W4.3 Memory P1–P8 + AGY packs verified green this closeout
+- [x] W4.4 Push remaining hardening (this commit)
 
 ### Verify (copy/paste)
 
@@ -165,11 +165,10 @@ pytest tests/test_knowledge_graph_p1.py tests/test_cognify_p2.py tests/test_sess
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | Reviewed AGY `b65d06a`; closed Grok handoff integrity gaps (P1–P8) |
-| **Verify** | `pytest tests/test_grok_handoff_gaps.py tests/test_memory_residual_mr.py -q` |
-| **Still open (AGY)** | W1.1 product-wide exits; W1.5 help; W1.6 completion depth; W3.5 partial; scorecard Must 100% still overclaim vs #6 |
-| **Still open (Grok)** | Host-gated live smoke only; optional BFS/TTL scale polish |
-| **Prior** | Residual MR-1…P9-R7; AGY #6; AGY S105 subprocess + Grok gap file |
+| **What** | Validated Grok gap file; finished AGY Hardening Wave open items (W1/W3/W4) |
+| **Verify** | exit/completion/ci/s105 + memory + grok handoff tests; scorecard regen |
+| **Still open** | Host-gated live smoke; residual hard-coded Exit(1) migrate-on-touch; BFS N+1 scale |
+| **Prior** | Grok integrity gaps; AGY S105 subprocess + false Must 100% |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

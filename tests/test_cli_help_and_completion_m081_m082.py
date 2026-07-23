@@ -31,11 +31,11 @@ def test_exit_codes_cli():
 def test_completion_cli_show():
     res = runner.invoke(app, ["completion", "show", "--shell", "bash"])
     assert res.exit_code == 0
-    assert "bash completion" in res.output
+    assert "_SUPERAI_COMPLETE=bash_source" in res.output
 
     res_zsh = runner.invoke(app, ["completion", "show", "--shell", "zsh"])
     assert res_zsh.exit_code == 0
-    assert "zsh completion" in res_zsh.output
+    assert "_SUPERAI_COMPLETE=zsh_source" in res_zsh.output
 
 
 def test_completion_cli_install():

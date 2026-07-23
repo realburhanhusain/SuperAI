@@ -130,12 +130,9 @@ V6_MUST_COMPLETE = {
     "M001",  # hard budget — call_lifecycle + SPEND_PATHS + foundation_safety.audit_m001
     "M002",  # accurate cost — cost_accounting usage×registry + cost_source + board rollup
     "M008",  # result envelope — tui_envelope + all TUI slash handlers + audit_m008
-    "M015",  # prompt injection — prompt_injection module + scan/wrap CLI + PROMPT_INJECTION_DEFENSE.md + tests
+    # M015/M080/M081/M082: strong code+CLI but residual product gaps → STRICT_INCOMPLETE
     "M017",  # cooperative cancel — cancel_token + board/council/agent/orchestrator
     "M018",  # timeouts — subprocess_safety + model_timeouts + audit_m018
-    "M080",  # exit codes — exit_codes module + exit-codes CLI + EXIT_CODES.md + tests
-    "M081",  # high-quality help — CLI docstrings/examples + CLI_HELP_AND_COMPLETION.md + tests
-    "M082",  # shell completion — completion show/install CLI + CLI_HELP_AND_COMPLETION.md + tests
     # MOS-N6 voice: code + tests + this session (docs: MOSCOW plan N6 section)
     # V6 N213 maps separately
 }
@@ -146,9 +143,10 @@ V6_SHOULD_COMPLETE = {
 }
 # fix - S ids
 V6_S_COMPLETE = {
-    "S101", "S102", "S104", "S105", "S106", "S107", "S108", "S109", "S110", "S112", "S114", "S115", "S116", "S117", "S118", "S122", "S124", "S125", "S126",
+    "S101", "S102", "S106", "S107", "S108", "S110", "S114", "S116", "S117", "S118", "S122", "S124", "S125", "S126",
     "S132", "S151", "S152", "S157", "S161", "S171", "S177", "S196", "S198", "S199", "S200",
     "S103", "S130", "S131", "S133", "S134", "S135",
+    # S104/S105/S109/S112/S115 → STRICT_INCOMPLETE (honest residual depth)
 }
 V6_N_COMPLETE = {
     "N203", "N227", "N260", "N261",
@@ -186,6 +184,17 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     "M063": T(True, True, True, 85, "distill+deprecate", "partial", "learning tests", "Lifecycle product incomplete"),
     "M068": T(True, True, True, 85, "preferences.bias_candidates", "partial", "tests", "Deep routing bias not fully proven"),
     "M079": T(True, True, True, 85, "global --json", "CLI help", "partial tests", "Not all commands emit JSON by default"),
+    # AGY Must wiring (2026-07-24 honest): product paths improved, residual gaps remain
+    "M015": T(True, True, True, 90, "prompt_injection + injection_defense bridge + CLI", "PROMPT_INJECTION_DEFENSE.md", "tests", "Not every tool/MCP path sanitized"),
+    "M080": T(True, True, True, 90, "exit_codes + CLI entry from_exception + raise_typer_exit", "EXIT_CODES.md", "test_exit_codes_m080", "Residual hard-coded typer.Exit(1) paths remain"),
+    "M081": T(True, True, True, 90, "rich help + group examples", "CLI_HELP_AND_COMPLETION.md", "test_cli_help", "Not every subcommand has epilog examples"),
+    "M082": T(True, True, True, 90, "completion show/install Typer env complete", "CLI_HELP_AND_COMPLETION.md", "test_cli_help", "PowerShell native complete limited; profile install best-effort"),
+    # Thin Shoulds demoted from false 100%
+    "S105": T(True, True, True, 85, "impacted runner subprocess + stem match", "AUTO_TEST_RUNNER.md", "test_auto_test_runner_s105", "Stem heuristics still approximate"),
+    "S109": T(True, True, True, 80, "CI log parse + traceback harvest", "CI_FIXER.md", "test_ci_fixer_s109", "Advice-only fixer; not auto-patch"),
+    "S104": T(True, True, True, 85, "self_critique strict WARNING fail", "SELF_CRITIQUE.md", "test_self_critique_s104", "Thin AST checks; not full DoD gate"),
+    "S112": T(True, True, True, 85, "dep_upgrade tomllib", "DEP_UPGRADE.md", "test_dep_upgrade_s112", "No live upgrade apply"),
+    "S115": T(True, True, True, 75, "license heuristic + pyproject count", "LICENSE_COMPLIANCE.md", "test_license_check_s115", "Not SPDX/API compliance"),
     "M090": T(True, True, True, 80, "TOP_30 + contract smoke", "V6 M090", "verify_top30 offline", "Not live invocation of all 30 CLIs"),
     "M093": T(True, True, True, 85, "mcp_safety wrap", "V6 M093", "mcp tests partial", "Full MCP tool matrix not exhaustive"),
     "M100": T(True, True, True, 80, "dashboard honesty labels", "partial", "tests partial", "Full dashboard product incomplete"),

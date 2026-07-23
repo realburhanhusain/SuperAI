@@ -9,39 +9,47 @@ SuperAI provides comprehensive `--help` output with rich formatting, usage epilo
 ## Subcommands & Features
 
 ### 1. High-Quality `--help` & Epilogs (M081)
-All subcommands include rich docstrings, parameter descriptions, and examples.
+Root help includes examples. Groups (`completion`, `git`, `prompt-injection`, memory surfaces)
+carry usage examples in their help strings. Not every deep subcommand has a full epilog yet.
 
 Example:
 ```bash
 superai --help
-superai daemon --help
-superai split-tui --help
 superai exit-codes
+superai completion --help
+superai git --help
+superai memory-eval --help
 ```
 
 ---
 
 ### 2. Shell Completion (M082)
 
-SuperAI supports automatic tab-completion across **Bash**, **Zsh**, **Fish**, and **PowerShell**.
+SuperAI uses **official Typer/Click env complete** (`_SUPERAI_COMPLETE=<shell>_source`),
+not a fake one-liner stub.
 
 #### Install Completion
 
 ```bash
-# Automatic installation for your current active shell:
+# Typer built-in:
 superai --install-completion
 
-# Explicit shell selection:
+# Explicit profile append:
 superai completion install --shell zsh
-superai completion install --shell powershell
+superai completion install --shell bash
+superai completion install --shell powershell   # limited native completer
 ```
 
-#### View Shell Completion Script
+#### View Shell Completion Loader
 
 ```bash
 superai completion show --shell bash
+# → eval "$(_SUPERAI_COMPLETE=bash_source superai)"
 superai completion show --shell zsh
 ```
+
+**Honesty:** PowerShell native completion is limited; install prints an honest note.
+Install failures no longer claim success (exit mapped).
 
 ---
 

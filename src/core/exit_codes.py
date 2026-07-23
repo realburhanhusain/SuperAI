@@ -7,7 +7,7 @@ Standardized exit codes for SuperAI CLI, background daemons, and subprocesses.
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 # Standard Exit Codes
 OK = 0
@@ -120,32 +120,9 @@ def from_result(result: Dict[str, Any]) -> int:
             return TIMEOUT
         return OK
 
-    code = str(result.get("error_code") or result.get("code") or "").lower()
-    return {
-        "budget": BUDGET,
-        "permission": PERMISSION,
-        "readiness": READINESS,
-        "timeout": TIMEOUT,
-        "provider": PROVIDER,
-        "cancelled": CANCELLED,
-        "jail": JAIL,
-        "validation": USAGE,
-        "usage": USAGE,
-    }.get(code, GENERAL)
-
-
-def from_result(result: Dict[str, Any]) -> int:
-    """Map result payload dictionary to exit code."""
-    if not isinstance(result, dict):
-        return GENERAL
-    if result.get("ok") is True and result.get("status") in {
-        None,
-        "success",
-        "partial",
-    }:
-        if result.get("status") == "partial":
-            return TIMEOUT
-        return OK
+    # Prefer explicit integer exit_code on payloads
+    if isinstance(result.get("exit_code"), int):
+        return int(result["exit_code"])
 
     code = str(result.get("error_code") or result.get("code") or "").lower()
     return {
@@ -158,4 +135,27 @@ def from_result(result: Dict[str, Any]) -> int:
         "jail": JAIL,
         "validation": USAGE,
         "usage": USAGE,
+        "not_found": USAGE,
+        "io": GENERAL,
+        "db": INTERNAL,
     }.get(code, GENERAL)
+
+
+def raise_typer_exit(exc_or_result: Any = None, *, code: Optional[int] = None) -> None:  # noqa: ANN401
+    """
+    Raise typer.Exit with mapped SuperAI exit code (M080 product boundary).
+
+    Usage:
+      raise_typer_exit(exc)
+      raise_typer_exit({"ok": False, "error_code": "budget"})
+      raise_typer_exit(code=BUDGET)
+    """
+    import typer
+
+    if code is not None:
+        raise typer.Exit(int(code))
+    if isinstance(exc_or_result, BaseException):
+        raise typer.Exit(from_exception(exc_or_result))
+    if isinstance(exc_or_result, dict):
+        raise typer.Exit(from_result(exc_or_result))
+    raise typer.Exit(GENERAL)

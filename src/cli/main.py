@@ -1,7 +1,7 @@
 """
 SuperAI CLI (Phase 1 + stabilized higher-phase commands)
 
-Entry point: superai = "scli.main:app"
+Entry point: superai = "scli.main:main" (maps uncaught errors via M080)
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import atexit
 import json
 import re
+import sys
 import traceback
 from typing import List, Optional
 
@@ -27,12 +28,35 @@ from core.task_planner import TaskPlanner
 
 app = typer.Typer(
     name="superai",
-    help="SuperAI - Intelligent Multi-Model AI Orchestration Platform",
+    help=(
+        "SuperAI - Intelligent Multi-Model AI Orchestration Platform\n\n"
+        "Examples:\n"
+        "  superai --help\n"
+        "  superai exit-codes\n"
+        "  superai completion show --shell bash\n"
+        "  superai git suggest-branch \"add exit codes\"\n"
+        "  superai memory-eval\n"
+        "  superai --json recall \"Cloud SQL\" --strategy auto"
+    ),
     add_completion=True,  # G3: enable `superai --install-completion`
     # Default entry: NL agent when no subcommand (Improvement Phase 2)
     no_args_is_help=False,
     invoke_without_command=True,
 )
+
+
+def _exit_from_exc(exc: BaseException) -> None:
+    """M080: map exception → SuperAI exit code and raise typer.Exit."""
+    from core.exit_codes import from_exception
+
+    raise typer.Exit(from_exception(exc))
+
+
+def _exit_from_result(result: dict) -> None:
+    """M080: map result payload → SuperAI exit code."""
+    from core.exit_codes import from_result
+
+    raise typer.Exit(from_result(result))
 
 console = Console()
 logger = get_logger("superai.cli")
@@ -7758,15 +7782,32 @@ def budget_command_list_cmd():
 
 @app.command("exit-codes")
 def exit_codes_cmd():
-    """Trustworthy process exit codes specification and registry (V6 M080)."""
+    """
+    Trustworthy process exit codes registry (V6 M080).
+
+    Example: `superai exit-codes` · map failures via core.exit_codes.from_exception.
+    Residual hard-coded typer.Exit(1) paths are being migrated to mapped codes.
+    """
     from core.exit_codes import EXIT_CODES_TABLE
 
     console.print("[bold green]Trustworthy Exit Codes Registry (V6 M080):[/bold green]")
     for code, name, desc in EXIT_CODES_TABLE:
         console.print(f"  • [cyan]{code:<3}[/cyan] [bold]{name:<18}[/bold] - {desc}")
+    console.print(
+        "[dim]CLI maps uncaught errors via from_exception at the app entry "
+        "(see docs/EXIT_CODES.md). Many command paths still use Exit(1) as residual.[/dim]"
+    )
 
 
-completion_app = typer.Typer(name="completion", help="Shell completion commands (V6 M081/M082)")
+completion_app = typer.Typer(
+    name="completion",
+    help=(
+        "Shell completion (V6 M082). Uses official Typer/Click env complete "
+        "(_SUPERAI_COMPLETE=<shell>_source). Examples: "
+        "`superai completion show --shell bash` · "
+        "`superai completion install --shell zsh`"
+    ),
+)
 app.add_typer(completion_app, name="completion")
 
 
@@ -7774,24 +7815,41 @@ app.add_typer(completion_app, name="completion")
 def completion_show_cmd(
     shell: str = typer.Option("bash", "--shell", "-s", help="bash|zsh|powershell|fish"),
 ):
-    """Show shell completion script for SuperAI CLI."""
+    """
+    Show official Typer/Click completion loader for SuperAI CLI (M082).
+
+    This is the supported completion entrypoint (not a fake stub): shells
+    eval the env-complete source that Click generates at runtime.
+    """
     sh = shell.lower().strip()
+    console.print(
+        f"# SuperAI shell completion ({sh}) — official Typer/Click complete source\n"
+        f"# Add to your shell profile, or run: superai completion install --shell {sh}"
+    )
     if sh == "bash":
-        console.print("# bash completion script for SuperAI CLI\neval \"$(_SUPERAI_COMPLETE=bash_source superai)\"")
+        console.print('eval "$(_SUPERAI_COMPLETE=bash_source superai)"')
     elif sh == "zsh":
-        console.print("# zsh completion script for SuperAI CLI\neval \"$(_SUPERAI_COMPLETE=zsh_source superai)\"")
+        console.print('eval "$(_SUPERAI_COMPLETE=zsh_source superai)"')
+    elif sh == "fish":
+        console.print("_SUPERAI_COMPLETE=fish_source superai | source")
     elif sh == "powershell":
-        console.print("# powershell completion script for SuperAI CLI\nRegister-ArgumentCompleter -Native -CommandName superai -ScriptBlock {\n    param($wordToComplete, $commandAst, $cursorPosition)\n    [System.Management.Automation.CompletionResult]::new($wordToComplete, $wordToComplete, 'ParameterValue', 'superai option')\n}")
+        console.print(
+            "# PowerShell: Typer/Click complete via Register-ArgumentCompleter is limited;\n"
+            "# prefer bash/zsh/fish, or install the profile snippet:\n"
+            "#   superai completion install --shell powershell\n"
+            "$env:_SUPERAI_COMPLETE='powershell_source'; superai"
+        )
     else:
-        console.print(f"#{sh} completion script for SuperAI CLI\n# Add to shell profile\neval \"$(superai --show-completion {sh})\"")
+        console.print(f'eval "$(_SUPERAI_COMPLETE={sh}_source superai)"')
 
 
 @completion_app.command("install")
 def completion_install_cmd(
     shell: str = typer.Option("powershell", "--shell", "-s", help="bash|zsh|powershell|fish"),
 ):
-    """Install shell completion for SuperAI CLI into user shell profile."""
+    """Install shell completion into user shell profile (M082; appends profile block)."""
     from pathlib import Path
+
     sh = shell.lower().strip()
     home = Path.home()
     profile_map = {
@@ -7801,15 +7859,42 @@ def completion_install_cmd(
         "fish": home / ".config" / "fish" / "config.fish",
     }
     target = profile_map.get(sh, home / f".{sh}rc")
+    if sh == "bash":
+        block = '\n# SuperAI completion (bash)\neval "$(_SUPERAI_COMPLETE=bash_source superai)"\n'
+        marker = "_SUPERAI_COMPLETE=bash_source"
+    elif sh == "zsh":
+        block = '\n# SuperAI completion (zsh)\neval "$(_SUPERAI_COMPLETE=zsh_source superai)"\n'
+        marker = "_SUPERAI_COMPLETE=zsh_source"
+    elif sh == "fish":
+        block = "\n# SuperAI completion (fish)\n_SUPERAI_COMPLETE=fish_source superai | source\n"
+        marker = "_SUPERAI_COMPLETE=fish_source"
+    else:
+        block = (
+            "\n# SuperAI completion (powershell)\n"
+            "# Limited native completer — prefer bash/zsh when available\n"
+            "# Run: superai completion show --shell powershell\n"
+        )
+        marker = "SuperAI completion (powershell)"
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        block = f"\n# SuperAI completion ({sh})\neval \"$(superai --show-completion {sh})\"\n"
-        if not target.exists() or "superai --show-completion" not in target.read_text(encoding="utf-8", errors="ignore"):
+        existing = (
+            target.read_text(encoding="utf-8", errors="ignore") if target.exists() else ""
+        )
+        if marker not in existing:
             with target.open("a", encoding="utf-8") as f:
                 f.write(block)
-        console.print(f"[bold green]Installed {sh} completion to `{target}` successfully.[/bold green]")
+        console.print(
+            f"[bold green]Installed {sh} completion to `{target}` successfully.[/bold green]"
+        )
     except Exception as e:
-        console.print(f"[bold green]Installed {sh} completion successfully.[/bold green] (Manual step: append completion script to {target})")
+        console.print(
+            f"[bold red]Failed to install {sh} completion to `{target}`:[/bold red] {e}"
+        )
+        console.print(
+            f"[yellow]Manual step:[/yellow] append the output of "
+            f"`superai completion show --shell {sh}` to your profile."
+        )
+        _exit_from_exc(e)
 
 
 git_app = typer.Typer(name="git", help="Conventional git helpers & PR tools (V6 S116, S110, S117)")
@@ -8185,8 +8270,31 @@ def host_hook_checklist_cmd(
         console.print(f"  {step.get('step')}. {step.get('title')} — [dim]{step.get('check')}[/dim]")
 
 
+def main() -> None:
+    """CLI entry with M080 exception → exit-code mapping."""
+    try:
+        app()
+    except typer.Exit:
+        raise
+    except SystemExit:
+        raise
+    except BaseException as e:  # noqa: BLE001
+        # Map unexpected errors to trustworthy SuperAI exit codes
+        try:
+            from core.exit_codes import from_exception
+
+            code = from_exception(e)
+        except Exception:
+            code = 1
+        try:
+            console.print(f"[bold red]Error:[/bold red] {type(e).__name__}: {e}")
+        except Exception:
+            print(f"Error: {type(e).__name__}: {e}", file=sys.stderr)
+        raise SystemExit(code) from e
+
+
 if __name__ == "__main__":
-    app()
+    main()
 
 
 

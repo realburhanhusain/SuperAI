@@ -1,12 +1,13 @@
 # SuperAI Memory Roadmap — Cognee-class gaps 1–8
 
-**Status:** Implementation in progress — **P1–P4 shipped (end-to-end)**  
+**Status:** Implementation in progress — **P1–P5 shipped (end-to-end)**  
 **Date:** 2026-07-23  
 **Repo tip at drafting:** `6035caa` (master)  
 **P1 land:** `core.knowledge_graph` + `superai kg` + MCP `superai_kg_*` + docs/tests  
 **P2 land:** `core.cognify` + `superai cognify` + MCP `superai_cognify` + docs/tests  
 **P3 land:** `core.session_memory` + `superai memory-session` + MCP `superai_session` + docs/tests  
 **P4 land:** `core.recall_router` + `superai recall` + MCP search strategies + docs/tests  
+**P5 land:** `core.ingest` + `superai ingest` + MCP `superai_ingest` + docs/tests (text/md/jsonl/pdf/url)  
 **Coordination:** Parallel AGY work on V1–V6 scorecard (M015/M080/M081/M082/S116) — keep file touch sets disjoint.  
 **Compare-to:** [Cognee](https://github.com/topoteretes/cognee) (open-source agent knowledge-graph memory)  
 **Baseline SuperAI:** `MemoryPalace` (vectors + wings/rooms) + `LearningEngine` (promote / conflict / distill) + central write-back + MCP tools  
@@ -379,9 +380,11 @@ superai ingest --url https://... --cognify   # SSRF-safe
 
 ### Definition of Done
 
-- [ ] At least text + PDF + URL paths with tests (URL mocked)  
-- [ ] SSRF + workspace jail on file paths  
-- [ ] Docs: supported formats matrix  
+- [x] At least text + PDF + URL paths with tests (URL mocked)  
+- [x] SSRF + workspace jail on file paths  
+- [x] Docs: supported formats matrix (`docs/INGEST.md`)  
+
+**Shipped:** `src/core/ingest.py`, CLI `superai ingest`, MCP `superai_ingest`, `tests/test_ingest_p5.py`.
 
 ---
 
@@ -581,8 +584,9 @@ The **spikes** are the first concrete work packages inside Phase 0.
 2. ~~P0.2 / P2 cognify~~ **Done**  
 3. ~~P0.3 / P3 session~~ **Done**  
 4. ~~P4 multi-strategy recall~~ **Done**  
-5. **Next:** P5 multi-format ingest; P6 ontology; P7 datasets; P8 agent SessionEnd hooks  
-6. Leave scorecard files / exit_codes / prompt_injection / git_helpers to AGY unless coordinated  
+5. ~~P5 multi-format ingest~~ **Done**  
+6. **Next:** P6 ontology; P7 datasets; P8 agent SessionEnd hooks  
+7. Leave scorecard files / exit_codes / prompt_injection / git_helpers to AGY unless coordinated  
 
 ---
 

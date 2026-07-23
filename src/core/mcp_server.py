@@ -211,6 +211,32 @@ TOOLS: List[Dict[str, Any]] = [
         ["source"],
     ),
     _tool(
+        "superai_ingest",
+        "Multi-format ingest (text/md/jsonl/pdf/url) into palace + optional cognify (P5).",
+        {
+            "source": {
+                "type": "string",
+                "description": "Local file/dir path or inline text",
+            },
+            "url": {
+                "type": "string",
+                "description": "HTTP(S) URL (SSRF-guarded); alternative to source",
+            },
+            "dataset_id": {"type": "string"},
+            "cognify": {
+                "type": "boolean",
+                "description": "Also run cognify into knowledge graph",
+            },
+            "cognify_mode": {"type": "string", "description": "mock | llm"},
+            "dry_run": {"type": "boolean"},
+            "store_palace": {"type": "boolean"},
+            "glob": {
+                "type": "string",
+                "description": "When source is a directory (default *.md)",
+            },
+        },
+    ),
+    _tool(
         "superai_learn",
         "Write back a completed outcome into central Memory Palace (learning + result snippet).",
         {
@@ -636,6 +662,24 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
             mode=str(args.get("mode") or "mock"),
             dry_run=bool(args.get("dry_run")),
             store_palace=bool(args.get("store_palace", True)),
+        )
+
+    if name == "superai_ingest":
+        from .ingest import ingest as run_ingest
+
+        source = args.get("source")
+        url = args.get("url")
+        if not source and not url:
+            raise ValueError("source or url required")
+        return run_ingest(
+            str(source) if source else None,
+            url=str(url) if url else None,
+            dataset_id=str(args.get("dataset_id") or "default"),
+            cognify=bool(args.get("cognify")),
+            cognify_mode=str(args.get("cognify_mode") or "mock"),
+            dry_run=bool(args.get("dry_run")),
+            store_palace=bool(args.get("store_palace", True)),
+            glob_pat=str(args.get("glob") or "*.md"),
         )
 
     if name == "superai_memory_palace":

@@ -1342,6 +1342,109 @@ def recall_cmd(
         raise typer.Exit(1)
 
 
+@app.command("ingest")
+def ingest_cmd(
+    source: Optional[str] = typer.Argument(
+        None,
+        help="File path, directory, or inline text (omit when using --url)",
+    ),
+    url: Optional[str] = typer.Option(
+        None, "--url", help="HTTP(S) URL to fetch (SSRF-guarded)"
+    ),
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+    cognify: bool = typer.Option(
+        False, "--cognify", help="Also run cognify into knowledge graph"
+    ),
+    cognify_mode: str = typer.Option("mock", "--cognify-mode", help="mock | llm"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Extract only; do not write palace or graph"
+    ),
+    no_palace: bool = typer.Option(
+        False, "--no-palace", help="Skip MemoryPalace chunk store"
+    ),
+    glob_pat: str = typer.Option("*.md", "--glob", help="When source is a directory"),
+    wing: Optional[str] = typer.Option(None, "--wing"),
+    room: Optional[str] = typer.Option(None, "--room"),
+    max_files: int = typer.Option(50, "--max-files"),
+    formats: bool = typer.Option(
+        False, "--formats", help="Print supported formats matrix and exit"
+    ),
+):
+    """
+    Multi-format ingest into Memory Palace (+ optional cognify) — Memory Roadmap P5.
+
+    Supports text/md/jsonl/json/pdf and SSRF-safe --url. Paths are workspace-jailed.
+    """
+    from core.ingest import formats_matrix, ingest as run_ingest
+    from core.public_surface import emit_public, json_mode
+
+    if formats:
+        rows = formats_matrix()
+        if json_mode():
+            emit_public(
+                {"ok": True, "product": "ingest_formats", "formats": rows},
+                print_json=True,
+                record_spend=False,
+            )
+            return
+        table = Table(title="Ingest formats (P5)")
+        table.add_column("format")
+        table.add_column("extensions")
+        table.add_column("notes")
+        for r in rows:
+            table.add_row(r["format"], r["extensions"], r["notes"])
+        console.print(table)
+        return
+
+    if not source and not url:
+        console.print("[red]Provide SOURCE path/text or --url[/red]")
+        raise typer.Exit(1)
+
+    out = run_ingest(
+        source,
+        url=url,
+        dataset_id=dataset,
+        cognify=cognify,
+        cognify_mode=cognify_mode,
+        store_palace=not no_palace,
+        dry_run=dry_run,
+        glob_pat=glob_pat,
+        wing=wing,
+        room=room,
+        max_files=max_files,
+    )
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        if not out.get("ok"):
+            raise typer.Exit(1)
+        return
+    lines = [
+        "[bold]Ingest[/bold]",
+        "",
+        str(out.get("message") or ""),
+        f"dataset: {out.get('dataset_id') or dataset}",
+        f"formats: {out.get('formats')}",
+        f"items_ok: {out.get('items_ok')}/{out.get('items_total')}",
+        f"chunks_written: {out.get('chunks_written')}",
+    ]
+    if out.get("cognify"):
+        lines.append(
+            f"cognify_nodes/edges: {out.get('cognify_nodes')}/{out.get('cognify_edges')}"
+        )
+    if out.get("dry_run"):
+        lines.append("dry_run: true")
+    if out.get("error"):
+        lines.append(f"error: {out.get('error')}")
+    for it in (out.get("items") or [])[:10]:
+        src = str(it.get("source") or "")[:60]
+        lines.append(
+            f"• [{it.get('format')}] ok={it.get('ok')} chars={it.get('chars')} {src}"
+        )
+    console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="green"))
+    if not out.get("ok"):
+        raise typer.Exit(1)
+
+
 def _learning_engine():
     from core.learning_engine import LearningEngine
     from core.memory_palace import MemoryPalace

@@ -38,6 +38,12 @@ dev = [
     "pytest>=8.0",
     "httpx>=0.27",
 ]
+docs = [
+    "pypdf>=4.0",
+]
+ingest = [
+    "pypdf>=4.0",
+]
 
 [tool.pytest.ini_options]
 markers = [

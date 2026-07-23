@@ -30,3 +30,24 @@ def test_check_upgradable_package_json():
     assert res.total_dependencies == 1
     assert len(res.recommendations) == 1
     assert res.recommendations[0].package_name == "express"
+
+
+def test_check_upgradable_pyproject_pep621(tmp_path):
+    p = tmp_path / "pyproject.toml"
+    p.write_text(
+        """
+[project]
+name = "demo"
+dependencies = [
+  "typer>=0.12",
+  "rich>=13.0",
+]
+""",
+        encoding="utf-8",
+    )
+    res = check_upgradable_dependencies(str(p))
+    assert res.total_dependencies == 2
+    names = {r.package_name for r in res.recommendations}
+    assert "typer" in names
+    assert "rich" in names
+    assert not any(n.startswith('"') for n in names)

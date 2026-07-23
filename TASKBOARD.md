@@ -74,40 +74,40 @@
 
 ### W0 — Stabilize WIP / restore regressions
 
-- [x] W0.1 Must CLI wired (`exit-codes`, `completion`, `git suggest-*`, `prompt-injection`) — suite green on WIP
-- [ ] W0.2 Restore `check critique` (S104) + `check upgrades` (S112) if dropped
+- [x] W0.1 Must CLI wired (`exit-codes`, `completion`, `git suggest-*`, `prompt-injection`) — suite green
+- [x] W0.2 Restore `check critique` (S104) + `check upgrades` (S112)
 - [x] W0.3 Keep `git explain-pr`, `git resolve-conflicts`, `security scan-secrets`, `ci-fix`
-- [ ] W0.4 Finish S112 tomllib pyproject + fixture test
-- [ ] W0.5 Fix `EXIT_CODES_TABLE` display names
+- [x] W0.4 S112 tomllib pyproject + fixture test
+- [x] W0.5 Fix `EXIT_CODES_TABLE` display names
 - [ ] W0.6 Commit W0 green slice
 
 ### W1 — Must product wiring
 
 - [ ] W1.1 M080 CLI exception / exit mapping where feasible
 - [ ] W1.2 M080 remaining Exit(1) honesty or convert high-traffic paths
-- [ ] W1.3 M015 call site in tool loop (`injection_defense` / agent tools)
-- [ ] W1.4 M015 single public API in docs
+- [x] W1.3 M015 call site in tool loop (`injection_defense.sanitize_tool_result`)
+- [x] W1.4 M015 aliases (`scan_prompt_injection`, `wrap_untrusted_input`)
 - [ ] W1.5 M081 help examples for new groups
 - [ ] W1.6 M082 completion honesty (real dump or labeled stub)
 - [x] W1.7 S116 via `git suggest-*` (tests green)
 
 ### W2 — Critical Should product gaps
 
-- [x] W2.1 S110 CLI `git explain-pr` (WIP)
-- [x] W2.2 S114 CLI `security scan-secrets` (WIP); optional real hook TBD
-- [ ] W2.3 S132 enforce via `spend_guard` / expensive commands
-- [ ] W2.4 S112 parser harden + tests
-- [ ] W2.5 S115 real licenses **or** rename + fix pyproject counts
-- [ ] W2.6 S117 docs = `git resolve-conflicts`
+- [x] W2.1 S110 CLI `git explain-pr`
+- [x] W2.2 S114 CLI `security scan-secrets` (+ docs honesty)
+- [x] W2.3 S132 enforce via `spend_guard.budget_precheck` (already wired)
+- [x] W2.4 S112 parser harden + tests
+- [x] W2.5 S115 pyproject count fix + heuristic honesty message
+- [x] W2.6 S117 docs = `git resolve-conflicts`
 
 ### W3 — Quality harden
 
-- [ ] W3.1 S108 method double-count fix + test
-- [ ] W3.2 S106 annotations flag **or** drop “typecheck” claim
+- [x] W3.1 S108 method double-count fix + test
+- [x] W3.2 S106 public annotation checks (ANN001/ANN201)
 - [ ] W3.3 S105 tighter match / subprocess option
 - [ ] W3.4 S104 WARNING fails pass (strict)
 - [ ] W3.5 S109 traceback lines or honest types
-- [ ] W3.6 S124 drop Java/Node claim or implement
+- [x] W3.6 S124 drop Java/Node claim in module doc
 
 ### W4 — Closeout
 

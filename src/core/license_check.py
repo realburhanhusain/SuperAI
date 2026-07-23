@@ -65,7 +65,40 @@ def scan_dependency_licenses(manifest_path: str) -> LicenseCheckResult:
         except Exception as e:
             issues.append(LicenseIssue("N/A", "N/A", "ERROR", f"Failed to parse package.json: {e}"))
 
-    elif fname.endswith("requirements.txt") or fname.endswith("pyproject.toml"):
+    elif fname.endswith("pyproject.toml"):
+        # Heuristic only: package name/string contains gpl/agpl — not real SPDX lookup
+        try:
+            import tomllib
+
+            data = tomllib.loads(p.read_text(encoding="utf-8"))
+            deps = list((data.get("project") or {}).get("dependencies") or [])
+            total = len(deps)
+            for item in deps:
+                s = str(item)
+                pkg = s.split(";")[0]
+                for sep in (">=", "<=", "==", "~=", ">", "<", "!"):
+                    if sep in pkg:
+                        pkg = pkg.split(sep)[0]
+                        break
+                pkg = pkg.strip().strip("\"'")
+                if "gpl" in s.lower() or "agpl" in s.lower() or "gpl" in pkg.lower():
+                    issues.append(
+                        LicenseIssue(
+                            package_name=pkg or s,
+                            license_name="GPL-family (name heuristic)",
+                            category="COPYLEFT",
+                            message=(
+                                "Name/string heuristic only — not a full license audit. "
+                                "Verify SPDX license of the package."
+                            ),
+                        )
+                    )
+        except Exception as e:
+            issues.append(
+                LicenseIssue("N/A", "N/A", "ERROR", f"Failed to parse pyproject: {e}")
+            )
+
+    elif fname.endswith("requirements.txt"):
         try:
             content = p.read_text(encoding="utf-8")
             lines = content.splitlines()
@@ -78,9 +111,11 @@ def scan_dependency_licenses(manifest_path: str) -> LicenseCheckResult:
                     issues.append(
                         LicenseIssue(
                             package_name=line_str.split("=")[0].strip(),
-                            license_name="GPL-family (heuristic)",
+                            license_name="GPL-family (name heuristic)",
                             category="COPYLEFT",
-                            message="Copyleft license detected; check legal redistribution policy.",
+                            message=(
+                                "Name/string heuristic only — not a full license audit."
+                            ),
                         )
                     )
         except Exception as e:

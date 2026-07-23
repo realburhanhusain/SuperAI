@@ -2,7 +2,9 @@
 
 ## Overview
 
-SuperAI provides automated secret scanning (`src/core/security_scan.py`) to scan files, diffs, and text payloads for leaked API keys, tokens, and private SSH/RSA keys prior to git commits.
+SuperAI provides automated **secret** scanning (`src/core/security_scan.py`) for files
+and text (API keys, tokens, private-key headers). This is regex-based detection — **not**
+full CVE/SCA vulnerability scanning. Pre-commit hooks are not auto-installed; use the CLI.
 
 ---
 

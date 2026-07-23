@@ -1,8 +1,10 @@
 """
 Log Triage Mode and Stack Trace Analyzer (V6 S124).
 
-Parses Python, Java, and Node.js stack traces from log files or text,
-extracts root cause exceptions, line numbers, and suggests targeted fixes.
+Parses **Python** stack traces from log files or text, extracts root cause
+exceptions, line numbers, and suggests targeted fixes.
+
+Note: Java/Node parsers are not implemented in v1 (docs previously over-claimed).
 """
 
 from __future__ import annotations

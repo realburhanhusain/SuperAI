@@ -65,7 +65,36 @@ def check_python_syntax_and_ast(file_path: str) -> LintCheckResult:
         )
         return LintCheckResult(is_clean=False, file_path=file_path, issues=issues)
 
-    # Basic AST analysis (check for bare excepts, missing type annotations on defs)
+    # Basic AST analysis (bare excepts + missing annotations on public defs)
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not node.name.startswith("_"):
+                if node.returns is None:
+                    issues.append(
+                        LintIssue(
+                            file_path=file_path,
+                            line=node.lineno,
+                            column=node.col_offset,
+                            code="ANN201",
+                            message=f"Public function '{node.name}' missing return type annotation",
+                        )
+                    )
+                for arg in node.args.args:
+                    if arg.arg in {"self", "cls"}:
+                        continue
+                    if arg.annotation is None:
+                        issues.append(
+                            LintIssue(
+                                file_path=file_path,
+                                line=node.lineno,
+                                column=node.col_offset,
+                                code="ANN001",
+                                message=(
+                                    f"Public function '{node.name}' parameter "
+                                    f"'{arg.arg}' missing type annotation"
+                                ),
+                            )
+                        )
     for node in ast.walk(tree):
         if isinstance(node, ast.ExceptHandler) and node.type is None:
             issues.append(

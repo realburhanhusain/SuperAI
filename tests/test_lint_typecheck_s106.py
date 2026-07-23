@@ -13,12 +13,23 @@ from core.lint_typecheck import check_python_syntax_and_ast, run_post_edit_check
 
 def test_lint_clean_file():
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as tf:
-        tf.write("def foo() -> int:\n    return 42\n")
+        tf.write("def foo(x: int) -> int:\n    return 42\n")
         tf_path = tf.name
 
     res = check_python_syntax_and_ast(tf_path)
     assert res.is_clean is True
     assert len(res.issues) == 0
+
+
+def test_lint_missing_annotations():
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as tf:
+        tf.write("def foo(x):\n    return x\n")
+        tf_path = tf.name
+
+    res = check_python_syntax_and_ast(tf_path)
+    assert res.is_clean is False
+    codes = {i.code for i in res.issues}
+    assert "ANN001" in codes or "ANN201" in codes
 
 
 def test_lint_syntax_error():

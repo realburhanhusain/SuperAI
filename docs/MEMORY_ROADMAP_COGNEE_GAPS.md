@@ -602,6 +602,82 @@ The **spikes** are the first concrete work packages inside Phase 0.
 9. ~~Offline eval harness (P1–P8)~~ **Done** — `superai memory-eval` / `docs/MEMORY_EVAL.md`  
 10. ~~Phase 9+ OTEL / multi-client / cloud surface / host hooks~~ **Done** — `docs/PHASE9_MEMORY.md`  
 11. AGY scorecard remaining open items are **AGY-owned** (see Hardening Wave on TASKBOARD)  
+12. **Next (Grok):** implement residual backlog below after review — § **Memory residual backlog (P1–P9, non-host)**
+
+---
+
+## Memory residual backlog (P1–P9, non-host)
+
+**Purpose:** Single in-repo checklist for depth work after verticals shipped.  
+**Owner:** Grok memory track (do not mix with AGY Hardening Wave).  
+**Bar:** code + docs + offline tests; no host smoke required to close an item.  
+**Status of verticals:** P1–P9 shipped; items below are **polish / quality / optional productization**.
+
+### Priority queue (implement in this order unless overridden)
+
+| Pri | ID | Phase | Work | Primary refs |
+|----:|----|-------|------|----------------|
+| **1** | **MR-1** | Eval / P2 / P4 | **Deeper offline quality eval** beyond smoke: cognify extraction quality + recall strategy ranking metrics (not only pass/fail harness) | `docs/MEMORY_EVAL.md`, `core.memory_eval`, cognify/recall tests |
+| **2** | **MR-2** (= **P9-R1**) | P9 | **More OTEL instrumentation** on cognify, ingest, capture, dataset ops (safe attrs only; no free-text content) | `docs/PHASE9_MEMORY.md` P9-R1, `core.memory_otel` |
+| **3** | **MR-3** | P5 | **Code-folder language-aware chunking** + **stronger PDF path** (prefer pypdf when installed; keep basic fallback) | `docs/INGEST.md`, `core.ingest` |
+| **4** | **MR-4** | P6 | **Opt-in ontology induce** beyond frequency report (still offline-first; LLM induce remains opt-in later) | `docs/ONTOLOGY.md`, `core.ontology` |
+| **5** | **MR-5** | P7 | **Import/export edge fidelity** + **session ↔ dataset lifecycle** (forget/export alignment; document or implement session wipe policy) | `docs/DATASETS.md`, `core.memory_dataset`, session memory |
+| **6** | **MR-6** | P8 | **Agent auto-capture** on main `superai agent` / agent-tui paths (in-process; not host settings rewrite) | `docs/SESSION_CAPTURE.md`, `core.session_capture`, agent entrypoints |
+
+### Phase 9 residuals (detail table)
+
+Full table with directions: **`docs/PHASE9_MEMORY.md` § Residual follow-ups (non-host)**.
+
+| ID | Summary |
+|----|---------|
+| **P9-R1** | Same as **MR-2** — span coverage on hot memory paths |
+| **P9-R2** | OTEL SDK/exporter env polish when package present |
+| **P9-R3** | Cloud real push protocol behind explicit apply (beyond dry-sync) |
+| **P9-R4** | HTTP multi-client when web surface stable |
+| **P9-R5** | Optional pip/npm packaging of thin clients |
+| **P9-R6** | Host-hook install checklist CLI (still no silent host config rewrite) |
+| **P9-R7** | Extend `memory-eval` for otel + host-hook + cloud local_only cases |
+
+**Suggested wave after MR-1…MR-6:** P9-R2, P9-R7, then P9-R3–R6 as needed.
+
+### Related shipped verticals (not residual)
+
+| Phase | Land (module / surface) |
+|-------|-------------------------|
+| P1 | `knowledge_graph`, `superai kg` |
+| P2 | `cognify`, `superai cognify` |
+| P3 | `session_memory`, `superai memory-session` |
+| P4 | `recall_router`, `superai recall` |
+| P5 | `ingest`, `superai ingest` |
+| P6 | `ontology` + YAML, `superai ontology` |
+| P7 | `memory_dataset`, `superai dataset` |
+| P8 | `session_capture`, `superai capture` |
+| Eval | `memory_eval`, `superai memory-eval` |
+| P9 | `memory_otel`, `memory_cloud`, `host_hooks`, clients — `docs/PHASE9_MEMORY.md` |
+
+### Explicitly out of “pending product work”
+
+Do **not** put these on the residual implementation queue as offline product todos:
+
+| Exclusion | Why |
+|-----------|-----|
+| OCR / audio / video | P5 non-goal v1 (`docs/INGEST.md`) |
+| Neo4j / Weaviate / Kuzu matrix | Roadmap non-goal v1 |
+| Full managed SuperAI Cloud control plane | P9 non-goal; local-first |
+| Live multi-provider smoke (Phase 99) | Host-gated |
+| Live cloud `/health` proof / real SaaS | Host-gated |
+| Auto-writing Claude/Grok/Cursor `settings.json` | Host-gated; snippets only |
+| Mandatory OpenTelemetry dependency | P9 non-goal (mock-first) |
+| Live network tests in CI for cloud/OTLP | P9 non-goal |
+
+Host-gated rows also appear on `TASKBOARD.md` as `[!]`.
+
+### Implementation note (for after review)
+
+1. User reviews this section.  
+2. Implementation starts from **MR-1 → MR-6**, then P9-R\* as prioritized.  
+3. Each item: code + docs touch + offline tests; update this checklist when closed.  
+4. Stay out of AGY Hardening Wave modules unless coordinated.
 
 ---
 

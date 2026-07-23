@@ -87,7 +87,11 @@ Both default to `superai --json …` subprocess — no direct DB access.
 ## Residual follow-ups (non-host)
 
 Shipped = vertical slice works offline. These are **product depth** items still open
-(not host-gated smoke; not “phase unbuilt”). Track here rather than only in chat.
+(not host-gated smoke; not “phase unbuilt”).
+
+**Unified P1–P9 priority queue (MR-1…MR-6 + this table):**  
+`docs/MEMORY_ROADMAP_COGNEE_GAPS.md` § **Memory residual backlog (P1–P9, non-host)**  
+(P9-R1 is the same work as roadmap **MR-2**.)
 
 | ID | Area | Residual | Suggested direction |
 |----|------|----------|---------------------|

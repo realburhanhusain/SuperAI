@@ -22,20 +22,20 @@ def _ok(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # --- M061–M063 learning productization ---
-def learning_promote_durable(limit: int = 20) -> Dict[str, Any]:
+def learning_promote_durable(limit: int = 20, min_importance: float = 0.75) -> Dict[str, Any]:
     from .learning_engine import LearningEngine
     from .memory_palace import MemoryPalace
 
     eng = LearningEngine(MemoryPalace())
-    return _ok(eng.promote_durable(limit=limit))
+    return _ok(eng.promote_durable(limit=limit, min_importance=min_importance))
 
 
-def learning_resolve_conflicts() -> Dict[str, Any]:
+def learning_resolve_conflicts(auto_resolve: bool = True) -> Dict[str, Any]:
     from .learning_engine import LearningEngine
     from .memory_palace import MemoryPalace
 
     eng = LearningEngine(MemoryPalace())
-    return _ok(eng.resolve_conflicts(auto_resolve=True))
+    return _ok(eng.resolve_conflicts(auto_resolve=auto_resolve))
 
 
 def learning_distill(task_type: Optional[str] = None) -> Dict[str, Any]:
@@ -44,6 +44,35 @@ def learning_distill(task_type: Optional[str] = None) -> Dict[str, Any]:
 
     eng = LearningEngine(MemoryPalace())
     return _ok(eng.distill_knowledge(task_type=task_type))
+
+
+def learning_lifecycle_status() -> Dict[str, Any]:
+    from .learning_engine import LearningEngine
+    from .memory_palace import MemoryPalace
+
+    eng = LearningEngine(MemoryPalace())
+    return _ok(eng.lifecycle_status())
+
+
+def learning_list(
+    kind: str = "active",
+    *,
+    limit: int = 20,
+    task_type: Optional[str] = None,
+) -> Dict[str, Any]:
+    from .learning_engine import LearningEngine
+    from .memory_palace import MemoryPalace
+
+    eng = LearningEngine(MemoryPalace())
+    return _ok(eng.list_lifecycle(kind, limit=limit, task_type=task_type))
+
+
+def learning_deprecate(memory_id: str, reason: str = "user_deprecated") -> Dict[str, Any]:
+    from .learning_engine import LearningEngine
+    from .memory_palace import MemoryPalace
+
+    eng = LearningEngine(MemoryPalace())
+    return _ok(eng.deprecate_memory(memory_id, reason=reason))
 
 
 # --- M100 dashboard honesty ---
@@ -309,9 +338,30 @@ COMPLETION_EVIDENCE: Dict[str, Dict[str, Any]] = {
     },
     "M027": {"pct": 100, "modules": ["model_caller.call_stream", "token_stream"]},
     "M050": {"pct": 100, "modules": ["bandit_router", "model_caller bandit reorder", "post_call update"]},
-    "M061": {"pct": 100, "modules": ["learning_engine.promote_durable"]},
-    "M062": {"pct": 100, "modules": ["learning_engine.resolve_conflicts"]},
-    "M063": {"pct": 100, "modules": ["learning_engine.distill_knowledge", "deprecate_memory"]},
+    "M061": {
+        "pct": 100,
+        "modules": [
+            "learning_engine.promote_durable",
+            "learning_engine.lifecycle_status",
+            "CLI learning promote/status",
+        ],
+    },
+    "M062": {
+        "pct": 100,
+        "modules": [
+            "learning_engine.resolve_conflicts",
+            "CLI learning conflicts",
+            "learning list + conflict UI",
+        ],
+    },
+    "M063": {
+        "pct": 100,
+        "modules": [
+            "learning_engine.distill_knowledge",
+            "learning_engine.deprecate_memory",
+            "CLI learning distill/deprecate",
+        ],
+    },
     "M068": {"pct": 100, "modules": ["preferences.bias_candidates", "model_caller sticky"]},
     "M079": {"pct": 100, "modules": ["public_surface --json", "CLI callback"]},
     "M080": {"pct": 100, "modules": ["exit_codes", "emit_public exit_code"]},

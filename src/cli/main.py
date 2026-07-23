@@ -742,6 +742,183 @@ def history(
 config_app = typer.Typer(help="View and modify configuration")
 app.add_typer(config_app, name="config")
 
+learning_app = typer.Typer(
+    help="Learning lifecycle (M061–M063): promote durable, resolve conflicts, distill, deprecate"
+)
+app.add_typer(learning_app, name="learning")
+
+
+def _learning_engine():
+    from core.learning_engine import LearningEngine
+    from core.memory_palace import MemoryPalace
+
+    return LearningEngine(MemoryPalace())
+
+
+def _print_learning_result(data: dict, *, title: str = "Learning") -> None:
+    """Pretty panel or JSON via global --json public surface."""
+    try:
+        from core.public_surface import emit_public, json_mode
+
+        if json_mode():
+            emit_public(data, print_json=True, record_spend=False)
+            return
+    except Exception:
+        pass
+    # Rich human summary
+    msg = data.get("message") or title
+    lines = [f"[bold]{title}[/bold]", "", str(msg)]
+    for key in (
+        "count",
+        "promoted",
+        "conflicts_found",
+        "conflicts_resolved",
+        "groups_distilled",
+        "memories_deprecated",
+        "total_learnings",
+        "active",
+        "durable",
+        "deprecated",
+        "distilled_summaries",
+        "conflict_groups",
+        "ok",
+    ):
+        if key in data and key != "message":
+            val = data[key]
+            if isinstance(val, list) and len(val) > 8:
+                val = f"{val[:8]} … (+{len(data[key]) - 8})"
+            lines.append(f"{key}: {val}")
+    if data.get("items"):
+        lines.append("")
+        lines.append("[bold]Items[/bold]")
+        for it in data["items"][:15]:
+            lines.append(
+                f"• [{it.get('lifecycle', '?')}] "
+                f"{it.get('id', '?')[:12]}… "
+                f"imp={it.get('importance')} "
+                f"{(it.get('preview') or '')[:80]}"
+            )
+    if data.get("top_durable"):
+        lines.append("")
+        lines.append("[bold]Top durable[/bold]")
+        for it in data["top_durable"][:5]:
+            lines.append(
+                f"• {it.get('id', '?')[:12]}… {(it.get('preview') or '')[:90]}"
+            )
+    if data.get("resolved_details"):
+        lines.append("")
+        lines.append("[bold]Resolve details[/bold]")
+        for d in data["resolved_details"][:8]:
+            lines.append(
+                f"• {d.get('task_type')}/{d.get('model')}: "
+                f"kept={str(d.get('kept_memory_id') or '')[:10]}… "
+                f"deprecated={d.get('deprecated_count')}"
+            )
+    console.print(Panel.fit("\n".join(lines), border_style="cyan"))
+
+
+@learning_app.command("status")
+def learning_status():
+    """Lifecycle dashboard: active / durable / deprecated / conflicts (M061–M063 UX)."""
+    eng = _learning_engine()
+    _print_learning_result(eng.lifecycle_status(), title="Learning lifecycle")
+
+
+@learning_app.command("list")
+def learning_list_cmd(
+    kind: str = typer.Option(
+        "active",
+        "--kind",
+        "-k",
+        help="active | durable | deprecated | distilled | all",
+    ),
+    limit: int = typer.Option(20, "--limit", "-n"),
+    task_type: Optional[str] = typer.Option(None, "--type", "-t"),
+):
+    """List learnings by lifecycle bucket."""
+    eng = _learning_engine()
+    _print_learning_result(
+        eng.list_lifecycle(kind, limit=limit, task_type=task_type),
+        title=f"Learning list ({kind})",
+    )
+
+
+@learning_app.command("promote")
+def learning_promote_cmd(
+    memory_id: Optional[str] = typer.Option(
+        None, "--id", help="Promote a specific memory id (optional)"
+    ),
+    min_importance: float = typer.Option(
+        0.75, "--min-importance", help="Minimum importance for bulk promote"
+    ),
+    limit: int = typer.Option(20, "--limit", "-n"),
+):
+    """Promote high-value learnings to durable patterns (M061)."""
+    eng = _learning_engine()
+    out = eng.promote_durable(
+        memory_id=memory_id, min_importance=min_importance, limit=limit
+    )
+    out.setdefault(
+        "message",
+        f"Promoted {out.get('count', 0)} learning(s) to durable "
+        f"(min_importance={min_importance}).",
+    )
+    _print_learning_result(out, title="Promote durable")
+
+
+@learning_app.command("conflicts")
+def learning_conflicts_cmd(
+    resolve: bool = typer.Option(
+        False, "--resolve", help="Auto-resolve (deprecate weaker memories)"
+    ),
+    task_type: Optional[str] = typer.Option(None, "--type", "-t"),
+):
+    """Detect (and optionally resolve) conflicting learnings (M062)."""
+    eng = _learning_engine()
+    found = eng.detect_conflicts(task_type=task_type)
+    data: dict = {
+        "ok": True,
+        "product": "learning.conflicts",
+        "conflicts_found": len(found),
+        "conflicts": found[:25],
+        "message": (
+            f"Found {len(found)} conflicting learning group(s)."
+            if found
+            else "No conflicts detected."
+        ),
+    }
+    if resolve:
+        result = eng.resolve_conflicts(auto_resolve=True)
+        data.update(result)
+        data["message"] = result.get("message") or data["message"]
+    _print_learning_result(data, title="Learning conflicts")
+
+
+@learning_app.command("distill")
+def learning_distill_cmd(
+    task_type: Optional[str] = typer.Option(None, "--type", "-t"),
+    min_memories: int = typer.Option(5, "--min-memories"),
+):
+    """Consolidate redundant learnings into summary memories (M063)."""
+    eng = _learning_engine()
+    out = eng.distill_knowledge(task_type=task_type, min_memories=min_memories)
+    out.setdefault("ok", True)
+    out.setdefault("product", "learning.distill")
+    _print_learning_result(out, title="Distill knowledge")
+
+
+@learning_app.command("deprecate")
+def learning_deprecate_cmd(
+    memory_id: str = typer.Argument(..., help="Memory id to deprecate"),
+    reason: str = typer.Option("user_deprecated", "--reason", "-r"),
+):
+    """Manually deprecate a learning memory (M063 companion)."""
+    eng = _learning_engine()
+    _print_learning_result(
+        eng.deprecate_memory(memory_id, reason=reason),
+        title="Deprecate learning",
+    )
+
 
 @config_app.command("show")
 def config_show():

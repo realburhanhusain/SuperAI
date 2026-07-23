@@ -510,6 +510,7 @@ class LearningEngine:
             "promoted": promoted,
             "count": len(promoted),
             "min_importance": min_importance,
+            "product": "learning.promote_durable",
         }
 
     def deprecate_memory(self, memory_id: str, reason: str = "deprecated") -> Dict[str, Any]:
@@ -521,12 +522,174 @@ class LearningEngine:
             meta = dict((mem or {}).get("metadata") or {})
             meta["deprecated"] = True
             meta["deprecate_reason"] = reason
+            meta["deprecated_reason"] = reason
             meta["deprecated_at"] = datetime.now().isoformat()
+            tags = list((mem or {}).get("tags") or [])
+            if "deprecated" not in tags:
+                tags.append("deprecated")
             if hasattr(self.memory, "update"):
-                self.memory.update(memory_id, metadata=meta)
-            return {"ok": True, "memory_id": memory_id, "deprecated": True}
+                self.memory.update(memory_id, metadata=meta, tags=tags)
+            elif hasattr(self.memory, "update_metadata"):
+                self.memory.update_metadata(memory_id, meta)
+            return {
+                "ok": True,
+                "memory_id": memory_id,
+                "deprecated": True,
+                "reason": reason,
+                "product": "learning.deprecate",
+            }
         except Exception as e:
             return {"ok": False, "error": str(e)[:200], "memory_id": memory_id}
+
+    def _is_learning(self, mem: Dict[str, Any]) -> bool:
+        tags = [str(t).lower() for t in (mem.get("tags") or [])]
+        meta = mem.get("metadata") or {}
+        if "learning" in tags or "distilled" in tags or "durable" in tags:
+            return True
+        src = str(meta.get("source") or "")
+        return src.startswith("learning") or meta.get("task_type") is not None
+
+    def _is_deprecated(self, mem: Dict[str, Any]) -> bool:
+        meta = mem.get("metadata") or {}
+        if meta.get("deprecated") in (True, "true", 1):
+            return True
+        tags = [str(t).lower() for t in (mem.get("tags") or [])]
+        return "deprecated" in tags
+
+    def _is_durable(self, mem: Dict[str, Any]) -> bool:
+        meta = mem.get("metadata") or {}
+        if meta.get("durable") in (True, "true", 1):
+            return True
+        tags = [str(t).lower() for t in (mem.get("tags") or [])]
+        return "durable" in tags
+
+    def lifecycle_status(self) -> Dict[str, Any]:
+        """
+        Product dashboard for learning lifecycle (M061–M063 UX).
+
+        Buckets: active, durable, deprecated, distilled, conflict_groups.
+        """
+        try:
+            mems = self.memory.get_all_memories() or []
+        except Exception:
+            mems = []
+        learnings = [m for m in mems if self._is_learning(m)]
+        durable = [m for m in learnings if self._is_durable(m) and not self._is_deprecated(m)]
+        deprecated = [m for m in learnings if self._is_deprecated(m)]
+        distilled = [
+            m
+            for m in learnings
+            if "distilled" in [str(t).lower() for t in (m.get("tags") or [])]
+            or (m.get("metadata") or {}).get("source") == "learning_engine_distill"
+        ]
+        active = [
+            m
+            for m in learnings
+            if not self._is_deprecated(m) and not self._is_durable(m)
+        ]
+        conflicts = self.detect_conflicts()
+        return {
+            "ok": True,
+            "product": "learning.lifecycle_status",
+            "total_learnings": len(learnings),
+            "active": len(active),
+            "durable": len(durable),
+            "deprecated": len(deprecated),
+            "distilled_summaries": len(distilled),
+            "conflict_groups": len(conflicts),
+            "buckets": {
+                "active": len(active),
+                "durable": len(durable),
+                "deprecated": len(deprecated),
+                "distilled": len(distilled),
+            },
+            "top_durable": [
+                {
+                    "id": m.get("id"),
+                    "importance": (m.get("metadata") or {}).get("importance", m.get("importance")),
+                    "task_type": (m.get("metadata") or {}).get("task_type"),
+                    "preview": str(m.get("content") or "")[:160],
+                }
+                for m in durable[:5]
+            ],
+            "message": (
+                f"{len(learnings)} learnings — "
+                f"{len(durable)} durable, {len(active)} active, "
+                f"{len(deprecated)} deprecated, {len(conflicts)} conflict group(s)"
+            ),
+        }
+
+    def list_lifecycle(
+        self,
+        kind: str = "active",
+        *,
+        limit: int = 20,
+        task_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List learnings by lifecycle kind: active | durable | deprecated | distilled | all."""
+        kind_n = (kind or "active").strip().lower()
+        try:
+            mems = self.memory.get_all_memories() or []
+        except Exception:
+            mems = []
+        learnings = [m for m in mems if self._is_learning(m)]
+        if task_type:
+            learnings = [
+                m
+                for m in learnings
+                if str((m.get("metadata") or {}).get("task_type") or "") == task_type
+            ]
+
+        def _match(m: Dict[str, Any]) -> bool:
+            if kind_n == "all":
+                return True
+            if kind_n == "durable":
+                return self._is_durable(m) and not self._is_deprecated(m)
+            if kind_n == "deprecated":
+                return self._is_deprecated(m)
+            if kind_n == "distilled":
+                tags = [str(t).lower() for t in (m.get("tags") or [])]
+                return "distilled" in tags or (m.get("metadata") or {}).get("source") == "learning_engine_distill"
+            # active default
+            return not self._is_deprecated(m) and not self._is_durable(m)
+
+        rows = [m for m in learnings if _match(m)]
+        rows.sort(
+            key=lambda m: float(
+                (m.get("metadata") or {}).get("importance") or m.get("importance") or 0
+            ),
+            reverse=True,
+        )
+        items = []
+        for m in rows[: max(1, limit)]:
+            meta = m.get("metadata") or {}
+            items.append(
+                {
+                    "id": m.get("id"),
+                    "lifecycle": (
+                        "deprecated"
+                        if self._is_deprecated(m)
+                        else "durable"
+                        if self._is_durable(m)
+                        else "distilled"
+                        if "distilled" in [str(t).lower() for t in (m.get("tags") or [])]
+                        else "active"
+                    ),
+                    "importance": meta.get("importance", m.get("importance")),
+                    "task_type": meta.get("task_type"),
+                    "model": meta.get("model"),
+                    "success": meta.get("success"),
+                    "preview": str(m.get("content") or "")[:200],
+                }
+            )
+        return {
+            "ok": True,
+            "product": "learning.list_lifecycle",
+            "kind": kind_n,
+            "count": len(items),
+            "total_matching": len(rows),
+            "items": items,
+        }
 
     def resolve_conflicts(self, auto_resolve: bool = True) -> Dict[str, Any]:
         """

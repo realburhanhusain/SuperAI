@@ -71,10 +71,10 @@
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | Resume unfinished foundation depth: **V2-B3** session_compact edge cases (role/content turns, done-checkbox/status filtering, nested message parts); **V5-M4/M002** cost estimate honesty (mock never claims usage, local stays zero_local, is_estimate/estimate_method); WIP SUPERAI_MOCK_MODE mock-path honesty in model_caller |
-| **Verify** | \pytest tests/test_session_compact_v2b3.py tests/test_cost_accounting_m002.py tests/test_foundation_lift.py::test_session_compact_preserves_todos -q\ (20 passed) |
-| **Still open** | Broader V6 foundation backlog (live streaming providers, learning UX productization, MCP parity matrix, Phase 99 host smoke) — not claimed closed |
-| **Prior** | 2026-07-20 M001/M002/M008/M017/M018 foundation close at f874837 |
+| **What** | M061–M063 learning product UX: superai learning subapp (status/list/promote/conflicts/distill/deprecate), lifecycle_status + list_lifecycle APIs, docs/LEARNING_LIFECYCLE.md; prior commit ab976c4 closed V2-B3 + cost honesty |
+| **Verify** | pytest tests/test_learning_lifecycle_m061_m063.py tests/test_learning_engine_gaps.py -q (10 passed) |
+| **Still open** | M027 live streaming, M079 JSON-all-commands, M093 MCP matrix, Phase 99 host smoke |
+| **Prior** | ab976c4 foundation compact/cost honesty |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

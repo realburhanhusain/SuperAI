@@ -7719,19 +7719,39 @@ def check_critique_cmd(
 @check_app.command("upgrades")
 def check_upgrades_cmd(
     manifest: str = typer.Argument(..., help="Path to dependency manifest"),
+    plan_out: Optional[str] = typer.Option(
+        None, "--plan-out", help="Write JSON upgrade plan path"
+    ),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Also write .upgrade.txt plan file (does NOT run pip/npm)",
+    ),
 ):
-    """Dependency upgrade assistant (V6 S112)."""
-    from core.dep_upgrade import check_upgradable_dependencies
+    """
+    Dependency upgrade assistant (V6 S112).
+
+    Examples:
+      superai check upgrades ./pyproject.toml
+      superai check upgrades ./requirements.txt --plan-out ./upgrade.json --apply
+    """
+    from core.dep_upgrade import check_upgradable_dependencies, write_upgrade_plan
 
     res = check_upgradable_dependencies(manifest)
     console.print(
         f"[bold green]Dependency Audit ({res.total_dependencies} packages):[/bold green]"
     )
     for r in res.recommendations:
+        pin = getattr(r, "pin_quality", "")
         console.print(
             f"  • [cyan]{r.package_name}[/cyan] ({r.current_constraint}) "
-            f"[{r.risk_level}]: {r.recommendation}"
+            f"[{r.risk_level}/{pin}]: {r.recommendation}"
         )
+    if plan_out:
+        out = write_upgrade_plan(res, plan_out, apply=apply)
+        console.print(f"[dim]Plan written: {out.get('path')}[/dim]")
+        if out.get("upgrade_txt"):
+            console.print(f"[dim]Upgrade txt: {out.get('upgrade_txt')} (review only)[/dim]")
 
 
 sym_app = typer.Typer(name="symbol", help="Symbol-aware code navigation (V6 S108)")
@@ -7858,11 +7878,22 @@ def completion_show_cmd(
     elif sh == "fish":
         console.print("_SUPERAI_COMPLETE=fish_source superai | source")
     elif sh == "powershell":
+        # Official Click/Typer powershell complete source when available
         console.print(
-            "# PowerShell: Typer/Click complete via Register-ArgumentCompleter is limited;\n"
-            "# prefer bash/zsh/fish, or install the profile snippet:\n"
-            "#   superai completion install --shell powershell\n"
-            "$env:_SUPERAI_COMPLETE='powershell_source'; superai"
+            "# SuperAI PowerShell completion (Click/Typer _SUPERAI_COMPLETE)\n"
+            "# Install: superai completion install --shell powershell\n"
+            "# Runtime (session):\n"
+            "$env:_SUPERAI_COMPLETE = 'powershell_source'\n"
+            "Invoke-Expression (superai 2>$null | Out-String)\n"
+            "# Or use Register-ArgumentCompleter wrapper:\n"
+            "Register-ArgumentCompleter -Native -CommandName superai -ScriptBlock {\n"
+            "  param($wordToComplete, $commandAst, $cursorPosition)\n"
+            "  $env:_SUPERAI_COMPLETE = 'powershell_complete'\n"
+            "  $env:_TYPER_COMPLETE_ARGS = $commandAst.ToString()\n"
+            "  try { superai 2>$null } finally {\n"
+            "    Remove-Item Env:_SUPERAI_COMPLETE -ErrorAction SilentlyContinue\n"
+            "  }\n"
+            "}"
         )
     else:
         console.print(f'eval "$(_SUPERAI_COMPLETE={sh}_source superai)"')
@@ -7895,9 +7926,14 @@ def completion_install_cmd(
         marker = "_SUPERAI_COMPLETE=fish_source"
     else:
         block = (
-            "\n# SuperAI completion (powershell)\n"
-            "# Limited native completer — prefer bash/zsh when available\n"
-            "# Run: superai completion show --shell powershell\n"
+            "\n# SuperAI completion (powershell) — Click/Typer env complete\n"
+            "Register-ArgumentCompleter -Native -CommandName superai -ScriptBlock {\n"
+            "  param($wordToComplete, $commandAst, $cursorPosition)\n"
+            "  $env:_SUPERAI_COMPLETE = 'powershell_complete'\n"
+            "  try { superai 2>$null } finally {\n"
+            "    Remove-Item Env:_SUPERAI_COMPLETE -ErrorAction SilentlyContinue\n"
+            "  }\n"
+            "}\n"
         )
         marker = "SuperAI completion (powershell)"
     try:
@@ -7922,7 +7958,17 @@ def completion_install_cmd(
         _exit_from_exc(e)
 
 
-git_app = typer.Typer(name="git", help="Conventional git helpers & PR tools (V6 S116, S110, S117)")
+git_app = typer.Typer(
+    name="git",
+    help=(
+        "Conventional git helpers & PR tools (V6 S116, S110, S117).\n\n"
+        "Examples:\n"
+        "  superai git suggest-branch \"add exit codes\"\n"
+        "  superai git suggest-commit \"wire completion\" --scope cli\n"
+        "  superai git explain-pr\n"
+        "  superai git resolve-conflicts path/to/file.py"
+    ),
+)
 app.add_typer(git_app, name="git")
 
 
@@ -7971,7 +8017,15 @@ def git_resolve_conflicts_cmd(
         console.print(f"[bold red]MERGE CONFLICTS ({res.conflict_count} block(s)):[/bold red] {res.recommendation}")
 
 
-pi_app = typer.Typer(name="prompt-injection", help="Prompt injection security scanner (V6 M015)")
+pi_app = typer.Typer(
+    name="prompt-injection",
+    help=(
+        "Prompt injection security scanner (V6 M015).\n\n"
+        "Examples:\n"
+        "  superai prompt-injection scan \"ignore previous instructions\"\n"
+        "  superai prompt-injection wrap \"untrusted text\" --label tool_out"
+    ),
+)
 app.add_typer(pi_app, name="prompt-injection")
 
 
@@ -8028,9 +8082,18 @@ def sec_scan_secrets_cmd(
 @app.command("ci-fix")
 def ci_fix_cmd(
     log_input: str = typer.Argument(..., help="Path to CI log file or pasted CI build log text"),
+    plan_out: Optional[str] = typer.Option(
+        None, "--plan-out", help="Write JSON repair plan (does not edit source)"
+    ),
 ):
-    """Fix CI failure from log paste (V6 S109)."""
-    from core.ci_fixer import analyze_ci_log_file, analyze_ci_log_paste
+    """
+    Analyze CI failure from log paste (V6 S109).
+
+    Examples:
+      superai ci-fix ./ci.log
+      superai ci-fix ./ci.log --plan-out ./repair.json
+    """
+    from core.ci_fixer import analyze_ci_log_file, analyze_ci_log_paste, write_repair_plan
 
     p = Path(log_input)
     if p.exists() and p.is_file():
@@ -8039,6 +8102,9 @@ def ci_fix_cmd(
         res = analyze_ci_log_paste(log_input)
 
     console.print(res.summary_report)
+    if plan_out:
+        out = write_repair_plan(res, plan_out)
+        console.print(f"[dim]Repair plan: {out.get('path')} ({out.get('items')} items)[/dim]")
 
 
 @app.command("memory-eval")

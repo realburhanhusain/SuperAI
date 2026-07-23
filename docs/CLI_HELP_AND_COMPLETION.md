@@ -48,8 +48,9 @@ superai completion show --shell bash
 superai completion show --shell zsh
 ```
 
-**Honesty:** PowerShell native completion is limited; install prints an honest note.
-Install failures no longer claim success (exit mapped).
+**PowerShell:** install writes a `Register-ArgumentCompleter` block that invokes
+Click/Typer env complete (`_SUPERAI_COMPLETE`). Prefer bash/zsh when available for
+best fidelity. Install failures no longer claim success (exit mapped).
 
 ---
 

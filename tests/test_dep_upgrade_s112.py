@@ -51,3 +51,17 @@ dependencies = [
     assert "typer" in names
     assert "rich" in names
     assert not any(n.startswith('"') for n in names)
+    assert res.apply_plan
+    assert any(r.pin_quality == "lower_bound" for r in res.recommendations)
+
+
+def test_write_upgrade_plan_apply(tmp_path):
+    from core.dep_upgrade import write_upgrade_plan
+
+    req = tmp_path / "requirements.txt"
+    req.write_text("pytest>=8.0.0\n", encoding="utf-8")
+    res = check_upgradable_dependencies(str(req))
+    out = write_upgrade_plan(res, str(tmp_path / "plan.json"), apply=True)
+    assert out["ok"] is True
+    assert out.get("upgrade_txt")
+    assert Path(out["upgrade_txt"]).is_file()

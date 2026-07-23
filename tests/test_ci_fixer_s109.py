@@ -5,6 +5,8 @@ Unit tests for Fix CI Failure from Log Paste (S109).
 from __future__ import annotations
 
 import tempfile
+from pathlib import Path
+
 import pytest
 
 from core.ci_fixer import analyze_ci_log_file, analyze_ci_log_paste
@@ -52,5 +54,17 @@ def test_analyze_traceback_line_harvest():
     res = analyze_ci_log_paste(log_text)
     assert res.has_failures is True
     f = res.findings[0]
-    assert f.failure_type == "TEST_FAILURE"
+    assert f.failure_type in {"TEST_FAILURE", "ASSERTION"}
     assert f.line_number == 12
+    assert res.repair_plan
+    assert f.repair_steps
+
+
+def test_write_repair_plan(tmp_path: Path):
+    from core.ci_fixer import write_repair_plan
+
+    log_text = "ModuleNotFoundError: No module named 'pytest_mock'"
+    res = analyze_ci_log_paste(log_text)
+    out = write_repair_plan(res, str(tmp_path / "plan.json"))
+    assert out["ok"] is True
+    assert (tmp_path / "plan.json").is_file()

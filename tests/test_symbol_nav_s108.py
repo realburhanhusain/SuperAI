@@ -29,6 +29,10 @@ def test_index_symbols_in_file():
     assert "class" in kinds
     assert "MyClass" in names
     assert "standalone_func" in names
+    # Methods must appear as method kind only (not double-counted as function)
+    assert "method" in kinds
+    assert "MyClass.my_method" in names
+    assert names.count("my_method") == 0  # bare method name must not appear as function
 
 
 def test_search_symbols(tmp_path):

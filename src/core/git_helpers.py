@@ -40,9 +40,10 @@ def suggest_commit_message(
     scope: str = "",
     commit_type: str = "feat",
     body: str = "",
+    type: str = "",
 ) -> str:
     """Generate a Conventional Commits compliant message."""
-    c_type = (commit_type or "feat").lower().strip()
+    c_type = (type or commit_type or "feat").lower().strip()
     if c_type not in VALID_TYPES:
         c_type = "feat"
 

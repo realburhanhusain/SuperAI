@@ -47,6 +47,26 @@ def list_exit_codes() -> Dict[int, str]:
     return dict(EXIT_CODE_DESCRIPTIONS)
 
 
+# (code, constant_name, description) for CLI `exit-codes`
+_EXIT_NAME_BY_CODE = {
+    OK: "OK",
+    GENERAL: "GENERAL",
+    USAGE: "USAGE",
+    BUDGET: "BUDGET",
+    PERMISSION: "PERMISSION",
+    READINESS: "READINESS",
+    TIMEOUT: "TIMEOUT",
+    PROVIDER: "PROVIDER",
+    CANCELLED: "CANCELLED",
+    JAIL: "JAIL",
+    INTERNAL: "INTERNAL",
+}
+EXIT_CODES_TABLE = [
+    (code, _EXIT_NAME_BY_CODE.get(code, f"CODE_{code}"), desc)
+    for code, desc in sorted(EXIT_CODE_DESCRIPTIONS.items())
+]
+
+
 def from_result(result: Dict[str, Any]) -> int:
     """Map result payload dictionary to exit code."""
     if not isinstance(result, dict):

@@ -66,16 +66,75 @@
 | Improvement V4 A–C | `[x]` `docs/IMPROVEMENT_V4_PLAN.md` · `tests/test_improvement_v4.py` |
 | Truth file | `docs/MOSCOW_100_PLAN.md` |
 
+## AGY Hardening Wave (2026-07-23) — active
+
+**Plan:** `docs/AGY_IMPROVEMENT_PLAN.md`  
+**Findings:** `docs/AGY_HANDOFF_PENDING_AND_INCOMPLETE.md`  
+**Bar:** code + docs + tests + product wiring; no false 100% scorecard rows
+
+### W0 — Stabilize WIP / restore regressions
+
+- [x] W0.1 Must CLI wired (`exit-codes`, `completion`, `git suggest-*`, `prompt-injection`) — suite green on WIP
+- [ ] W0.2 Restore `check critique` (S104) + `check upgrades` (S112) if dropped
+- [x] W0.3 Keep `git explain-pr`, `git resolve-conflicts`, `security scan-secrets`, `ci-fix`
+- [ ] W0.4 Finish S112 tomllib pyproject + fixture test
+- [ ] W0.5 Fix `EXIT_CODES_TABLE` display names
+- [ ] W0.6 Commit W0 green slice
+
+### W1 — Must product wiring
+
+- [ ] W1.1 M080 CLI exception / exit mapping where feasible
+- [ ] W1.2 M080 remaining Exit(1) honesty or convert high-traffic paths
+- [ ] W1.3 M015 call site in tool loop (`injection_defense` / agent tools)
+- [ ] W1.4 M015 single public API in docs
+- [ ] W1.5 M081 help examples for new groups
+- [ ] W1.6 M082 completion honesty (real dump or labeled stub)
+- [x] W1.7 S116 via `git suggest-*` (tests green)
+
+### W2 — Critical Should product gaps
+
+- [x] W2.1 S110 CLI `git explain-pr` (WIP)
+- [x] W2.2 S114 CLI `security scan-secrets` (WIP); optional real hook TBD
+- [ ] W2.3 S132 enforce via `spend_guard` / expensive commands
+- [ ] W2.4 S112 parser harden + tests
+- [ ] W2.5 S115 real licenses **or** rename + fix pyproject counts
+- [ ] W2.6 S117 docs = `git resolve-conflicts`
+
+### W3 — Quality harden
+
+- [ ] W3.1 S108 method double-count fix + test
+- [ ] W3.2 S106 annotations flag **or** drop “typecheck” claim
+- [ ] W3.3 S105 tighter match / subprocess option
+- [ ] W3.4 S104 WARNING fails pass (strict)
+- [ ] W3.5 S109 traceback lines or honest types
+- [ ] W3.6 S124 drop Java/Node claim or implement
+
+### W4 — Closeout
+
+- [ ] W4.1 Update handoff checkboxes
+- [ ] W4.2 Honest scorecard regen (only true completes)
+- [ ] W4.3 Memory P1–P8 regression green
+- [ ] W4.4 Push plan + hardening commits
+
+### Verify (copy/paste)
+
+```text
+pytest tests/test_cli_help_and_completion_m081_m082.py -q
+pytest tests/test_*_s1*.py tests/test_exit_codes_m080.py tests/test_prompt_injection_m015.py -q
+pytest tests/test_knowledge_graph_p1.py tests/test_cognify_p2.py tests/test_session_memory_p3.py tests/test_recall_router_p4.py tests/test_ingest_p5.py tests/test_ontology_p6.py tests/test_memory_dataset_p7.py tests/test_session_capture_p8.py -q
+```
+
+---
+
 ## Last session
 
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | M079 JSON surface (
-ender_public, status/doctor/dashboard/json-surface); M027 streaming (Anthropic SSE path, stream meta, capabilities); M093 MCP safety matrix depth (CLI parity, live gate, permission/jail wrap) |
-| **Verify** | pytest tests/test_m079_m027_m093.py tests/test_foundation_complete_must.py::test_mcp_safety_matrix tests/test_foundation_complete_must.py::test_mcp_call_tool_contract_wrap -q (7 passed) |
-| **Still open** | Phase 99 live multi-provider smoke (host keys) |
-| **Prior** | 135dfc5 learning lifecycle; ab976c4 compact/cost honesty |
+| **What** | Memory roadmap P1–P8 complete (`144bba5`); AGY deep review + hardening plan (`docs/AGY_IMPROVEMENT_PLAN.md`); Must CLI WIP green; AGY Hardening Wave tasks opened on this board |
+| **Verify** | `test_cli_help_and_completion_m081_m082.py` 8 passed (local WIP); 17 AGY IDs deep-reviewed |
+| **Still open** | AGY Hardening W0–W4 above; Phase 99 live multi-provider smoke (host keys) |
+| **Prior** | M079/M027/M093; memory P1–P8; AGY Should packs S104–S132 |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

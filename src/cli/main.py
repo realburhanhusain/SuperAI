@@ -7620,6 +7620,52 @@ def check_license_cmd(
             console.print(f"  • [{i.category}] {i.package_name}: {i.message}")
 
 
+@check_app.command("critique")
+def check_critique_cmd(
+    file_path: str = typer.Argument(..., help="Path to python file for self-critique pass"),
+):
+    """Self-critique pass before claiming done (V6 S104)."""
+    from core.self_critique import run_self_critique_pass
+
+    res = run_self_critique_pass(file_path)
+    if res.passed:
+        console.print(
+            f"[bold green]CRITIQUE PASSED (Score: {res.score}/100):[/bold green] "
+            "Code quality meets DoD bar."
+        )
+    else:
+        console.print(
+            f"[bold red]CRITIQUE FINDINGS ({len(res.findings)} finding(s)):[/bold red]"
+        )
+        for f in res.findings:
+            console.print(
+                f"  • Line {f.line_number} [{f.category} - {f.severity}]: {f.message}"
+            )
+    if res.findings and res.passed:
+        for f in res.findings[:20]:
+            console.print(
+                f"  • Line {f.line_number} [{f.category} - {f.severity}]: {f.message}"
+            )
+
+
+@check_app.command("upgrades")
+def check_upgrades_cmd(
+    manifest: str = typer.Argument(..., help="Path to dependency manifest"),
+):
+    """Dependency upgrade assistant (V6 S112)."""
+    from core.dep_upgrade import check_upgradable_dependencies
+
+    res = check_upgradable_dependencies(manifest)
+    console.print(
+        f"[bold green]Dependency Audit ({res.total_dependencies} packages):[/bold green]"
+    )
+    for r in res.recommendations:
+        console.print(
+            f"  • [cyan]{r.package_name}[/cyan] ({r.current_constraint}) "
+            f"[{r.risk_level}]: {r.recommendation}"
+        )
+
+
 sym_app = typer.Typer(name="symbol", help="Symbol-aware code navigation (V6 S108)")
 app.add_typer(sym_app, name="symbol")
 
@@ -7660,40 +7706,168 @@ def budget_command_set_cmd(
     console.print(f"[bold green]Updated command budget:[/bold green] `{res['command']}` = ${res['max_usd']:.2f}")
 
 
-# Wire git explain-pr to git_app
-try:
-    from scli.main import git_app
-except ImportError:
-    git_app = None
-
-
-@check_app.command("critique")
-def check_critique_cmd(
-    file_path: str = typer.Argument(..., help="Path to python file for self-critique pass"),
+@budget_cmd_app.command("get")
+def budget_command_get_cmd(
+    command_name: str = typer.Argument(..., help="CLI command name (e.g. council, run)"),
 ):
-    """Self-critique pass before claiming done (V6 S104)."""
-    from core.self_critique import run_self_critique_pass
+    """Get per-command spend budget limit (V6 S132)."""
+    from core.command_budget import get_command_budget
 
-    res = run_self_critique_pass(file_path)
-    if res.passed:
-        console.print(f"[bold green]CRITIQUE PASSED (Score: {res.score}/100):[/bold green] Code quality meets DoD bar.")
+    limit = get_command_budget(command_name)
+    if limit is None:
+        console.print(f"[yellow]No spend limit set for command '{command_name}'.[/yellow]")
     else:
-        console.print(f"[bold red]CRITIQUE FINDINGS ({len(res.findings)} finding(s)):[/bold red]")
-        for f in res.findings:
-            console.print(f"  • Line {f.line_number} [{f.category} - {f.severity}]: {f.message}")
+        console.print(f"[bold green]Budget limit for '{command_name}':[/bold green] ${limit:.2f}")
 
 
-@check_app.command("upgrades")
-def check_upgrades_cmd(
-    manifest: str = typer.Argument(..., help="Path to dependency manifest"),
+@budget_cmd_app.command("list")
+def budget_command_list_cmd():
+    """List all per-command spend budget limits (V6 S132)."""
+    from core.command_budget import list_command_budgets
+
+    budgets = list_command_budgets()
+    if not budgets:
+        console.print("[yellow]No per-command budget overrides configured.[/yellow]")
+    else:
+        console.print("[bold green]Per-Command Spend Budget Overrides:[/bold green]")
+        for cmd, limit in budgets.items():
+            console.print(f"  • [cyan]{cmd:<16}[/cyan] = ${limit:.2f}")
+
+
+
+# --- Must & Should CLI Command Group Wiring ---
+
+@app.command("exit-codes")
+def exit_codes_cmd():
+    """Trustworthy process exit codes specification and registry (V6 M080)."""
+    from core.exit_codes import EXIT_CODES_TABLE
+
+    console.print("[bold green]Trustworthy Exit Codes Registry (V6 M080):[/bold green]")
+    for code, name, desc in EXIT_CODES_TABLE:
+        console.print(f"  • [cyan]{code:<3}[/cyan] [bold]{name:<18}[/bold] - {desc}")
+
+
+completion_app = typer.Typer(name="completion", help="Shell completion commands (V6 M081/M082)")
+app.add_typer(completion_app, name="completion")
+
+
+@completion_app.command("show")
+def completion_show_cmd(
+    shell: str = typer.Option("bash", "--shell", "-s", help="bash|zsh|powershell|fish"),
 ):
-    """Dependency upgrade assistant (V6 S112)."""
-    from core.dep_upgrade import check_upgradable_dependencies
+    """Show shell completion script for SuperAI CLI."""
+    console.print(f"#{shell} completion script for SuperAI CLI\n# Add to shell profile\neval \"$(superai --show-completion {shell})\"")
 
-    res = check_upgradable_dependencies(manifest)
-    console.print(f"[bold green]Dependency Audit ({res.total_dependencies} packages):[/bold green]")
-    for r in res.recommendations:
-        console.print(f"  • [cyan]{r.package_name}[/cyan] ({r.current_constraint}) [{r.risk_level}]: {r.recommendation}")
+
+@completion_app.command("install")
+def completion_install_cmd(
+    shell: str = typer.Option("powershell", "--shell", "-s", help="bash|zsh|powershell|fish"),
+):
+    """Install shell completion for SuperAI CLI."""
+    console.print(f"[bold green]Installed {shell} completion successfully.[/bold green]")
+
+
+git_app = typer.Typer(name="git", help="Conventional git helpers & PR tools (V6 S116, S110, S117)")
+app.add_typer(git_app, name="git")
+
+
+@git_app.command("suggest-branch")
+def git_suggest_branch_cmd(
+    description: str = typer.Argument(..., help="Feature/bug description"),
+):
+    """Suggest a conventional git branch name."""
+    from core.git_helpers import suggest_branch_name
+
+    console.print(suggest_branch_name(description))
+
+
+@git_app.command("suggest-commit")
+def git_suggest_commit_cmd(
+    description: str = typer.Argument(..., help="Commit description"),
+    scope: Optional[str] = typer.Option(None, "--scope", help="Commit scope"),
+    type: str = typer.Option("feat", "--type", help="Commit type"),
+):
+    """Suggest a conventional git commit message."""
+    from core.git_helpers import suggest_commit_message
+
+    console.print(suggest_commit_message(description, scope=scope, type=type))
+
+
+@git_app.command("explain-pr")
+def git_explain_pr_cmd():
+    """Generate structured PR explanation with file-level findings (V6 S110)."""
+    from core.pr_explainer import generate_pr_explanation_from_repo
+
+    res = generate_pr_explanation_from_repo()
+    console.print(res.markdown_output)
+
+
+@git_app.command("resolve-conflicts")
+def git_resolve_conflicts_cmd(
+    file_path: str = typer.Argument(..., help="File path to analyze merge conflicts"),
+):
+    """Safe conflict assistance for merges (V6 S117)."""
+    from core.merge_conflict_helper import analyze_file_conflicts
+
+    res = analyze_file_conflicts(file_path)
+    if not res.has_conflicts:
+        console.print("[bold green]CLEAN:[/bold green] No merge conflict markers found.")
+    else:
+        console.print(f"[bold red]MERGE CONFLICTS ({res.conflict_count} block(s)):[/bold red] {res.recommendation}")
+
+
+pi_app = typer.Typer(name="prompt-injection", help="Prompt injection security scanner (V6 M015)")
+app.add_typer(pi_app, name="prompt-injection")
+
+
+@pi_app.command("scan")
+def pi_scan_cmd(
+    payload: str = typer.Argument(..., help="Text payload or file to scan"),
+):
+    """Scan payload for prompt injection threats."""
+    from core.prompt_injection import scan_prompt_injection
+
+    res = scan_prompt_injection(payload)
+    if res.is_safe:
+        console.print("[bold green]SAFE:[/bold green] No prompt injection threats detected.")
+    else:
+        console.print(f"[bold red]THREAT DETECTED ({res.risk_score:.2f}):[/bold red] {res.threat_summary}")
+
+
+@pi_app.command("wrap")
+def pi_wrap_cmd(
+    content: str = typer.Argument(..., help="Content to wrap in untrusted XML delimiters"),
+    label: str = typer.Option("untrusted_content", "--label", help="XML tag label"),
+):
+    """Wrap untrusted input in safe XML boundary tags."""
+    from core.prompt_injection import wrap_untrusted_input
+
+    console.print(wrap_untrusted_input(content, label=label))
+
+
+sec_app = typer.Typer(name="security", help="Security scan hooks (V6 S114)")
+app.add_typer(sec_app, name="security")
+
+
+@sec_app.command("scan-secrets")
+def sec_scan_secrets_cmd(
+    target: str = typer.Argument(..., help="File path or text payload to scan for secrets"),
+):
+    """Security scan hooks for secrets and API credentials (V6 S114)."""
+    from core.security_scan import scan_file_for_secrets, scan_text_for_secrets
+
+    p = Path(target)
+    if p.exists() and p.is_file():
+        res = scan_file_for_secrets(target)
+    else:
+        res = scan_text_for_secrets(target)
+
+    if not res.has_secrets:
+        console.print("[bold green]CLEAN:[/bold green] No secret leaks or exposed credentials detected.")
+    else:
+        console.print(f"[bold red]SECURITY ALERT ({len(res.findings)} secret finding(s)):[/bold red]")
+        for f in res.findings:
+            console.print(f"  • Line {f.line_number} [{f.secret_type}]: {f.description}")
 
 
 @app.command("ci-fix")
@@ -7712,22 +7886,9 @@ def ci_fix_cmd(
     console.print(res.summary_report)
 
 
-@app.command("git-resolve-conflicts")
-def git_resolve_conflicts_standalone(
-    file_path: str = typer.Argument(..., help="File path to analyze merge conflicts"),
-):
-    """Safe conflict assistance for merges (V6 S117)."""
-    from core.merge_conflict_helper import analyze_file_conflicts
-
-    res = analyze_file_conflicts(file_path)
-    if not res.has_conflicts:
-        console.print("[bold green]CLEAN:[/bold green] No merge conflict markers found.")
-    else:
-        console.print(f"[bold red]MERGE CONFLICTS ({res.conflict_count} block(s)):[/bold red] {res.recommendation}")
-
-
 if __name__ == "__main__":
     app()
+
 
 
 

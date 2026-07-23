@@ -14,6 +14,7 @@ def budget_precheck(
     estimated_usd: float = 0.1,
     tokens: int = 500,
     enforce: Optional[bool] = None,
+    command_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Return {ok:True} or blocked contract envelope.
@@ -21,6 +22,17 @@ def budget_precheck(
     try:
         from .budget import BudgetGuard
         from .config import Config
+        from .command_budget import check_command_budget_guard
+
+        if command_name:
+            c_guard = check_command_budget_guard(command_name, estimated_usd)
+            if not c_guard.allowed:
+                return {
+                    "ok": False,
+                    "error": c_guard.message,
+                    "blocked": True,
+                    "command_budget_exceeded": True,
+                }
 
         if enforce is None:
             enforce = bool(Config().get("enforce_budget", True))

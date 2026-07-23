@@ -47,6 +47,33 @@ def sanitize_tool_result(result: Any, *, max_chars: int = 50_000) -> Dict[str, A
         clean = redact_text(text)
 
     scan = scan_text(text)
+    # Also run M015 prompt_injection scanner (unified tool-loop path)
+    pi_scan = None
+    try:
+        from .prompt_injection import scan_for_injection_threats
+
+        pi = scan_for_injection_threats(text)
+        pi_scan = {
+            "is_safe": pi.is_safe,
+            "threat_count": len(pi.threats or []),
+            "threats": [
+                {"type": t.threat_type, "description": t.description}
+                for t in (pi.threats or [])[:10]
+            ],
+        }
+        if not pi.is_safe:
+            scan = dict(scan or {})
+            scan["suspicious"] = True
+            scan["risk"] = "high"
+            hits = list(scan.get("hits") or [])
+            hits.extend(t.threat_type for t in (pi.threats or [])[:5])
+            scan["hits"] = hits[:15]
+            if isinstance(clean, str):
+                clean = pi.sanitized_text or clean
+            text = pi.sanitized_text or text
+    except Exception:
+        pi_scan = None
+
     out_text = redact_text(text)
     if len(out_text) > max_chars:
         out_text = out_text[:max_chars] + "\n…[truncated]"
@@ -55,6 +82,7 @@ def sanitize_tool_result(result: Any, *, max_chars: int = 50_000) -> Dict[str, A
         "ok": True,
         "content": out_text if not isinstance(clean, dict) else clean,
         "injection": scan,
+        "prompt_injection": pi_scan,
         "sanitized": True,
         "blocked": scan.get("risk") == "high" and len(scan.get("hits") or []) >= 2,
     }

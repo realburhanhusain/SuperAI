@@ -35,6 +35,7 @@ def index_symbols_in_file(file_path: str) -> List[SymbolInfo]:
         return []
 
     symbols: List[SymbolInfo] = []
+    class_methods = set()
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
@@ -50,6 +51,7 @@ def index_symbols_in_file(file_path: str) -> List[SymbolInfo]:
             )
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    class_methods.add(id(item))
                     m_doc = ast.get_docstring(item) or ""
                     symbols.append(
                         SymbolInfo(
@@ -60,8 +62,9 @@ def index_symbols_in_file(file_path: str) -> List[SymbolInfo]:
                             docstring=m_doc,
                         )
                     )
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            # Check if function is standalone (top-level)
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and id(node) not in class_methods:
             doc = ast.get_docstring(node) or ""
             symbols.append(
                 SymbolInfo(

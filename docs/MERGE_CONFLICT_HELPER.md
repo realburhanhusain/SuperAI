@@ -26,7 +26,8 @@ if result.has_conflicts:
 ### CLI Command
 
 ```bash
-superai git resolve-conflicts src/core/git_helpers.py
+superai git resolve-conflicts path/to/conflicted_file.py
+# (also accepted historically as git-resolve-conflicts top-level if present)
 ```
 
 ---

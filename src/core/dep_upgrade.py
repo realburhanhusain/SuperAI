@@ -57,7 +57,32 @@ def check_upgradable_dependencies(manifest_path: str) -> DepUpgradeResult:
         except Exception:
             pass
 
-    elif fname.endswith("requirements.txt") or fname.endswith("pyproject.toml"):
+    elif fname.endswith("pyproject.toml"):
+        try:
+            import tomllib
+            data = tomllib.loads(p.read_text(encoding="utf-8"))
+            dep_list = []
+            if "project" in data and "dependencies" in data["project"]:
+                dep_list.extend(data["project"]["dependencies"])
+            if "tool" in data and "poetry" in data["tool"] and "dependencies" in data["tool"]["poetry"]:
+                for k, v in data["tool"]["poetry"].items():
+                    dep_list.append(f"{k}{v}" if isinstance(v, str) else k)
+
+            total = len(dep_list)
+            for item in dep_list:
+                pkg_name = re.split(r"[><=~!;]", item)[0].strip().strip('"\'')
+                recs.append(
+                    DepUpgradeAdvice(
+                        package_name=pkg_name,
+                        current_constraint=item,
+                        risk_level="LOW",
+                        recommendation=f"Run `pip install --upgrade {pkg_name}` and run test suite.",
+                    )
+                )
+        except Exception:
+            pass
+
+    elif fname.endswith("requirements.txt"):
         try:
             content = p.read_text(encoding="utf-8")
             for line in content.splitlines():
@@ -66,7 +91,7 @@ def check_upgradable_dependencies(manifest_path: str) -> DepUpgradeResult:
                     continue
                 total += 1
                 if ">=" in line_str or "==" in line_str:
-                    pkg_name = re.split(r"[><=~]", line_str)[0].strip()
+                    pkg_name = re.split(r"[><=~!;]", line_str)[0].strip().strip('"\'')
                     recs.append(
                         DepUpgradeAdvice(
                             package_name=pkg_name,

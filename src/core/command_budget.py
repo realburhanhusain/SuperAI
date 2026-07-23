@@ -47,6 +47,11 @@ def get_command_budget(command_name: str) -> Optional[float]:
     return budgets.get(command_name.strip().lower())
 
 
+def list_command_budgets() -> Dict[str, float]:
+    """Retrieve dict of all per-command budget overrides."""
+    return _load_command_budgets()
+
+
 def check_command_budget_guard(
     command_name: str, current_spend_usd: float
 ) -> CommandBudgetGuardResult:

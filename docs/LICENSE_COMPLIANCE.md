@@ -37,3 +37,7 @@ superai check license pyproject.toml
 ## Verification & Testing
 
 Unit test coverage is enforced in `tests/test_license_check_s115.py`.
+
+## Depth closeout (2026-07-24)
+
+Offline curated SPDX map + weak-copyleft category; not a live license API.

@@ -165,10 +165,10 @@ pytest tests/test_knowledge_graph_p1.py tests/test_cognify_p2.py tests/test_sess
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | Closed remaining non-host residuals: CLI exit taxonomy + KG batch BFS |
-| **Verify** | test_exit_codes_m080 (incl. _cli_exit); test_knowledge_graph_p1 path batch |
+| **What** | Closed honest-caveat depth: M081/M082 + S104/S105/S109/S112/S115 to complete bar |
+| **Verify** | pytest self_critique/auto_test/ci_fixer/dep_upgrade/license/cli_help/exit_codes |
 | **Still open** | Host-gated live smoke / OTLP / multi-provider only |
-| **Prior** | AGY wave W1–W4; Grok integrity gaps |
+| **Prior** | CLI exit taxonomy + KG batch BFS |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

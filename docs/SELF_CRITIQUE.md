@@ -36,3 +36,7 @@ superai check critique src/core/git_helpers.py
 ## Verification & Testing
 
 Unit test coverage is enforced in `tests/test_self_critique_s104.py`.
+
+## Depth closeout (2026-07-24)
+
+S104 now checks: module/public docs, return annotations, bare/silent except, mutable defaults, TODO density.

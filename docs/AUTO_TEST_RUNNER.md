@@ -40,3 +40,7 @@ superai test impacted src/core/prompt_injection.py
 ## Verification & Testing
 
 Unit test coverage is enforced in `tests/test_auto_test_runner_s105.py`.
+
+## Depth closeout (2026-07-24)
+
+Alias map + exact/prefix matcher (exact_prefix_alias).

@@ -33,3 +33,7 @@ superai check upgrades pyproject.toml
 ## Verification & Testing
 
 Unit test coverage is enforced in `tests/test_dep_upgrade_s112.py`.
+
+## Depth closeout (2026-07-24)
+
+Risk-ranked pins + write_upgrade_plan(--apply writes review files only).

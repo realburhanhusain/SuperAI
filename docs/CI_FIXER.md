@@ -41,3 +41,7 @@ superai ci-fix ci_build.log
 ## Verification & Testing
 
 Unit test coverage is enforced in `tests/test_ci_fixer_s109.py`.
+
+## Depth closeout (2026-07-24)
+
+Repair plan JSON with patch snippets + steps; --plan-out on CLI.

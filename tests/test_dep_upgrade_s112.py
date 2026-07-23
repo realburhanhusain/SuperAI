@@ -5,6 +5,8 @@ Unit tests for Dependency Upgrade Assistant (S112).
 from __future__ import annotations
 
 import tempfile
+from pathlib import Path
+
 import pytest
 
 from core.dep_upgrade import check_upgradable_dependencies

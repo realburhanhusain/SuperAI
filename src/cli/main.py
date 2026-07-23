@@ -1280,6 +1280,68 @@ def cognify_cmd(
         raise typer.Exit(1)
 
 
+@app.command("recall")
+def recall_cmd(
+    query: str = typer.Argument(..., help="What to recall"),
+    strategy: str = typer.Option(
+        "auto",
+        "--strategy",
+        "-S",
+        help="auto|vector|keyword|graph|hybrid|session",
+    ),
+    top_k: int = typer.Option(10, "--top-k", "-k"),
+    session_id: Optional[str] = typer.Option(
+        None, "--session", "-s", help="Session buffer id (for session/auto)"
+    ),
+    dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
+    wing: Optional[str] = typer.Option(None, "--wing"),
+    room: Optional[str] = typer.Option(None, "--room"),
+    no_fallthrough: bool = typer.Option(
+        False, "--no-fallthrough", help="Session strategy: do not fall through to hybrid"
+    ),
+):
+    """
+    Multi-strategy memory recall (Memory Roadmap P4).
+
+    Always reports which strategy ran. Default --strategy auto.
+    """
+    from core.public_surface import emit_public, json_mode
+    from core.recall_router import recall as run_recall
+
+    out = run_recall(
+        query,
+        strategy=strategy,
+        top_k=top_k,
+        session_id=session_id,
+        dataset_id=dataset,
+        wing=wing,
+        room=room,
+        fallthrough=not no_fallthrough,
+    )
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        if not out.get("ok"):
+            raise typer.Exit(1)
+        return
+    lines = [
+        "[bold]Recall[/bold]",
+        "",
+        str(out.get("message") or ""),
+        f"strategy: {out.get('strategy')} (requested={out.get('strategy_requested')})",
+        f"reason: {out.get('strategy_reason')}",
+        f"count: {out.get('count')}",
+    ]
+    if out.get("notes"):
+        lines.append(f"notes: {out.get('notes')}")
+    for h in (out.get("hits") or [])[:15]:
+        src = h.get("source") or "?"
+        preview = str(h.get("content") or "")[:100].replace("\n", " ")
+        lines.append(f"• [{src}] {preview}")
+    console.print(Panel.fit("\n".join(lines), border_style="blue"))
+    if not out.get("ok"):
+        raise typer.Exit(1)
+
+
 def _learning_engine():
     from core.learning_engine import LearningEngine
     from core.memory_palace import MemoryPalace
@@ -6922,6 +6984,112 @@ def foundation_check_cmd(
         record_spend=False,
     )
 
+
+@app.command("exit-codes")
+def exit_codes_cmd():
+    """List all trustworthy process exit codes and descriptions (V6 M080)."""
+    from rich.table import Table
+    from core.exit_codes import list_exit_codes
+
+    codes = list_exit_codes()
+    table = Table(title="SuperAI Trustworthy Exit Codes (M080)")
+    table.add_column("Code", justify="right", style="cyan", no_wrap=True)
+    table.add_column("Description", style="white")
+    for code, desc in codes.items():
+        table.add_row(str(code), desc)
+    console.print(table)
+
+
+@app.command("completion")
+def completion_cmd(
+    action: str = typer.Argument(
+        "show", help="show | install — output completion script or instructions"
+    ),
+    shell: str = typer.Option(
+        "bash", "--shell", "-s", help="Target shell: bash | zsh | fish | powershell"
+    ),
+):
+    """Shell completion generator and installer (V6 M082)."""
+    sh = shell.lower().strip()
+    if action.lower() in {"install", "setup"}:
+        console.print(
+            f"[bold green]To enable shell completion for {sh}:[/bold green]\n"
+            f"Run in your shell:\n"
+            f"  [cyan]superai --install-completion {sh}[/cyan]"
+        )
+        return
+
+    # 'show' mode script template helper
+    scripts = {
+        "bash": '# superai bash completion\neval "$(register-python-argcomplete superai)"',
+        "zsh": '# superai zsh completion\nautoload -U compinit && compinit\neval "$(register-python-argcomplete superai)"',
+        "powershell": '# superai powershell completion\nImport-Module -Name PowerShellGet\n# Run: superai --install-completion powershell',
+        "fish": '# superai fish completion\n# Run: superai --install-completion fish',
+    }
+    script = scripts.get(sh, f"# Run: superai --install-completion {sh}")
+    console.print(script)
+
+
+git_app = typer.Typer(name="git", help="Git workflow helpers for conventional commit & branch naming (V6 S116)")
+app.add_typer(git_app, name="git")
+
+
+@git_app.command("suggest-branch")
+def git_suggest_branch_cmd(
+    description: str = typer.Argument(..., help="Feature or bug description"),
+    type: str = typer.Option("feat", "--type", "-t", help="Branch type: feat|fix|docs|refactor|test|chore"),
+):
+    """Suggest a conventional git branch name from description."""
+    from core.git_helpers import suggest_branch_name
+
+    branch = suggest_branch_name(description, branch_type=type)
+    console.print(f"[bold cyan]Branch Name:[/bold cyan] {branch}")
+
+
+@git_app.command("suggest-commit")
+def git_suggest_commit_cmd(
+    description: str = typer.Argument(..., help="Commit change summary"),
+    scope: str = typer.Option("", "--scope", "-s", help="Commit scope (e.g. cli, core, tui)"),
+    type: str = typer.Option("feat", "--type", "-t", help="Commit type: feat|fix|docs|refactor|test|chore"),
+    body: str = typer.Option("", "--body", "-b", help="Optional detailed commit body"),
+):
+    """Suggest a Conventional Commit message."""
+    from core.git_helpers import suggest_commit_message
+
+    msg = suggest_commit_message(description, scope=scope, commit_type=type, body=body)
+    console.print(f"[bold green]Commit Message:[/bold green]\n{msg}")
+
+
+injection_app = typer.Typer(name="prompt-injection", help="Prompt injection security tools (V6 M015)")
+app.add_typer(injection_app, name="prompt-injection")
+
+
+@injection_app.command("scan")
+def injection_scan_cmd(
+    text: str = typer.Argument(..., help="Text content to scan for indirect prompt injection threats"),
+):
+    """Scan text for indirect prompt injection attack vectors."""
+    from core.prompt_injection import scan_for_injection_threats
+
+    res = scan_for_injection_threats(text)
+    if res.is_safe:
+        console.print("[bold green]SAFE:[/bold green] No prompt injection threats detected.")
+    else:
+        console.print(f"[bold red]THREAT DETECTED ({len(res.threats)} threat(s)):[/bold red]")
+        for t in res.threats:
+            console.print(f"  • [[cyan]{t.threat_type}[/cyan]] {t.description} (pattern: '{t.pattern_matched}')")
+
+
+@injection_app.command("wrap")
+def injection_wrap_cmd(
+    content: str = typer.Argument(..., help="Untrusted content to wrap"),
+    label: str = typer.Option("untrusted_tool_data", "--label", "-l", help="Source boundary label"),
+):
+    """Wrap untrusted text in security isolation context tags."""
+    from core.prompt_injection import wrap_untrusted_context
+
+    wrapped = wrap_untrusted_context(content, source_label=label)
+    console.print(wrapped)
 
 
 if __name__ == "__main__":

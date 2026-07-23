@@ -54,7 +54,7 @@ TOOLS: List[Dict[str, Any]] = [
     ),
     _tool(
         "superai_memory_search",
-        "Semantic search over SuperAI central Memory Palace (shared by all SuperAI-mediated AIs).",
+        "Multi-strategy memory recall over palace + graph + session (P4). Default strategy=auto.",
         {
             "query": {"type": "string", "description": "Search query"},
             "top_k": {"type": "integer", "description": "Max results (default 5)"},
@@ -70,6 +70,15 @@ TOOLS: List[Dict[str, Any]] = [
                 "type": "string",
                 "description": "Optional room filter within wing",
             },
+            "strategy": {
+                "type": "string",
+                "description": "auto|vector|keyword|graph|hybrid|session (default auto)",
+            },
+            "session_id": {
+                "type": "string",
+                "description": "Session buffer id for session/auto strategies",
+            },
+            "dataset_id": {"type": "string"},
         },
         ["query"],
     ),
@@ -484,7 +493,7 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         return central_memory_status()
 
     if name == "superai_memory_search":
-        from .memory_palace import MemoryPalace
+        from .recall_router import recall as run_recall
 
         query = str(args.get("query") or "")
         top_k = int(args.get("top_k") or 5)
@@ -494,22 +503,25 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
             tag_list = [t.strip() for t in str(tags_raw).split(",") if t.strip()]
         wing = args.get("wing")
         room = args.get("room")
-        hits = MemoryPalace().query_semantic(
+        strategy = str(args.get("strategy") or "auto")
+        # backward compatible: no strategy → still multi-strategy auto (includes vector)
+        out = run_recall(
             query,
+            strategy=strategy,
             top_k=top_k,
+            session_id=args.get("session_id"),
+            dataset_id=args.get("dataset_id"),
             tags=tag_list,
             wing=str(wing) if wing else None,
             room=str(room) if room else None,
         )
-        return {
-            "query": query,
-            "wing": wing,
-            "room": room,
-            "count": len(hits) if isinstance(hits, list) else 0,
-            "hits": hits,
-            "store": "MemoryPalace",
-            "note": "Shared central memory for all SuperAI-mediated AIs",
-        }
+        out["wing"] = wing
+        out["room"] = room
+        out["store"] = "recall_router"
+        out["note"] = (
+            f"strategy={out.get('strategy')} reason={out.get('strategy_reason')}"
+        )
+        return out
 
     if name == "superai_kg_query":
         from .knowledge_graph import get_default_graph

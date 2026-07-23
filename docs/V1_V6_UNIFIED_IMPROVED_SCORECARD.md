@@ -25,14 +25,14 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **240** |
-| **INCOMPLETE** | **275** |
+| **COMPLETE (production + docs + tests)** | **241** |
+| **INCOMPLETE** | **274** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **46.3%**
-- **Average percent (incomplete only):** **30.1%**
+- **Strict completion rate (complete / (total − refuse)):** **46.5%**
+- **Average percent (incomplete only):** **29.9%**
 - **Average percent (all non-refuse):** **62.9%**
 
 ### Note for validators
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 240
+**Count:** 241
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -753,6 +753,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Slash command palette + help
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M080 — Trustworthy process exit codes
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Trustworthy process exit codes
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -2451,7 +2461,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 275
+**Count:** 274
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2467,19 +2477,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** prompt_injection + injection_defense bridge + CLI
 - **Partially implemented:** —
 - **Still incomplete:** Not every tool/MCP path sanitized
-
-### M080 — Trustworthy process exit codes
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **90%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — exit_codes + CLI entry from_exception + raise_typer_exit
-- **Thorough documentation?** YES — EXIT_CODES.md
-- **Fully tested?** YES — test_exit_codes_m080
-- **Fully implemented:** exit_codes + CLI entry from_exception + raise_typer_exit
-- **Partially implemented:** —
-- **Still incomplete:** Residual hard-coded typer.Exit(1) paths remain
 
 ### M081 — High-quality `--help` and examples
 

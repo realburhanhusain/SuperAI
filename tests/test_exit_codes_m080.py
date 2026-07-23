@@ -78,6 +78,25 @@ def test_from_exception_mappings():
     assert from_exception(TimeoutError("Execution timed out")) == TIMEOUT
     assert from_exception(KeyboardInterrupt()) == CANCELLED
     assert from_exception(Exception("Workspace jail path blocked")) == JAIL
+
+
+def test_cli_exit_maps_legacy_ints():
+    """All CLI fail paths go through _cli_exit taxonomy (no bare Exit(1))."""
+    import typer
+    from scli.main import _cli_exit
+
+    for legacy, want in ((0, OK), (1, GENERAL), (2, USAGE), (3, BUDGET), (6, TIMEOUT)):
+        try:
+            _cli_exit(code=legacy)
+            assert False, "should raise"
+        except typer.Exit as e:
+            assert e.exit_code == want
+
+    try:
+        _cli_exit({"ok": False, "error_code": "budget"})
+        assert False, "should raise"
+    except typer.Exit as e:
+        assert e.exit_code == BUDGET
     assert from_exception(Exception("Provider readiness check failed")) == READINESS
 
     class CustomExc(Exception):

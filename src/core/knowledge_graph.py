@@ -494,66 +494,85 @@ class KnowledgeGraph:
                 "error_code": "not_found",
             }
         max_hops = max(1, min(int(hops), 6))
-        # adjacency undirected for path finding (union of both directions)
+        # Load adjacency + node rows in ONE session (avoid N+1 get_node queries)
         adj: Dict[str, List[Tuple[str, str]]] = {}
+        nodes_by_id: Dict[str, Dict[str, Any]] = {}
         with self._Session() as s:
             q = select(KGEdgeRow)
             if dataset_id:
                 q = q.where(KGEdgeRow.dataset_id == dataset_id)
-            for e in s.execute(q).scalars().all():
+            edge_rows = list(s.execute(q).scalars().all())
+            for e in edge_rows:
                 adj.setdefault(e.from_id, []).append((e.to_id, e.relation))
                 adj.setdefault(e.to_id, []).append((e.from_id, f"~{e.relation}"))
 
-        prev: Dict[str, Optional[Tuple[str, str]]] = {fid: None}
-        q: deque[str] = deque([fid])
-        depth = {fid: 0}
-        found = False
-        while q:
-            cur = q.popleft()
-            if cur == tid:
-                found = True
-                break
-            if depth[cur] >= max_hops:
-                continue
-            for nxt, rel in adj.get(cur, []):
-                if nxt in prev:
+            # BFS on in-memory adj (no per-hop SQL)
+            prev: Dict[str, Optional[Tuple[str, str]]] = {fid: None}
+            queue: deque[str] = deque([fid])
+            depth = {fid: 0}
+            found = False
+            while queue:
+                cur = queue.popleft()
+                if cur == tid:
+                    found = True
+                    break
+                if depth[cur] >= max_hops:
                     continue
-                prev[nxt] = (cur, rel)
-                depth[nxt] = depth[cur] + 1
-                q.append(nxt)
-        if not found or tid not in prev:
+                for nxt, rel in adj.get(cur, []):
+                    if nxt in prev:
+                        continue
+                    prev[nxt] = (cur, rel)
+                    depth[nxt] = depth[cur] + 1
+                    queue.append(nxt)
+            if not found or tid not in prev:
+                return {
+                    "ok": True,
+                    "found": False,
+                    "from_id": fid,
+                    "to_id": tid,
+                    "hops": max_hops,
+                    "path": [],
+                    "message": f"No path within {max_hops} hops",
+                    "edges_loaded": len(edge_rows),
+                    "bfs_mode": "batch_adjacency",
+                }
+
+            # Collect path ids then batch-fetch node rows (single IN query)
+            path_ids: List[str] = []
+            cur_id: Optional[str] = tid
+            while cur_id is not None:
+                path_ids.append(cur_id)
+                p = prev.get(cur_id)
+                if p is None:
+                    break
+                cur_id = p[0]
+            path_ids.reverse()
+
+            if path_ids:
+                nq = select(KGNodeRow).where(KGNodeRow.id.in_(path_ids))
+                for row in s.execute(nq).scalars().all():
+                    nodes_by_id[row.id] = self._node_dict(row)
+
+            chain: List[Dict[str, Any]] = []
+            for nid in path_ids:
+                node = nodes_by_id.get(nid) or {"id": nid}
+                step: Dict[str, Any] = {"node": node}
+                p = prev.get(nid)
+                if p is not None:
+                    step["via_relation_from_prev"] = p[1]
+                chain.append(step)
+
             return {
                 "ok": True,
-                "found": False,
+                "found": True,
                 "from_id": fid,
                 "to_id": tid,
-                "hops": max_hops,
-                "path": [],
-                "message": f"No path within {max_hops} hops",
+                "length": len(chain) - 1,
+                "path": chain,
+                "message": f"Path length {len(chain) - 1}",
+                "edges_loaded": len(edge_rows),
+                "bfs_mode": "batch_adjacency",
             }
-        # reconstruct
-        chain: List[Dict[str, Any]] = []
-        cur: Optional[str] = tid
-        while cur is not None:
-            node = self.get_node(cur) or {"id": cur}
-            step = {"node": node}
-            p = prev.get(cur)
-            if p is not None:
-                step["via_relation_from_prev"] = p[1]
-            chain.append(step)
-            if p is None:
-                break
-            cur = p[0]
-        chain.reverse()
-        return {
-            "ok": True,
-            "found": True,
-            "from_id": fid,
-            "to_id": tid,
-            "length": len(chain) - 1,
-            "path": chain,
-            "message": f"Path length {len(chain) - 1}",
-        }
 
     def _find_id_by_name(
         self, name: str, *, dataset_id: Optional[str] = None
@@ -568,12 +587,24 @@ class KnowledgeGraph:
             row = s.execute(q.limit(1)).scalar_one_or_none()
             if row:
                 return row.id
-            # case-insensitive fallback
-            for r in s.execute(select(KGNodeRow).limit(5000)).scalars().all():
-                if r.name.lower() == name.lower():
-                    if dataset_id and r.dataset_id != dataset_id:
-                        continue
-                    return r.id
+            # case-insensitive fallback — SQL lower() when available (no full table scan)
+            try:
+                q2 = select(KGNodeRow).where(
+                    text("lower(name) = lower(:n)")
+                ).params(n=name)
+                if dataset_id:
+                    q2 = q2.where(KGNodeRow.dataset_id == dataset_id)
+                row2 = s.execute(q2.limit(1)).scalar_one_or_none()
+                if row2:
+                    return row2.id
+            except Exception:
+                # last resort limited scan
+                q3 = select(KGNodeRow)
+                if dataset_id:
+                    q3 = q3.where(KGNodeRow.dataset_id == dataset_id)
+                for r in s.execute(q3.limit(2000)).scalars().all():
+                    if r.name.lower() == name.lower():
+                        return r.id
         return None
 
     def delete_node(self, node_id: str) -> Dict[str, Any]:

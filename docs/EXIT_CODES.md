@@ -46,15 +46,17 @@ except Exception as e:
 # raise_typer_exit(exc)  or  raise_typer_exit({"ok": False, "error_code": "validation"})
 ```
 
-## CLI product wiring (2026-07-24)
+## CLI product wiring (2026-07-24+)
 
 | Surface | Behavior |
 |---------|----------|
 | `python -m scli.main` / `superai` entry (`main()`) | Uncaught exceptions → `from_exception` → process exit |
+| Command handlers | `_cli_exit(code=…)` / `_cli_exit(result_dict)` — maps legacy `1→GENERAL`, `2→USAGE` |
+| Payload failures | `_cli_exit(out)` uses `from_result` when `error_code` / `exit_code` present |
 | `emit_public(..., raise_exit=True)` | Uses `from_result` for `exit_code` |
-| Residual | Many command handlers still use `typer.Exit(1)` — tracked as residual; prefer `raise_typer_exit` / `from_result` on new code |
+| Helpers | `raise_typer_exit`, `_exit_from_exc`, `_exit_from_result` |
 
-Honesty: M080 is **strong but not 100%** until residual hard-coded `Exit(1)` paths are fully migrated.
+No residual bare `typer.Exit(1)` on CLI command fail paths.
 
 ---
 

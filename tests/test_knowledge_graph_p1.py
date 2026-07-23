@@ -70,6 +70,23 @@ def test_path_missing_within_hops(kg: KnowledgeGraph):
     path = kg.path(from_name="A", to_name="Z", hops=1)
     assert path["ok"] is True
     assert path["found"] is False
+    assert path.get("bfs_mode") == "batch_adjacency"
+
+
+def test_path_batch_mode_and_names(kg: KnowledgeGraph):
+    kg.upsert_edge(
+        from_name="X",
+        from_type="System",
+        to_name="Y",
+        to_type="System",
+        relation="USES",
+    )
+    path = kg.path(from_name="X", to_name="Y", hops=2)
+    assert path["found"] is True
+    assert path.get("bfs_mode") == "batch_adjacency"
+    assert path.get("edges_loaded", 0) >= 1
+    assert path["path"][0]["node"]["name"] == "X"
+    assert path["path"][-1]["node"]["name"] == "Y"
 
 
 def test_query_nodes_filter(kg: KnowledgeGraph):

@@ -113,8 +113,16 @@ A deep technical audit of Grok's **Memory Roadmap track (P1–P9+)**, **Memory E
 | 5e | session end/clear DB | **DONE** | commit+rollback on end/clear |
 | Tests | `tests/test_grok_handoff_gaps.py` | **DONE** | |
 
-**Scale residual (optional):** BFS N+1 (P1) performance for very deep graphs.
+**Scale residual:** ~~BFS N+1~~ **DONE** — `path()` uses batch adjacency + single IN node fetch (`bfs_mode=batch_adjacency`).
 
 ### Validation re-check (2026-07-24)
 
 Findings #1–4 in the action plan are **implemented in tree** (see closeout). AGY narrative above still describes pre-fix symptoms for audit history; treat closeout table as current status.
+
+### End-to-end residual closeout (2026-07-24, non-host)
+
+| Residual | Status |
+|----------|--------|
+| Hard-coded CLI `typer.Exit(1)` | **DONE** — all command fails via `_cli_exit` → GENERAL/USAGE/from_result |
+| KG path N+1 | **DONE** — batch adjacency + batch node load |
+| Host-gated live OTLP/cloud/multi-provider | **Excluded** (host only) |

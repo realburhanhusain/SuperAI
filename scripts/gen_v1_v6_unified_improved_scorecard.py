@@ -130,7 +130,8 @@ V6_MUST_COMPLETE = {
     "M001",  # hard budget — call_lifecycle + SPEND_PATHS + foundation_safety.audit_m001
     "M002",  # accurate cost — cost_accounting usage×registry + cost_source + board rollup
     "M008",  # result envelope — tui_envelope + all TUI slash handlers + audit_m008
-    # M015/M080/M081/M082: strong code+CLI but residual product gaps → STRICT_INCOMPLETE
+    # M015/M081/M082 residual product depth → STRICT_INCOMPLETE; M080 fully wired
+    "M080",  # exit_codes + main() from_exception + _cli_exit on all CLI fail paths
     "M017",  # cooperative cancel — cancel_token + board/council/agent/orchestrator
     "M018",  # timeouts — subprocess_safety + model_timeouts + audit_m018
     # MOS-N6 voice: code + tests + this session (docs: MOSCOW plan N6 section)
@@ -186,7 +187,7 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     "M079": T(True, True, True, 85, "global --json", "CLI help", "partial tests", "Not all commands emit JSON by default"),
     # AGY Must wiring (2026-07-24 honest): product paths improved, residual gaps remain
     "M015": T(True, True, True, 90, "prompt_injection + injection_defense bridge + CLI", "PROMPT_INJECTION_DEFENSE.md", "tests", "Not every tool/MCP path sanitized"),
-    "M080": T(True, True, True, 90, "exit_codes + CLI entry from_exception + raise_typer_exit", "EXIT_CODES.md", "test_exit_codes_m080", "Residual hard-coded typer.Exit(1) paths remain"),
+    # M080 moved to V6_MUST_COMPLETE (all CLI paths use taxonomy)
     "M081": T(True, True, True, 90, "rich help + group examples", "CLI_HELP_AND_COMPLETION.md", "test_cli_help", "Not every subcommand has epilog examples"),
     "M082": T(True, True, True, 90, "completion show/install Typer env complete", "CLI_HELP_AND_COMPLETION.md", "test_cli_help", "PowerShell native complete limited; profile install best-effort"),
     # Thin Shoulds demoted from false 100%

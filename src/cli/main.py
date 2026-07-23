@@ -58,6 +58,31 @@ def _exit_from_result(result: dict) -> None:
 
     raise typer.Exit(from_result(result))
 
+def _cli_exit(code_or_result=None, *, code: int | None = None) -> None:
+    """M080: raise typer.Exit using SuperAI taxonomy (never bare 1/2)."""
+    from core.exit_codes import GENERAL, OK, USAGE, from_result
+
+    def _map_legacy_int(n: int) -> int:
+        if n == 0:
+            return OK
+        if n == 2:
+            return USAGE
+        if n == 1:
+            return GENERAL
+        # 3–9 already match SuperAI taxonomy; pass through
+        return int(n)
+
+    if code is not None:
+        raise typer.Exit(_map_legacy_int(int(code)))
+    if code_or_result is None:
+        raise typer.Exit(GENERAL)
+    if isinstance(code_or_result, dict):
+        raise typer.Exit(from_result(code_or_result))
+    if isinstance(code_or_result, int):
+        raise typer.Exit(_map_legacy_int(code_or_result))
+    raise typer.Exit(GENERAL)
+
+
 console = Console()
 logger = get_logger("superai.cli")
 
@@ -158,7 +183,7 @@ def _main_callback(
                 )
             )
             interactive_repl(execute=True, verbose=False)
-            raise typer.Exit(0)
+            raise _cli_exit(code=0)
         # Interactive front door: empty / /tui → full agent TUI; else route task
         try:
             from core.parked_features import splash_banner
@@ -177,7 +202,7 @@ def _main_callback(
         try:
             line = console.input("[bold green]superai>[/bold green] ").strip()
         except (EOFError, KeyboardInterrupt):
-            raise typer.Exit(0)
+            raise _cli_exit(code=0)
         if not line or line.lower() in {"/tui", "tui", "/agent"}:
             from core.superai_agent.tui import run_superai_agent_tui
 
@@ -187,14 +212,14 @@ def _main_callback(
                 model=model,
                 permission=permission,
             )
-            raise typer.Exit(0)
+            raise _cli_exit(code=0)
         if line.lower() in {"/ask", "ask"}:
             from core.nl_intent import interactive_repl
 
             interactive_repl(execute=True, verbose=False)
-            raise typer.Exit(0)
+            raise _cli_exit(code=0)
         if line.lower() in {"exit", "quit", "/exit", "/quit"}:
-            raise typer.Exit(0)
+            raise _cli_exit(code=0)
         # Route one-shot via front door + NL execute
         from core.front_door import choose_path
         from core.nl_intent import ask_superai
@@ -206,7 +231,7 @@ def _main_callback(
         )
         out = ask_superai(line, execute=True, verbose=False)
         console.print_json(data=out if isinstance(out, dict) else {"result": out})
-        raise typer.Exit(0)
+        raise _cli_exit(code=0)
 
 
 def _suggest_fix(exc: Exception) -> Optional[str]:
@@ -486,7 +511,7 @@ def run(
             console.print(
                 "[red]--worker-prefer must be mixed | api | cli | router | off[/red]"
             )
-            raise typer.Exit(code=1)
+            raise _cli_exit(code=1)
 
         if stream and model:
             # S1: simple stream of a single model response (bypass multi-step for demo)
@@ -547,7 +572,7 @@ def run(
                     border_style="yellow",
                 )
             )
-            raise typer.Exit(code=2)
+            raise _cli_exit(code=2)
 
         # Cost / contract footer (Improvement Phase 1/3)
         console.print(
@@ -591,7 +616,7 @@ def run(
     except Exception as e:  # noqa: BLE001
         _print_error(e, debug=debug)
         from core.exit_codes import from_exception
-        raise typer.Exit(code=from_exception(e)) from e
+        raise typer.Exit(from_exception(e)) from e
 
 
 @app.command()
@@ -764,7 +789,7 @@ def history(
         record = store.get(task_id)
         if not record:
             console.print(f"[yellow]No history for task_id={task_id}[/yellow]")
-            raise typer.Exit(code=1)
+            raise _cli_exit(code=1)
         console.print_json(data=record)
         return
 
@@ -1280,7 +1305,7 @@ def _print_ontology(data: dict, *, title: str = "Ontology") -> None:
             lines.append(f"  • {row.get('label')} (n={row.get('count')})")
     console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="yellow"))
     if data.get("ok") is False:
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 def _print_dataset(data: dict, *, title: str = "Dataset") -> None:
@@ -1324,7 +1349,7 @@ def _print_dataset(data: dict, *, title: str = "Dataset") -> None:
         lines.append(f"error: {data.get('error')}")
     console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="cyan"))
     if data.get("ok") is False:
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 def _print_capture(data: dict, *, title: str = "Capture") -> None:
@@ -1363,7 +1388,7 @@ def _print_capture(data: dict, *, title: str = "Capture") -> None:
         lines.append(f"error: {data.get('error')}")
     console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="magenta"))
     if data.get("ok") is False:
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @capture_app.command("config")
@@ -1480,10 +1505,10 @@ def capture_stream_cmd(
         turns = _json.loads(turns_json)
     except Exception as e:
         console.print(f"[red]Invalid JSON: {e}[/red]")
-        raise typer.Exit(2)
+        raise _cli_exit(code=2)
     if not isinstance(turns, list):
         console.print("[red]turns_json must be a JSON list[/red]")
-        raise typer.Exit(2)
+        raise _cli_exit(code=2)
     out = process_turn_stream(
         turns,
         session_id=session_id,
@@ -1746,7 +1771,7 @@ def cognify_cmd(
     if json_mode():
         emit_public(out, print_json=True, record_spend=False)
         if not out.get("ok"):
-            raise typer.Exit(int(out.get("exit_code") or 1))
+            raise _cli_exit(out if isinstance(out, dict) else 1)
         return
     # human panel
     lines = [
@@ -1768,7 +1793,7 @@ def cognify_cmd(
         lines.append(f"llm_error: {out.get('llm_error')}")
     console.print(Panel.fit("\n".join(str(x) for x in lines if x is not None), border_style="cyan"))
     if not out.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("recall")
@@ -1812,7 +1837,7 @@ def recall_cmd(
     if json_mode():
         emit_public(out, print_json=True, record_spend=False)
         if not out.get("ok"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     lines = [
         "[bold]Recall[/bold]",
@@ -1830,7 +1855,7 @@ def recall_cmd(
         lines.append(f"• [{src}] {preview}")
     console.print(Panel.fit("\n".join(lines), border_style="blue"))
     if not out.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("ingest")
@@ -1889,7 +1914,7 @@ def ingest_cmd(
 
     if not source and not url:
         console.print("[red]Provide SOURCE path/text or --url[/red]")
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
     out = run_ingest(
         source,
@@ -1907,7 +1932,7 @@ def ingest_cmd(
     if json_mode():
         emit_public(out, print_json=True, record_spend=False)
         if not out.get("ok"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     lines = [
         "[bold]Ingest[/bold]",
@@ -1933,7 +1958,7 @@ def ingest_cmd(
         )
     console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="green"))
     if not out.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 def _learning_engine():
@@ -2331,7 +2356,7 @@ def backup(
             console.print(
                 f"[red]Cloud sync failed[/red] (is rclone configured for remote '{remote}'?)"
             )
-            raise typer.Exit(code=1)
+            raise _cli_exit(code=1)
 
 
 @app.command("backup-status")
@@ -2372,7 +2397,7 @@ def backup_verify(
         )
     else:
         console.print(f"[red]Verify failed:[/red] {result.get('error')}")
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command()
@@ -2408,7 +2433,7 @@ def restore(
     else:
         if not path:
             console.print("[red]Provide a local backup path or use --cloud[/red]")
-            raise typer.Exit(code=1)
+            raise _cli_exit(code=1)
         result = bm.restore_backup(path, restore_dir=dest)
 
     if result.get("ok"):
@@ -2423,7 +2448,7 @@ def restore(
         )
     else:
         console.print(f"[red]Restore failed:[/red] {result.get('error')}")
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command("list-skills")
@@ -2465,7 +2490,7 @@ def skill_promote(name: str = typer.Argument(..., help="Skill name to promote fr
         console.print(f"[green]Promoted skill:[/green] {name}")
     else:
         console.print(f"[red]Skill not found:[/red] {name}")
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command("skill-rollback")
@@ -2478,7 +2503,7 @@ def skill_rollback(name: str = typer.Argument(..., help="Skill name to rollback 
         console.print(f"[green]Rolled back skill:[/green] {name}")
     else:
         console.print(f"[yellow]Nothing to rollback or skill missing:[/yellow] {name}")
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command("skill")
@@ -2501,7 +2526,7 @@ def skill_cmd(
     if act == "create":
         if not content:
             console.print("[red]Provide skill body content[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         tag_list = [t.strip() for t in tags.split(",")] if tags else []
         path = sm.create_skill(
             name, content, tags=tag_list, description=description or name
@@ -2512,16 +2537,16 @@ def skill_cmd(
         ok = sm.delete_skill(name)
         console.print("[green]Deleted[/green]" if ok else f"[red]Not found:[/red] {name}")
         if not ok:
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     if act == "improve":
         if not content:
             console.print("[red]Provide improvement text[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         ok = sm.improve_skill(name, content, reason="cli improve")
         if not ok:
             console.print(f"[red]Not found:[/red] {name}")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print(f"[green]Improved[/green] {name}")
         return
     if act == "deps":
@@ -2529,14 +2554,14 @@ def skill_cmd(
         ok = sm.set_dependencies(name, deps)
         if not ok:
             console.print(f"[red]Not found:[/red] {name}")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data={"name": name, "depends_on": deps})
         return
     if act in {"test", "validate"}:
         console.print_json(data=sm.validate_skill(name))
         return
     console.print(f"[red]Unknown action: {action}[/red]")
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("host-tools")
@@ -2675,7 +2700,7 @@ def host_tools_cmd(
         console.print(table)
         console.print_json(data={"totals": report.get("totals"), "next": report.get("next")})
         if not dry_run and not report.get("ok"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
 
     # check (default)
@@ -2836,7 +2861,7 @@ def cli_parallel(
         f"ok={result.get('succeeded')}/{result.get('total')}[/dim]"
     )
     if not result.get("ok") and not dry_run:
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("cli-jobs")
@@ -2978,7 +3003,7 @@ def term_parallel(
         f"ok={result.get('succeeded')}/{result.get('total')}[/dim]"
     )
     if not result.get("ok") and not dry_run:
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("term-jobs")
@@ -3123,7 +3148,7 @@ def cli_run(
     else:
         console.print(f"[red]Failed:[/red] {result.error or result.stderr}")
         console.print_json(data=data)
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command("propose")
@@ -3166,7 +3191,7 @@ def proposal_cmd(
         p = mgr.execute(proposal_id)
     else:
         console.print(f"[red]Unknown action {action}[/red]")
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
     console.print_json(data=p.to_dict())
 
 
@@ -3246,7 +3271,7 @@ def council(
     mode = voting or cfg.council_voting_mode
     if mode not in VOTING_MODES:
         console.print(f"[red]Invalid voting mode. Use one of: {VOTING_MODES}[/red]")
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
     model_list = [m.strip() for m in models.split(",")] if models else None
     if pick and not model_list:
         from core.approval_tui import prompt_pick_from_catalog
@@ -3374,7 +3399,7 @@ def data_ask(
         path = write_chart_html(answer.chart, title=question[:80])
         console.print(f"[green]Interactive chart:[/green] {path}")
     if answer.error:
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command("data-schema")
@@ -3409,13 +3434,13 @@ def pref_cmd(
     if action == "get":
         if not key:
             console.print("[red]key required[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print(pm.get(key))
         return
     if action == "set":
         if not key:
             console.print("[red]key required[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         parsed: object = value
         if value is not None and value.lower() in {"true", "false"}:
             parsed = value.lower() == "true"
@@ -3425,11 +3450,11 @@ def pref_cmd(
     if action == "delete":
         if not key or not pm.delete(key):
             console.print("[yellow]Not found[/yellow]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print(f"[green]Deleted[/green] {key}")
         return
     console.print("[red]Unknown action[/red]")
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("tt-snapshot")
@@ -3481,7 +3506,7 @@ def tt_restore(
         console.print(f"[green]Restored[/green] {info}")
     except Exception as e:  # noqa: BLE001
         console.print(f"[red]{e}[/red]")
-        raise typer.Exit(1) from e
+        raise _cli_exit(code=1) from e
 
 
 @app.command("msg-send")
@@ -3495,7 +3520,7 @@ def msg_send(
     result = MessengerBus().send(message, channel=channel)
     console.print_json(data=result)
     if not result.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("msg-channels")
@@ -3520,7 +3545,7 @@ def msg_broadcast(
     result = MessengerBus().broadcast(message, channels=ch_list)
     console.print_json(data=result)
     if not result.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("plugins")
@@ -3549,19 +3574,19 @@ def plugins_cmd(
     if action == "enable":
         if not arg:
             console.print("[red]Need plugin id[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=reg.enable(arg))
         return
     if action == "disable":
         if not arg:
             console.print("[red]Need plugin id[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=reg.disable(arg))
         return
     if action == "install":
         if not arg:
             console.print("[red]Need path to plugin.json or directory[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         from pathlib import Path as P
 
         console.print_json(data=reg.install_from_path(P(arg)))
@@ -3569,11 +3594,11 @@ def plugins_cmd(
     if action == "load":
         if not arg:
             console.print("[red]Need plugin id[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=reg.load_plugin(arg))
         return
     console.print(f"[red]Unknown action: {action}[/red]")
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("bandit")
@@ -3707,7 +3732,7 @@ def github_cmd(
     if action == "issue-create":
         if not title:
             console.print("[red]--title required[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         lbs = [x.strip() for x in (labels or "").split(",") if x.strip()] or None
         console.print_json(
             data=client.create_issue(title, body=body or "", labels=lbs)
@@ -3716,17 +3741,17 @@ def github_cmd(
     if action == "pr":
         if number is None:
             console.print("[red]--number required[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=client.get_pr(number))
         return
     if action == "comment":
         if number is None or not body:
             console.print("[red]--number and --body required[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=client.comment_on_issue(number, body))
         return
     console.print("[red]action: status|issues|prs|issue-create|pr|comment[/red]")
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("emit-event")
@@ -3748,7 +3773,7 @@ def emit_event_cmd(
     result = EcosystemHub().emit_event(event, body)
     console.print_json(data=result)
     if not result.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("ecosystem")
@@ -3849,18 +3874,18 @@ def blacklist_cmd(
         return
     if action == "block":
         if not name:
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         bl.block_model(name, reason=reason, hours=hours)
         console.print(f"[green]Blocked[/green] {name}")
         return
     if action == "unblock":
         if not name:
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         bl.unblock_model(name)
         console.print(f"[green]Unblocked[/green] {name}")
         return
     console.print(f"[red]Unknown action {action}[/red]")
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("memory-chat")
@@ -3898,7 +3923,7 @@ def notion_cmd(
         return
     if action == "write":
         if not title_or_query:
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(
             data=client.write_page(title_or_query, content or "")
         )
@@ -3906,7 +3931,7 @@ def notion_cmd(
     if action == "search":
         console.print_json(data=client.search(title_or_query or ""))
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("hitl")
@@ -3927,16 +3952,16 @@ def hitl_cmd(
     if action == "clarify":
         if not task_id or not text:
             console.print("[red]Need task_id and question[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=store.request_clarification(task_id, text))
         return
     if action == "answer":
         if not task_id or not text:
             console.print("[red]Need clarification id and answer[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         r = store.answer_clarification(task_id, text)
         if not r:
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=r)
         if (r.get("kind") or "") == "replan_approval":
             console.print(
@@ -3946,10 +3971,10 @@ def hitl_cmd(
         return
     if action == "veto":
         if not task_id:
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=store.veto(task_id, reason=text or ""))
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("runs")
@@ -4071,7 +4096,7 @@ def memory_palace_cmd(
     if action == "search":
         if not query:
             console.print("[red]Provide --query[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         hits = mp.query_semantic(
             query, top_k=limit, wing=wing, room=room
         )
@@ -4102,7 +4127,7 @@ def memory_palace_cmd(
     console.print(
         "[red]action: layout | browse | search | suggest | promote | snapshot[/red]"
     )
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("roles")
@@ -4140,7 +4165,7 @@ def doctor(
 
     out = render_public(report, human_fn=_human, ok=bool(report.get("ok")))
     if not out.get("ok"):
-        raise typer.Exit(int(out.get("exit_code") or 1))
+        raise _cli_exit(out if isinstance(out, dict) else 1)
 
 
 @app.command("ask")
@@ -4283,7 +4308,7 @@ def ask_cmd(
         elif out.get("result") is not None:
             console.print(str(out.get("result"))[:4000])
     if not out.get("ok"):
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command()
@@ -4387,7 +4412,7 @@ def backup_key_cmd(
         AuditLog().record("backup_key_import", {"src": path})
         console.print(f"[green]Imported key to[/green] {dest}")
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command()
@@ -4405,10 +4430,10 @@ def policy(
     if action in {"enable", "disable"} and rule_id:
         ok = pe.set_enabled(rule_id, action == "enable")
         if not ok:
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=pe.list_rules())
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command()
@@ -4428,13 +4453,13 @@ def schedule(
     if action == "add":
         if not name or not command:
             console.print("[red]Need name and command[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=store.add(name, command, every_hours=every_hours))
         return
     if action == "run-due":
         console.print_json(data=store.run_due())
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("mcp-serve")
@@ -4455,13 +4480,13 @@ def mcp_serve(
     """
     if transport not in {"stdio", "http"}:
         console.print("[red]transport must be stdio (or use superai web for HTTP /mcp)[/red]")
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
     if transport == "http":
         console.print(
             "[yellow]HTTP MCP is served by:[/yellow] superai web  →  POST /mcp\n"
             "For stdio clients (Claude, Cursor), use default: superai mcp-serve"
         )
-        raise typer.Exit(0)
+        raise _cli_exit(code=0)
     from core.mcp_server import serve_stdio
 
     serve_stdio()
@@ -4635,7 +4660,7 @@ def git_helper(
             f"Suggested message:\n\nfeat: {task or 'superai task'}\n\nGenerated by SuperAI (review before commit)."
         )
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("msg-inbound")
@@ -4713,7 +4738,7 @@ def web(
         console.print(
             "[red]Web extras missing.[/red] Install: pip install -e \".[web]\""
         )
-        raise typer.Exit(1) from e
+        raise _cli_exit(code=1) from e
     # Refuse non-loopback bind without auth token
     loopback = host in {"127.0.0.1", "localhost", "::1"}
     if not loopback and not (os.getenv("SUPERAI_WEB_TOKEN") or "").strip():
@@ -4721,7 +4746,7 @@ def web(
             "[red]Refusing to bind non-loopback without SUPERAI_WEB_TOKEN.[/red]\n"
             "Set SUPERAI_WEB_TOKEN or use --host 127.0.0.1"
         )
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
     if (os.getenv("SUPERAI_WEB_TOKEN") or "").strip():
         console.print("[dim]API auth enabled (SUPERAI_WEB_TOKEN)[/dim]")
     console.print(f"[green]Starting SuperAI web on http://{host}:{port}[/green]")
@@ -4779,7 +4804,7 @@ def wings(
     if act == "rooms":
         if not wing:
             console.print("[red]--wing required[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data={"wing": wing, "rooms": wm.list_rooms(wing)})
         return
     if act == "browse":
@@ -4792,7 +4817,7 @@ def wings(
     if act == "assign":
         if not (memory_id and wing and room):
             console.print("[red]Need --memory-id --wing --room[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         entry = wm.assign(memory_id, wing, room, note=note)
         # Mirror onto memory metadata when possible
         try:
@@ -4804,7 +4829,7 @@ def wings(
         console.print(f"[green]Assigned[/green] {entry}")
         return
     console.print("[red]action: list | stats | browse | assign | rooms | sync[/red]")
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("list-models")
@@ -4836,7 +4861,7 @@ def list_models(
                 console.print(f"[dim]Wrote {meta['written_to']}[/dim]")
         except Exception as e:  # noqa: BLE001
             console.print(f"[red]Refresh failed:[/red] {e}")
-            raise typer.Exit(code=1) from e
+            raise _cli_exit(code=1) from e
 
     registry = ModelRegistry()
     if refresh:
@@ -4970,7 +4995,7 @@ def models_sync_ollama_cmd(
     )
     console.print_json(data=meta)
     if not meta.get("ok") and not dry_run:
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command("models-register")
@@ -5044,7 +5069,7 @@ def smoke_providers(
         )
     console.print(table)
     if not summary.get("ok") and summary.get("failed", 0) > 0:
-        raise typer.Exit(code=1)
+        raise _cli_exit(code=1)
 
 
 @app.command("provider-health")
@@ -5288,7 +5313,7 @@ def secrets(
         n = store.inject_env()
         console.print(f"[green]Injected {n} secrets into env[/green]")
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command()
@@ -5331,7 +5356,7 @@ def rate_queue_cmd(
         q.save()
         console.print("[green]Queue cleared[/green]")
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("diff-edit")
@@ -5389,7 +5414,7 @@ def profile_bundle_cmd(
     if action == "import":
         console.print_json(data=import_profile(P(path), dry_run=dry_run))
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command()
@@ -5500,7 +5525,7 @@ def install_cmd(
     )
     console.print_json(data=data)
     if not data.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command("install-postgres")
@@ -5549,7 +5574,7 @@ def install_postgres_cmd(
         data["setup"].pop("db_password", None)
     console.print_json(data=data)
     if not data.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @app.command()
@@ -5649,7 +5674,7 @@ def memory_sync_cmd(
             )
         )
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command()
@@ -5934,7 +5959,7 @@ def notebook_cmd(
     if action == "run":
         console.print_json(data=run_notebook_cell(path, index=index))
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("skill-perms")
@@ -5954,7 +5979,7 @@ def skill_perms_cmd(
         sp.set_tools(skill, [t.strip() for t in tools.split(",") if t.strip()])
         console.print_json(data=sp.list_all())
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("plugin-catalog")
@@ -5998,13 +6023,13 @@ def plugin_catalog_cmd(
     if install_id:
         if not url:
             console.print("[red]URL required for --install (remote catalog entry)[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         cat = fetch_catalog(url)
         entries = cat.get("plugins") or cat.get("entries") or []
         entry = next((e for e in entries if e.get("id") == install_id), None)
         if not entry:
             console.print("[red]id not found in remote catalog[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=install_from_catalog_entry(entry))
         return
     console.print_json(
@@ -6328,7 +6353,7 @@ def ci_why_cmd(
         blob = Path(log_file).read_text(encoding="utf-8", errors="replace")
     if not blob:
         console.print("[red]Provide --file or --text[/red]")
-        raise typer.Exit(2)
+        raise _cli_exit(code=2)
     console.print_json(data=analyze_log(blob))
 
 
@@ -6614,7 +6639,7 @@ def split_tui_cmd(
     console.print(
         "[red]Unknown action. Use: run|status|layouts|demo|set-layout|focus|ratio|reset|help[/red]"
     )
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("process-mux")
@@ -6797,7 +6822,7 @@ def tui_live_cmd(
         )
         return
     console.print("[red]Unknown action. Use: status|caps|demo-keys|demo-mouse[/red]")
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("a11y")
@@ -7074,7 +7099,7 @@ def daemon_cmd(
         "cluster-status|cluster-heartbeat|k8s-render|k8s-validate|"
         "windows-install|windows-uninstall|windows-query[/red]"
     )
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("goals")
@@ -7104,13 +7129,13 @@ def goals_cmd(
     if act == "add":
         if not title:
             console.print("[red]Need goal title[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data=store.add(title, detail=detail))
         return
     if act == "done":
         if not goal_id:
             console.print("[red]Need --id[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(data={"ok": store.complete(goal_id)})
         return
     if act == "heartbeat":
@@ -7122,7 +7147,7 @@ def goals_cmd(
     if act == "schedule":
         if not goal_id:
             console.print("[red]Need --id[/red]")
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         console.print_json(
             data=store.schedule_reminder(goal_id, every_hours=every_hours)
         )
@@ -7149,7 +7174,7 @@ def goals_cmd(
 
         console.print_json(data=daemon_status())
         return
-    raise typer.Exit(1)
+    raise _cli_exit(code=1)
 
 
 @app.command("bakeoff")
@@ -8037,7 +8062,7 @@ def memory_eval_cmd(
     if json_out or json_mode():
         emit_public(rep, print_json=True, record_spend=False)
         if not rep.get("ok"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     if markdown:
         console.print(report_markdown(rep))
@@ -8055,7 +8080,7 @@ def memory_eval_cmd(
             mark = "[green]PASS[/green]" if c.get("ok") else "[red]FAIL[/red]"
             console.print(f"  {mark} {c.get('id')}: {c.get('name')} — {c.get('detail')}")
     if not rep.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 # --- Phase 9+ memory: OTEL / managed cloud / host hooks (Grok track) ---
@@ -8154,11 +8179,11 @@ def cloud_configure_cmd(
     if json_mode():
         emit_public(out, print_json=True, record_spend=False)
         if not out.get("ok"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     console.print(out.get("message") or out)
     if not out.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @cloud_app.command("dry-sync")
@@ -8173,11 +8198,11 @@ def cloud_dry_sync_cmd(
     if json_mode():
         emit_public(out, print_json=True, record_spend=False)
         if not out.get("ok"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     console.print(Panel.fit(str(out.get("message") or out), border_style="blue"))
     if not out.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 @cloud_app.command("push")
@@ -8197,11 +8222,11 @@ def cloud_push_cmd(
     if json_mode():
         emit_public(out, print_json=True, record_spend=False)
         if not out.get("ok"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     console.print(Panel.fit(str(out.get("message") or out), border_style="blue"))
     if not out.get("ok"):
-        raise typer.Exit(1)
+        raise _cli_exit(code=1)
 
 
 host_hook_app = typer.Typer(help="Host IDE capture hooks → session memory (Phase 9+)")
@@ -8232,7 +8257,7 @@ def host_hook_emit_cmd(
     if json_mode():
         emit_public(out, print_json=True, record_spend=False)
         if not out.get("ok") and not out.get("skipped"):
-            raise typer.Exit(1)
+            raise _cli_exit(code=1)
         return
     console.print(out.get("message") or out)
 

@@ -382,7 +382,8 @@ def export_dataset(
         graph = kg or get_default_graph()
         q = graph.query_nodes(dataset_id=did, limit=limit)
         nodes = q.get("nodes") or []
-        # collect edges for those nodes
+        id_to_node = {str(n.get("id")): n for n in nodes if n.get("id")}
+        # collect edges for those nodes — MR-5: enrich with from_name/to_name
         seen_e: Set[str] = set()
         for n in nodes:
             if not n.get("id"):
@@ -392,7 +393,35 @@ def export_dataset(
                 eid = str(e.get("id") or "")
                 if eid and eid not in seen_e:
                     seen_e.add(eid)
-                    edges.append(e)
+                    er = dict(e)
+                    fr = id_to_node.get(str(er.get("from_id") or ""))
+                    to = id_to_node.get(str(er.get("to_id") or ""))
+                    if fr:
+                        er["from_name"] = fr.get("name")
+                        er["from_type"] = fr.get("type")
+                    if to:
+                        er["to_name"] = to.get("name")
+                        er["to_type"] = to.get("type")
+                    # try resolve missing endpoint via graph if outside page
+                    if (not er.get("from_name") or not er.get("to_name")) and hasattr(
+                        graph, "get_node"
+                    ):
+                        try:
+                            if not er.get("from_name") and er.get("from_id"):
+                                nd = graph.get_node(str(er["from_id"]))  # type: ignore[attr-defined]
+                                node = (nd or {}).get("node") or nd or {}
+                                if isinstance(node, dict) and node.get("name"):
+                                    er["from_name"] = node.get("name")
+                                    er["from_type"] = node.get("type")
+                            if not er.get("to_name") and er.get("to_id"):
+                                nd = graph.get_node(str(er["to_id"]))  # type: ignore[attr-defined]
+                                node = (nd or {}).get("node") or nd or {}
+                                if isinstance(node, dict) and node.get("name"):
+                                    er["to_name"] = node.get("name")
+                                    er["to_type"] = node.get("type")
+                        except Exception:
+                            pass
+                    edges.append(er)
     except Exception as e:  # noqa: BLE001
         return {
             "ok": False,
@@ -430,7 +459,7 @@ def export_dataset(
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)[:300], "error_code": "zip"}
 
-    return {
+    report = {
         "ok": True,
         "product": "dataset_export",
         "dataset_id": did,
@@ -441,6 +470,13 @@ def export_dataset(
             f"{manifest['counts']['nodes']} nodes, {manifest['counts']['edges']} edges"
         ),
     }
+    try:
+        from .memory_otel import instrument_report
+
+        report = instrument_report("dataset_export", report)
+    except Exception:
+        pass
+    return report
 
 
 def import_dataset(
@@ -581,7 +617,7 @@ def import_dataset(
             "memories_imported": mem_ok,
         }
 
-    return {
+    report = {
         "ok": True,
         "product": "dataset_import",
         "dataset_id": did,
@@ -597,6 +633,13 @@ def import_dataset(
             f"{edge_ok} edges ({errors} errors)"
         ),
     }
+    try:
+        from .memory_otel import instrument_report
+
+        report = instrument_report("dataset_import", report)
+    except Exception:
+        pass
+    return report
 
 
 def forget_dataset(
@@ -674,6 +717,24 @@ def forget_dataset(
             "memories_deleted": deleted_m,
         }
 
+    # MR-5: session ↔ dataset lifecycle — clear session buffers stamped with this dataset
+    sessions_cleared = 0
+    try:
+        from .session_memory import SessionMemory
+
+        sm = SessionMemory()
+        for sess in sm.list_sessions(dataset_id=did, limit=500).get("sessions") or []:
+            sid = sess.get("id")
+            if not sid:
+                continue
+            try:
+                sm.clear(str(sid), delete_items=True, hard=True)
+                sessions_cleared += 1
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     # remove non-builtin registry entry
     reg = get_registry()
     meta = (reg._data.get("datasets") or {}).get(did) or {}
@@ -692,10 +753,12 @@ def forget_dataset(
         "memories_deleted": deleted_m,
         "nodes_deleted": deleted_n,
         "edges_deleted": deleted_e,
+        "sessions_cleared": sessions_cleared,
         "registry_removed": removed_registry,
         "message": (
             f"Forgot dataset {did}: {deleted_m} memories, "
-            f"{deleted_n} nodes, {deleted_e} edges"
+            f"{deleted_n} nodes, {deleted_e} edges, "
+            f"{sessions_cleared} sessions cleared"
         ),
     }
 

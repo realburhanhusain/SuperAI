@@ -192,6 +192,25 @@ def run_superai_agent_tui(
     else:
         state = runtime.new_session(agent=agent, model=model, permission=perm)
 
+    # MR-6: in-process agent auto-capture (session buffer; no host settings rewrite)
+    try:
+        from ..session_capture import maybe_start_agent_auto_capture
+
+        _cap = maybe_start_agent_auto_capture(
+            session_id=getattr(state, "id", None) or session_id,
+            title=f"agent-tui:{agent}",
+            source="agent_tui",
+        )
+        if _cap is not None:
+            try:
+                console.print(
+                    f"[dim]session capture on ({_cap.level}) → {_cap.session_id}[/dim]"
+                )
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     bus = get_progress_bus()
     events: List[Dict[str, Any]] = []
 

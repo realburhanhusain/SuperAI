@@ -111,6 +111,9 @@ class MemoryOtel:
     def status(self) -> Dict[str, Any]:
         with self._lock:
             n = len(self._spans)
+        # P9-R2: surface exporter-related env when SDK mode is requested
+        endpoint = (os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip() or None
+        service = (os.getenv("OTEL_SERVICE_NAME") or "superai.memory").strip()
         return {
             "ok": True,
             "product": "memory_otel",
@@ -118,9 +121,18 @@ class MemoryOtel:
             "sdk_available": self._otel_tracer is not None,
             "spans_buffered": n,
             "export_path": str(self.export_path),
+            "otlp_endpoint_env": endpoint,
+            "otel_service_name": service,
+            "env_help": {
+                "SUPERAI_MEMORY_OTEL": "off|mock|sdk (default mock)",
+                "SUPERAI_MEMORY_OTEL_PATH": "JSONL span export path (mock)",
+                "OTEL_EXPORTER_OTLP_ENDPOINT": "when SUPERAI_MEMORY_OTEL=sdk and opentelemetry installed",
+                "OTEL_SERVICE_NAME": "service name for SDK path (default superai.memory)",
+            },
             "message": (
                 f"Memory OTEL mode={self.mode} spans={n} "
                 f"sdk={'yes' if self._otel_tracer else 'no'}"
+                + (f" endpoint={endpoint}" if endpoint else "")
             ),
         }
 

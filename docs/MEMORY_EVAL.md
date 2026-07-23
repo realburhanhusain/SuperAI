@@ -20,6 +20,10 @@ Offline, no-network smoke that exercises Memory Roadmap verticals **P1–P8** in
 | `p6_ontology` | P6 | Ontology validate + type map |
 | `p7_dataset` | P7 | Dataset isolation filter |
 | `p8_capture` | P8 | Turn capture stream |
+| `mr1_quality` | MR-1 | Cognify entity F1 + relation recall + strategy ranking score |
+| `p9_otel` | P9-R7 | Mock OTEL span buffer |
+| `p9_host_hook` | P9-R7 | Host-hook emit + install checklist |
+| `p9_cloud_local` | P9-R7 | Cloud status `local_only` |
 
 ## CLI
 

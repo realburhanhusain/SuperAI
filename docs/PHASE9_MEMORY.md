@@ -95,13 +95,13 @@ Shipped = vertical slice works offline. These are **product depth** items still 
 
 | ID | Area | Residual | Suggested direction |
 |----|------|----------|---------------------|
-| **P9-R1** | OTEL coverage | Spans are light: recall uses `instrument_report`; cognify / ingest / capture / dataset not fully span-wrapped | Add `memory_span` / `instrument_report` on those hot paths; keep content redaction |
-| **P9-R2** | OTEL SDK path | `SUPERAI_MEMORY_OTEL=sdk` is best-effort if `opentelemetry` is installed; no exporter/endpoint UX | Document env for OTLP endpoint when SDK present; optional `otel configure` later |
-| **P9-R3** | Cloud push | `cloud dry-sync` only builds export + plan (`network_write: false`) | Define push protocol + auth; real upload behind explicit `--apply` + reachability |
-| **P9-R4** | Multi-client HTTP | Thin clients default to `superai --json` subprocess | Optional HTTP JSON client when `SUPERAI_HTTP_BASE` / web surface is stable |
-| **P9-R5** | Client packaging | Python/TS clients live under `clients/` only | Optional publish as installable packages (pip/npm) with version pin to CLI |
-| **P9-R6** | Host-hook install | `host-hook install-snippet` prints MCP/hooks JSON only | Keep manual by design; optional guided checklist CLI (still no silent rewrite of host config) |
-| **P9-R7** | Eval × P9 | `memory-eval` covers P1–P8 smoke, not OTEL/cloud/host-hook cases | Extend offline eval with otel buffer + host-hook emit + cloud status local_only |
+| **P9-R1** | OTEL coverage | **DONE** — `instrument_report` on cognify, ingest, capture stream, dataset export/import | Keep content out of attrs |
+| **P9-R2** | OTEL SDK path | **DONE** — `otel status` surfaces `OTEL_EXPORTER_OTLP_ENDPOINT` + `env_help` | SDK still best-effort optional dep |
+| **P9-R3** | Cloud push | **DONE** — `superai cloud push` / `push_sync(apply=…)`; network only when reachable + `--apply` | Host-gated live SaaS remains out of scope |
+| **P9-R4** | Multi-client HTTP | **DONE** — Python client uses `SUPERAI_HTTP_BASE` for recall/cloud status when set | Full web surface still optional |
+| **P9-R5** | Client packaging | **DONE (docs)** — `clients/README.md` packaging notes; publish remains optional | — |
+| **P9-R6** | Host-hook install | **DONE** — `superai host-hook checklist` guided steps; still no silent host rewrite | — |
+| **P9-R7** | Eval × P9 | **DONE** — `p9_otel` / `p9_host_hook` / `p9_cloud_local` in `memory-eval` | — |
 
 ### Host-gated (do not treat as in-repo “todo” for offline CI)
 

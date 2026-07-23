@@ -66,6 +66,11 @@ SUPPORTED_FORMATS: List[Dict[str, str]] = [
         "extensions": ".json (subject+body)",
         "notes": "Outlook-style JSON export with subject/body fields",
     },
+    {
+        "format": "code",
+        "extensions": ".py,.ts,.js,.go,.rs,.java,.sql,...",
+        "notes": "Language-aware chunking on def/class/function boundaries (MR-3)",
+    },
 ]
 
 _TEXT_EXTS = {".txt", ".log", ".csv", ".tsv", ".rst"}
@@ -73,6 +78,33 @@ _MD_EXTS = {".md", ".markdown", ".mdx"}
 _JSONL_EXTS = {".jsonl", ".ndjson"}
 _JSON_EXTS = {".json"}
 _PDF_EXTS = {".pdf"}
+# MR-3: language-aware code folder ingest
+_CODE_EXTS = {
+    ".py",
+    ".pyi",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".kt",
+    ".cs",
+    ".cpp",
+    ".cc",
+    ".c",
+    ".h",
+    ".hpp",
+    ".rb",
+    ".php",
+    ".swift",
+    ".scala",
+    ".sql",
+    ".sh",
+    ".ps1",
+    ".r",
+}
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _PDF_TJ_RE = re.compile(r"\((?:\\.|[^\\)])*\)\s*Tj")
@@ -107,6 +139,8 @@ def detect_format(source: str, *, is_url: bool = False) -> str:
         return "json"
     if ext in _MD_EXTS:
         return "markdown"
+    if ext in _CODE_EXTS:
+        return "code"
     if ext in _TEXT_EXTS or not ext:
         return "text"
     # unknown extension → still try as text
@@ -391,6 +425,79 @@ def chunk_text(
             break
         i = end - ov
     return chunks
+
+
+_CODE_BOUNDARY_RE = re.compile(
+    r"(?m)^(?:"
+    r"def\s+\w+|async\s+def\s+\w+|class\s+\w+|"  # Python
+    r"function\s+\w+|export\s+(?:async\s+)?function\s+\w+|export\s+class\s+\w+|"  # JS/TS
+    r"func\s+\w+|fn\s+\w+|impl\s+\w+|pub\s+(?:fn|struct|enum)\s+\w+|"  # Go/Rust
+    r"public\s+(?:class|interface|void|static)|"  # Java-ish
+    r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION)\s+"  # SQL
+    r")"
+)
+
+
+def chunk_code(
+    text: str,
+    *,
+    chunk_size: int = _DEFAULT_CHUNK,
+    overlap: int = _DEFAULT_OVERLAP,
+) -> List[str]:
+    """
+    Language-aware code chunking (MR-3).
+
+    Prefer splitting on def/class/function boundaries; fall back to character
+    chunks when a unit exceeds chunk_size.
+    """
+    text = text or ""
+    if not text.strip():
+        return []
+    # Allow smaller target than plain text (defs are often short units)
+    size = max(80, int(chunk_size))
+    # Find boundary starts
+    starts = [m.start() for m in _CODE_BOUNDARY_RE.finditer(text)]
+    if not starts:
+        return chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+    starts = sorted(set([0] + starts))
+    units: List[str] = []
+    for i, st in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(text)
+        unit = text[st:end]
+        if unit.strip():
+            units.append(unit)
+    # Merge small units / split large ones
+    chunks: List[str] = []
+    buf = ""
+    for unit in units:
+        if len(unit) > size:
+            if buf.strip():
+                chunks.append(buf)
+                buf = ""
+            chunks.extend(chunk_text(unit, chunk_size=chunk_size, overlap=overlap))
+            continue
+        if len(buf) + len(unit) <= size:
+            buf = buf + unit if buf else unit
+        else:
+            if buf.strip():
+                chunks.append(buf)
+            buf = unit
+    if buf.strip():
+        chunks.append(buf)
+    return chunks or chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+
+
+def chunk_for_format(
+    text: str,
+    fmt: str,
+    *,
+    chunk_size: int = _DEFAULT_CHUNK,
+    overlap: int = _DEFAULT_OVERLAP,
+) -> List[str]:
+    """Dispatch chunker by format label."""
+    if (fmt or "").lower() == "code":
+        return chunk_code(text, chunk_size=chunk_size, overlap=overlap)
+    return chunk_text(text, chunk_size=chunk_size, overlap=overlap)
 
 
 def load_local_file(
@@ -712,8 +819,12 @@ def ingest(
             report["ok"] = False
             continue
 
-        chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+        chunks = chunk_for_format(
+            text, fmt_label, chunk_size=chunk_size, overlap=overlap
+        )
         entry["chunks"] = len(chunks)
+        if fmt_label == "code":
+            entry["chunker"] = "code_boundary"
 
         if dry_run:
             entry["dry_run"] = True
@@ -804,4 +915,11 @@ def ingest(
             f"cognify_nodes={report['cognify_nodes']}; "
             f"formats={report['formats']}"
         )
+    # MR-2 / P9-R1: OTEL (counts only; no free-text)
+    try:
+        from .memory_otel import instrument_report
+
+        report = instrument_report("ingest", report)
+    except Exception:
+        pass
     return report

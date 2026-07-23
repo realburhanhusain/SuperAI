@@ -617,12 +617,12 @@ The **spikes** are the first concrete work packages inside Phase 0.
 
 | Pri | ID | Phase | Work | Primary refs |
 |----:|----|-------|------|----------------|
-| **1** | **MR-1** | Eval / P2 / P4 | **Deeper offline quality eval** beyond smoke: cognify extraction quality + recall strategy ranking metrics (not only pass/fail harness) | `docs/MEMORY_EVAL.md`, `core.memory_eval`, cognify/recall tests |
-| **2** | **MR-2** (= **P9-R1**) | P9 | **More OTEL instrumentation** on cognify, ingest, capture, dataset ops (safe attrs only; no free-text content) | `docs/PHASE9_MEMORY.md` P9-R1, `core.memory_otel` |
-| **3** | **MR-3** | P5 | **Code-folder language-aware chunking** + **stronger PDF path** (prefer pypdf when installed; keep basic fallback) | `docs/INGEST.md`, `core.ingest` |
-| **4** | **MR-4** | P6 | **Opt-in ontology induce** beyond frequency report (still offline-first; LLM induce remains opt-in later) | `docs/ONTOLOGY.md`, `core.ontology` |
-| **5** | **MR-5** | P7 | **Import/export edge fidelity** + **session ↔ dataset lifecycle** (forget/export alignment; document or implement session wipe policy) | `docs/DATASETS.md`, `core.memory_dataset`, session memory |
-| **6** | **MR-6** | P8 | **Agent auto-capture** on main `superai agent` / agent-tui paths (in-process; not host settings rewrite) | `docs/SESSION_CAPTURE.md`, `core.session_capture`, agent entrypoints |
+| **1** | **MR-1** | Eval / P2 / P4 | **Deeper offline quality eval** beyond smoke: cognify extraction quality + recall strategy ranking metrics (not only pass/fail harness) | **DONE** `mr1_quality` in `core.memory_eval` + `tests/test_memory_residual_mr.py` |
+| **2** | **MR-2** (= **P9-R1**) | P9 | **More OTEL instrumentation** on cognify, ingest, capture, dataset ops (safe attrs only; no free-text content) | **DONE** `instrument_report` on cognify/ingest/capture/dataset export-import |
+| **3** | **MR-3** | P5 | **Code-folder language-aware chunking** + **stronger PDF path** (prefer pypdf when installed; keep basic fallback) | **DONE** `chunk_code` / format `code`; PDF still pypdf-first |
+| **4** | **MR-4** | P6 | **Opt-in ontology induce** beyond frequency report (still offline-first; LLM induce remains opt-in later) | **DONE** `induce_from_texts` + CLI `--text`/`--file` (no YAML mutation) |
+| **5** | **MR-5** | P7 | **Import/export edge fidelity** + **session ↔ dataset lifecycle** (forget/export alignment; document or implement session wipe policy) | **DONE** export enriches `from_name`/`to_name`; forget clears sessions |
+| **6** | **MR-6** | P8 | **Agent auto-capture** on main `superai agent` / agent-tui paths (in-process; not host settings rewrite) | **DONE** `maybe_start_agent_auto_capture` in agent TUI; `SUPERAI_AGENT_AUTO_CAPTURE` |
 
 ### Phase 9 residuals (detail table)
 
@@ -630,13 +630,13 @@ Full table with directions: **`docs/PHASE9_MEMORY.md` § Residual follow-ups (no
 
 | ID | Summary |
 |----|---------|
-| **P9-R1** | Same as **MR-2** — span coverage on hot memory paths |
-| **P9-R2** | OTEL SDK/exporter env polish when package present |
-| **P9-R3** | Cloud real push protocol behind explicit apply (beyond dry-sync) |
-| **P9-R4** | HTTP multi-client when web surface stable |
-| **P9-R5** | Optional pip/npm packaging of thin clients |
-| **P9-R6** | Host-hook install checklist CLI (still no silent host config rewrite) |
-| **P9-R7** | Extend `memory-eval` for otel + host-hook + cloud local_only cases |
+| **P9-R1** | Same as **MR-2** — **DONE** |
+| **P9-R2** | OTEL SDK/exporter env polish — **DONE** (`otel status` env_help + OTLP endpoint fields) |
+| **P9-R3** | Cloud push behind `--apply` — **DONE** (`push_sync` / `superai cloud push`) |
+| **P9-R4** | HTTP multi-client when `SUPERAI_HTTP_BASE` set — **DONE** (Python client) |
+| **P9-R5** | Optional packaging notes — **DONE** (`clients/README.md`; publish still optional later) |
+| **P9-R6** | Host-hook checklist CLI — **DONE** (`superai host-hook checklist`) |
+| **P9-R7** | Extend `memory-eval` for otel + host-hook + cloud — **DONE** |
 
 **Suggested wave after MR-1…MR-6:** P9-R2, P9-R7, then P9-R3–R6 as needed.
 

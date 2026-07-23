@@ -336,6 +336,154 @@ def _run_cases(tmp: Path) -> List[EvalCase]:
     except Exception as ex:  # noqa: BLE001
         cases.append(EvalCase("p8_capture", "P8", "capture", False, str(ex)[:300]))
 
+    # MR-1: deeper quality metrics (cognify extraction + recall strategy ranking)
+    try:
+        from core.cognify import extract_mock
+        from core.recall_router import choose_strategy
+
+        gold_text = (
+            "Banking App uses Cloud SQL.\n"
+            "Policy Tags protects Cloud SQL.\n"
+            "Dataplex depends on BigQuery.\n"
+        )
+        extracted = extract_mock(gold_text)
+        ent_names = {
+            str(e.get("name") or "").lower()
+            for e in (extracted.get("entities") or [])
+        }
+        rels = {
+            (
+                str(r.get("from") or "").lower(),
+                str(r.get("relation") or "").upper(),
+                str(r.get("to") or "").lower(),
+            )
+            for r in (extracted.get("relations") or [])
+        }
+        expect_ents = {"banking app", "cloud sql", "policy tags", "dataplex", "bigquery"}
+        expect_rels = {
+            ("banking app", "USES", "cloud sql"),
+            ("policy tags", "PROTECTS", "cloud sql"),
+        }
+        ent_hit = len(expect_ents & ent_names)
+        ent_prec = ent_hit / max(1, len(ent_names)) if ent_names else 0.0
+        ent_rec = ent_hit / len(expect_ents)
+        rel_hit = len(expect_rels & rels)
+        rel_rec = rel_hit / len(expect_rels)
+        f1_ent = (
+            (2 * ent_prec * ent_rec / (ent_prec + ent_rec))
+            if (ent_prec + ent_rec) > 0
+            else 0.0
+        )
+        # strategy ranking: ordered probes must pick expected strategy
+        probes = [
+            ("path to Cloud SQL graph", "hybrid"),
+            ("TICKET-1234", "keyword"),
+            ('"exact phrase id"', "keyword"),
+            ("related to Dataplex", "hybrid"),
+        ]
+        rank_ok = 0
+        rank_detail = []
+        for q, want in probes:
+            got = choose_strategy(q).get("strategy")
+            # ticket-like may be keyword; relational → hybrid
+            match = got == want or (
+                want == "hybrid" and got in {"hybrid", "graph"}
+            )
+            if match:
+                rank_ok += 1
+            rank_detail.append({"q": q, "want": want, "got": got, "ok": match})
+        rank_score = rank_ok / len(probes)
+        ok = f1_ent >= 0.4 and rel_rec >= 0.5 and rank_score >= 0.5
+        cases.append(
+            EvalCase(
+                "mr1_quality",
+                "MR-1",
+                "cognify quality + recall strategy ranking",
+                ok,
+                detail=(
+                    f"ent_f1={f1_ent:.2f} rel_rec={rel_rec:.2f} "
+                    f"strategy_rank={rank_score:.2f}"
+                ),
+                evidence={
+                    "entity_precision": round(ent_prec, 3),
+                    "entity_recall": round(ent_rec, 3),
+                    "entity_f1": round(f1_ent, 3),
+                    "relation_recall": round(rel_rec, 3),
+                    "strategy_rank_score": round(rank_score, 3),
+                    "strategy_probes": rank_detail,
+                    "entities_found": sorted(ent_names),
+                },
+            )
+        )
+    except Exception as ex:  # noqa: BLE001
+        cases.append(EvalCase("mr1_quality", "MR-1", "quality metrics", False, str(ex)[:300]))
+
+    # P9-R7: otel + host-hook + cloud local_only
+    try:
+        from core.memory_otel import get_memory_otel, memory_span, reset_memory_otel
+
+        os.environ["SUPERAI_MEMORY_OTEL"] = "mock"
+        reset_memory_otel()
+        with memory_span("memory.eval", attributes={"operation": "eval", "ok": True}):
+            pass
+        spans = get_memory_otel().list_spans(limit=5)
+        ok = any(s.get("name") == "memory.eval" for s in spans)
+        cases.append(
+            EvalCase(
+                "p9_otel",
+                "P9",
+                "otel mock buffer span",
+                ok,
+                detail=f"spans={len(spans)}",
+                evidence={"count": len(spans)},
+            )
+        )
+    except Exception as ex:  # noqa: BLE001
+        cases.append(EvalCase("p9_otel", "P9", "otel", False, str(ex)[:300]))
+
+    try:
+        from core.host_hooks import emit_host_event, install_checklist
+
+        emit = emit_host_event(
+            "user_prompt",
+            content="eval host hook",
+            session_id="eval_host_hook",
+            dataset_id="superai",
+            level="session",
+        )
+        cl = install_checklist("claude")
+        ok = bool(emit.get("ok") or emit.get("skipped")) and bool(cl.get("ok")) and len(cl.get("steps") or []) >= 4
+        cases.append(
+            EvalCase(
+                "p9_host_hook",
+                "P9",
+                "host-hook emit + checklist",
+                ok,
+                detail=str(emit.get("message") or cl.get("message") or "")[:120],
+                evidence={"checklist_steps": len(cl.get("steps") or [])},
+            )
+        )
+    except Exception as ex:  # noqa: BLE001
+        cases.append(EvalCase("p9_host_hook", "P9", "host_hook", False, str(ex)[:300]))
+
+    try:
+        from core.memory_cloud import status as cloud_status
+
+        st = cloud_status()
+        ok = bool(st.get("ok")) and st.get("mode") == "local_only"
+        cases.append(
+            EvalCase(
+                "p9_cloud_local",
+                "P9",
+                "cloud status local_only",
+                ok,
+                detail=str(st.get("message") or "")[:120],
+                evidence={"mode": st.get("mode"), "reachable": st.get("reachable")},
+            )
+        )
+    except Exception as ex:  # noqa: BLE001
+        cases.append(EvalCase("p9_cloud_local", "P9", "cloud", False, str(ex)[:300]))
+
     return cases
 
 

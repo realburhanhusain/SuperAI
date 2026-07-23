@@ -26,12 +26,70 @@ class SuperAIMemoryClient:
         binary: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         timeout: float = 120.0,
+        http_base: Optional[str] = None,
     ):
         self.binary = binary or os.getenv("SUPERAI_BIN") or shutil.which("superai") or "superai"
         self.env = {**os.environ, **(env or {})}
         self.timeout = timeout
+        # P9-R4: optional HTTP JSON when SUPERAI_HTTP_BASE is set / passed
+        self.http_base = (
+            (http_base or os.getenv("SUPERAI_HTTP_BASE") or "").strip().rstrip("/")
+            or None
+        )
+
+    def _run_http(self, path: str, *, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        assert self.http_base
+        q = urllib.parse.urlencode({k: v for k, v in (params or {}).items() if v is not None})
+        url = f"{self.http_base}{path}" + (f"?{q}" if q else "")
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={"Accept": "application/json", "User-Agent": "superai-memory-client/0.1"},
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
+                body = resp.read().decode("utf-8", errors="replace")
+                return json.loads(body)
+        except Exception as e:  # noqa: BLE001
+            return {
+                "ok": False,
+                "error": str(e)[:300],
+                "error_code": "http",
+                "transport": "http",
+                "url": url,
+            }
 
     def _run(self, args: List[str]) -> Dict[str, Any]:
+        # Prefer HTTP for a few stable endpoints when configured
+        if self.http_base and args:
+            if args[0] == "recall" and len(args) >= 2:
+                # recall QUERY --strategy S --top-k N
+                q = args[1]
+                strategy = "auto"
+                top_k = 10
+                if "--strategy" in args:
+                    i = args.index("--strategy")
+                    if i + 1 < len(args):
+                        strategy = args[i + 1]
+                if "--top-k" in args:
+                    i = args.index("--top-k")
+                    if i + 1 < len(args):
+                        top_k = args[i + 1]
+                out = self._run_http(
+                    "/v1/memory/recall",
+                    params={"q": q, "strategy": strategy, "top_k": top_k},
+                )
+                out.setdefault("transport", "http")
+                return out
+            if args[0:2] == ["cloud", "status"]:
+                out = self._run_http("/v1/memory/cloud/status")
+                out.setdefault("transport", "http")
+                return out
+
         cmd = [self.binary, "--json", *args]
         try:
             proc = subprocess.run(
@@ -59,13 +117,19 @@ class SuperAIMemoryClient:
             }
         # last JSON object line if mixed
         try:
-            return json.loads(text)
+            data = json.loads(text)
+            if isinstance(data, dict):
+                data.setdefault("transport", "cli")
+            return data
         except json.JSONDecodeError:
             for line in reversed(text.splitlines()):
                 line = line.strip()
                 if line.startswith("{"):
                     try:
-                        return json.loads(line)
+                        data = json.loads(line)
+                        if isinstance(data, dict):
+                            data.setdefault("transport", "cli")
+                        return data
                     except json.JSONDecodeError:
                         continue
             return {

@@ -15,7 +15,7 @@
 |--------|----------|
 | Model | **Hybrid** — fixed core types + aliases; free labels allowed |
 | Unknown labels | Map to `Entity` / `RELATED_TO` with **`provisional=true`** (not hard-reject) |
-| LLM induce | **Not auto** — offline `induce` reports frequencies only; file edits stay human/PR |
+| LLM induce | **Not auto** — offline `induce` reports graph frequencies and optional corpus (`--text`/`--file` → `induce_from_texts`); file edits stay human/PR |
 | Source of truth | `memory_ontology.yaml` (not hardcoded in cognify) |
 
 ## Core entity types
@@ -55,6 +55,8 @@ superai ontology validate
 superai ontology map service --kind type
 superai ontology map depends_on --kind relation
 superai ontology induce --dataset default
+superai ontology induce --text "ZetaWidget uses Cloud SQL. ZetaWidget uses Cloud SQL."
+superai ontology induce --file ./notes.md
 
 # JSON
 superai --json ontology validate

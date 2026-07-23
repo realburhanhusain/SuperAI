@@ -17,6 +17,7 @@ Vertical multi-format **load → (chunk → palace) → optional cognify** path 
 | Format | Extensions / form | Notes |
 |--------|-------------------|--------|
 | **text** | `.txt`, `.log`, `.csv`, `.tsv` | UTF-8 with replacement; chunked |
+| **code** | `.py`, `.ts`, `.js`, `.go`, `.rs`, … | MR-3 language-aware chunking on def/class/function boundaries |
 | **markdown** | `.md`, `.markdown`, `.mdx` | Preferred for cognify headings |
 | **jsonl** | `.jsonl`, `.ndjson` | Uses `content` / `text` / `body` / `message` fields |
 | **json** | `.json` | Single object/array; compact dump fallback |

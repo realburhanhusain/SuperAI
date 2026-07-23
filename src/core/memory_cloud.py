@@ -237,3 +237,93 @@ def dry_run_sync(
             f"no network write"
         ),
     }
+
+
+def push_sync(
+    dataset_id: str = "default",
+    *,
+    apply: bool = False,
+    limit: int = 1000,
+    timeout: float = 10.0,
+) -> Dict[str, Any]:
+    """
+    P9-R3: push protocol behind explicit apply.
+
+    Default (apply=False): same as dry_run_sync (network_write=false).
+    apply=True: requires configured reachable cloud; POSTs export zip to
+    ``{api_base}/v1/memory/datasets/{id}/import`` when reachable.
+    Offline / unreachable → fail-closed with local plan retained.
+    """
+    plan = dry_run_sync(dataset_id, limit=limit)
+    if not apply:
+        plan["apply"] = False
+        plan.setdefault("plan", {})["network_write"] = False
+        return plan
+
+    st = status(timeout=timeout)
+    cfg = public_config()
+    base = (cfg.get("api_base") or os.getenv("SUPERAI_MEMORY_CLOUD_URL") or "").strip()
+    out = dict(plan)
+    out["product"] = "memory_cloud_push"
+    out["apply"] = True
+    if not base:
+        out["ok"] = False
+        out["error"] = "api_base not configured"
+        out["error_code"] = "not_configured"
+        out["message"] = "Cannot apply push: configure cloud api_base first"
+        out.setdefault("plan", {})["network_write"] = False
+        return out
+    if not st.get("reachable"):
+        out["ok"] = False
+        out["error"] = "cloud unreachable"
+        out["error_code"] = "unreachable"
+        out["message"] = (
+            "Cannot apply push: cloud not reachable. Dry-run plan retained; "
+            "export zip is local-only."
+        )
+        out.setdefault("plan", {})["network_write"] = False
+        out["cloud_status"] = {
+            "mode": st.get("mode"),
+            "reachable": st.get("reachable"),
+        }
+        return out
+
+    exp_path = (plan.get("export") or {}).get("path") or (plan.get("plan") or {}).get(
+        "export_path"
+    )
+    if not exp_path or not Path(exp_path).is_file():
+        out["ok"] = False
+        out["error"] = "export zip missing"
+        out["error_code"] = "export"
+        return out
+
+    url = base.rstrip("/") + f"/v1/memory/datasets/{dataset_id}/import"
+    try:
+        data = Path(exp_path).read_bytes()
+        req = urllib.request.Request(
+            url,
+            data=data,
+            method="POST",
+            headers={
+                "User-Agent": "SuperAI-memory-cloud/1.0",
+                "Content-Type": "application/zip",
+                "Accept": "application/json",
+            },
+        )
+        token = (os.getenv("SUPERAI_MEMORY_CLOUD_TOKEN") or "").strip()
+        if token:
+            req.add_header("Authorization", f"Bearer {token}")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            body = resp.read()[:2000]
+            out["ok"] = True
+            out["http_status"] = getattr(resp, "status", 200)
+            out["response_preview"] = body.decode("utf-8", errors="replace")[:500]
+            out.setdefault("plan", {})["network_write"] = True
+            out["message"] = f"Applied push to {url} (HTTP {out['http_status']})"
+    except Exception as e:  # noqa: BLE001
+        out["ok"] = False
+        out["error"] = str(e)[:300]
+        out["error_code"] = "push_failed"
+        out.setdefault("plan", {})["network_write"] = False
+        out["message"] = f"Push apply failed: {type(e).__name__}: {e}"[:200]
+    return out

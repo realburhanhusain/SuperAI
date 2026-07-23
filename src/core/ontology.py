@@ -456,6 +456,96 @@ class MemoryOntology:
             ),
         }
 
+    def induce_from_texts(
+        self,
+        texts: Sequence[str],
+        *,
+        min_count: int = 2,
+        top_n: int = 40,
+    ) -> Dict[str, Any]:
+        """
+        MR-4: offline corpus induce beyond graph frequency report.
+
+        Scans TitleCase / known multi-word tokens and relation verbs in free
+        text, proposes alias candidates. Does **not** mutate YAML unless
+        caller applies ``draft_aliases`` manually (or future LLM induce).
+        """
+        from collections import Counter
+
+        type_counts: Counter = Counter()
+        rel_counts: Counter = Counter()
+        name_counts: Counter = Counter()
+        title_re = re.compile(
+            r"\b([A-Z][a-z0-9]+(?:\s+[A-Z][a-z0-9]+){0,3})\b"
+        )
+        verb_map = {
+            "uses": "USES",
+            "owns": "OWNS",
+            "depends on": "DEPENDS_ON",
+            "protects": "PROTECTS",
+            "works with": "WORKS_WITH",
+        }
+        for raw in texts or []:
+            t = raw or ""
+            for m in title_re.finditer(t):
+                name = m.group(1).strip()
+                if len(name) < 2:
+                    continue
+                name_counts[name] += 1
+                # if known entity, count its type
+                kn = self._known_norm.get(_norm_key(name))
+                if kn:
+                    type_counts[kn[1]] += 1
+                else:
+                    type_counts["Entity"] += 0  # keep key space clean
+            low = t.lower()
+            for phrase, rel in verb_map.items():
+                c = low.count(phrase)
+                if c:
+                    rel_counts[rel] += c
+
+        # candidates: frequent names not already known
+        alias_proposals = []
+        for name, n in name_counts.most_common(top_n * 2):
+            if n < min_count:
+                continue
+            if self._known_norm.get(_norm_key(name)):
+                continue
+            # skip pure stop-ish
+            if name.lower() in {"the", "this", "that", "with", "from"}:
+                continue
+            alias_proposals.append(
+                {
+                    "name": name,
+                    "count": n,
+                    "suggested_type": "System" if n >= min_count + 1 else "Entity",
+                    "action": "add_known_entity_or_alias",
+                }
+            )
+            if len(alias_proposals) >= top_n:
+                break
+
+        base = self.induce_from_counts(dict(type_counts), dict(rel_counts))
+        base["mode"] = "corpus_plus_counts"
+        base["product"] = "ontology_induce_corpus"
+        base["alias_proposals"] = alias_proposals
+        base["name_frequency_top"] = [
+            {"name": a, "count": b} for a, b in name_counts.most_common(20)
+        ]
+        base["draft_aliases"] = {
+            p["name"]: p["suggested_type"] for p in alias_proposals[:20]
+        }
+        base["message"] = (
+            "Offline corpus induce (no ontology mutation). "
+            f"{len(alias_proposals)} alias proposal(s). "
+            "Review draft_aliases before editing memory_ontology.yaml."
+        )
+        base["apply_hint"] = (
+            "Opt-in only: merge draft_aliases into known_entities manually "
+            "or via future `ontology induce --apply` (not default)."
+        )
+        return base
+
 
 @lru_cache(maxsize=4)
 def _cached_load(path_str: str) -> MemoryOntology:

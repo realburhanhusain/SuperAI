@@ -576,7 +576,7 @@ def process_turn_stream(
         "count": 0,
         "items": [],
     }
-    return {
+    report = {
         "ok": all(r.get("ok") is not False for r in results) or cap.level == "off",
         "product": "session_capture_stream",
         "session_id": cap.session_id,
@@ -593,6 +593,50 @@ def process_turn_stream(
             f"level={cap.level} items={items.get('count')}"
         ),
     }
+    try:
+        from .memory_otel import instrument_report
+
+        report = instrument_report("capture_stream", report)
+    except Exception:
+        pass
+    return report
+
+
+def maybe_start_agent_auto_capture(
+    *,
+    session_id: Optional[str] = None,
+    dataset_id: Optional[str] = None,
+    title: str = "agent tui",
+    source: str = "agent_tui",
+) -> Optional[SessionCapture]:
+    """
+    MR-6: opt-in auto-capture for main agent / agent-tui paths.
+
+    Enabled when SUPERAI_CAPTURE_LEVEL is not off (default session).
+    Set SUPERAI_AGENT_AUTO_CAPTURE=0 to disable without changing level.
+    """
+    if (os.getenv("SUPERAI_AGENT_AUTO_CAPTURE") or "1").strip().lower() in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }:
+        return None
+    level = resolve_capture_level()
+    if level == "off":
+        return None
+    try:
+        cap = SessionCapture.start(
+            session_id=session_id,
+            title=title,
+            dataset_id=dataset_id,
+            source=source,
+            level=level,
+        )
+        set_active_capture(cap)
+        return cap
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------

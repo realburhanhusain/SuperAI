@@ -566,7 +566,8 @@ def run(
         raise
     except Exception as e:  # noqa: BLE001
         _print_error(e, debug=debug)
-        raise typer.Exit(code=1) from e
+        from core.exit_codes import from_exception
+        raise typer.Exit(code=from_exception(e)) from e
 
 
 @app.command()
@@ -1613,19 +1614,37 @@ def ontology_map_cmd(
 def ontology_induce_cmd(
     dataset: Optional[str] = typer.Option(None, "--dataset", "-d"),
     path: Optional[str] = typer.Option(None, "--path"),
+    text: Optional[str] = typer.Option(
+        None, "--text", "-t", help="Optional free-text corpus for MR-4 induce_from_texts"
+    ),
+    file: Optional[str] = typer.Option(
+        None, "--file", "-f", help="Optional text file for corpus induce"
+    ),
 ):
     """
-    Offline induce report from current graph type/relation frequencies.
+    Offline induce report from graph frequencies and/or free-text corpus (MR-4).
 
-    Does not mutate the ontology file (LLM induce is opt-in later).
+    Does not mutate the ontology file (LLM / --apply induce is opt-in later).
     """
     from collections import Counter
+    from pathlib import Path as _Path
 
     from core.knowledge_graph import get_default_graph
     from core.ontology import MemoryOntology, clear_ontology_cache, default_ontology_path
 
     clear_ontology_cache()
     ont = MemoryOntology.load(path if path else default_ontology_path())
+    texts: list = []
+    if text:
+        texts.append(text)
+    if file:
+        p = _Path(file)
+        if p.is_file():
+            texts.append(p.read_text(encoding="utf-8", errors="replace"))
+    if texts:
+        out = ont.induce_from_texts(texts)
+        _print_ontology(out, title="Ontology induce (corpus)")
+        return
     kg = get_default_graph()
     nodes = kg.query_nodes(dataset_id=dataset, limit=5000)
     type_counts: Counter = Counter()
@@ -8076,6 +8095,30 @@ def cloud_dry_sync_cmd(
         raise typer.Exit(1)
 
 
+@cloud_app.command("push")
+def cloud_push_cmd(
+    dataset: str = typer.Option("default", "--dataset", "-d"),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Actually POST export to cloud (default is dry-run only)",
+    ),
+):
+    """P9-R3: push dataset plan; network write only with --apply when reachable."""
+    from core.memory_cloud import push_sync
+    from core.public_surface import emit_public, json_mode
+
+    out = push_sync(dataset, apply=apply)
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        if not out.get("ok"):
+            raise typer.Exit(1)
+        return
+    console.print(Panel.fit(str(out.get("message") or out), border_style="blue"))
+    if not out.get("ok"):
+        raise typer.Exit(1)
+
+
 host_hook_app = typer.Typer(help="Host IDE capture hooks → session memory (Phase 9+)")
 app.add_typer(host_hook_app, name="host-hook")
 
@@ -8123,6 +8166,23 @@ def host_hook_install_snippet_cmd(
         return
     console.print(out.get("message"))
     console.print_json(data={k: out[k] for k in out if k not in {"message", "ok", "product"}})
+
+
+@host_hook_app.command("checklist")
+def host_hook_checklist_cmd(
+    host: str = typer.Option("claude", "--host", help="claude|grok|cursor"),
+):
+    """Guided host-hook install checklist (P9-R6; never rewrites host settings)."""
+    from core.host_hooks import install_checklist
+    from core.public_surface import emit_public, json_mode
+
+    out = install_checklist(host)
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        return
+    console.print(f"[bold]{out.get('message')}[/bold]")
+    for step in out.get("steps") or []:
+        console.print(f"  {step.get('step')}. {step.get('title')} — [dim]{step.get('check')}[/dim]")
 
 
 if __name__ == "__main__":

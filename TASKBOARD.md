@@ -78,14 +78,14 @@
 | `[x]` | **Phase 9+** OTEL / cloud / host-hooks / multi-client (`docs/PHASE9_MEMORY.md`) |
 | `[x]` | CLI: `otel`, `cloud`, `host-hook` · MCP: `superai_memory_otel`, `superai_memory_cloud`, `superai_host_hook` |
 | `[x]` | Thin clients: `clients/python`, `clients/typescript` + API contract |
-| `[ ]` | **Unified residual backlog MR-1…MR-6 + P9-R1…R7** — single source: `docs/MEMORY_ROADMAP_COGNEE_GAPS.md` § *Memory residual backlog (P1–P9, non-host)* |
-| `[ ]` | MR-1 Deeper offline quality eval (cognify + recall) |
-| `[ ]` | MR-2 / P9-R1 More OTEL on cognify/ingest/capture |
-| `[ ]` | MR-3 P5 code-folder chunking + stronger PDF |
-| `[ ]` | MR-4 P6 opt-in ontology induce (beyond frequency report) |
-| `[ ]` | MR-5 P7 export/import edges + session/dataset lifecycle |
-| `[ ]` | MR-6 P8 agent/tui auto-capture (in-process) |
-| `[ ]` | P9-R2…R7 after MR-1…MR-6 (see PHASE9_MEMORY.md) |
+| `[x]` | **Unified residual backlog MR-1…MR-6 + P9-R1…R7** — closed offline (see roadmap checklist) |
+| `[x]` | MR-1 Deeper offline quality eval (cognify + recall) |
+| `[x]` | MR-2 / P9-R1 More OTEL on cognify/ingest/capture/dataset |
+| `[x]` | MR-3 P5 code-folder chunking + stronger PDF (pypdf-first retained) |
+| `[x]` | MR-4 P6 corpus ontology induce (`induce_from_texts`; no YAML auto-mutate) |
+| `[x]` | MR-5 P7 export edge names + session wipe on forget |
+| `[x]` | MR-6 P8 agent/tui auto-capture (in-process) |
+| `[x]` | P9-R2…R7 offline productization (env help, cloud push --apply, HTTP client, checklist, eval cases) |
 | `[!]` | Live multi-provider smoke remains Phase 99 host gate |
 | `[!]` | Real cloud control plane / OTLP collector — host-gated optional |
 
@@ -102,7 +102,8 @@
 **Plan:** `docs/AGY_IMPROVEMENT_PLAN.md`  
 **Findings:** `docs/AGY_HANDOFF_PENDING_AND_INCOMPLETE.md`  
 **Bar:** code + docs + tests + product wiring; no false 100% scorecard rows  
-**Note:** Grok will not pick open W1.1/W1.2/W1.5/W1.6/W3.3–W3.5/W4 while AGY completes them.
+**Note:** Grok will not implement open AGY-owned items unless reassigned.  
+**Grok re-review #6 (2026-07-23, tip `7695d80`):** claim “all gaps closed” **REJECTED** — see `docs/AGY_HANDOFF_PENDING_AND_INCOMPLETE.md` §0e.
 
 ### W0 — Stabilize WIP / restore regressions
 
@@ -111,16 +112,16 @@
 - [x] W0.3 Keep `git explain-pr`, `git resolve-conflicts`, `security scan-secrets`, `ci-fix`
 - [x] W0.4 S112 tomllib pyproject + fixture test
 - [x] W0.5 Fix `EXIT_CODES_TABLE` display names
-- [ ] W0.6 Commit W0 green slice
+- [ ] W0.6 Commit W0 green slice **(AGY)**
 
 ### W1 — Must product wiring
 
-- [ ] W1.1 M080 CLI exception / exit mapping where feasible
-- [ ] W1.2 M080 remaining Exit(1) honesty or convert high-traffic paths
+- [ ] W1.1 M080 CLI exception / exit mapping where feasible **(AGY — still open #6)**
+- [ ] W1.2 M080 remaining Exit(1) honesty or convert high-traffic paths **(AGY — still open #6; also fix duplicate `from_exception`)**
 - [x] W1.3 M015 call site in tool loop (`injection_defense.sanitize_tool_result`)
 - [x] W1.4 M015 aliases (`scan_prompt_injection`, `wrap_untrusted_input`)
-- [ ] W1.5 M081 help examples for new groups
-- [ ] W1.6 M082 completion honesty (real dump or labeled stub)
+- [ ] W1.5 M081 help examples for new groups **(AGY)**
+- [ ] W1.6 M082 completion honesty (real dump or labeled stub) **(AGY — partial: install writes profile; show still env one-liner)**
 - [x] W1.7 S116 via `git suggest-*` (tests green)
 
 ### W2 — Critical Should product gaps
@@ -136,17 +137,17 @@
 
 - [x] W3.1 S108 method double-count fix + test
 - [x] W3.2 S106 public annotation checks (ANN001/ANN201)
-- [ ] W3.3 S105 tighter match / subprocess option
-- [ ] W3.4 S104 WARNING fails pass (strict)
-- [ ] W3.5 S109 traceback lines or honest types
+- [ ] W3.3 S105 tighter match / subprocess option **(AGY)**
+- [x] W3.4 S104 WARNING fails pass (strict) — **code closed in `8efe54e`** (board synced #6)
+- [ ] W3.5 S109 traceback lines or honest types **(AGY — partial: SYNTAX/TIMEOUT present; not full fixer)**
 - [x] W3.6 S124 drop Java/Node claim in module doc
 
 ### W4 — Closeout
 
-- [ ] W4.1 Update handoff checkboxes
-- [ ] W4.2 Honest scorecard regen (only true completes)
-- [ ] W4.3 Memory P1–P8 regression green
-- [ ] W4.4 Push plan + hardening commits
+- [x] W4.1 Handoff §0e re-review #6 written by Grok (AGY still owns residual code)
+- [ ] W4.2 Honest scorecard regen (only true completes) **(AGY)**
+- [ ] W4.3 Memory P1–P8 regression green **(AGY verify; Grok keeps memory track green separately)**
+- [ ] W4.4 Push remaining AGY hardening **(AGY)**
 
 ### Verify (copy/paste)
 
@@ -163,10 +164,11 @@ pytest tests/test_knowledge_graph_p1.py tests/test_cognify_p2.py tests/test_sess
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-23 |
-| **What** | Grok picks offline memory eval (post P1–P8); AGY keeps remaining Hardening Wave tasks; `superai memory-eval` + TASKBOARD Grok Memory Track |
-| **Verify** | `pytest tests/test_memory_eval_offline.py -q`; AGY owns W1.1/W1.5/W1.6/W3.3–W3.5/W4 |
-| **Still open** | AGY Hardening open items; Phase 99 live smoke (host) |
-| **Prior** | Memory P1–P8; AGY deep review; hardening plan |
+| **What** | Grok re-review **#6** rejected AGY “all gaps closed”; handoff §0e + TASKBOARD sync; then implement memory residual **MR-1…** |
+| **Verify** | Handoff §0e; AGY Should pack green; residual backlog checklist |
+| **Still open (AGY)** | W1.1/W1.2/W1.5/W1.6, W3.3, W3.5 partial, W4.2/W4.4; Musts M080/M015/M081/M082 Complete? NO |
+| **Still open (Grok)** | Host-gated live smoke / real SaaS only (`[!]` rows) |
+| **Prior** | Memory residual MR-1…P9-R7 closed offline; AGY #6 reject remains for AGY-owned opens |
 
 ### Improvement track (strong / efficient / cost / flexible / complete)
 

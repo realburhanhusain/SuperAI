@@ -2,7 +2,7 @@
 
 **Author:** Grok (memory roadmap track)  
 **First written:** 2026-07-23 (tip `144bba5`)  
-**Last re-review:** 2026-07-23 (tip **`b5888e7`**)  
+**Last re-review:** 2026-07-23 (tip **`7695d80`** — re-review **#6**)  
 **Repo:** `Documents/Personal/github/SuperAI`  
 **Audience:** AGY (scorecard / V1–V6 Musts & Shoulds)  
 **Strict bar:** production code + thorough docs + full tests **and** product wiring (CLI/MCP/tool paths where claimed)
@@ -18,6 +18,71 @@
 | 2026-07-23 **#3 validation** | **`b5888e7`** | Full AGY inventory vs commits/scorecard; CLI wiring matrix; full AGY pytest matrix (**49 pass / 8 fail**) |
 | 2026-07-23 **#4 deep 8** | **`b5888e7`** | **Deep review of former medium set:** S105, S106, S108, S110, S114, S115, S124, S132 (code+tests+docs+wiring+edge probes) |
 | 2026-07-23 **#5 claim check** | **`eba76f2`** | User claim: AGY completed all pending tasks. **Verdict: NOT fully true** — major P0/P1 CLI + many fixes landed; remaining W1/W3/W4 items still open (see §0d). |
+| 2026-07-23 **#6 claim re-check** | **`7695d80`** | User: AGY said all gaps closed again. **Verdict: REJECT** — see §0e. |
+
+---
+
+## 0e. Re-review #6 — "all gaps closed?" (2026-07-23, tip `7695d80`)
+
+**Claim:** AGY told stakeholders all gaps are closed.  
+**Evidence:** `git log` / clean tree at `7695d80`; last AGY code commit is **`8efe54e`** (after `eba76f2` / `8681e6a`); post-`8efe54e` commits are **Grok memory/docs only**; focused AGY unit pack **41 passed**; scorecard + TASKBOARD re-read.
+
+### Verdict
+
+| Scope | Result |
+|-------|--------|
+| **P0 Must CLI wiring** | **DONE** (still green) |
+| **Critical Should product CLIs** (S110/S114/S116/S117 + S132/M015 bridges) | **DONE / mostly DONE** |
+| **Quality patches in `8efe54e`** | **Partial credit** — S104 strict + S109 SYNTAX/TIMEOUT + completion install Path fix |
+| **Full Hardening Wave W0–W4** | **NOT done** |
+| **Musts at strict 100% scorecard** | **NO** — M080/M015/M081/M082 still **Complete? NO** |
+| **Honest "all gaps closed"** | **Reject** |
+
+### Done since re-review #5 (credit)
+
+| Area | Evidence at `7695d80` |
+|------|------------------------|
+| **S104 W3.4 (code)** | `run_self_critique_pass(..., strict=True)` → WARNING fails `passed` (probe: bare `except` → `passed=False`) |
+| **S109 W3.5 (partial)** | `ci_fixer` parses TEST_FAILURE / IMPORT_ERROR / **SYNTAX_ERROR** / **TIMEOUT**; better line harvest on FAILED |
+| **M082 install** | `completion install` imports `Path`, appends shell profile block (no longer no-op) |
+| Unit packs | Should suite sample **41 passed** |
+
+### Still open (not completed)
+
+| ID / task | Status | Evidence |
+|-----------|--------|----------|
+| **W1.1–W1.2 M080** product-wide exits | **Open** | `from_exception` **0** call sites in `src/cli/main.py`; **~114** `typer.Exit(...)`; only `public_surface` uses `from_result` |
+| **M080 quality** | **Open** | **Duplicate** `def from_exception` in `exit_codes.py` (second shadows first); bare `TimeoutError` can map to GENERAL not TIMEOUT |
+| **W1.5 M081** help examples | **Open** | Groups exist; no dedicated help-quality pass |
+| **W1.6 M082** completion honesty | **Partial** | `show` still env-eval one-liners (not full Typer dump); `install` writes profile; error path can still print success |
+| **W3.3 S105** | **Open** | Stem substring match + in-process `pytest.main` |
+| **W3.4 S104** | **Code closed** | Implementation done in `8efe54e`; TASKBOARD synced in #6 |
+| **W3.5 S109** | **Partial** | Types exist; not a real patch-applier; many `line_number=0` |
+| **W4.1** | **Synced by Grok** | Handoff §0e + TASKBOARD #6 note |
+| **W4.2** | **Open** | Should rows still **YES/100%** overclaim; Musts honestly **NO** |
+| **W0.6 / W4.4** | **Open** | Closeout hygiene / remaining AGY-owned push |
+
+### Improved scorecard (honest Must rows — still incomplete)
+
+| ID | Complete? | % |
+|----|-----------|---|
+| M080 | **NO** | 80% |
+| M015 | **NO** | 70% |
+| M081 | **NO** | 60% |
+| M082 | **NO** | 55% |
+
+### Test matrix (#6)
+
+```text
+AGY Should unit pack (S104–S132 sample files): 41 passed
+```
+
+### Bottom line for stakeholders
+
+AGY **finished the wiring wave** and some **quality patches**. Residual Hardening Wave work remains on **product-wide exits, help/completion depth, S105, scorecard honesty, and taskboard closeout**.
+
+**Grok will not implement AGY-owned opens** unless reassigned. Memory residual backlog (MR-1…) is the disjoint Grok track.
+
 
 ---
 

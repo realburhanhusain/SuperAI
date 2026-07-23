@@ -168,6 +168,59 @@ def emit_host_batch(
         )
 
 
+def install_checklist(host: str = "claude") -> Dict[str, Any]:
+    """
+    P9-R6: guided checklist for host hook install (still no silent rewrite).
+    """
+    snip = hook_install_snippet(host)
+    host_l = (host or "claude").lower()
+    steps = [
+        {
+            "step": 1,
+            "title": "Install SuperAI CLI on PATH",
+            "check": "superai --help exits 0",
+        },
+        {
+            "step": 2,
+            "title": "Confirm MCP server",
+            "check": "superai mcp-serve starts (stdio) or host MCP config points at it",
+        },
+        {
+            "step": 3,
+            "title": "Set capture level",
+            "check": "SUPERAI_CAPTURE_LEVEL=session (or session+promote)",
+        },
+        {
+            "step": 4,
+            "title": "Copy install snippet into host settings",
+            "check": f"Manual paste only — never auto-written for {host_l}",
+            "snippet_keys": [k for k in snip.keys() if k not in {"ok", "product", "message", "host"}],
+        },
+        {
+            "step": 5,
+            "title": "Smoke emit",
+            "check": 'superai host-hook emit user_prompt -c "hello" --session smoke1',
+        },
+        {
+            "step": 6,
+            "title": "Verify session buffer",
+            "check": "superai memory-session list (or MCP superai_host_hook)",
+        },
+    ]
+    return {
+        "ok": True,
+        "product": "host_hook_checklist",
+        "host": host_l,
+        "auto_write_host_config": False,
+        "steps": steps,
+        "snippet": snip,
+        "message": (
+            f"Host-hook checklist for {host_l}: {len(steps)} steps "
+            "(manual install only; no silent settings rewrite)"
+        ),
+    }
+
+
 def hook_install_snippet(host: str = "claude") -> Dict[str, Any]:
     """
     Return documented install snippets for hosts (not applied automatically).

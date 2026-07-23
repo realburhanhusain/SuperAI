@@ -498,6 +498,13 @@ def cognify(
         report["error_code"] = "graph_write"
         report["message"] = f"Graph write failed: {e}"[:200]
 
+    # MR-2 / P9-R1: safe OTEL attributes only (no free-text content)
+    try:
+        from .memory_otel import instrument_report
+
+        report = instrument_report("cognify", report)
+    except Exception:
+        pass
     return report
 
 

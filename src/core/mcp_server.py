@@ -255,6 +255,30 @@ TOOLS: List[Dict[str, Any]] = [
         },
     ),
     _tool(
+        "superai_dataset",
+        "Memory datasets/namespaces (P7): list|create|use|status|export|import|forget.",
+        {
+            "action": {
+                "type": "string",
+                "description": "list|create|use|status|export|import|forget",
+            },
+            "dataset_id": {
+                "type": "string",
+                "description": "Dataset name (create/use/status/export/forget)",
+            },
+            "description": {"type": "string"},
+            "path": {
+                "type": "string",
+                "description": "Export output or import source path",
+            },
+            "yes": {
+                "type": "boolean",
+                "description": "Required true for forget",
+            },
+            "dry_run": {"type": "boolean"},
+        },
+    ),
+    _tool(
         "superai_learn",
         "Write back a completed outcome into central Memory Palace (learning + result snippet).",
         {
@@ -716,6 +740,55 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
                 raise ValueError("label required for map")
             return ont.map_label(label, kind=str(args.get("kind") or "type"))
         raise ValueError("action must be show|validate|map")
+
+    if name == "superai_dataset":
+        from pathlib import Path as _Path
+
+        from .memory_dataset import (
+            export_dataset,
+            forget_dataset,
+            get_registry,
+            import_dataset,
+            status as dataset_status,
+        )
+
+        action = str(args.get("action") or "list").lower()
+        did = args.get("dataset_id")
+        if action == "list":
+            return get_registry().list_datasets()
+        if action == "create":
+            if not did:
+                raise ValueError("dataset_id required")
+            return get_registry().create(
+                str(did), description=str(args.get("description") or "")
+            )
+        if action == "use":
+            if not did:
+                raise ValueError("dataset_id required")
+            return get_registry().use(str(did))
+        if action == "status":
+            return dataset_status(str(did) if did else None)
+        if action == "export":
+            if not did:
+                raise ValueError("dataset_id required")
+            dest = _Path(str(args["path"])) if args.get("path") else None
+            return export_dataset(str(did), dest=dest)
+        if action == "import":
+            path = args.get("path")
+            if not path:
+                raise ValueError("path required for import")
+            return import_dataset(
+                _Path(str(path)),
+                dataset_id=str(did) if did else None,
+                dry_run=bool(args.get("dry_run")),
+            )
+        if action == "forget":
+            if not did:
+                raise ValueError("dataset_id required")
+            return forget_dataset(str(did), yes=bool(args.get("yes")))
+        raise ValueError(
+            "action must be list|create|use|status|export|import|forget"
+        )
 
     if name == "superai_memory_palace":
         from .memory_palace import MemoryPalace

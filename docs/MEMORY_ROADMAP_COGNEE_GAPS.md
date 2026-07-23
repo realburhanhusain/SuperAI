@@ -1,6 +1,6 @@
 # SuperAI Memory Roadmap — Cognee-class gaps 1–8
 
-**Status:** Implementation in progress — **P1–P6 shipped (end-to-end)**  
+**Status:** Implementation in progress — **P1–P7 shipped (end-to-end)**  
 **Date:** 2026-07-23  
 **Repo tip at drafting:** `6035caa` (master)  
 **P1 land:** `core.knowledge_graph` + `superai kg` + MCP `superai_kg_*` + docs/tests  
@@ -9,6 +9,7 @@
 **P4 land:** `core.recall_router` + `superai recall` + MCP search strategies + docs/tests  
 **P5 land:** `core.ingest` + `superai ingest` + MCP `superai_ingest` + docs/tests (text/md/jsonl/pdf/url)  
 **P6 land:** `core.ontology` + `data/memory_ontology.yaml` + `superai ontology` + MCP `superai_ontology` + cognify mapping  
+**P7 land:** `core.memory_dataset` + `superai dataset` + MCP `superai_dataset` + palace/recall isolation  
 **Coordination:** Parallel AGY work on V1–V6 scorecard (M015/M080/M081/M082/S116) — keep file touch sets disjoint.  
 **Compare-to:** [Cognee](https://github.com/topoteretes/cognee) (open-source agent knowledge-graph memory)  
 **Baseline SuperAI:** `MemoryPalace` (vectors + wings/rooms) + `LearningEngine` (promote / conflict / distill) + central write-back + MCP tools  
@@ -448,9 +449,11 @@ superai dataset forget scratch --yes
 
 ### Definition of Done
 
-- [ ] No cross-dataset leakage in default query mode  
-- [ ] Export/import one dataset  
-- [ ] Docs + tests  
+- [x] No cross-dataset leakage in default query mode  
+- [x] Export/import one dataset  
+- [x] Docs + tests (`docs/DATASETS.md`, `tests/test_memory_dataset_p7.py`)  
+
+**Shipped:** `src/core/memory_dataset.py`, palace store/query + recall scoping, KG `delete_dataset`, CLI `superai dataset`, MCP `superai_dataset`.
 
 ---
 
@@ -589,8 +592,9 @@ The **spikes** are the first concrete work packages inside Phase 0.
 4. ~~P4 multi-strategy recall~~ **Done**  
 5. ~~P5 multi-format ingest~~ **Done**  
 6. ~~P6 ontology hybrid~~ **Done**  
-7. **Next:** P7 datasets; P8 agent SessionEnd hooks  
-8. Leave scorecard files / exit_codes / prompt_injection / git_helpers to AGY unless coordinated  
+7. ~~P7 datasets / namespaces~~ **Done**  
+8. **Next:** P8 agent SessionEnd hooks  
+9. Leave scorecard files / exit_codes / prompt_injection / git_helpers to AGY unless coordinated  
 
 ---
 

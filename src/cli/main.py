@@ -788,6 +788,11 @@ ontology_app = typer.Typer(
 )
 app.add_typer(ontology_app, name="ontology")
 
+dataset_app = typer.Typer(
+    help="Memory datasets / namespaces (P7): list, create, use, export, import, forget"
+)
+app.add_typer(dataset_app, name="dataset")
+
 
 def _print_session(data: dict, *, title: str = "Session memory") -> None:
     try:
@@ -1246,6 +1251,139 @@ def _print_ontology(data: dict, *, title: str = "Ontology") -> None:
     console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="yellow"))
     if data.get("ok") is False:
         raise typer.Exit(1)
+
+
+def _print_dataset(data: dict, *, title: str = "Dataset") -> None:
+    try:
+        from core.public_surface import emit_public, json_mode
+
+        if json_mode():
+            emit_public(data, print_json=True, record_spend=False)
+            return
+    except Exception:
+        pass
+    lines = [f"[bold]{title}[/bold]", "", str(data.get("message") or "")]
+    for key in (
+        "ok",
+        "active",
+        "dataset_id",
+        "id",
+        "path",
+        "count",
+        "palace_memories",
+        "kg_nodes",
+        "memories_deleted",
+        "nodes_deleted",
+        "edges_deleted",
+        "created",
+        "registry_removed",
+    ):
+        if key in data and data.get(key) is not None:
+            lines.append(f"{key}: {data.get(key)}")
+    if data.get("counts"):
+        lines.append(f"counts: {data.get('counts')}")
+    if data.get("imported"):
+        lines.append(f"imported: {data.get('imported')}")
+    for d in (data.get("datasets") or [])[:30]:
+        mark = "*" if d.get("active") else " "
+        lines.append(
+            f"{mark} {d.get('id')}: {d.get('description') or ''} "
+            f"{'(builtin)' if d.get('builtin') else ''}"
+        )
+    if data.get("error"):
+        lines.append(f"error: {data.get('error')}")
+    console.print(Panel.fit("\n".join(str(x) for x in lines), border_style="cyan"))
+    if data.get("ok") is False:
+        raise typer.Exit(1)
+
+
+@dataset_app.command("list")
+def dataset_list_cmd():
+    """List datasets and mark the active one."""
+    from core.memory_dataset import get_registry
+
+    _print_dataset(get_registry().list_datasets(), title="Dataset list")
+
+
+@dataset_app.command("create")
+def dataset_create_cmd(
+    name: str = typer.Argument(..., help="Dataset id (e.g. work-uat)"),
+    description: str = typer.Option("", "--description", "-D"),
+):
+    """Create a dataset namespace (no-op if it already exists)."""
+    from core.memory_dataset import get_registry
+
+    _print_dataset(
+        get_registry().create(name, description=description), title="Dataset create"
+    )
+
+
+@dataset_app.command("use")
+def dataset_use_cmd(
+    name: str = typer.Argument(..., help="Dataset id to activate"),
+):
+    """Set active dataset (config + registry)."""
+    from core.memory_dataset import get_registry
+
+    _print_dataset(get_registry().use(name), title="Dataset use")
+
+
+@dataset_app.command("status")
+def dataset_status_cmd(
+    name: Optional[str] = typer.Argument(
+        None, help="Dataset id (default: active)"
+    ),
+):
+    """Show palace/kg counts for a dataset."""
+    from core.memory_dataset import status as dataset_status
+
+    _print_dataset(dataset_status(name), title="Dataset status")
+
+
+@dataset_app.command("export")
+def dataset_export_cmd(
+    name: str = typer.Argument(..., help="Dataset id to export"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output .zip path"
+    ),
+):
+    """Export palace + KG for one dataset as a zip archive."""
+    from pathlib import Path as _P
+
+    from core.memory_dataset import export_dataset
+
+    dest = _P(output) if output else None
+    _print_dataset(export_dataset(name, dest=dest), title="Dataset export")
+
+
+@dataset_app.command("import")
+def dataset_import_cmd(
+    archive: str = typer.Argument(..., help="Path to export .zip"),
+    dataset: Optional[str] = typer.Option(
+        None, "--dataset", "-d", help="Override target dataset id"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+):
+    """Import a dataset zip produced by dataset export."""
+    from pathlib import Path as _P
+
+    from core.memory_dataset import import_dataset
+
+    _print_dataset(
+        import_dataset(_P(archive), dataset_id=dataset, dry_run=dry_run),
+        title="Dataset import",
+    )
+
+
+@dataset_app.command("forget")
+def dataset_forget_cmd(
+    name: str = typer.Argument(..., help="Dataset id to wipe"),
+    yes: bool = typer.Option(False, "--yes", help="Confirm destructive delete"),
+):
+    """Delete palace memories + KG rows for a dataset (requires --yes)."""
+    from core.memory_dataset import forget_dataset
+
+    _print_dataset(forget_dataset(name, yes=yes), title="Dataset forget")
 
 
 @ontology_app.command("show")
@@ -7225,10 +7363,99 @@ def foundation_check_cmd(
     )
 
 
-# NOTE: Scorecard CLI (exit-codes, completion, git helpers, prompt-injection)
-# is owned by parallel AGY work — do not land those commands here without
-# their modules. AGY should re-apply from local WIP when ready.
+@app.command("triage-log")
+def triage_log_cmd(
+    log_path: str = typer.Argument(..., help="Path to log file or raw stack trace text"),
+):
+    """Log triage and stack trace analyzer (V6 S124)."""
+    from core.log_triage import triage_log_file, triage_stack_trace
+
+    p = Path(log_path)
+    if p.exists() and p.is_file():
+        res = triage_log_file(log_path)
+    else:
+        res = triage_stack_trace(log_path)
+
+    if not res.has_error:
+        console.print("[bold green]No stack trace / error detected in log.[/bold green]")
+        return
+
+    console.print(f"[bold red]Exception:[/bold red] {res.exception_type}")
+    if res.exception_message:
+        console.print(f"[bold red]Details:[/bold red] {res.exception_message}")
+    if res.top_frame:
+        console.print(f"[bold yellow]Location:[/bold yellow] {res.top_frame.filename}:{res.top_frame.line_number} in `{res.top_frame.function_name}`")
+    console.print(f"[bold cyan]Suggested Fix:[/bold cyan] {res.suggested_fix}")
+
+
+test_app = typer.Typer(name="test", help="Test discovery and execution tools (V6 S105)")
+app.add_typer(test_app, name="test")
+
+
+@test_app.command("impacted")
+def test_impacted_cmd(
+    files: List[str] = typer.Argument(..., help="List of modified source files"),
+):
+    """Auto test discovery and impacted test runner (V6 S105)."""
+    from core.auto_test_runner import run_impacted_tests
+
+    res = run_impacted_tests(files)
+    if res["ok"]:
+        console.print(f"[bold green]PASSED ({res['count']} test suite(s)):[/bold green]")
+        for t in res["impacted_tests"]:
+            console.print(f"  • [cyan]{t}[/cyan]")
+    else:
+        console.print(f"[bold red]FAILED impacted tests:[/bold red] {res.get('message', 'Pytest failures')}")
+
+
+check_app = typer.Typer(name="check", help="Code quality, lint, and syntax verification (V6 S106)")
+app.add_typer(check_app, name="check")
+
+
+@check_app.command("lint")
+def check_lint_cmd(
+    files: List[str] = typer.Argument(..., help="Files to verify AST/syntax"),
+):
+    """Post-edit lint and typecheck checker (V6 S106)."""
+    from core.lint_typecheck import run_post_edit_checks
+
+    res = run_post_edit_checks(files)
+    if res["ok"]:
+        console.print(f"[bold green]CLEAN ({res['file_count']} file(s)):[/bold green] No lint or AST issues found.")
+    else:
+        console.print(f"[bold red]LINT ISSUES FOUND:[/bold red]")
+        for r in res["results"]:
+            if not r["clean"]:
+                console.print(f"  • [yellow]{r['file']}[/yellow]:")
+                for i in r["issues"]:
+                    console.print(f"    - line {i['line']}: [{i['code']}] {i['message']}")
+
+
+sec_app = typer.Typer(name="security", help="Security scan hooks (V6 S114)")
+app.add_typer(sec_app, name="security")
+
+
+@sec_app.command("scan-secrets")
+def security_scan_secrets_cmd(
+    target: str = typer.Argument(..., help="File path or text payload to scan for secrets"),
+):
+    """Security scan hooks for secrets and API credentials (V6 S114)."""
+    from core.security_scan import scan_file_for_secrets, scan_text_for_secrets
+
+    p = Path(target)
+    if p.exists() and p.is_file():
+        res = scan_file_for_secrets(target)
+    else:
+        res = scan_text_for_secrets(target)
+
+    if not res.has_secrets:
+        console.print("[bold green]CLEAN:[/bold green] No secret leaks or exposed credentials detected.")
+    else:
+        console.print(f"[bold red]SECURITY ALERT ({len(res.findings)} secret finding(s)):[/bold red]")
+        for f in res.findings:
+            console.print(f"  • Line {f.line_number} [[cyan]{f.secret_type}[/cyan]]: {f.description} ({f.matched_snippet})")
 
 
 if __name__ == "__main__":
     app()
+

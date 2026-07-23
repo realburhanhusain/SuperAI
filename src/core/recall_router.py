@@ -83,6 +83,8 @@ def _keyword_search(
     tags: Optional[Sequence[str]] = None,
     wing: Optional[str] = None,
     room: Optional[str] = None,
+    dataset_id: Optional[str] = None,
+    include_shared: bool = True,
 ) -> List[Dict[str, Any]]:
     tokens = [t for t in re.split(r"\W+", (query or "").lower()) if len(t) >= 2]
     if not tokens:
@@ -91,6 +93,15 @@ def _keyword_search(
         all_m = palace.get_all_memories() or []
     except Exception:
         all_m = []
+    if dataset_id:
+        try:
+            from .memory_dataset import filter_by_dataset
+
+            all_m = filter_by_dataset(
+                all_m, dataset_id, include_shared=include_shared
+            )
+        except Exception:
+            pass
     scored: List[Dict[str, Any]] = []
     tag_set = {t.lower() for t in (tags or [])}
     for m in all_m:
@@ -131,6 +142,8 @@ def _vector_search(
     tags: Optional[Sequence[str]] = None,
     wing: Optional[str] = None,
     room: Optional[str] = None,
+    dataset_id: Optional[str] = None,
+    include_shared: bool = True,
 ) -> List[Dict[str, Any]]:
     try:
         hits = palace.query_semantic(
@@ -139,6 +152,8 @@ def _vector_search(
             tags=list(tags) if tags else None,
             wing=wing,
             room=room,
+            dataset_id=dataset_id,
+            include_shared=include_shared,
         )
     except TypeError:
         hits = palace.query_semantic(query, top_k=top_k)
@@ -326,6 +341,15 @@ def recall(
         strat = choice["strategy"]
         reason = choice["reason"]
 
+    # P7: default dataset scope (active + shared)
+    if dataset_id is None:
+        try:
+            from .memory_dataset import resolve_dataset_id
+
+            dataset_id = resolve_dataset_id(None)
+        except Exception:
+            dataset_id = None
+
     # lazy load defaults
     if palace is None and strat in {"vector", "keyword", "hybrid", "auto", "session"}:
         try:
@@ -355,18 +379,54 @@ def recall(
 
     if strat == "vector":
         hits = _vector_search(
-            palace, q, top_k=top_k, tags=tags, wing=wing, room=room
+            palace,
+            q,
+            top_k=top_k,
+            tags=tags,
+            wing=wing,
+            room=room,
+            dataset_id=dataset_id,
         ) if palace else []
     elif strat == "keyword":
         hits = _keyword_search(
-            palace, q, top_k=top_k, tags=tags, wing=wing, room=room
+            palace,
+            q,
+            top_k=top_k,
+            tags=tags,
+            wing=wing,
+            room=room,
+            dataset_id=dataset_id,
         ) if palace else []
     elif strat == "graph":
         hits = _graph_search(kg, q, top_k=top_k, dataset_id=dataset_id)
     elif strat == "hybrid":
-        v = _vector_search(palace, q, top_k=top_k, tags=tags, wing=wing, room=room) if palace else []
+        v = (
+            _vector_search(
+                palace,
+                q,
+                top_k=top_k,
+                tags=tags,
+                wing=wing,
+                room=room,
+                dataset_id=dataset_id,
+            )
+            if palace
+            else []
+        )
         g = _graph_search(kg, q, top_k=top_k, dataset_id=dataset_id)
-        k = _keyword_search(palace, q, top_k=max(3, top_k // 2), tags=tags, wing=wing, room=room) if palace else []
+        k = (
+            _keyword_search(
+                palace,
+                q,
+                top_k=max(3, top_k // 2),
+                tags=tags,
+                wing=wing,
+                room=room,
+                dataset_id=dataset_id,
+            )
+            if palace
+            else []
+        )
         hits = _merge_hits(v, g, k, top_k=top_k)
         # expand graph from vector hits that mention names
         if kg and v:
@@ -384,7 +444,19 @@ def recall(
             # fall through to hybrid
             notes.append("session empty → fallthrough hybrid")
             used = "session+hybrid"
-            v = _vector_search(palace, q, top_k=top_k, tags=tags, wing=wing, room=room) if palace else []
+            v = (
+                _vector_search(
+                    palace,
+                    q,
+                    top_k=top_k,
+                    tags=tags,
+                    wing=wing,
+                    room=room,
+                    dataset_id=dataset_id,
+                )
+                if palace
+                else []
+            )
             g = _graph_search(kg, q, top_k=top_k, dataset_id=dataset_id)
             hits = _merge_hits(v, g, top_k=top_k)
             notes.append(f"vector={len(v)} graph={len(g)}")
@@ -395,6 +467,7 @@ def recall(
         "ok": True,
         "product": "recall_router",
         "query": q,
+        "dataset_id": dataset_id,
         "strategy": used,
         "strategy_requested": strategy,
         "strategy_reason": reason,

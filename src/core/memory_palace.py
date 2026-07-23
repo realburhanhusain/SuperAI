@@ -175,6 +175,30 @@ class MemoryPalace:
             metadata["parent_id"] = str(metadata["parent_id"])
         metadata.setdefault("source", metadata.get("source") or "superai")
 
+        # P7: dataset namespace stamp (metadata + tag)
+        try:
+            from .memory_dataset import dataset_tag, resolve_dataset_id
+
+            if not metadata.get("dataset_id"):
+                metadata["dataset_id"] = resolve_dataset_id(None) or "default"
+            dtag = dataset_tag(str(metadata["dataset_id"]))
+            if dtag not in tags:
+                tags = list(tags) + [dtag]
+        except Exception:
+            metadata.setdefault("dataset_id", "default")
+
+        # Tenant stamp so query_semantic tenant filter does not drop new writes
+        try:
+            from .palace_tenant import current_tenant, tenant_tag
+
+            tid = str(metadata.get("tenant_id") or current_tenant() or "default")
+            metadata.setdefault("tenant_id", tid)
+            ttag = tenant_tag(tid)
+            if ttag not in tags:
+                tags = list(tags) + [ttag]
+        except Exception:
+            pass
+
         # Wings & Rooms — first-class metadata (core to palace, not only sidecar)
         if auto_wings or wing or room:
             try:
@@ -318,6 +342,8 @@ class MemoryPalace:
         wing: Optional[str] = None,
         room: Optional[str] = None,
         tenant_id: Optional[str] = None,
+        dataset_id: Optional[str] = None,
+        include_shared: bool = True,
         **kwargs: Any,
     ) -> List[Dict]:
         if n_results is not None:
@@ -335,9 +361,31 @@ class MemoryPalace:
                 tags = list(tags) + [ttag]
         except Exception:
             pass
-        # Fetch extra when filtering by tags/wing/room
-        need_filter = bool(tags or wing or room)
+        # P7: resolve active dataset unless caller passed explicit filter token
+        ds_filter = dataset_id
+        if "dataset_id" not in kwargs and dataset_id is None:
+            # Use active dataset by default for isolation (not unscoped)
+            try:
+                from .memory_dataset import resolve_dataset_id
+
+                # Only auto-scope when SUPERAI_DATASET_SCOPE is not "off"
+                import os as _os
+
+                if (_os.getenv("SUPERAI_DATASET_SCOPE") or "on").lower() not in {
+                    "0",
+                    "false",
+                    "off",
+                    "no",
+                    "all",
+                }:
+                    ds_filter = resolve_dataset_id(None)
+            except Exception:
+                ds_filter = None
+        # Fetch extra when filtering by tags/wing/room/dataset
+        need_filter = bool(tags or wing or room or ds_filter)
         fetch_k = top_k * 4 if need_filter else top_k
+        if ds_filter:
+            fetch_k = max(fetch_k, top_k * 8)
 
         def _loc_ok(meta: Dict[str, Any], mem: Optional[Dict] = None) -> bool:
             if wing and str(meta.get("wing") or "").lower() != str(wing).lower():
@@ -350,6 +398,27 @@ class MemoryPalace:
                 if f"room:{room}".lower() not in mem_tags:
                     return False
             return True
+
+        def _dataset_ok(meta: Dict[str, Any], mem: Optional[Dict] = None) -> bool:
+            if not ds_filter:
+                return True
+            try:
+                from .memory_dataset import filter_by_dataset
+
+                row = dict(mem or {})
+                row.setdefault("metadata", meta)
+                return bool(
+                    filter_by_dataset(
+                        [row], ds_filter, include_shared=include_shared
+                    )
+                )
+            except Exception:
+                did = str(meta.get("dataset_id") or "default")
+                if did == ds_filter:
+                    return True
+                if include_shared and did == "shared":
+                    return True
+                return False
 
         if self.use_pgvector and self.pg_store is not None:
             emb = self.embedding_function([query])[0]
@@ -374,6 +443,8 @@ class MemoryPalace:
                 ):
                     continue
                 if not _loc_ok(meta, h):
+                    continue
+                if not _dataset_ok(meta, h):
                     continue
                 if wanted:
                     mem_tags = {str(t).lower() for t in (h.get("tags") or [])}
@@ -407,6 +478,8 @@ class MemoryPalace:
                     continue
                 if not _loc_ok(meta, h):
                     continue
+                if not _dataset_ok(meta, h):
+                    continue
                 if wanted:
                     mem_tags = {str(t).lower() for t in (h.get("tags") or [])}
                     tag_str = str(meta.get("tags") or "")
@@ -428,6 +501,8 @@ class MemoryPalace:
             include_deprecated=include_deprecated,
             wing=wing,
             room=room,
+            dataset_id=ds_filter,
+            include_shared=include_shared,
         )
 
     def _keyword_search(
@@ -438,6 +513,8 @@ class MemoryPalace:
         include_deprecated: bool = False,
         wing: Optional[str] = None,
         room: Optional[str] = None,
+        dataset_id: Optional[str] = None,
+        include_shared: bool = True,
     ) -> List[Dict]:
         """Token/substring search over get_all_memories + in-RAM list."""
         results: List[Dict] = []
@@ -451,6 +528,15 @@ class MemoryPalace:
                 pool.append(m)
         except Exception:
             pass
+        if dataset_id:
+            try:
+                from .memory_dataset import filter_by_dataset
+
+                pool = filter_by_dataset(
+                    pool, dataset_id, include_shared=include_shared
+                )
+            except Exception:
+                pass
 
         seen: set[str] = set()
         for mem in pool:

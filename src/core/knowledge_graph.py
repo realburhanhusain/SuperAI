@@ -557,6 +557,35 @@ class KnowledgeGraph:
 
         return self._locked(_do)
 
+    def delete_dataset(self, dataset_id: str) -> Dict[str, Any]:
+        """Delete all nodes and edges for a dataset_id (P7 forget)."""
+        did = (dataset_id or "").strip() or "default"
+
+        def _do() -> Dict[str, Any]:
+            with self._Session() as s:
+                e = s.execute(
+                    delete(KGEdgeRow).where(KGEdgeRow.dataset_id == did)
+                ).rowcount
+                n = s.execute(
+                    delete(KGNodeRow).where(KGNodeRow.dataset_id == did)
+                ).rowcount
+                s.commit()
+            return {
+                "ok": True,
+                "dataset_id": did,
+                "nodes_deleted": int(n or 0),
+                "edges_deleted": int(e or 0),
+            }
+
+        return self._locked(_do)
+
+    def count_edges(self, dataset_id: Optional[str] = None) -> int:
+        with self._Session() as s:
+            q = select(KGEdgeRow)
+            if dataset_id:
+                q = q.where(KGEdgeRow.dataset_id == dataset_id)
+            return len(list(s.execute(q.limit(10000)).scalars().all()))
+
     @staticmethod
     def _node_dict(row: KGNodeRow) -> Dict[str, Any]:
         return {

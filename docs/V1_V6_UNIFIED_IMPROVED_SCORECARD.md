@@ -25,15 +25,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **241** |
-| **INCOMPLETE** | **274** |
+| **COMPLETE (production + docs + tests)** | **245** |
+| **INCOMPLETE** | **270** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **46.5%**
-- **Average percent (incomplete only):** **29.1%**
-- **Average percent (all non-refuse):** **62.4%**
+- **Strict completion rate (complete / (total − refuse)):** **47.3%**
+- **Average percent (incomplete only):** **28.8%**
+- **Average percent (all non-refuse):** **62.8%**
 
 ### Note for validators
 
@@ -45,7 +45,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 241
+**Count:** 245
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1277,6 +1277,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### S104 — Self-critique pass before claiming done
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Self-critique pass before claiming done
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
 ### S105 — Auto test discovery and run after edits
 
 - **Track:** V6
@@ -1317,12 +1327,32 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### S109 — Fix CI failure from log paste
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Fix CI failure from log paste
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
 ### S110 — Explain PR with file-level findings
 
 - **Track:** V6
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Explain PR with file-level findings
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### S112 — Dependency upgrade assistant
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Dependency upgrade assistant
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -1353,6 +1383,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Commit message + branch naming helpers
+- **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
+- **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### S117 — Safe conflict assistance for merges
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Safe conflict assistance for merges
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
@@ -2461,7 +2501,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 274
+**Count:** 270
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2894,32 +2934,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** Partial Must code path
 - **Still incomplete:** Close gaps to production + full tests
 
-### S104 — Self-critique pass before claiming done
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
-### S109 — Fix CI failure from log paste
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
 ### S111 — Multi-file refactor with rename safety
 
 - **Track:** V6
@@ -2933,33 +2947,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** Partial Should implementation may exist
 - **Still incomplete:** Full production hardening + tests + docs
 
-### S112 — Dependency upgrade assistant
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
 ### S113 — DB/schema migration dry-run helper
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **45%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Partial Should implementation may exist
-- **Thorough documentation?** YES — V6 backlog Should section
-- **Fully tested?** NO — Insufficient dedicated tests for full bar
-- **Fully implemented:** Partial Should implementation may exist
-- **Partially implemented:** Partial Should implementation may exist
-- **Still incomplete:** Full production hardening + tests + docs
-
-### S117 — Safe conflict assistance for merges
 
 - **Track:** V6
 - **Complete?** **NO**

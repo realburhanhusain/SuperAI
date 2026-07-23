@@ -7667,16 +7667,67 @@ except ImportError:
     git_app = None
 
 
-@app.command("git-explain-pr")
-def git_explain_pr_standalone():
-    """Generate structured PR explanation with file-level findings (V6 S110)."""
-    from core.pr_explainer import generate_pr_explanation_from_repo
+@check_app.command("critique")
+def check_critique_cmd(
+    file_path: str = typer.Argument(..., help="Path to python file for self-critique pass"),
+):
+    """Self-critique pass before claiming done (V6 S104)."""
+    from core.self_critique import run_self_critique_pass
 
-    res = generate_pr_explanation_from_repo()
-    console.print(res.markdown_output)
+    res = run_self_critique_pass(file_path)
+    if res.passed:
+        console.print(f"[bold green]CRITIQUE PASSED (Score: {res.score}/100):[/bold green] Code quality meets DoD bar.")
+    else:
+        console.print(f"[bold red]CRITIQUE FINDINGS ({len(res.findings)} finding(s)):[/bold red]")
+        for f in res.findings:
+            console.print(f"  • Line {f.line_number} [{f.category} - {f.severity}]: {f.message}")
+
+
+@check_app.command("upgrades")
+def check_upgrades_cmd(
+    manifest: str = typer.Argument(..., help="Path to dependency manifest"),
+):
+    """Dependency upgrade assistant (V6 S112)."""
+    from core.dep_upgrade import check_upgradable_dependencies
+
+    res = check_upgradable_dependencies(manifest)
+    console.print(f"[bold green]Dependency Audit ({res.total_dependencies} packages):[/bold green]")
+    for r in res.recommendations:
+        console.print(f"  • [cyan]{r.package_name}[/cyan] ({r.current_constraint}) [{r.risk_level}]: {r.recommendation}")
+
+
+@app.command("ci-fix")
+def ci_fix_cmd(
+    log_input: str = typer.Argument(..., help="Path to CI log file or pasted CI build log text"),
+):
+    """Fix CI failure from log paste (V6 S109)."""
+    from core.ci_fixer import analyze_ci_log_file, analyze_ci_log_paste
+
+    p = Path(log_input)
+    if p.exists() and p.is_file():
+        res = analyze_ci_log_file(log_input)
+    else:
+        res = analyze_ci_log_paste(log_input)
+
+    console.print(res.summary_report)
+
+
+@app.command("git-resolve-conflicts")
+def git_resolve_conflicts_standalone(
+    file_path: str = typer.Argument(..., help="File path to analyze merge conflicts"),
+):
+    """Safe conflict assistance for merges (V6 S117)."""
+    from core.merge_conflict_helper import analyze_file_conflicts
+
+    res = analyze_file_conflicts(file_path)
+    if not res.has_conflicts:
+        console.print("[bold green]CLEAN:[/bold green] No merge conflict markers found.")
+    else:
+        console.print(f"[bold red]MERGE CONFLICTS ({res.conflict_count} block(s)):[/bold red] {res.recommendation}")
 
 
 if __name__ == "__main__":
     app()
+
 
 

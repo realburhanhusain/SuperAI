@@ -89,21 +89,26 @@ def test_bandit_reward_from_outcome():
 
 
 def test_model_caller_uses_bias_candidates(tmp_path: Path, monkeypatch):
-    """Integration: ModelCaller failover list is preference-biased."""
+    """Integration: ModelCaller.call reorders failover via route_candidates/prefs."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "1")
     (tmp_path / ".superai").mkdir(parents=True)
     p = UserPreferenceModel(path=tmp_path / ".superai" / "preferences.json")
     p.set_sticky_model("mock-preferred")
 
-    # Patch escalate_chain to a fixed list so we can observe reorder
-    import core.model_caller as mc
-
-    calls = {}
-
     class FakeReg:
         def get_model(self, name):
-            return type("M", (), {"name": name, "provider": "mock"})()
+            return type(
+                "M",
+                (),
+                {
+                    "name": name,
+                    "provider": "mock",
+                    "model_id": name,
+                    "cost_per_1k_tokens": 0.0,
+                    "latency_tier": 2,
+                },
+            )()
 
         def list_all_models(self):
             return ["a", "mock-preferred", "b"]
@@ -111,25 +116,68 @@ def test_model_caller_uses_bias_candidates(tmp_path: Path, monkeypatch):
     def fake_escalate(model, **kwargs):
         return ["a", "mock-preferred", "b"]
 
+    monkeypatch.setattr("core.local_first.escalate_chain", fake_escalate)
     monkeypatch.setattr(
-        "core.local_first.escalate_chain", fake_escalate, raising=False
+        "core.local_first.profile_flags",
+        lambda: {"prefer_local": False, "prefer_open_weight": False, "local_only": False},
     )
-    try:
-        from core.local_first import escalate_chain  # noqa: F401
-    except Exception:
-        pass
 
-    # Direct unit: bias on the chain the caller builds
-    ordered = p.bias_candidates(["a", "mock-preferred", "b"])
-    assert ordered[0] == "mock-preferred"
-    # route_candidates is the shared product entry used by docs
+    seen_orders = []
+    tried_models = []
+
+    from core.model_caller import ModelCaller
+
+    caller = ModelCaller(use_mock=True, registry=FakeReg())
+
+    import core.bandit_router as br
+
+    real_route = br.route_candidates
+
+    def tracking_route(cands, **kwargs):
+        out = real_route(cands, **kwargs)
+        seen_orders.append(list(out.get("order") or []))
+        return out
+
+    monkeypatch.setattr(br, "route_candidates", tracking_route)
+
+    def fake_one(self, model, **kwargs):
+        tried_models.append(str(model))
+        return {
+            "ok": True,
+            "status": "success",
+            "response": "ok",
+            "mock": True,
+            "model": model,
+        }
+
+    monkeypatch.setattr(ModelCaller, "_call_one_model", fake_one)
+
+    out = caller.call(model="a", prompt="test routing bias", use_fallback=True)
+    assert out is not None
+    assert seen_orders, "route_candidates should run on ModelCaller.call"
+    assert seen_orders[-1][0] == "mock-preferred"
+    assert tried_models, "should attempt at least one model"
+    assert tried_models[0] == "mock-preferred"
+
     routed = route_candidates(
         ["a", "mock-preferred", "b"],
         apply_bandit=False,
     )
     assert routed["order"][0] == "mock-preferred"
-    calls["ok"] = True
-    assert calls["ok"]
+
+
+def test_bandit_select_single_epsilon(tmp_path: Path, monkeypatch):
+    """P1.4: select() is the sole epsilon gate (no outer double-roll)."""
+    from core.bandit_router import EpsilonGreedyBandit
+
+    path = tmp_path / "b.json"
+    b = EpsilonGreedyBandit(epsilon=0.0, path=path)
+    for _ in range(5):
+        b.update("high", 1.0)
+        b.update("low", 0.0)
+    # With epsilon=0 always exploit high
+    picks = [b.select(["low", "high"]) for _ in range(20)]
+    assert all(p == "high" for p in picks)
 
 
 def test_profile_summary_path(pref_path: Path):

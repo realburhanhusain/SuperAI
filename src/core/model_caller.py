@@ -442,30 +442,24 @@ class ModelCaller:
                 except Exception:
                     pass
 
-        # Routing pipeline (M068 → M050): preferences bias FIRST, then bandit.
-        # Never hard-replace caller model when sticky is outside the candidate set;
-        # bias_candidates reorders within models_to_try.
+        # Routing pipeline (M068 → M050): shared route_candidates (prefs then bandit).
+        # Single production path so tests of route_candidates match live behavior.
         try:
+            from .bandit_router import route_candidates
+            from .config import Config as _Cfg
             from .preferences import UserPreferenceModel
 
             pref = UserPreferenceModel()
-            if pref.get("prefer_preferred_model", True):
-                models_to_try = pref.bias_candidates(list(models_to_try))
-        except Exception:
-            pass
-
-        try:
-            from .bandit_router import EpsilonGreedyBandit
-            from .config import Config as _Cfg
-
-            use_bandit = bool(_Cfg().get("use_bandit", True))
-            if use_bandit and use_fallback and len(models_to_try) > 1:
-                b = EpsilonGreedyBandit(
-                    epsilon=float(_Cfg().get("bandit_epsilon") or 0.1)
-                )
-                pick = b.select(list(models_to_try))
-                if pick in models_to_try:
-                    models_to_try = [pick] + [m for m in models_to_try if m != pick]
+            apply_pref = bool(pref.get("prefer_preferred_model", True))
+            use_bandit = bool(_Cfg().get("use_bandit", True)) and use_fallback
+            routed = route_candidates(
+                list(models_to_try),
+                apply_preferences=apply_pref,
+                apply_bandit=use_bandit and len(models_to_try) > 1,
+                epsilon=float(_Cfg().get("bandit_epsilon") or 0.1),
+            )
+            if routed.get("order"):
+                models_to_try = list(routed["order"])
         except Exception:
             pass
 

@@ -88,6 +88,10 @@ def post_call(
     if not isinstance(result, dict):
         result = {"response": result, "ok": True, "status": "success"}
 
+    # Idempotency: avoid double bandit/spend/preference updates on re-entry
+    if result.get("_post_call_done"):
+        return result
+
     latency = (time.time() - started) if started else float(result.get("latency") or 0)
     result.setdefault("latency", round(latency, 4))
 
@@ -184,6 +188,7 @@ def post_call(
     except Exception:
         pass
 
+    result["_post_call_done"] = True
     return result
 
 

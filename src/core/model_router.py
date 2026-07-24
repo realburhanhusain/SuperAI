@@ -252,16 +252,21 @@ class ModelRouter:
                 if m.name == chain_pref.name:
                     return m
 
-        # Blend score with bandit means; epsilon explore among top-K
-        # Pipeline: preference bias (M068) reorders candidate names, then bandit (M050).
+        # Blend score with bandit means; explore via bandit.select only (single epsilon).
+        # Pipeline: route_candidates (prefs → bandit) then score-blend exploit.
         if self.use_bandit and self.bandit and len(ranked) > 1:
             top_k = ranked[: min(8, len(ranked))]
             candidates = [m.name for m, _ in top_k]
             try:
-                from .preferences import UserPreferenceModel
+                # Prefs via shared helper (same as ModelCaller); bandit select once only.
+                from .bandit_router import route_candidates
 
-                candidates = UserPreferenceModel().bias_candidates(list(candidates))
-                # Rebuild top_k order to match preference-biased candidate order
+                routed = route_candidates(
+                    list(candidates),
+                    apply_preferences=True,
+                    apply_bandit=False,  # avoid double epsilon — select below
+                )
+                candidates = list(routed.get("order") or candidates)
                 by_name = {m.name: (m, parts) for m, parts in top_k}
                 reordered = []
                 for name in candidates:
@@ -272,13 +277,25 @@ class ModelRouter:
                         reordered.append(item)
                 top_k = reordered
             except Exception:
-                pass
-            try:
-                # Epsilon-greedy among top scorers
-                import random
+                try:
+                    from .preferences import UserPreferenceModel
 
-                if random.random() < self.bandit.epsilon:
-                    chosen = self.bandit.select(candidates)
+                    candidates = UserPreferenceModel().bias_candidates(list(candidates))
+                except Exception:
+                    pass
+            try:
+                # Single epsilon path: bandit.select only (no outer random < epsilon).
+                chosen = self.bandit.select(list(candidates))
+                blended: List[Tuple[ModelInfo, Dict[str, float], float]] = []
+                for m, parts in top_k:
+                    bmean = self._bandit_mean(m.name)
+                    total = float(parts.get("total", 0.0))
+                    combined = (1.0 - self.bandit_blend) * total + self.bandit_blend * bmean
+                    blended.append((m, parts, combined))
+                blended.sort(key=lambda x: x[2], reverse=True)
+                best_m, best_parts, best_c = blended[0]
+                # Exploration: honor select when it differs from blend leader
+                if chosen and chosen != best_m.name:
                     for m, parts in top_k:
                         if m.name == chosen:
                             parts = dict(parts)
@@ -294,18 +311,10 @@ class ModelRouter:
                                 for mm, pp in ranked[:15]
                             ]
                             return m
-                # Exploit: re-rank top-K by blended score
-                blended: List[Tuple[ModelInfo, Dict[str, float], float]] = []
-                for m, parts in top_k:
-                    bmean = self._bandit_mean(m.name)
-                    total = float(parts.get("total", 0.0))
-                    combined = (1.0 - self.bandit_blend) * total + self.bandit_blend * bmean
-                    blended.append((m, parts, combined))
-                blended.sort(key=lambda x: x[2], reverse=True)
-                best_m, best_parts, best_c = blended[0]
                 best_parts = dict(best_parts)
                 best_parts["bandit_mean"] = round(self._bandit_mean(best_m.name), 4)
                 best_parts["bandit_blend"] = round(best_c, 4)
+                best_parts["bandit_explore"] = False
                 self.last_scores = [
                     {
                         "model": mm.name,

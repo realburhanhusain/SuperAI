@@ -364,3 +364,103 @@ def test_foundation_complete_learning_surface(tmp_path: Path, monkeypatch):
     assert dist.get("dry_run") is True
     assert dist.get("deletes_rows") is False
     assert "embedding" in dist or dist.get("noop") is not None
+
+
+def test_promote_reports_error_on_store_failure(engine: LearningEngine, monkeypatch):
+    """P1.2: store unreachable → ok False, not silent zero success."""
+
+    def boom(*a, **k):
+        raise RuntimeError("palace down")
+
+    monkeypatch.setattr(engine.memory, "retrieve_by_tags", boom)
+    out = engine.promote_durable(min_importance=0.5, limit=5)
+    assert out["ok"] is False
+    assert out.get("error_code") == "store_unreachable"
+    assert out["count"] == 0
+
+
+def test_distill_rollback_on_summary_store_failure(engine: LearningEngine, monkeypatch):
+    """P0.1: if summary store fails, originals must remain active (not deprecated)."""
+    base = (
+        "Successful FastAPI hello world with uvicorn and health route "
+        "and pydantic models carefully for distill rollback."
+    )
+    ids = []
+    for i in range(5):
+        mid = engine.learn_from_task(
+            task_description=base + f" variant {i}",
+            task_type="coding",
+            model_used="model-rb",
+            success=True,
+            latency=0.5,
+            steps_completed=3,
+        )
+        ids.append(mid)
+
+    real_store = engine.memory.store
+
+    def fail_summary(content, *a, **k):
+        if isinstance(content, str) and content.startswith("Distilled knowledge"):
+            raise RuntimeError("simulated summary store failure")
+        return real_store(content, *a, **k)
+
+    monkeypatch.setattr(engine.memory, "store", fail_summary)
+    out = engine.distill_knowledge(task_type="coding", min_memories=4)
+    assert out.get("ok") is False
+    assert out.get("error_code") == "summary_store_failed"
+    # Originals still active (not deprecated)
+    dep = engine.list_lifecycle("deprecated", limit=50)
+    assert not any(it.get("id") in ids for it in dep.get("items") or [])
+
+
+def test_apply_learning_update_logs_warning_on_failure(engine: LearningEngine, monkeypatch, caplog):
+    """P1.3 / P2.2: update failures log a warning and return False."""
+    import logging
+
+    mid = engine.learn_from_task(
+        "log warning path",
+        "coding",
+        "m1",
+        True,
+        0.5,
+        steps_completed=1,
+    )
+
+    def boom(*a, **k):
+        raise RuntimeError("update denied")
+
+    monkeypatch.setattr(engine.memory, "update_metadata", boom)
+    # Clear in-memory fallback so update path is forced to fail hard
+    if hasattr(engine.memory, "memories"):
+        engine.memory.memories = [
+            m for m in (engine.memory.memories or []) if m.get("id") != mid
+        ]
+
+    with caplog.at_level(logging.WARNING):
+        ok = engine._apply_learning_update(
+            mid, metadata={"deprecated": True}, tags=["deprecated"]
+        )
+    assert ok is False
+    assert any("metadata update" in r.message.lower() or "failed" in r.message.lower() for r in caplog.records)
+
+
+def test_post_call_idempotency(tmp_path: Path, monkeypatch):
+    """P2.3: second post_call does not double-update bandit."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    (tmp_path / ".superai").mkdir(parents=True)
+    from core.bandit_router import EpsilonGreedyBandit
+    from core.call_lifecycle import post_call
+
+    r1 = post_call(
+        {"ok": True, "response": "hi", "mock": True},
+        model="m-test",
+        prompt="p",
+        update_bandit=True,
+        record_spend=False,
+    )
+    assert r1.get("_post_call_done") is True
+    n1 = float(EpsilonGreedyBandit().state.get("m-test", {}).get("n") or 0)
+    r2 = post_call(r1, model="m-test", prompt="p", update_bandit=True, record_spend=False)
+    assert r2.get("_post_call_done") is True
+    n2 = float(EpsilonGreedyBandit().state.get("m-test", {}).get("n") or 0)
+    assert n2 == n1

@@ -11,6 +11,7 @@ Wings/rooms assigned via MemoryPalace.store metadata (first-class).
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -19,6 +20,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .memory_palace import MemoryPalace
+
+logger = logging.getLogger(__name__)
 
 
 class LearningEngine:
@@ -102,8 +105,10 @@ class LearningEngine:
                 if fn is not None:
                     va, vb = fn([a or "", b or ""])
                     return self._cosine(list(va), list(vb)), "embedding_cosine"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "Embedding similarity failed, falling back to Jaccard: %s", e
+                )
         return self._jaccard(a, b), "jaccard"
 
     def _ensure_history_file(self) -> None:
@@ -489,15 +494,27 @@ class LearningEngine:
         """
         mid = str(memory_id)
         ok = False
+        last_err: Optional[BaseException] = None
         try:
             if hasattr(self.memory, "update") and tags is not None:
                 try:
                     self.memory.update(mid, metadata=metadata, tags=tags)
                     return True
-                except Exception:
-                    pass
+                except Exception as e:
+                    last_err = e
+                    logger.warning(
+                        "metadata update failed for %s via update(): %s", mid, e
+                    )
             if hasattr(self.memory, "update_metadata"):
-                ok = bool(self.memory.update_metadata(mid, metadata))
+                try:
+                    ok = bool(self.memory.update_metadata(mid, metadata))
+                except Exception as e:
+                    last_err = e
+                    logger.warning(
+                        "metadata update failed for %s via update_metadata(): %s",
+                        mid,
+                        e,
+                    )
             # Best-effort tags on in-memory / faiss docs
             if tags is not None:
                 try:
@@ -515,8 +532,13 @@ class LearningEngine:
                             self.memory.faiss_store.docs[mid] = doc
                             try:
                                 self.memory.faiss_store.save()
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                last_err = e
+                                logger.warning(
+                                    "faiss save failed after metadata update for %s: %s",
+                                    mid,
+                                    e,
+                                )
                             ok = True
                     for mem in getattr(self.memory, "memories", None) or []:
                         if str(mem.get("id") or "") == mid:
@@ -527,10 +549,18 @@ class LearningEngine:
                                 mem["importance"] = metadata["importance"]
                             ok = True
                             break
-                except Exception:
-                    pass
+                except Exception as e:
+                    last_err = e
+                    logger.warning(
+                        "metadata/tag merge failed for %s: %s", mid, e
+                    )
+            if not ok and last_err is not None:
+                logger.warning(
+                    "metadata update ultimately failed for %s: %s", mid, last_err
+                )
             return ok
-        except Exception:
+        except Exception as e:
+            logger.warning("metadata update failed for %s: %s", mid, e)
             return False
 
     def detect_conflicts(self, task_type: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -693,8 +723,24 @@ class LearningEngine:
         else:
             try:
                 pool = self.memory.retrieve_by_tags(["learning"], limit=200)
-            except Exception:
-                pool = []
+            except Exception as e:
+                logger.warning("promote_durable retrieve_by_tags failed: %s", e)
+                return {
+                    "ok": False,
+                    "promoted": [],
+                    "would_promote": [],
+                    "count": 0,
+                    "min_importance": min_importance,
+                    "dry_run": dry_run,
+                    "error": str(e)[:300],
+                    "error_code": "store_unreachable",
+                    "candidates": [],
+                    "skipped": [],
+                    "product": "learning.promote_durable",
+                    "message": (
+                        f"Memory store unreachable during promote: {e!s}"[:240]
+                    ),
+                }
             # Prefer non-deprecated, non-already-durable when scanning
             pool = [
                 m
@@ -1332,6 +1378,75 @@ class LearningEngine:
                 consolidated_ids.extend(would_deprecate)
                 continue
 
+            # Deprecate only after summary store succeeds (P0.1 — no silent data loss)
+            cluster_dep_ids: List[str] = []
+            try:
+                t_type, model = key
+                bullets = []
+                for m in cluster[:5]:
+                    bullets.append(f"- {(m.get('content') or '')[:220]}")
+                summary = (
+                    f"Distilled knowledge for {t_type} / {model}\n"
+                    f"From {len(cluster)} similar learnings "
+                    f"(similarity={sim_method_used}):\n"
+                    + "\n".join(bullets)
+                )
+                from_ids = [top.get("id")] + [
+                    str(o.get("id")) for o in cluster[1:] if o.get("id")
+                ]
+                sid = self.memory.store(
+                    summary,
+                    tags=["learning", "distilled", str(t_type), str(model), "success"],
+                    metadata={
+                        "task_type": t_type,
+                        "model": model,
+                        "success": True,
+                        "source": "learning_engine_distill",
+                        "phase": "distill",
+                        "distilled_from": from_ids[:9],
+                        "deprecated": False,
+                        "similarity_method": sim_method_used,
+                    },
+                    importance=min(
+                        1.0, float(top.get("importance") or 0.7) + 0.1
+                    ),
+                )
+                if not sid:
+                    raise RuntimeError("store returned empty summary id")
+                summary_ids.append(sid)
+            except Exception as e:
+                logger.warning(
+                    "distill summary store failed for %s/%s — originals not deprecated: %s",
+                    key[0],
+                    key[1],
+                    e,
+                )
+                return {
+                    "ok": False,
+                    "distilled": False,
+                    "noop": False,
+                    "error": str(e)[:300],
+                    "error_code": "summary_store_failed",
+                    "groups_analyzed": len(groups),
+                    "groups_distilled": distilled_count,
+                    "groups_skipped_small": skipped_small_groups,
+                    "memories_deprecated": deprecated_count,
+                    "consolidated_memory_ids": consolidated_ids,
+                    "summary_memory_ids": summary_ids,
+                    "preview_groups": preview_groups,
+                    "method": f"{sim_method_used}+multi_factor_score",
+                    "similarity_threshold": similarity_threshold,
+                    "similarity_method": sim_method_used,
+                    "dry_run": dry_run,
+                    "deletes_rows": False,
+                    "embedding": emb,
+                    "product": "learning.distill",
+                    "message": (
+                        f"Distill aborted: summary store failed ({e!s}). "
+                        "Original learnings left active (not deprecated)."
+                    )[:400],
+                }
+
             for other in cluster[1:]:
                 mid = other.get("id")
                 if not mid:
@@ -1344,51 +1459,37 @@ class LearningEngine:
                 )
                 dep = self.deprecate_memory(str(mid), reason=reason)
                 ok = bool(dep.get("ok"))
-                self.memory.update_metadata(
-                    mid,
-                    {
-                        "importance": round(new_imp, 4),
-                        "consolidated": True,
-                        "consolidated_into": top.get("id"),
-                        "distill_method": f"{sim_method_used}_cluster",
-                    },
-                )
+                if not ok:
+                    logger.warning(
+                        "distill deprecate failed for %s after summary %s", mid, sid
+                    )
+                    continue
+                meta_ok = True
+                try:
+                    meta_ok = bool(
+                        self.memory.update_metadata(
+                            mid,
+                            {
+                                "importance": round(new_imp, 4),
+                                "consolidated": True,
+                                "consolidated_into": top.get("id"),
+                                "distill_method": f"{sim_method_used}_cluster",
+                            },
+                        )
+                    )
+                except Exception as e:
+                    meta_ok = False
+                    logger.warning(
+                        "distill metadata update failed for %s: %s", mid, e
+                    )
                 if ok:
                     deprecated_count += 1
                     consolidated_ids.append(mid)
-
-            try:
-                t_type, model = key
-                bullets = []
-                for m in cluster[:5]:
-                    bullets.append(f"- {(m.get('content') or '')[:220]}")
-                summary = (
-                    f"Distilled knowledge for {t_type} / {model}\n"
-                    f"From {len(cluster)} similar learnings "
-                    f"(similarity={sim_method_used}):\n"
-                    + "\n".join(bullets)
-                )
-                sid = self.memory.store(
-                    summary,
-                    tags=["learning", "distilled", str(t_type), str(model), "success"],
-                    metadata={
-                        "task_type": t_type,
-                        "model": model,
-                        "success": True,
-                        "source": "learning_engine_distill",
-                        "phase": "distill",
-                        "distilled_from": [top.get("id")]
-                        + [x for x in consolidated_ids if x][:8],
-                        "deprecated": False,
-                        "similarity_method": sim_method_used,
-                    },
-                    importance=min(
-                        1.0, float(top.get("importance") or 0.7) + 0.1
-                    ),
-                )
-                summary_ids.append(sid)
-            except Exception:
-                pass
+                    cluster_dep_ids.append(str(mid))
+                if not meta_ok:
+                    logger.warning(
+                        "distill: deprecated %s but metadata patch incomplete", mid
+                    )
 
             distilled_count += 1
 

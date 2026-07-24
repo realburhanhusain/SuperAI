@@ -179,8 +179,8 @@ pytest tests/test_grok_i1_residuals.py -q
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | Closed AGY `grok_work_review_result_I1_v1` residuals: atomic prefs/bandit, stream aggregate contract, M089 offline harness honesty. Host live matrix still `[!]`. |
+| **What** | Closed AGY `grok_work_review_result_I1_v2` deep re-review P0–P2 (distill safety, routing integrity, promote errors, post_call idempotency). |
 | **Still open** | G5 M089 **host** live multi-provider run only (keys) |
-| **Evidence** | `tests/test_grok_i1_residuals.py` + prior G1–G4 suites |
-| **Pickup closed** | [`docs/grok_work_review_result_I1_v1.md`](docs/grok_work_review_result_I1_v1.md) |
+| **Evidence** | lifecycle + routing suites 35 passed; residual tests |
+| **Pickup closed** | v1 residuals + [v2 deep re-review](docs/grok_work_review_result_I1_v2.md) |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

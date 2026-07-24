@@ -2574,67 +2574,67 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### M027 — Real token streaming where supported
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%** offline · live SSE host-optional
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — call_stream SSE + fallback
-- **Thorough documentation?** YES — V6 M027
-- **Fully tested?** YES — test_improvement_v4 stream
-- **Fully implemented:** call_stream SSE + fallback
+- **Code production-ready?** YES — call_stream SSE + mock_chunked + chunked_fallback + fallback_reason
+- **Thorough documentation?** YES — docs/STREAMING.md provider matrix
+- **Fully tested?** YES — test_stream_dashboard_g3_g4 + test_m079_m027_m093
+- **Fully implemented:** call_stream + stream_capabilities matrix + supports_stream
 - **Partially implemented:** —
-- **Still incomplete:** Not all providers proven live
+- **Still incomplete:** Live multi-provider SSE proof optional (M089 host)
 
 ### M061 — Learning: promote durable patterns only
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES**
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — promote_durable
-- **Thorough documentation?** YES — learning docs partial
-- **Fully tested?** YES — test_foundation_complete_must
-- **Fully implemented:** promote_durable
+- **Code production-ready?** YES — promote dry-run + in-place durable + candidate preview
+- **Thorough documentation?** YES — docs/LEARNING_LIFECYCLE.md
+- **Fully tested?** YES — test_learning_lifecycle_m061_m063
+- **Fully implemented:** promote_durable(dry_run), CLI --dry-run, id-not-found honesty
 - **Partially implemented:** —
-- **Still incomplete:** Product UX incomplete
+- **Still incomplete:** —
 
 ### M062 — Conflict resolution for contradictory memories
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES**
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — resolve_conflicts
-- **Thorough documentation?** YES — partial
-- **Fully tested?** YES — learning tests
-- **Fully implemented:** resolve_conflicts
+- **Code production-ready?** YES — Conflict UI samples + score factors + --keep
+- **Thorough documentation?** YES — Conflict UI section LEARNING_LIFECYCLE.md
+- **Fully tested?** YES — list-only, never-delete, keep override
+- **Fully implemented:** detect samples, resolve_conflicts(keep_memory_id)
 - **Partially implemented:** —
-- **Still incomplete:** Conflict UI incomplete
+- **Still incomplete:** —
 
 ### M063 — Distill / deprecate redundant memories
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES**
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — distill+deprecate
-- **Thorough documentation?** YES — partial
-- **Fully tested?** YES — learning tests
-- **Fully implemented:** distill+deprecate
+- **Code production-ready?** YES — distill dry-run + threshold + undeprecate
+- **Thorough documentation?** YES — full operator loop + undeprecate story
+- **Fully tested?** YES — dry-run, product loop, no delete
+- **Fully implemented:** distill_knowledge(dry_run), undeprecate_memory, CLI flags
 - **Partially implemented:** —
-- **Still incomplete:** Lifecycle product incomplete
+- **Still incomplete:** —
 
 ### M068 — Preferences that bias routing
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES**
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — preferences.bias_candidates
-- **Thorough documentation?** YES — partial
-- **Fully tested?** YES — tests
-- **Fully implemented:** preferences.bias_candidates
+- **Code production-ready?** YES — bias_candidates wired into ModelCaller + ModelRouter
+- **Thorough documentation?** YES — docs/ROUTING_PREFS_BANDIT.md
+- **Fully tested?** YES — test_routing_prefs_bandit_g2
+- **Fully implemented:** prefs→bandit pipeline, pref sticky/cheap CLI
 - **Partially implemented:** —
-- **Still incomplete:** Deep routing bias not fully proven
+- **Still incomplete:** —
 
 ### M079 — JSON output mode for automation
 
@@ -2795,15 +2795,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### V4-M4 — M4 — Provider stream API path
 
 - **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline API completeness)
+- **Percent:** **100%** offline · live host-optional
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — call_stream
-- **Thorough documentation?** YES — V4 plan
-- **Fully tested?** YES — test stream
-- **Fully implemented:** call_stream
+- **Code production-ready?** YES — call_stream all kinds + supports_stream + fallback_reason
+- **Thorough documentation?** YES — docs/STREAMING.md + V4 plan
+- **Fully tested?** YES — stream matrix + fallback fixture
+- **Fully implemented:** call_stream public path + capability matrix
 - **Partially implemented:** —
-- **Still incomplete:** Provider coverage incomplete
+- **Still incomplete:** Live SSE multi-provider optional
 
 ### V5-M1 — M1 — CLI/public spend middleware
 
@@ -2834,15 +2834,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### M050 — Bandit / learned routing from outcomes
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **80%**
+- **Complete?** **YES**
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — bandit reorder+update
-- **Thorough documentation?** YES — V6 M050
-- **Fully tested?** YES — bandit tests partial
-- **Fully implemented:** bandit reorder+update
+- **Code production-ready?** YES — post_call update + select + status UI
+- **Thorough documentation?** YES — docs/ROUTING_PREFS_BANDIT.md
+- **Fully tested?** YES — test_routing_prefs_bandit_g2 + bandit router tests
+- **Fully implemented:** continuous loop, bandit status table, route_candidates
 - **Partially implemented:** —
-- **Still incomplete:** Not continuous-product UI
+- **Still incomplete:** —
 
 ### M090 — Contract tests on top 30 commands
 
@@ -2860,15 +2860,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### M100 — Honest dashboard: mock vs live
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **80%**
+- **Complete?** **YES**
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — dashboard honesty labels
-- **Thorough documentation?** YES — partial
-- **Fully tested?** YES — tests partial
-- **Fully implemented:** dashboard honesty labels
+- **Code production-ready?** YES — snapshot always MOCK|LIVE + spend + banner
+- **Thorough documentation?** YES — status/dashboard honesty labels
+- **Fully tested?** YES — test_stream_dashboard_g3_g4
+- **Fully implemented:** build_dashboard_snapshot honesty, status banner, dashboard panels
 - **Partially implemented:** —
-- **Still incomplete:** Full dashboard product incomplete
+- **Still incomplete:** —
 
 ### V2-C5 — Sprint C — Graph HTML UI
 

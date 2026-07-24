@@ -77,6 +77,6 @@ Do **not** re-open archived checklists unless a regression is proven.
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | Expanded both owner boards with thorough per-Must implementation guides (modules, gaps, verify, DoD) |
+| **What** | Grok implemented G1–G4 offline (M061–M063, M068, M050, M027, V4-M4, M100 → 100%). G5 M089 still host-gated. AGY board unchanged. |
 | **Still open** | Owner-board near-complete Musts + shared host gates |
 | **Prior** | Archived handoffs; created dual boards (`2059e3a`) |

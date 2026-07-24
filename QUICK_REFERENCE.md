@@ -1,6 +1,6 @@
 # SuperAI Quick Reference
 
-**Repo:** `SuperAI` · **Board:** `TASKBOARD.md` · **Progress:** `docs/PROGRESS.md`  
+**Repo:** `SuperAI` · **Boards:** `TASKBOARD.md` (index) · `TASKBOARD_GROK.md` · `TASKBOARD_AGY.md` · **Progress:** `docs/PROGRESS.md`  
 **Packages:** `core` · `scli` · **Tests:** `pytest -q` (114+)
 
 ## Install

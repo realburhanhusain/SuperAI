@@ -13,15 +13,18 @@ Siblings such as `SuperAI_Master` / `SuperAI_v2` are separate trees — **prefer
 
 ## Always resume from the taskboard + checkpoints
 
-1. Read **latest** `docs/checkpoints/CHECKPOINT_*.md` (if any) and **`TASKBOARD.md`**.
-2. Read **`docs/PROGRESS.md`** for phase % snapshot.
-3. Do **not** restart packaging or re-do completed tracks unless tests fail.
-4. Pick the highest-priority incomplete item (`[ ]` or `[~]`).
-5. Work autonomously through the plan; **do not stop for approval** between planned items unless blocked externally (`[!]` — keys, network, cloud credentials, GitHub admin).
-6. There is **no daily resume task**; continue in-session until blocked or plan complete.
-7. After each item (or ~30–45 min): update TASKBOARD Last session, then run:
+1. Read **latest** `docs/checkpoints/CHECKPOINT_*.md` (if any) and **`TASKBOARD.md`** (index).
+2. Then open **your owner board**:
+   - **Grok** → `TASKBOARD_GROK.md` (learning, routing, streaming honesty, dashboard, host smoke)
+   - **AGY** → `TASKBOARD_AGY.md` (spend, contracts, JSON/MCP surfaces, cost, TOP_30)
+3. Read **`docs/PROGRESS.md`** for phase % snapshot.
+4. Do **not** restart packaging or re-do **archived** waves (`docs/archive/`) unless tests fail / regression proven.
+5. Pick the highest-priority incomplete item on **your** board (`[ ]` or `[~]`).
+6. Work autonomously through the plan; **do not stop for approval** between planned items unless blocked externally (`[!]` — keys, network, cloud credentials, GitHub admin).
+7. There is **no daily resume task**; continue in-session until blocked or plan complete.
+8. After each item (or ~30–45 min): update **your** owner board Last session (and index if needed), then run:
    `powershell -File scripts/checkpoint.ps1 -Label "<item-id>"`
-8. See **`docs/CHECKPOINT_PROTOCOL.md`**.
+9. See **`docs/CHECKPOINT_PROTOCOL.md`**.
 
 ## Scope (non-negotiable)
 
@@ -56,7 +59,7 @@ src/superai/
 
 Entry point: `superai = "scli.main:app"` (folders `src/cli` + `src/core`; imports `scli` + `core`)
 
-Resume from `TASKBOARD.md`. Feature backlog: `docs/FEATURE_BACKLOG.md`. Security: `docs/SECURITY_REVIEW.md`.
+Resume from `TASKBOARD.md` → owner board (`TASKBOARD_GROK.md` / `TASKBOARD_AGY.md`). Feature backlog: `docs/FEATURE_BACKLOG.md`. Security: `docs/SECURITY_REVIEW.md`.
 
 ## Rules
 
@@ -64,4 +67,5 @@ Resume from `TASKBOARD.md`. Feature backlog: `docs/FEATURE_BACKLOG.md`. Security
 - Never log API keys.
 - Do not claim Phase 2–5 complete without tests + smoke evidence.
 - Keep marketing docs (`README`, `SUPERAI_FINAL_SUMMARY`) honest.
-- When unsure, re-read TASKBOARD + Phase DoD rather than inventing new architecture.
+- When unsure, re-read your owner TASKBOARD + Phase DoD rather than inventing new architecture.
+- Closed handoffs live under `docs/archive/` — stubs at old paths redirect only.

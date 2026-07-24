@@ -3,7 +3,7 @@
 **SuperAI** is a multi-model AI orchestration platform: plan → route → execute → learn, with safety rails.
 
 **Canonical tree:** this repo (`Documents\Personal\github\SuperAI`).  
-**Resume:** [TASKBOARD.md](TASKBOARD.md) · **Backlog:** [docs/FEATURE_BACKLOG.md](docs/FEATURE_BACKLOG.md)
+**Resume:** [TASKBOARD.md](TASKBOARD.md) (index) · [TASKBOARD_GROK.md](TASKBOARD_GROK.md) · [TASKBOARD_AGY.md](TASKBOARD_AGY.md) · **Backlog:** [docs/FEATURE_BACKLOG.md](docs/FEATURE_BACKLOG.md)
 
 > **Status (2026-07-16):** Feature backlog (M/S/N waves 1–2) **implemented in code**.  
 > Memory Palace default: **pgvector** (Postgres) or SQLite cosine offline; Chroma removed.  
@@ -79,7 +79,9 @@ superai web   # http://127.0.0.1:8787  and  /pwa/
 
 | Doc | Purpose |
 |-----|---------|
-| [TASKBOARD.md](TASKBOARD.md) | Live status |
+| [TASKBOARD.md](TASKBOARD.md) | Index · live status |
+| [TASKBOARD_GROK.md](TASKBOARD_GROK.md) | Grok owner board |
+| [TASKBOARD_AGY.md](TASKBOARD_AGY.md) | AGY owner board |
 | [FEATURES.md](FEATURES.md) | Feature matrix |
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Commands |
 | [docs/PROGRESS.md](docs/PROGRESS.md) | Phase % |

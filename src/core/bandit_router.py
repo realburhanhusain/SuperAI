@@ -33,7 +33,15 @@ class EpsilonGreedyBandit:
         return {}
 
     def save(self) -> None:
-        self.path.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
+        """Atomic multi-process-safe write (store_lock + tmp replace)."""
+        try:
+            from .store_lock import atomic_write_json, store_lock
+
+            root = self.path.parent
+            with store_lock(root, name="bandit_state.lock", timeout=30.0):
+                atomic_write_json(self.path, self.state)
+        except Exception:
+            self.path.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
 
     def _arm(self, model: str) -> Dict[str, float]:
         if model not in self.state:

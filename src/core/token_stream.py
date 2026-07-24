@@ -35,6 +35,80 @@ def get_stream_meta() -> Dict[str, Any]:
     return dict(_LAST_STREAM_META)
 
 
+def finalize_stream_result(
+    text: str,
+    *,
+    model: str,
+    provider: Optional[str] = None,
+    mode: Optional[str] = None,
+    cancelled: bool = False,
+    fallback_reason: Optional[str] = None,
+    mock: bool = False,
+    chunks: int = 0,
+    prompt: str = "",
+) -> Dict[str, Any]:
+    """
+    Build a contracted superai.result.v1 envelope after stream completion (M027).
+
+    Aggregates full text, stream meta (mode/provider/model), and cost fields.
+    """
+    body = text or ""
+    meta = {
+        "mode": mode or get_stream_meta().get("mode"),
+        "provider": provider or get_stream_meta().get("provider"),
+        "model": model,
+        "chunks": chunks or get_stream_meta().get("chunks") or 0,
+        "chars": len(body),
+        "cancelled": cancelled,
+        "fallback_reason": fallback_reason,
+    }
+    result: Dict[str, Any] = {
+        "ok": not cancelled and bool(body or mode == "budget_blocked"),
+        "status": (
+            "cancelled"
+            if cancelled
+            else "error"
+            if mode == "budget_blocked"
+            else "success"
+            if body
+            else "empty"
+        ),
+        "response": body,
+        "model": model,
+        "provider": meta["provider"],
+        "mock": bool(mock),
+        "stream": True,
+        "stream_meta": meta,
+        "tokens": max(1, len(body) // 4) if body else 0,
+        "product": "model_caller.call_stream",
+    }
+    if mode == "budget_blocked":
+        result["ok"] = False
+        result["blocked"] = True
+        result["error"] = fallback_reason or "budget_exceeded"
+        result["error_code"] = "budget"
+    if cancelled:
+        result["ok"] = False
+        result["error_code"] = "cancelled"
+    try:
+        from .cost_accounting import attach_cost_fields
+
+        result = attach_cost_fields(result, model=model, prompt=prompt or body[:500])
+    except Exception:
+        result.setdefault("estimated_cost_usd", 0.0)
+        result.setdefault("cost_source", "estimate")
+    try:
+        from .spend_guard import ensure_public_result
+
+        result = ensure_public_result(
+            result, mock=mock, ok=result.get("ok"), dry_run=False
+        )
+    except Exception:
+        result.setdefault("contract", "superai.result.v1")
+    set_stream_meta(aggregated=result, **meta)
+    return result
+
+
 def supports_stream(
     model: Optional[str] = None, provider: Optional[str] = None
 ) -> Dict[str, Any]:

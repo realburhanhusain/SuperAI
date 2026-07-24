@@ -123,26 +123,33 @@ Close the **9 near-complete Musts** (80–90%) that need product depth, routing 
 
 ---
 
-## Wave G5 — M089 Live multi-provider smoke `[!]` — open
+## Wave G5 — M089 Live multi-provider smoke — offline code done · host `[!]`
 
 | Field | Value |
 |-------|--------|
-| **Scorecard** | HOST-GATED · live keys required |
+| **Scorecard** | HOST-GATED · live keys required for 100% host |
 | **Deps** | M088 smoke harness never false-passes; M041 registration |
-| **Modules** | `core.live_smoke_complete`, Phase 99 plan |
+| **Modules** | `core.live_smoke_complete`, `provider_smoke`, Phase 99 plan |
+| **AGY residual pickup** | [`docs/grok_work_review_result_I1_v1.md`](docs/grok_work_review_result_I1_v1.md) |
 
-**Do not block G1–G4 (closed).** When host keys available:
+**Offline code (I1 residual close-out):**
 
-- [ ] Run matrix across registered live providers
+- [x] Harness never claims live pass without keys / real results
+- [x] `budget_precheck(..., command_name="live-smoke")` on live branch
+- [x] Offline stream aggregate sample always (`stream_sample_offline`)
+- [x] Env key inventory in result (`env_keys_present`)
+- [x] Tests: `tests/test_grok_i1_residuals.py`
+
+**When host keys available:**
+
+- [ ] Run `run_phase6_smoke(allow_live=True)` / `superai phase6-smoke` across credentialed providers
 - [ ] Record results; never mark CI green on missing keys
-- [ ] Budget precheck wraps live smoke
-- [ ] Update scorecard only after real matrix evidence
+- [ ] Update scorecard M089 only after real matrix evidence
 
-**Offline allowed (partial):**
+**Also closed from AGY Grok review residual list:**
 
-- [x] Streaming capability matrix documented (G3)
-- [ ] Expand live smoke harness catalog if gaps found on host run
-- [ ] Document exact env vars per provider in UNIVERSAL_MODELS_PLAN Phase 99
+- [x] Atomic prefs + bandit state (`store_lock` + `atomic_write_json`)
+- [x] Stream completion → contracted `aggregated` result (`call_stream_complete`)
 
 ---
 
@@ -162,6 +169,7 @@ Close the **9 near-complete Musts** (80–90%) that need product depth, routing 
 pytest tests/test_learning_lifecycle_m061_m063.py tests/test_learning_engine_gaps.py -q
 pytest tests/test_routing_prefs_bandit_g2.py tests/test_msg_vega_plugin_bandit.py -q
 pytest tests/test_stream_dashboard_g3_g4.py tests/test_m079_m027_m093.py tests/test_improvement_v4.py -q
+pytest tests/test_grok_i1_residuals.py -q
 ```
 
 ---
@@ -171,7 +179,8 @@ pytest tests/test_stream_dashboard_g3_g4.py tests/test_m079_m027_m093.py tests/t
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | Thorough G1–G4 implementation: learning product UX, prefs+bandit pipeline, streaming matrix/fallback honesty, dashboard MOCK/LIVE. Scorecard promoted offline. G5 host-gated remains. |
-| **Still open** | G5 M089 host live smoke only |
-| **Evidence** | 22 + 8 + 6+ related tests green; docs LEARNING_LIFECYCLE, ROUTING_PREFS_BANDIT, STREAMING |
+| **What** | Closed AGY `grok_work_review_result_I1_v1` residuals: atomic prefs/bandit, stream aggregate contract, M089 offline harness honesty. Host live matrix still `[!]`. |
+| **Still open** | G5 M089 **host** live multi-provider run only (keys) |
+| **Evidence** | `tests/test_grok_i1_residuals.py` + prior G1–G4 suites |
+| **Pickup closed** | [`docs/grok_work_review_result_I1_v1.md`](docs/grok_work_review_result_I1_v1.md) |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

@@ -6012,12 +6012,12 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### M089 — Live multi-provider smoke matrix (host keys)
 
 - **Track:** V6
-- **Complete?** **NO** (host/live required)
-- **Percent:** **90%** (capped; live not proven)
-- **Code:** YES — smoke harness code
-- **Docs:** YES — plans document host gate
-- **Tests (offline):** YES — harness tests offline
-- **Still incomplete:** HOST: live keys required
+- **Complete?** **NO** (host/live required for full matrix)
+- **Percent:** **92%** offline code · host live not proven
+- **Code:** YES — harness + budget `live-smoke` + offline stream sample (`live_smoke_complete`)
+- **Docs:** YES — grok_work_review_result_I1_v1 + host gate honesty
+- **Tests (offline):** YES — test_grok_i1_residuals (never false live pass)
+- **Still incomplete:** HOST: run allow_live matrix with real keys; then promote
 
 ### MOS-N8 — Nice N8 — Live multi-vendor smoke
 

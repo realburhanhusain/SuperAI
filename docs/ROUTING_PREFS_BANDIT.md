@@ -21,10 +21,12 @@ Wired into:
 
 ## Persistence
 
-| Store | Path |
-|-------|------|
-| Preferences | `~/.superai/preferences.json` |
-| Bandit arms | `~/.superai/bandit_state.json` |
+| Store | Path | Write safety |
+|-------|------|----------------|
+| Preferences | `~/.superai/preferences.json` | `store_lock` + `atomic_write_json` |
+| Bandit arms | `~/.superai/bandit_state.json` | `store_lock` + `atomic_write_json` |
+
+Locks: `preferences.lock` / `bandit_state.lock` under `~/.superai/`.
 
 ## Operator CLI
 

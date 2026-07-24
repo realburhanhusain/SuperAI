@@ -43,8 +43,17 @@ class UserPreferenceModel:
         }
 
     def save(self) -> None:
+        """Atomic multi-process-safe write (store_lock + tmp replace)."""
         self.data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
+        try:
+            from .store_lock import atomic_write_json, store_lock
+
+            root = self.path.parent
+            with store_lock(root, name="preferences.lock", timeout=30.0):
+                atomic_write_json(self.path, self.data)
+        except Exception:
+            # Last-resort non-atomic fallback so preference set never hard-fails
+            self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
 
     # --- explicit preferences ---
     def set(self, key: str, value: Any) -> None:

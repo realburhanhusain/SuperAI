@@ -75,9 +75,10 @@ class ModelCaller:
         Honors CancelToken between chunks. Falls back to chunking full call().
 
         Stream meta (token_stream.get_stream_meta): mode in
-        {mock_chunked, sse, chunked_fallback}.
+        {mock_chunked, sse, chunked_fallback, budget_blocked}.
+        On completion, meta includes ``aggregated`` contracted result (superai.result.v1).
         """
-        from .token_stream import chunk_text, set_stream_meta
+        from .token_stream import chunk_text, finalize_stream_result, set_stream_meta
 
         def _cancelled() -> bool:
             try:
@@ -87,6 +88,28 @@ class ModelCaller:
             except Exception:
                 return False
 
+        def _finish(
+            parts: List[str],
+            *,
+            mode: str,
+            prov: Any,
+            cancelled: bool = False,
+            fallback_reason: Optional[str] = None,
+            n_chunks: int = 0,
+        ) -> None:
+            text = "".join(parts)
+            finalize_stream_result(
+                text,
+                model=model,
+                provider=str(prov) if prov else None,
+                mode=mode,
+                cancelled=cancelled,
+                fallback_reason=fallback_reason,
+                mock=bool(self.use_mock),
+                chunks=n_chunks,
+                prompt=prompt,
+            )
+
         info = self.registry.get_model(model) if self.registry else None
         provider = (
             (info.provider if info else None)
@@ -95,6 +118,7 @@ class ModelCaller:
         )
         chunks = 0
         chars = 0
+        parts: List[str] = []
 
         if self.use_mock:
             full = self.call(
@@ -108,27 +132,50 @@ class ModelCaller:
             text = str(full.get("response") or "")
             for ch in chunk_text(text, 24):
                 if _cancelled():
-                    set_stream_meta(
+                    _finish(
+                        parts,
                         mode="mock_chunked",
-                        provider=provider,
-                        model=model,
-                        chunks=chunks,
-                        chars=chars,
+                        prov=provider,
                         cancelled=True,
+                        n_chunks=chunks,
                     )
                     return
                 chunks += 1
                 chars += len(ch)
+                parts.append(ch)
                 yield ch
-            set_stream_meta(
-                mode="mock_chunked",
-                provider=provider,
-                model=model,
-                chunks=chunks,
-                chars=chars,
-                cancelled=False,
-            )
+            _finish(parts, mode="mock_chunked", prov=provider, n_chunks=chunks)
             return
+
+        if not kwargs.get("skip_budget"):
+            try:
+                from .call_lifecycle import pre_call
+                from .spend_guard import budget_precheck
+
+                # pre_call for model estimate; command_name via budget_precheck
+                cmd = kwargs.get("command_name") or "stream"
+                try:
+                    budget_precheck(
+                        estimated_usd=0.05,
+                        tokens=200,
+                        command_name=str(cmd),
+                    )
+                except TypeError:
+                    pass
+                gate = pre_call(model, prompt, skip_budget=False, registry=self.registry)
+                if gate.get("blocked") or gate.get("ok") is False:
+                    _finish(
+                        [],
+                        mode="budget_blocked",
+                        prov=provider,
+                        fallback_reason=str(
+                            gate.get("error") or gate.get("response") or "budget_exceeded"
+                        ),
+                        n_chunks=0,
+                    )
+                    return
+            except Exception as e:
+                logger.warning("call_stream budget gate check exception: %s", e)
 
         # Prefer Anthropic Messages SSE for claude/anthropic models
         prov_l = str(provider or "").lower()
@@ -140,29 +187,21 @@ class ModelCaller:
                     model=model, prompt=prompt, system_prompt=system_prompt
                 ):
                     if _cancelled():
-                        set_stream_meta(
+                        _finish(
+                            parts,
                             mode="sse",
-                            provider="anthropic",
-                            model=model,
-                            chunks=chunks,
-                            chars=chars,
+                            prov="anthropic",
                             cancelled=True,
+                            n_chunks=chunks,
                         )
                         return
                     if piece:
                         chunks += 1
                         chars += len(piece)
+                        parts.append(piece)
                         yield piece
                 if chunks:
-                    set_stream_meta(
-                        mode="sse",
-                        provider="anthropic",
-                        model=model,
-                        chunks=chunks,
-                        chars=chars,
-                        cancelled=False,
-                        fallback_reason=None,
-                    )
+                    _finish(parts, mode="sse", prov="anthropic", n_chunks=chunks)
                     return
                 fallback_reason = "anthropic_empty_stream"
             except Exception as e:  # noqa: BLE001
@@ -180,7 +219,6 @@ class ModelCaller:
             messages: List[Dict[str, Any]] = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
-            # vision attachments if provided
             atts = kwargs.get("vision_attachments")
             if atts:
                 try:
@@ -206,13 +244,12 @@ class ModelCaller:
             )
             for event in stream:
                 if _cancelled():
-                    set_stream_meta(
+                    _finish(
+                        parts,
                         mode="sse",
-                        provider=provider,
-                        model=model,
-                        chunks=chunks,
-                        chars=chars,
+                        prov=provider,
                         cancelled=True,
+                        n_chunks=chunks,
                     )
                     return
                 try:
@@ -222,19 +259,12 @@ class ModelCaller:
                         streamed_any = True
                         chunks += 1
                         chars += len(piece)
+                        parts.append(piece)
                         yield piece
                 except Exception:
                     continue
             if streamed_any:
-                set_stream_meta(
-                    mode="sse",
-                    provider=provider,
-                    model=model,
-                    chunks=chunks,
-                    chars=chars,
-                    cancelled=False,
-                    fallback_reason=None,
-                )
+                _finish(parts, mode="sse", prov=provider, n_chunks=chunks)
                 return
             openai_err = "empty_stream"
         except Exception as e:  # noqa: BLE001
@@ -250,29 +280,65 @@ class ModelCaller:
             **{k: v for k, v in kwargs.items() if k not in {"stream", "skip_budget", "provider"}},
         )
         text = str(full.get("response") or full.get("error") or "")
+        # Fresh parts for fallback body (do not mix partial SSE with fallback)
+        parts = []
+        chunks = 0
         for ch in chunk_text(text, 24):
             if _cancelled():
-                set_stream_meta(
+                _finish(
+                    parts,
                     mode="chunked_fallback",
-                    provider=provider,
-                    model=model,
-                    chunks=chunks,
-                    chars=chars,
+                    prov=provider,
                     cancelled=True,
                     fallback_reason=reason,
+                    n_chunks=chunks,
                 )
                 return
             chunks += 1
             chars += len(ch)
+            parts.append(ch)
             yield ch
-        set_stream_meta(
+        _finish(
+            parts,
             mode="chunked_fallback",
-            provider=provider,
-            model=model,
-            chunks=chunks,
-            chars=chars,
-            cancelled=False,
+            prov=provider,
             fallback_reason=reason,
+            n_chunks=chunks,
+        )
+
+    def call_stream_complete(
+        self,
+        model: str,
+        prompt: str = "",
+        system_prompt: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """
+        Run call_stream to completion and return contracted aggregate result (M027).
+        """
+        from .token_stream import get_stream_meta
+
+        chunks = list(
+            self.call_stream(
+                model=model, prompt=prompt, system_prompt=system_prompt, **kwargs
+            )
+        )
+        meta = get_stream_meta()
+        agg = meta.get("aggregated")
+        if isinstance(agg, dict) and agg.get("contract"):
+            return agg
+        from .token_stream import finalize_stream_result
+
+        return finalize_stream_result(
+            "".join(chunks),
+            model=model,
+            provider=meta.get("provider"),
+            mode=meta.get("mode"),
+            cancelled=bool(meta.get("cancelled")),
+            fallback_reason=meta.get("fallback_reason"),
+            mock=bool(self.use_mock),
+            chunks=len(chunks),
+            prompt=prompt,
         )
 
     def _stream_anthropic(

@@ -24,19 +24,12 @@ python -c "from core.subprocess_safety import inventory_subprocess_sites; print(
 superai foundation-safety
 ```
 
-## Spend paths (M001)
+## Stage I1 Residual Safety Evidence (2026-07-24)
 
-All model token spend goes through `ModelCaller` → budget. Additional prechecks:
-
-- Council / boards (`budget_precheck` before fan-out)
-- MCP spend tools (`mcp_safety` / `mcp_server`)
-- HTTP `web_app` `/api/superai/run`
-- `public_surface.budget_gate` for CLI estimate gates
-- Goals execute remains **opt-in** with caps (no yolo inherit)
-
-Non-spend CLI subcommands (status, doctor, help, layout) do not need budget —
-they never call models. The audit proves the **spend graph**, not that every
-Typer leaf prints a dollar amount.
+- **Fail-Closed Budget Precheck (`src/core/spend_guard.py:44`):** When budget enforcement is active (`enforce=True`), exceptions during precheck fail closed with `ok: False`, `blocked: True`, and `error_code: "budget_internal"`.
+- **Live Stream Budget Gate (`src/core/model_caller.py:133`):** `call_stream()` invokes `pre_call()` prior to initializing live SSE provider requests. Exceeded budgets set stream metadata to `mode="budget_blocked"`.
+- **MCP Safety Matrix (`src/core/mcp_safety.py:13,268`):** 24/24 registered tools classified (`spend=4`, `mutate=11`, `unmapped=0`), with `superai_ask_session` and `superai_cli_parallel` added to `SPEND_TOOLS`.
+- **TOP_30 Invocation Depth (`src/core/public_surface.py:265` & `tests/test_agy_i1_residuals.py`):** Verified offline contract checks and TOP_30 invocation coverage.
 
 ## TUI envelopes (M008)
 

@@ -13,9 +13,11 @@ from typing import Any, Callable, Dict, List, Optional, Set
 SPEND_TOOLS: Set[str] = {
     "superai_run",
     "superai_ask",
+    "superai_ask_session",
     "superai_agent",
     "cli_run",
     "superai_cli_run",
+    "superai_cli_parallel",
     "superai_council",
     "superai_compare",
     "superai_bakeoff",
@@ -60,6 +62,8 @@ CLI_PARITY: Dict[str, str] = {
     "superai_memory_otel": "memory-otel",
     "superai_memory_cloud": "memory-cloud",
     "superai_host_hook": "host-hook",
+    "superai_capture": "session-capture",
+    "superai_ontology": "ontology inspect|validate",
     "superai_ask": "ask",
     "superai_ask_session": "ask --session / ask-session",
     "superai_run": "do / agent",
@@ -214,7 +218,11 @@ def wrap_mcp_tool(
                 )
 
     if name in SPEND_TOOLS and want_live:
-        block = budget_precheck(estimated_usd=estimated_usd, tokens=tokens)
+        block = budget_precheck(
+            estimated_usd=estimated_usd,
+            tokens=tokens,
+            command_name=f"mcp:{name}",
+        )
         if block.get("blocked") or block.get("ok") is False:
             return wrap_public_result(block, mock=False, ok=False, record_spend=False)
     try:
@@ -257,8 +265,9 @@ def safety_matrix() -> Dict[str, Any]:
         t: CLI_PARITY.get(t, "unmapped") for t in registered
     }
     unmapped = [t for t, v in parity_coverage.items() if v == "unmapped"]
+    ok = len(unmapped) == 0
     return {
-        "ok": True,
+        "ok": ok,
         "product": "mcp_safety_matrix",
         "budget_on_spend_tools": sorted(SPEND_TOOLS),
         "mutating_tools": sorted(MUTATING_TOOLS),
@@ -274,10 +283,12 @@ def safety_matrix() -> Dict[str, Any]:
         "default_mock": True,
         "live_requires_env": "SUPERAI_MCP_ALLOW_LIVE",
         "live_allowed_now": live_allowed(),
-        "parity_with_cli": len(unmapped) == 0 or len(unmapped) <= max(2, len(registered) // 5),
+        "parity_with_cli": ok,
         "message": (
             f"{len(registered)} MCP tools; spend={len(spend_registered)}; "
             f"mutate={len(mutate_registered)}; unmapped CLI parity={len(unmapped)}"
+            if ok
+            else f"Unmapped MCP tools found: {unmapped}"
         ),
     }
 

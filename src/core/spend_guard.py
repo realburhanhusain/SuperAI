@@ -42,6 +42,14 @@ def budget_precheck(
             enforce=bool(enforce),
         )
     except Exception as e:
+        if enforce is not False:
+            return {
+                "ok": False,
+                "error": f"Budget precheck internal failure: {e}",
+                "error_code": "budget_internal",
+                "blocked": True,
+                "budget_error": str(e)[:200],
+            }
         return {"ok": True, "budget_error": str(e)[:200], "blocked": False}
 
 

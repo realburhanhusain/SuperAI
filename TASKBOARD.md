@@ -77,6 +77,6 @@ Do **not** re-open archived checklists unless a regression is proven.
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | Archived closed AGY/Grok handoffs; created `TASKBOARD_GROK.md` + `TASKBOARD_AGY.md` (9 Musts each) |
+| **What** | Expanded both owner boards with thorough per-Must implementation guides (modules, gaps, verify, DoD) |
 | **Still open** | Owner-board near-complete Musts + shared host gates |
-| **Tip** | `9124091` prior; this commit is archive + boards |
+| **Prior** | Archived handoffs; created dual boards (`2059e3a`) |

@@ -24,6 +24,17 @@ python -c "from core.subprocess_safety import inventory_subprocess_sites; print(
 superai foundation-safety
 ```
 
+## Spend Path Inventory (M001)
+
+- `model_caller.call()` → `pre_call()` → `budget_precheck`
+- `model_caller.call_stream()` → `budget_precheck` + `pre_call()`
+- `council.run()` → `budget_precheck(command_name='council')`
+- `model_bakeoff.run_bakeoff()` → `budget_precheck(command_name='bakeoff')`
+- `model_compare.compare()` → `budget_precheck(command_name='compare')`
+- `mcp_safety.wrap_mcp_tool()` → `budget_precheck(command_name=f'mcp:{name}')`
+- `live_smoke_complete.run_phase6_smoke()` → `budget_precheck(command_name='live-smoke')`
+- `web_app /api/agent/run` → `budget_precheck(command_name='web')`
+
 ## Stage I1 Residual Safety Evidence (2026-07-24)
 
 - **Fail-Closed Budget Precheck (`src/core/spend_guard.py:44`):** When budget enforcement is active (`enforce=True`), exceptions during precheck fail closed with `ok: False`, `blocked: True`, and `error_code: "budget_internal"`.
@@ -62,6 +73,8 @@ run_result(["rclone", "ls", "x:"], kind="rclone")  # contract envelope
 
 ## Scorecard
 
-Improved scorecard marks M001 / M008 / M018 complete when `audit_all().ok`
+Scorecard marks M001 / M008 / M018 complete when `audit_all().ok`
 and the dedicated tests pass. Immutable `V1_V6_UNIFIED_SCORECARD.md` is not
 bulk-edited.
+
+*Note: I1-v3 residual*

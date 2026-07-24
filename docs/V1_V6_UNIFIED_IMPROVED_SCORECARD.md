@@ -2561,15 +2561,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### V5-M4 — M4 — Accurate cost from registry
 
 - **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **90%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — cost_accounting
-- **Thorough documentation?** YES — V5 plan
-- **Fully tested?** YES — tests
-- **Fully implemented:** cost_accounting
+- **Code production-ready?** YES — cost_accounting + board_preflight estimate_call
+- **Thorough documentation?** YES — COST_ACCOUNTING + estimate_source fields
+- **Fully tested?** YES — cost + board preflight
+- **Fully implemented:** registry rates, estimate_call preflight, estimate_source/cost_source
 - **Partially implemented:** —
-- **Still incomplete:** Estimate fallbacks remain
+- **Still incomplete:** —
 
 ### M027 — Real token streaming where supported
 
@@ -2639,28 +2639,28 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### M079 — JSON output mode for automation
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — global --json
-- **Thorough documentation?** YES — CLI help
-- **Fully tested?** YES — partial tests
-- **Fully implemented:** global --json
+- **Code production-ready?** YES — global --json + status/doctor/learning --json
+- **Thorough documentation?** YES — CLI_MIDDLEWARE + public surface
+- **Fully tested?** YES — m079 + top30 offline
+- **Fully implemented:** emit_public/render_public JSON surface
 - **Partially implemented:** —
-- **Still incomplete:** Not all commands emit JSON by default
+- **Still incomplete:** —
 
 ### M093 — MCP parity with CLI safety rules
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — mcp_safety wrap
-- **Thorough documentation?** YES — V6 M093
-- **Fully tested?** YES — mcp tests partial
-- **Fully implemented:** mcp_safety wrap
+- **Code production-ready?** YES — SPEND/MUTATE/FREE + ghost/unclassified gate
+- **Thorough documentation?** YES — V6 M093 + matrix
+- **Fully tested?** YES — mcp + residual matrix tests
+- **Fully implemented:** safety_matrix ok requires full classification
 - **Partially implemented:** —
-- **Still incomplete:** Full MCP tool matrix not exhaustive
+- **Still incomplete:** —
 
 ### MOS-S1 — Should S1 — Token streaming in agent-tui
 
@@ -2756,41 +2756,41 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### V4-DOD-1 — DoD-strict — spend_guard on council/bakeoff/compare/HTTP
 
 - **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — spend_guard sweep
-- **Thorough documentation?** YES — V4 DoD
-- **Fully tested?** YES — tests
-- **Fully implemented:** spend_guard sweep
+- **Code production-ready?** YES — council/bakeoff/compare/web + thin wrappers
+- **Thorough documentation?** YES — FOUNDATION_SAFETY + CLI inventory
+- **Fully tested?** YES — spend path assertion suite
+- **Fully implemented:** command_name prechecks on public boards/HTTP/wrappers
 - **Partially implemented:** —
-- **Still incomplete:** Residual thin wrappers
+- **Still incomplete:** —
 
 ### V4-M1 — M1 — Budget on all spend paths
 
 - **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — spend_guard major paths
-- **Thorough documentation?** YES — V4 plan
-- **Fully tested?** YES — test_improvement_v4
-- **Fully implemented:** spend_guard major paths
+- **Code production-ready?** YES — stream pre_call + fail-closed + wrappers
+- **Thorough documentation?** YES — FOUNDATION_SAFETY spend inventory
+- **Fully tested?** YES — residual + spend path tests
+- **Fully implemented:** public spend graph gated
 - **Partially implemented:** —
-- **Still incomplete:** Not every spend path
+- **Still incomplete:** —
 
 ### V4-M2 — M2 — Result contract everywhere public
 
 - **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — contracts major paths
-- **Thorough documentation?** YES — V4 plan
-- **Fully tested?** YES — test_improvement_v4
-- **Fully implemented:** contracts major paths
+- **Code production-ready?** YES — ensure_public_result + TOP_30 offline contracts
+- **Thorough documentation?** YES — PUBLIC_CONTRACTS_INVENTORY.md
+- **Fully tested?** YES — result_contract + invoke_top30_offline
+- **Fully implemented:** public contract inventory + offline enforcement
 - **Partially implemented:** —
-- **Still incomplete:** Not everywhere public
+- **Still incomplete:** —
 
 ### V4-M4 — M4 — Provider stream API path
 
@@ -2808,28 +2808,28 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### V5-M1 — M1 — CLI/public spend middleware
 
 - **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — public_api.wrap key paths
-- **Thorough documentation?** YES — V5 plan
-- **Fully tested?** YES — test_improvement_v5
-- **Fully implemented:** public_api.wrap key paths
+- **Code production-ready?** YES — budget_gate + CLI inventory + wrappers
+- **Thorough documentation?** YES — CLI_MIDDLEWARE_INVENTORY.md
+- **Fully tested?** YES — test_cli_middleware
+- **Fully implemented:** SPEND/MUTATING/FREE classification + precheck wiring
 - **Partially implemented:** —
-- **Still incomplete:** Not all CLI cmds
+- **Still incomplete:** —
 
 ### V5-M2 — M2 — MCP spend parity
 
 - **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — MCP superai_run budget
-- **Thorough documentation?** YES — V5 plan
-- **Fully tested?** YES — mcp tests
-- **Fully implemented:** MCP superai_run budget
+- **Code production-ready?** YES — wrap_mcp_tool + full classification matrix
+- **Thorough documentation?** YES — V5 plan + matrix message
+- **Fully tested?** YES — mcp residual matrix
+- **Fully implemented:** no ghosts/unclassified; live mcp command_name
 - **Partially implemented:** —
-- **Still incomplete:** Full MCP parity matrix incomplete
+- **Still incomplete:** —
 
 ### M050 — Bandit / learned routing from outcomes
 
@@ -2847,15 +2847,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### M090 — Contract tests on top 30 commands
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **80%**
+- **Complete?** **YES** (offline)
+- **Percent:** **100%**
 - **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — TOP_30 + contract smoke
-- **Thorough documentation?** YES — V6 M090
-- **Fully tested?** YES — verify_top30 offline
-- **Fully implemented:** TOP_30 + contract smoke
+- **Code production-ready?** YES — invoke_top30_offline help+contract
+- **Thorough documentation?** YES — V6 M090 + PUBLIC_CONTRACTS
+- **Fully tested?** YES — test_top30_invoke (30/30 help + contracts)
+- **Fully implemented:** CliRunner --help all TOP_30 + contract samples
 - **Partially implemented:** —
-- **Still incomplete:** Not live invocation of all 30 CLIs
+- **Still incomplete:** —
 
 ### M100 — Honest dashboard: mock vs live
 

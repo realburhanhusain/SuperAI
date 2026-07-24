@@ -32,14 +32,15 @@ def compare_models(
     try:
         from .spend_guard import budget_precheck
 
-        if not use_mock:
-            block = budget_precheck(
-                estimated_usd=0.08 * max(1, len(models or [])),
-                tokens=300 * max(1, len(models or [])),
-                command_name="compare",
-            )
-            if block.get("blocked"):
-                return block
+        n = max(1, len(models or []))
+        block = budget_precheck(
+            estimated_usd=0.0 if use_mock else 0.08 * n,
+            tokens=300 * n,
+            command_name="compare",
+            enforce=False if use_mock else None,
+        )
+        if block.get("blocked") or block.get("ok") is False:
+            return block
     except Exception:
         pass
 

@@ -239,16 +239,38 @@ async function status(){
                 mock=True,
                 ok=False,
             )
-        # DoD-strict budget gate on HTTP spend path
+        # DoD-strict budget gate on every HTTP agent run (mock or live)
         try:
             from core.spend_guard import budget_precheck, ensure_public_result
 
+            block = budget_precheck(
+                estimated_usd=0.15 if live else 0.0,
+                tokens=800 if live else 50,
+                command_name="web",
+                enforce=False if not live else None,
+            )
+            if block.get("blocked") or block.get("ok") is False:
+                return ensure_public_result(block, mock=not live, ok=False)
+        except Exception as e:
+            import logging
+
+            logging.getLogger("superai.web_app").warning(
+                "budget gate check failed: %s", e,
+            )
+            # Fail closed for live spend paths
             if live:
-                block = budget_precheck(estimated_usd=0.15, tokens=800)
-                if block.get("blocked"):
-                    return block
-        except Exception:
-            pass
+                from core.spend_guard import ensure_public_result
+
+                return ensure_public_result(
+                    {
+                        "ok": False,
+                        "blocked": True,
+                        "error": f"budget gate failure: {e}",
+                        "error_code": "budget_internal",
+                    },
+                    mock=False,
+                    ok=False,
+                )
         rt = AgentRuntime(use_mock=not live)
         out = rt.run(
             prompt,

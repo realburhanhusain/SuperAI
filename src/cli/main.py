@@ -669,9 +669,14 @@ def status(
     cost: bool = typer.Option(
         False, "--cost", help="V4 S9: budget spend, circuits, cache stats"
     ),
+    json_out: bool = typer.Option(
+        False, "--json", help="JSON automation mode for public results (V6 M079)"
+    ),
 ):
     """Show current SuperAI system status"""
-    from core.public_surface import render_public
+    from core.public_surface import render_public, set_json_mode
+    if json_out:
+        set_json_mode(True)
 
     config = Config()
     history = TaskHistory()
@@ -2107,8 +2112,13 @@ def _print_learning_result(data: dict, *, title: str = "Learning") -> None:
 
 
 @learning_app.command("status")
-def learning_status():
+def learning_status(
+    json_out: bool = typer.Option(False, "--json", help="JSON automation mode"),
+):
     """Lifecycle dashboard: active / durable / deprecated / conflicts (M061–M063 UX)."""
+    if json_out:
+        from core.public_surface import set_json_mode
+        set_json_mode(True)
     eng = _learning_engine()
     _print_learning_result(eng.lifecycle_status(), title="Learning lifecycle")
 
@@ -4317,8 +4327,12 @@ def roles_cmd(
 @app.command()
 def doctor(
     quick: bool = typer.Option(False, "--quick", help="Skip smoke calls"),
+    json_out: bool = typer.Option(False, "--json", help="JSON automation mode"),
 ):
     """M1/M7: Health pack — env, config, smoke, next steps"""
+    if json_out:
+        from core.public_surface import set_json_mode
+        set_json_mode(True)
     from core.doctor import run_doctor
     from core.public_surface import render_public
 

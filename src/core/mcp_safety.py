@@ -10,23 +10,18 @@ import os
 from typing import Any, Callable, Dict, List, Optional, Set
 
 # Tools that can spend money / call live models (must honor budget when live)
+# Only registered MCP tools that can spend money / call live models.
+# CLI-only spend commands (ask, council, bakeoff, etc.) are tracked separately
+# in CLI middleware, not here. Ghost entries cause safety_matrix false-positives.
 SPEND_TOOLS: Set[str] = {
     "superai_run",
-    "superai_ask",
     "superai_ask_session",
-    "superai_agent",
-    "cli_run",
     "superai_cli_run",
     "superai_cli_parallel",
-    "superai_council",
-    "superai_compare",
-    "superai_bakeoff",
-    "superai_review",
-    "superai_advise",
-    "superai_do",
 }
 
 # Tools that mutate disk / memory (permission + dry-run aware)
+# Only registered MCP tools that mutate disk / memory.
 MUTATING_TOOLS: Set[str] = {
     "superai_memory_store",
     "superai_learn",
@@ -37,10 +32,24 @@ MUTATING_TOOLS: Set[str] = {
     "superai_dataset",
     "superai_ingest",
     "superai_memory_cloud",
-    "cli_run",
     "superai_cli_run",
     "superai_run",
-    "superai_agent",
+}
+
+# Tools that are read-only and free
+FREE_TOOLS: Set[str] = {
+    "superai_status",
+    "superai_central_memory_status",
+    "superai_memory_search",
+    "superai_memory_context",
+    "superai_kg_query",
+    "superai_recall",
+    "superai_memory_otel",
+    "superai_host_hook",
+    "superai_capture",
+    "superai_ontology",
+    "superai_cli_discover",
+    "superai_host_tools",
 }
 
 # MCP tool → closest CLI command (parity map)
@@ -265,7 +274,17 @@ def safety_matrix() -> Dict[str, Any]:
         t: CLI_PARITY.get(t, "unmapped") for t in registered
     }
     unmapped = [t for t, v in parity_coverage.items() if v == "unmapped"]
-    ok = len(unmapped) == 0
+    # Ghost detection: SPEND_TOOLS / MUTATING_TOOLS entries not in registered set
+    ghost_spend = sorted(t for t in SPEND_TOOLS if t not in registered)
+    ghost_mutate = sorted(t for t in MUTATING_TOOLS if t not in registered)
+    
+    # Unclassified detection: registered tools that aren't in SPEND, MUTATING, or FREE
+    unclassified = [
+        t for t in registered 
+        if t not in SPEND_TOOLS and t not in MUTATING_TOOLS and t not in FREE_TOOLS
+    ]
+    
+    ok = len(unmapped) == 0 and len(ghost_spend) == 0 and len(unclassified) == 0
     return {
         "ok": ok,
         "product": "mcp_safety_matrix",
@@ -277,6 +296,8 @@ def safety_matrix() -> Dict[str, Any]:
         "mutating_tools_registered": mutate_registered,
         "cli_parity": parity_coverage,
         "cli_parity_unmapped": unmapped,
+        "ghost_spend": ghost_spend,
+        "ghost_mutate": ghost_mutate,
         "contract": True,
         "permission_modes": True,
         "workspace_jail": True,
@@ -284,11 +305,15 @@ def safety_matrix() -> Dict[str, Any]:
         "live_requires_env": "SUPERAI_MCP_ALLOW_LIVE",
         "live_allowed_now": live_allowed(),
         "parity_with_cli": ok,
+        "unclassified": unclassified,
         "message": (
             f"{len(registered)} MCP tools; spend={len(spend_registered)}; "
-            f"mutate={len(mutate_registered)}; unmapped CLI parity={len(unmapped)}"
+            f"mutate={len(mutate_registered)}; unmapped={len(unmapped)}; "
+            f"ghost_spend={len(ghost_spend)}; unclassified={len(unclassified)}"
             if ok
-            else f"Unmapped MCP tools found: {unmapped}"
+            else (
+                f"Issues: unmapped={unmapped}; ghost_spend={ghost_spend}; unclassified={unclassified}"
+            )
         ),
     }
 

@@ -77,6 +77,6 @@ Do **not** re-open archived checklists unless a regression is proven.
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | Stage **I1**: Grok G1–G4 offline complete. AGY residual partial (`c141a62`); Grok re-audit [`docs/agy_work_review_result_I1_v3.md`](docs/agy_work_review_result_I1_v3.md). G5 M089 host-gated. |
+| **What** | Stage **I1**: Grok G1–G4 offline complete. AGY A1–A5 offline closed (wrappers + TOP_30 invoke + scorecard). G5 M089 host-gated. |
 | **Still open** | Owner-board near-complete Musts + shared host gates |
 | **Prior** | Archived handoffs; created dual boards (`2059e3a`) |

@@ -132,6 +132,7 @@ class GoalStore:
     def execute_due(self, *, max_goals: int = 3, use_ask: bool = True) -> Dict[str, Any]:
         """Sprint B M5 / V3 B M7: run ask/run for due goals with safety caps."""
         from .permission_mode import mode_from_config
+        from .spend_guard import budget_precheck
 
         pmode = mode_from_config()
         if pmode == "yolo":
@@ -148,6 +149,17 @@ class GoalStore:
             )
         except Exception:
             pass
+        # Spend spine: goals auto-execute is a public spend path
+        n = max(1, min(int(max_goals), 3))
+        block = budget_precheck(
+            estimated_usd=0.15 * n,
+            tokens=400 * n,
+            command_name="goals",
+        )
+        if block.get("blocked") or block.get("ok") is False:
+            block.setdefault("product", "goals.execute_due")
+            block.setdefault("executed", 0)
+            return block
         hb = self.heartbeat()
         due = (hb.get("due") or [])[: max(1, min(int(max_goals), 3))]
         results = []

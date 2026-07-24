@@ -135,8 +135,9 @@ def budget_gate(
     estimated_usd: float = 0.1,
     tokens: int = 500,
     skip: bool = False,
+    command_name: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Return blocked contract or None if allowed."""
+    """If live, check budget. If blocked, emit public error and exit."""
     if skip or dry_run():
         return None
     try:
@@ -148,7 +149,7 @@ def budget_gate(
         pass
     from .spend_guard import budget_precheck
 
-    block = budget_precheck(estimated_usd=estimated_usd, tokens=tokens)
+    block = budget_precheck(estimated_usd=estimated_usd, tokens=tokens, command_name=command_name)
     if block.get("blocked") or block.get("ok") is False:
         block["blocked"] = True
         block["ok"] = False

@@ -376,6 +376,23 @@ def multi_cli_board(
     members: unified selectors e.g. gpt-4o,cli:gemini@MODEL,cli:grok
     clis: legacy CLI-only list (still supported)
     """
+    # Spend spine: board-level ceiling before fan-out
+    try:
+        from .spend_guard import budget_precheck
+
+        n = max(1, min(int(max_clis or 3), 5))
+        block = budget_precheck(
+            estimated_usd=0.0 if dry_run else 0.1 * n,
+            tokens=300 * n,
+            command_name="multi_cli",
+            enforce=False if dry_run else None,
+        )
+        if block.get("blocked") or block.get("ok") is False:
+            block.setdefault("product", "multi_cli_board")
+            return block
+    except Exception:
+        pass
+
     role = "reviewer" if (mode or "review").lower().startswith("rev") else "advisor"
 
     # Smart sizing when caller left default and subject is short (V4 S1)

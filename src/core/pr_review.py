@@ -43,6 +43,18 @@ def review_diff(
     from .council import Council
     from .model_caller import ModelCaller
     from .model_registry import ModelRegistry
+    from .spend_guard import budget_precheck
+
+    # Spend spine (V4-M1): public thin wrapper must hit budget before fan-out
+    block = budget_precheck(
+        estimated_usd=0.12 if not use_mock else 0.0,
+        tokens=600,
+        command_name="pr_review",
+        enforce=False if use_mock else None,
+    )
+    if block.get("blocked") or block.get("ok") is False:
+        block.setdefault("product", "pr_review")
+        return block
 
     topic = (
         "Code review this diff. Vote on merge readiness "

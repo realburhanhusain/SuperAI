@@ -53,19 +53,19 @@ def bakeoff(
     from .model_caller import ModelCaller
     from .model_registry import ModelRegistry
 
-    # DoD-strict: budget gate before multi-model bakeoff
+    # DoD-strict: budget gate before multi-model bakeoff (mock included for path proof)
     try:
         from .spend_guard import budget_precheck
 
         est = 0.08 * max(1, len(list(models)))
-        if not use_mock:
-            block = budget_precheck(
-                estimated_usd=est,
-                tokens=300 * max(1, len(list(models))),
-                command_name="bakeoff",
-            )
-            if block.get("blocked"):
-                return block
+        block = budget_precheck(
+            estimated_usd=0.0 if use_mock else est,
+            tokens=300 * max(1, len(list(models))),
+            command_name="bakeoff",
+            enforce=False if use_mock else None,
+        )
+        if block.get("blocked") or block.get("ok") is False:
+            return block
     except Exception:
         pass
 

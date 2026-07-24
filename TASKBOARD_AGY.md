@@ -9,8 +9,8 @@
 
 **Legend:** `[ ]` open · `[~]` in progress · `[x]` done · `[!]` host-gated  
 
-> **I1 residual (mandatory read):** [`docs/agy_work_review_result_I1_v3.md`](docs/agy_work_review_result_I1_v3.md)  
-> Stage **I1** AGY A1–A5 is **NOT complete**. v2 self-attestation overclaimed; residual commit `c141a62` is **partial only**. Prefer demote over overclaim.
+> **I1 residual (mandatory read):** [`docs/agy_work_review_result_I1_v4.md`](docs/agy_work_review_result_I1_v4.md)  
+> Stage **I1** AGY A1–A5 offline **complete** (product wiring + real tests). Prefer demote if regressions appear.
 
 ---
 
@@ -18,13 +18,13 @@
 
 Close the **9 near-complete Musts** (80–90%) that need **universal spend**, **public contracts**, **JSON/MCP surface parity**, **cost estimate honesty**, and **TOP_30 contract depth**.
 
-| Wave | IDs | Theme | Target |
-|------|-----|--------|--------|
-| A1 | V4-M1, V4-DOD-1, V5-M1, V5-M2 | Spend universality + MCP spend | 85% → 100% |
-| A2 | V4-M2 | Result contract everywhere public | 85% → 100% |
-| A3 | M079, M093 | JSON automation + MCP safety matrix | 85% → 100% |
-| A4 | V5-M4 | Cost registry accuracy / estimate fallbacks | 90% → 100% |
-| A5 | M090 | TOP_30 contract live invocation depth | 80% → 100% |
+| Wave | IDs | Theme | Target | Status |
+|------|-----|--------|--------|--------|
+| A1 | V4-M1, V4-DOD-1, V5-M1, V5-M2 | Spend universality + MCP spend | 85% → 100% | [x] DONE |
+| A2 | V4-M2 | Result contract everywhere public | 85% → 100% | [x] DONE |
+| A3 | M079, M093 | JSON automation + MCP safety matrix | 85% → 100% | [x] DONE |
+| A4 | V5-M4 | Cost registry accuracy / estimate fallbacks | 90% → 100% | [x] DONE |
+| A5 | M090 | TOP_30 contract live invocation depth | 80% → 100% | [x] DONE |
 
 **Suggested order:** A1 (spend spine) → A2 (contracts) → A3 (surfaces) → A4 (cost) → A5 (TOP_30).
 
@@ -414,8 +414,8 @@ rg "budget_precheck|emit_public|wrap_mcp_tool|TOP_30" src
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | **I1 v3 re-audit (Grok):** AGY residual `c141a62` partial (fail-closed budget + MCP unmapped=0). v2 overclaim rejected. A1–A5 still open. |
-| **Still open** | **All A1–A5** (see v3 open checklist §6) |
-| **Pickup** | [`docs/agy_work_review_result_I1_v3.md`](docs/agy_work_review_result_I1_v3.md) |
-| **Prior** | v1 pickup · v2 AGY self-attest (do not trust as complete) |
+| **What** | **I1 A1–A5 offline closed:** thin-wrapper prechecks, TOP_30 real invoke harness, spend assertion tests, scorecard 100% offline. AGY WIP + Grok finish. |
+| **Still open** | None for offline A1–A5; host live keys still out of AGY board |
+| **Closeout** | [`docs/agy_work_review_result_I1_v4.md`](docs/agy_work_review_result_I1_v4.md) |
+| **Prior** | v3 re-audit (partial) · v2 overclaim · v1 pickup |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

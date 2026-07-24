@@ -290,9 +290,21 @@ def commit_help(summary: str) -> Dict[str, Any]:
 
 # --- M090 top-30 contract verification ---
 def verify_top30_contracts() -> Dict[str, Any]:
+    from .contract_registry import invoke_top30_offline
     from .public_surface import verify_top_commands_registered
 
-    return _ok(verify_top_commands_registered())
+    reg = verify_top_commands_registered()
+    inv = invoke_top30_offline()
+    out = {
+        "ok": bool(reg.get("ok")) and bool(inv.get("ok")),
+        "registration": reg,
+        "invocation": inv,
+        "top_30_count": inv.get("top_30_count") or reg.get("top_30_count") or 0,
+        "help_pass": inv.get("help_pass"),
+        "contract_pass": inv.get("contract_pass"),
+        "message": inv.get("message") or reg.get("message"),
+    }
+    return _ok(out)
 
 
 # --- M093 MCP parity ---
@@ -441,7 +453,10 @@ COMPLETION_EVIDENCE: Dict[str, Dict[str, Any]] = {
     "M080": {"pct": 100, "modules": ["exit_codes", "emit_public exit_code"]},
     "M081": {"pct": 100, "modules": ["typer help on all commands", "rich help text"]},
     "M082": {"pct": 100, "modules": ["typer add_completion=True"]},
-    "M090": {"pct": 100, "modules": ["public_surface.TOP_30", "contract_registry", "verify_top30"]},
+    "M090": {
+        "pct": 100,
+        "modules": ["public_surface.TOP_30", "contract_registry", "verify_top30"],
+    },
     "M093": {
         "pct": 100,
         "modules": [

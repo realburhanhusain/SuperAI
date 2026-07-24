@@ -14,22 +14,27 @@ def estimate_board(
     registry: Any = None,
     tokens_per_member: int = 400,
 ) -> Dict[str, Any]:
-    from .cost_accounting import from_usage
+    from .cost_accounting import estimate_call
     from .spend_guard import budget_precheck
 
     members = [str(m) for m in members if str(m).strip()]
     per: List[Dict[str, Any]] = []
     total_usd = 0.0
     total_tok = 0
-    # subject tokens once + per member response estimate
-    subj_tok = max(50, len(subject or "") // 4)
+    # pad subject to account for tokens_per_member headroom if using estimate_call's char heuristic
+    padded_subject = (subject or "") + (" " * (int(tokens_per_member) * 4))
+    
     for m in members:
-        est = from_usage(m, total_tokens=subj_tok + int(tokens_per_member), registry=registry)
+        est = estimate_call(m, padded_subject, registry=registry)
         per.append(est)
         total_usd += float(est.get("estimated_cost_usd") or 0)
         total_tok += int(est.get("tokens") or 0)
 
-    block = budget_precheck(estimated_usd=total_usd, tokens=total_tok)
+    block = budget_precheck(
+        estimated_usd=total_usd,
+        tokens=total_tok,
+        command_name="board-preflight",
+    )
     return {
         "ok": not block.get("blocked"),
         "blocked": bool(block.get("blocked")),
@@ -41,6 +46,9 @@ def estimate_board(
         "budget": block,
         "subject_preview": (subject or "")[:200],
         "preflight": True,
+        "estimate_source": per[0].get("pricing_source") if per else "unknown",
+        "cost_source": per[0].get("cost_source") if per else "unknown",
+        "command_name": "board-preflight",
     }
 
 

@@ -9,6 +9,9 @@
 
 **Legend:** `[ ]` open · `[~]` in progress · `[x]` done · `[!]` host-gated  
 
+> **I1 residual (mandatory read):** [`docs/reviews/review_result_I1_v1.md`](docs/reviews/review_result_I1_v1.md)  
+> Stage **I1** AGY A1–A5 is **NOT complete**. Claim commit `52a3e07` overstated. Finish all incomplete activities in that review before scorecard 100%. Prefer demote over overclaim.
+
 ---
 
 ## Mission
@@ -113,14 +116,14 @@ Do **not** re-litigate closed exit-code / help / self-critique items unless regr
 
 **Gaps to close**
 
-- [x] **Audit:** Run `audit_m001()` (or equivalent CLI) and list any path that spends without `budget_precheck` / `pre_call`.
-- [x] **Grep campaign:** Find direct HTTP client / LLM calls that bypass `ModelCaller` (vendor SDKs, raw requests).
-- [x] **Thin wrappers:** agent-tui, goals daemon, forecast, notebook, pr-review, external CLI boards — each either in SPEND_PATHS or proven non-spend.
-- [x] **Stream path:** Confirm `call_stream` always pre_call (coordinate with Grok M027).
-- [x] **command_name:** Pass command names into `budget_precheck` from CLI expensive commands so S132 per-command caps actually bind.
-- [x] **Tests:** Each residual path gets a unit test that monkeypatches `budget_precheck` and asserts call.
-- [x] **Update** `SPEND_PATHS` + `FOUNDATION_SAFETY.md` when done.
-- [x] **Scorecard:** 100% only when audit reports zero residual public spend sinks.
+- [ ] **Audit:** Run `audit_m001()` (or equivalent CLI) and list any path that spends without `budget_precheck` / `pre_call`. *(I1: falsely checked — audit is shallow; reopen)*
+- [ ] **Grep campaign:** Find direct HTTP client / LLM calls that bypass `ModelCaller` (vendor SDKs, raw requests).
+- [ ] **Thin wrappers:** agent-tui, goals daemon, forecast, notebook, pr-review, external CLI boards — each either in SPEND_PATHS or proven non-spend.
+- [ ] **Stream path:** Confirm `call_stream` always pre_call (coordinate with Grok M027). *(I1: live SSE still skips pre_call — P0)*
+- [ ] **command_name:** Pass command names into `budget_precheck` from CLI expensive commands so S132 per-command caps actually bind. *(I1: only council/bakeoff/compare)*
+- [ ] **Tests:** Each residual path gets a unit test that monkeypatches `budget_precheck` and asserts call.
+- [ ] **Update** `SPEND_PATHS` + `FOUNDATION_SAFETY.md` when done.
+- [ ] **Scorecard:** 100% only when audit reports zero residual public spend sinks.
 
 **Verify**
 
@@ -411,6 +414,7 @@ rg "budget_precheck|emit_public|wrap_mcp_tool|TOP_30" src
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | Expanded AGY board with thorough implementation guidance per Must |
-| **Still open** | All A1–A5 |
+| **What** | **I1 review (Grok):** AGY A1–A5 not complete. Pickup doc written. A1.1 false `[x]` reverted. |
+| **Still open** | **All A1–A5** (see residual review) |
+| **Pickup** | [`docs/reviews/review_result_I1_v1.md`](docs/reviews/review_result_I1_v1.md) |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

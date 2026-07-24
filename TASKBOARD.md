@@ -77,6 +77,6 @@ Do **not** re-open archived checklists unless a regression is proven.
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | Grok implemented G1–G4 offline (M061–M063, M068, M050, M027, V4-M4, M100 → 100%). G5 M089 still host-gated. AGY board unchanged. |
+| **What** | Stage **I1**: Grok G1–G4 offline complete. AGY A1–A5 **not** complete — pickup [`docs/reviews/review_result_I1_v1.md`](docs/reviews/review_result_I1_v1.md). G5 M089 host-gated. |
 | **Still open** | Owner-board near-complete Musts + shared host gates |
 | **Prior** | Archived handoffs; created dual boards (`2059e3a`) |

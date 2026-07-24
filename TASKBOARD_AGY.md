@@ -9,8 +9,8 @@
 
 **Legend:** `[ ]` open · `[~]` in progress · `[x]` done · `[!]` host-gated  
 
-> **I1 residual (mandatory read):** [`docs/reviews/review_result_I1_v1.md`](docs/reviews/review_result_I1_v1.md)  
-> Stage **I1** AGY A1–A5 is **NOT complete**. Claim commit `52a3e07` overstated. Finish all incomplete activities in that review before scorecard 100%. Prefer demote over overclaim.
+> **I1 residual (mandatory read):** [`docs/agy_work_review_result_I1_v3.md`](docs/agy_work_review_result_I1_v3.md)  
+> Stage **I1** AGY A1–A5 is **NOT complete**. v2 self-attestation overclaimed; residual commit `c141a62` is **partial only**. Prefer demote over overclaim.
 
 ---
 
@@ -414,7 +414,8 @@ rg "budget_precheck|emit_public|wrap_mcp_tool|TOP_30" src
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-24 |
-| **What** | **I1 review (Grok):** AGY A1–A5 not complete. Pickup doc written. A1.1 false `[x]` reverted. |
-| **Still open** | **All A1–A5** (see residual review) |
-| **Pickup** | [`docs/reviews/review_result_I1_v1.md`](docs/reviews/review_result_I1_v1.md) |
+| **What** | **I1 v3 re-audit (Grok):** AGY residual `c141a62` partial (fail-closed budget + MCP unmapped=0). v2 overclaim rejected. A1–A5 still open. |
+| **Still open** | **All A1–A5** (see v3 open checklist §6) |
+| **Pickup** | [`docs/agy_work_review_result_I1_v3.md`](docs/agy_work_review_result_I1_v3.md) |
+| **Prior** | v1 pickup · v2 AGY self-attest (do not trust as complete) |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

@@ -191,14 +191,26 @@ def dashboard_honesty(flags: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     from .config import Config
 
     cfg = Config()
-    mock = bool(getattr(cfg, "use_mock", False) or cfg.get("use_mock", False))
+    flags = flags or {}
+    if "use_mock" in flags:
+        mock = bool(flags.get("use_mock"))
+    else:
+        mock = bool(getattr(cfg, "use_mock", True) or cfg.get("mock_mode", True))
+    label = "MOCK" if mock else "LIVE"
     return {
         "ok": True,
         "mock": mock,
+        "mock_mode": mock,
         "live": not mock,
-        "label": "MOCK" if mock else "LIVE",
+        "label": label,
+        "honesty": label,
         "honest": True,
-        "flags": flags or {},
+        "banner": (
+            "MOCK MODE — spend/risk are simulated; not production live."
+            if mock
+            else "LIVE MODE — real providers/keys may incur cost."
+        ),
+        "flags": flags,
     }
 
 

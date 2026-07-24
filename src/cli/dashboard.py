@@ -325,11 +325,14 @@ class SuperAIDashboard:
                 f"{float(d.get('duration_seconds', 0)):.1f}",
                 str(d.get("task", ""))[:36],
             )
-        ver = (self._snapshot or {}).get("version") or ""
+        snap = self._snapshot or {}
+        ver = snap.get("version") or ""
+        honesty = str(snap.get("honesty") or snap.get("label") or "MOCK")
+        border = "yellow" if honesty == "MOCK" else "red"
         return Panel(
             table,
-            title=f"SuperAI Dashboard {ver}",
-            border_style="blue",
+            title=f"[{honesty}] SuperAI Dashboard {ver}",
+            border_style=border,
         )
 
     def _cli_strengths_panel(self) -> Panel:
@@ -338,13 +341,20 @@ class SuperAIDashboard:
         table.add_column("Info")
 
         snap = self._snapshot or {}
+        honesty = str(snap.get("honesty") or snap.get("label") or "MOCK")
+        table.add_row("honesty", honesty)
+        table.add_row("mock_mode", str(snap.get("mock_mode", True)))
         table.add_row("bandit arms", str(snap.get("bandit_arms", 0)))
         table.add_row("plugins on", str(snap.get("plugins_enabled", 0)))
+        spend = snap.get("spend") or {}
+        if isinstance(spend, dict) and spend.get("total_usd") is not None:
+            table.add_row("spend 1d", f"${spend.get('total_usd')}")
         for cli, data in list(self.cli_strengths.items())[:6]:
             table.add_row(cli, data.get("notes", "")[:40])
         if not self.cli_strengths:
             table.add_row("(none)", "no external CLIs on PATH")
-        return Panel(table, border_style="green")
+        border = "yellow" if honesty == "MOCK" else "green"
+        return Panel(table, border_style=border)
 
     def _logs_panel(self) -> Panel:
         text = Text()

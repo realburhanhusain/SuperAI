@@ -141,6 +141,25 @@ class UserPreferenceModel:
         self.set("cheap_mode", bool(enabled))
         self.set("prefer_cheap", bool(enabled))
 
+    def set_sticky_model(self, model: Optional[str]) -> None:
+        """Pin preferred/sticky model for routing bias (M068)."""
+        if not model:
+            self.delete("preferred_model")
+            self.delete("sticky_model")
+            return
+        self.set("preferred_model", str(model))
+        self.set("sticky_model", str(model))
+
+    def clear_routing_prefs(self) -> None:
+        for k in (
+            "preferred_model",
+            "sticky_model",
+            "cheap_mode",
+            "prefer_cheap",
+            "prefer_preferred_model",
+        ):
+            self.delete(k)
+
     def profile_summary(self) -> Dict[str, Any]:
         sig = self.data.get("signals") or {}
         models = sig.get("models") or {}
@@ -162,12 +181,18 @@ class UserPreferenceModel:
             reverse=True,
         )
         return {
+            "ok": True,
+            "product": "preferences.profile",
+            "path": str(self.path),
             "explicit": self.all_explicit(),
+            "sticky_model": self.get("preferred_model") or self.get("sticky_model"),
+            "cheap_mode": bool(self.get("cheap_mode") or self.get("prefer_cheap")),
             "top_models": ranked[:8],
             "task_types": sig.get("task_types") or {},
             "successes": sig.get("successes") or 0,
             "failures": sig.get("failures") or 0,
             "inferred_preferred_model": self.preferred_model_for(),
+            "pipeline": "preferences.bias_candidates → bandit.select",
             "updated_at": self.data.get("updated_at"),
         }
 

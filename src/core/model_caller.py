@@ -133,6 +133,7 @@ class ModelCaller:
         # Prefer Anthropic Messages SSE for claude/anthropic models
         prov_l = str(provider or "").lower()
         model_l = str(model or "").lower()
+        fallback_reason: Optional[str] = None
         if "anthropic" in prov_l or "claude" in prov_l or "claude" in model_l:
             try:
                 for piece in self._stream_anthropic(
@@ -160,13 +161,17 @@ class ModelCaller:
                         chunks=chunks,
                         chars=chars,
                         cancelled=False,
+                        fallback_reason=None,
                     )
                     return
+                fallback_reason = "anthropic_empty_stream"
             except Exception as e:  # noqa: BLE001
                 logger.warning("Anthropic stream failed; trying OpenAI-compat: %s", e)
+                fallback_reason = f"anthropic_stream_error:{type(e).__name__}"
 
         # Try OpenAI-compatible streaming; on empty/failure fall back to full call
         streamed_any = False
+        openai_err: Optional[str] = None
         try:
             from openai import OpenAI
 
@@ -228,11 +233,15 @@ class ModelCaller:
                     chunks=chunks,
                     chars=chars,
                     cancelled=False,
+                    fallback_reason=None,
                 )
                 return
-        except Exception:
+            openai_err = "empty_stream"
+        except Exception as e:  # noqa: BLE001
             streamed_any = False
+            openai_err = f"{type(e).__name__}:{str(e)[:120]}"
 
+        reason = fallback_reason or openai_err or "stream_unavailable"
         full = self.call(
             model=model,
             prompt=prompt,
@@ -250,6 +259,7 @@ class ModelCaller:
                     chunks=chunks,
                     chars=chars,
                     cancelled=True,
+                    fallback_reason=reason,
                 )
                 return
             chunks += 1
@@ -262,6 +272,7 @@ class ModelCaller:
             chunks=chunks,
             chars=chars,
             cancelled=False,
+            fallback_reason=reason,
         )
 
     def _stream_anthropic(
@@ -332,19 +343,6 @@ class ModelCaller:
         except Exception:
             pre = {}
 
-        # Preference bias: sticky preferred model when configured
-        try:
-            from .preferences import UserPreferenceModel
-
-            pref = UserPreferenceModel()
-            sticky = pref.get("preferred_model") or pref.get("sticky_model")
-            if sticky and use_fallback and str(sticky) != str(model):
-                # only soft-prefer when prefer_preferred_model is set
-                if pref.get("prefer_preferred_model", True):
-                    model = str(sticky)
-        except Exception:
-            pass
-
         # Build failover list (V3 A M2 + V4 local-first escalate)
         models_to_try: List[str] = [str(model)]
         try:
@@ -378,12 +376,27 @@ class ModelCaller:
                 except Exception:
                     pass
 
-        # Bandit can reorder candidates when enough history
+        # Routing pipeline (M068 → M050): preferences bias FIRST, then bandit.
+        # Never hard-replace caller model when sticky is outside the candidate set;
+        # bias_candidates reorders within models_to_try.
+        try:
+            from .preferences import UserPreferenceModel
+
+            pref = UserPreferenceModel()
+            if pref.get("prefer_preferred_model", True):
+                models_to_try = pref.bias_candidates(list(models_to_try))
+        except Exception:
+            pass
+
         try:
             from .bandit_router import EpsilonGreedyBandit
+            from .config import Config as _Cfg
 
-            if use_fallback and len(models_to_try) > 1:
-                b = EpsilonGreedyBandit()
+            use_bandit = bool(_Cfg().get("use_bandit", True))
+            if use_bandit and use_fallback and len(models_to_try) > 1:
+                b = EpsilonGreedyBandit(
+                    epsilon=float(_Cfg().get("bandit_epsilon") or 0.1)
+                )
                 pick = b.select(list(models_to_try))
                 if pick in models_to_try:
                     models_to_try = [pick] + [m for m in models_to_try if m != pick]

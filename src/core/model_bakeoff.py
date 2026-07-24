@@ -59,7 +59,11 @@ def bakeoff(
 
         est = 0.08 * max(1, len(list(models)))
         if not use_mock:
-            block = budget_precheck(estimated_usd=est, tokens=300 * max(1, len(list(models))))
+            block = budget_precheck(
+                estimated_usd=est,
+                tokens=300 * max(1, len(list(models))),
+                command_name="bakeoff",
+            )
             if block.get("blocked"):
                 return block
     except Exception:

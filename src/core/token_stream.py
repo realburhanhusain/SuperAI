@@ -35,6 +35,60 @@ def get_stream_meta() -> Dict[str, Any]:
     return dict(_LAST_STREAM_META)
 
 
+def supports_stream(
+    model: Optional[str] = None, provider: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Per-model/provider stream capability flag (V4-M4 registry-style).
+
+    Offline-honest: reports implemented *paths*, not live proof.
+    """
+    prov = str(provider or "").lower()
+    mod = str(model or "").lower()
+    if not prov and model:
+        try:
+            from .model_registry import ModelRegistry
+
+            info = ModelRegistry().get_model(str(model))
+            if info is not None:
+                prov = str(getattr(info, "provider", "") or "").lower()
+        except Exception:
+            pass
+
+    is_anthropic = (
+        "anthropic" in prov
+        or "claude" in prov
+        or "claude" in mod
+        or "anthropic" in mod
+    )
+    is_ollama = "ollama" in prov or "ollama" in mod or mod.startswith("local")
+    is_openai_compat = (not is_anthropic) or "openai" in prov or "azure" in prov
+
+    # Implemented code paths
+    if is_anthropic:
+        mode = "sse_anthropic_messages"
+        supports = True
+        note = "Anthropic Messages SSE path; requires ANTHROPIC_API_KEY for live"
+    elif is_ollama:
+        mode = "sse_openai_compatible"
+        supports = True
+        note = "Ollama OpenAI-compatible stream=True; falls back to chunked if empty"
+    else:
+        mode = "sse_openai_compatible"
+        supports = True
+        note = "OpenAI-compatible chat.completions stream=True; chunked_fallback on failure"
+
+    return {
+        "supports_stream": supports,
+        "preferred_mode": mode,
+        "fallback_mode": "chunked_fallback",
+        "mock_mode": "mock_chunked",
+        "provider": provider or prov or None,
+        "model": model,
+        "note": note,
+    }
+
+
 def stream_capabilities(model: Optional[str] = None, provider: Optional[str] = None) -> Dict[str, Any]:
     """
     Report which streaming backends SuperAI can use offline/online.
@@ -53,6 +107,45 @@ def stream_capabilities(model: Optional[str] = None, provider: Optional[str] = N
             anthropic = True
     except Exception:
         pass
+
+    matrix = [
+        {
+            "provider_kind": "anthropic",
+            "path": "ModelCaller._stream_anthropic",
+            "mode": "sse",
+            "live_required": ["ANTHROPIC_API_KEY"],
+            "offline": "chunked_fallback or mock_chunked",
+        },
+        {
+            "provider_kind": "openai_compatible",
+            "path": "openai.OpenAI chat.completions stream=True",
+            "mode": "sse",
+            "live_required": ["OPENAI_API_KEY or provider key"],
+            "offline": "chunked_fallback or mock_chunked",
+        },
+        {
+            "provider_kind": "ollama_local",
+            "path": "OpenAI-compatible base_url → Ollama",
+            "mode": "sse",
+            "live_required": ["local Ollama running"],
+            "offline": "chunked_fallback or mock_chunked",
+        },
+        {
+            "provider_kind": "mock",
+            "path": "ModelCaller.call + chunk_text",
+            "mode": "mock_chunked",
+            "live_required": [],
+            "offline": "always available when use_mock",
+        },
+        {
+            "provider_kind": "any_fallback",
+            "path": "ModelCaller.call + chunk_text",
+            "mode": "chunked_fallback",
+            "live_required": [],
+            "offline": "always after stream failure/empty",
+        },
+    ]
+    per = supports_stream(model=model, provider=provider)
     return {
         "ok": True,
         "product": "stream_capabilities",
@@ -62,10 +155,16 @@ def stream_capabilities(model: Optional[str] = None, provider: Optional[str] = N
             "mock_chunked": True,
             "chunked_fallback": True,
         },
+        "provider_matrix": matrix,
+        "supports_stream": per,
         "model": model,
         "provider": provider,
         "cancel_between_chunks": True,
         "last": get_stream_meta(),
+        "honesty": (
+            "Live SSE success is host-gated by API keys / local runtime. "
+            "Offline complete = mock_chunked + chunked_fallback + meta labels proven."
+        ),
         "message": "Streaming capability matrix (live SSE still host-gated by API keys).",
     }
 

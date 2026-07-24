@@ -30,6 +30,11 @@ def build_dashboard_snapshot(
         "provider_health": {},
         "recent_logs": [],
         "messengers": {},
+        # M100 honesty defaults (overwritten below from Config)
+        "mock_mode": True,
+        "honesty": "MOCK",
+        "label": "MOCK",
+        "live": False,
     }
 
     try:
@@ -183,6 +188,40 @@ def build_dashboard_snapshot(
         snap["palace"] = MemoryPalace().browser_snapshot(limit=8)
     except Exception as e:  # noqa: BLE001
         snap["palace"] = {"error": str(e)}
+
+    # M100 — always-on MOCK vs LIVE honesty + spend so far
+    try:
+        from .config import Config
+        from .foundation_modules import dashboard_honesty
+
+        cfg = Config()
+        mock = bool(getattr(cfg, "use_mock", True))
+        honesty = dashboard_honesty({"use_mock": mock})
+        snap["mock_mode"] = mock
+        snap["use_mock"] = mock
+        snap["live"] = not mock
+        snap["honesty"] = honesty.get("label") or ("MOCK" if mock else "LIVE")
+        snap["label"] = snap["honesty"]
+        snap["honesty_detail"] = honesty
+    except Exception:  # noqa: BLE001
+        snap.setdefault("mock_mode", True)
+        snap.setdefault("honesty", "MOCK")
+        snap.setdefault("label", "MOCK")
+        snap.setdefault("live", False)
+
+    try:
+        from .spend_report import spend_report
+
+        snap["spend"] = spend_report(days=1)
+    except Exception as e:  # noqa: BLE001
+        snap["spend"] = {"error": str(e)[:120]}
+
+    try:
+        from .token_stream import get_stream_meta
+
+        snap["last_stream"] = get_stream_meta()
+    except Exception:  # noqa: BLE001
+        pass
 
     return snap
 

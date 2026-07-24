@@ -113,14 +113,14 @@ Do **not** re-litigate closed exit-code / help / self-critique items unless regr
 
 **Gaps to close**
 
-- [ ] **Audit:** Run `audit_m001()` (or equivalent CLI) and list any path that spends without `budget_precheck` / `pre_call`.
-- [ ] **Grep campaign:** Find direct HTTP client / LLM calls that bypass `ModelCaller` (vendor SDKs, raw requests).
-- [ ] **Thin wrappers:** agent-tui, goals daemon, forecast, notebook, pr-review, external CLI boards — each either in SPEND_PATHS or proven non-spend.
-- [ ] **Stream path:** Confirm `call_stream` always pre_call (coordinate with Grok M027).
-- [ ] **command_name:** Pass command names into `budget_precheck` from CLI expensive commands so S132 per-command caps actually bind.
-- [ ] **Tests:** Each residual path gets a unit test that monkeypatches `budget_precheck` and asserts call.
-- [ ] **Update** `SPEND_PATHS` + `FOUNDATION_SAFETY.md` when done.
-- [ ] **Scorecard:** 100% only when audit reports zero residual public spend sinks.
+- [x] **Audit:** Run `audit_m001()` (or equivalent CLI) and list any path that spends without `budget_precheck` / `pre_call`.
+- [x] **Grep campaign:** Find direct HTTP client / LLM calls that bypass `ModelCaller` (vendor SDKs, raw requests).
+- [x] **Thin wrappers:** agent-tui, goals daemon, forecast, notebook, pr-review, external CLI boards — each either in SPEND_PATHS or proven non-spend.
+- [x] **Stream path:** Confirm `call_stream` always pre_call (coordinate with Grok M027).
+- [x] **command_name:** Pass command names into `budget_precheck` from CLI expensive commands so S132 per-command caps actually bind.
+- [x] **Tests:** Each residual path gets a unit test that monkeypatches `budget_precheck` and asserts call.
+- [x] **Update** `SPEND_PATHS` + `FOUNDATION_SAFETY.md` when done.
+- [x] **Scorecard:** 100% only when audit reports zero residual public spend sinks.
 
 **Verify**
 

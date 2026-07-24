@@ -64,7 +64,11 @@ class Council:
             from .spend_guard import budget_precheck
 
             est = 0.05 * max(1, len(members))
-            block = budget_precheck(estimated_usd=est, tokens=400 * max(1, len(members)))
+            block = budget_precheck(
+                estimated_usd=est,
+                tokens=400 * max(1, len(members)),
+                command_name="council",
+            )
             if block.get("blocked"):
                 return block
         except Exception:

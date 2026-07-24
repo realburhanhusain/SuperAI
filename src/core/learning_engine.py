@@ -415,34 +415,123 @@ class LearningEngine:
             return 0.0
         return len(sa & sb) / max(1, len(sa | sb))
 
-    def _memory_score(self, mem: Dict[str, Any]) -> float:
+    def _memory_score_breakdown(self, mem: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Multi-factor keep-score for conflict resolution / distillation.
-        Higher = more worth keeping.
+        Multi-factor keep-score breakdown for conflict resolution / distillation.
+        Higher total = more worth keeping. Used for CLI explainability.
         """
         meta = mem.get("metadata") or {}
         imp = float(mem.get("importance") or meta.get("importance") or 0.5)
         success = meta.get("success")
         succ_boost = 0.25 if success is True else (-0.15 if success is False else 0.0)
-        # Recency: parse ISO-ish created_at
         recency = 0.0
         created = str(meta.get("created_at") or "")
         try:
-            # crude: later timestamps sort higher when compared as strings for ISO
             if created:
                 recency = min(0.2, max(0.0, len(created) * 0.001))
-                # prefer newer: use year-month if present
                 if "T" in created or "-" in created:
                     recency = 0.15
         except Exception:
             pass
         feedback = 0.2 if meta.get("has_human_feedback") else 0.0
         latency = float(meta.get("latency") or 0.0)
-        # prefer faster successes slightly
         lat_penalty = min(0.1, latency / 100.0) if success is True else 0.0
         mid = 0.05 if meta.get("phase") == "mid_task" else 0.0
         deprecated = -1.0 if meta.get("deprecated") in (True, "true", 1) else 0.0
-        return imp + succ_boost + recency + feedback - lat_penalty + mid + deprecated
+        total = imp + succ_boost + recency + feedback - lat_penalty + mid + deprecated
+        return {
+            "score": round(total, 4),
+            "importance": round(imp, 4),
+            "success_boost": succ_boost,
+            "success": success,
+            "recency": round(recency, 4),
+            "human_feedback": feedback,
+            "latency_penalty": round(lat_penalty, 4),
+            "mid_task": mid,
+            "deprecated_penalty": deprecated,
+        }
+
+    def _memory_score(self, mem: Dict[str, Any]) -> float:
+        """Multi-factor keep-score (higher = more worth keeping)."""
+        return float(self._memory_score_breakdown(mem)["score"])
+
+    def _get_memory(self, memory_id: str) -> Optional[Dict[str, Any]]:
+        """Best-effort fetch by id (MemoryPalace has no dedicated get())."""
+        mid = str(memory_id or "")
+        if not mid:
+            return None
+        if hasattr(self.memory, "get"):
+            try:
+                got = self.memory.get(mid)
+                if got:
+                    return got
+            except Exception:
+                pass
+        try:
+            for m in self.memory.get_all_memories() or []:
+                if str(m.get("id") or "") == mid:
+                    return m
+        except Exception:
+            pass
+        return None
+
+    def _apply_learning_update(
+        self,
+        memory_id: str,
+        *,
+        metadata: Dict[str, Any],
+        tags: Optional[List[str]] = None,
+        content: Optional[str] = None,
+    ) -> bool:
+        """
+        In-place update for lifecycle flags. Prefer update_metadata (no re-store
+        duplicates). Best-effort tag merge on local backends.
+        """
+        mid = str(memory_id)
+        ok = False
+        try:
+            if hasattr(self.memory, "update") and tags is not None:
+                try:
+                    self.memory.update(mid, metadata=metadata, tags=tags)
+                    return True
+                except Exception:
+                    pass
+            if hasattr(self.memory, "update_metadata"):
+                ok = bool(self.memory.update_metadata(mid, metadata))
+            # Best-effort tags on in-memory / faiss docs
+            if tags is not None:
+                try:
+                    if getattr(self.memory, "use_faiss", False) and getattr(
+                        self.memory, "faiss_store", None
+                    ):
+                        doc = self.memory.faiss_store.docs.get(mid)
+                        if doc is not None:
+                            doc["tags"] = list(tags)
+                            meta = dict(doc.get("metadata") or {})
+                            meta.update(metadata)
+                            doc["metadata"] = meta
+                            if "importance" in metadata:
+                                doc["importance"] = metadata["importance"]
+                            self.memory.faiss_store.docs[mid] = doc
+                            try:
+                                self.memory.faiss_store.save()
+                            except Exception:
+                                pass
+                            ok = True
+                    for mem in getattr(self.memory, "memories", None) or []:
+                        if str(mem.get("id") or "") == mid:
+                            mem["tags"] = list(tags)
+                            meta = mem.setdefault("metadata", {})
+                            meta.update(metadata)
+                            if "importance" in metadata:
+                                mem["importance"] = metadata["importance"]
+                            ok = True
+                            break
+                except Exception:
+                    pass
+            return ok
+        except Exception:
+            return False
 
     def detect_conflicts(self, task_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -506,6 +595,34 @@ class LearningEngine:
                 mean = sum(lats) / len(lats)
                 lat_var = sum((x - mean) ** 2 for x in lats) / len(lats)
 
+            # Sample snippets + scores for Conflict UI (M062)
+            samples = []
+            for m in sorted(mem_list, key=lambda x: self._memory_score(x), reverse=True)[
+                :5
+            ]:
+                br = self._memory_score_breakdown(m)
+                samples.append(
+                    {
+                        "id": m.get("id"),
+                        "success": (m.get("metadata") or {}).get("success"),
+                        "importance": (m.get("metadata") or {}).get(
+                            "importance", m.get("importance")
+                        ),
+                        "score": br["score"],
+                        "score_factors": {
+                            k: br[k]
+                            for k in (
+                                "importance",
+                                "success_boost",
+                                "recency",
+                                "human_feedback",
+                                "latency_penalty",
+                            )
+                        },
+                        "preview": str(m.get("content") or "")[:120],
+                    }
+                )
+            top_id = samples[0]["id"] if samples else None
             conflicts.append(
                 {
                     "task_type": t_type,
@@ -517,6 +634,8 @@ class LearningEngine:
                     "entropy": round(entropy, 3),
                     "latency_variance": round(lat_var, 4),
                     "severity": severity,
+                    "suggested_keep_id": top_id,
+                    "samples": samples,
                     "description": (
                         f"Inconsistent '{t_type}' / {model}: "
                         f"{len(succ)} ok / {len(fail)} fail "
@@ -535,90 +654,239 @@ class LearningEngine:
         *,
         min_importance: float = 0.75,
         limit: int = 20,
+        dry_run: bool = False,
     ) -> Dict[str, Any]:
         """
         Promote high-value learnings to durable patterns (V6 M061).
-        Tags promoted memories with durable=true and importance boost.
+
+        In-place: sets metadata.durable + durable tag + importance boost.
+        dry_run: preview eligible/skipped without mutating.
         """
         promoted: List[str] = []
+        candidates_out: List[Dict[str, Any]] = []
+        skipped: List[Dict[str, Any]] = []
+        not_found = False
+
         if memory_id:
-            candidates = [{"id": memory_id}]
-            try:
-                m = self.memory.get(memory_id) if hasattr(self.memory, "get") else None
-                if m:
-                    candidates = [m]
-            except Exception:
-                pass
+            m = self._get_memory(memory_id)
+            if not m:
+                return {
+                    "ok": False,
+                    "promoted": [],
+                    "count": 0,
+                    "min_importance": min_importance,
+                    "dry_run": dry_run,
+                    "not_found": True,
+                    "memory_id": memory_id,
+                    "candidates": [],
+                    "skipped": [
+                        {
+                            "id": memory_id,
+                            "eligible": False,
+                            "reason": "id_not_found",
+                        }
+                    ],
+                    "product": "learning.promote_durable",
+                    "message": f"Memory id not found: {memory_id}",
+                }
+            pool = [m]
         else:
             try:
-                candidates = self.memory.retrieve_by_tags(["learning"], limit=200)
+                pool = self.memory.retrieve_by_tags(["learning"], limit=200)
             except Exception:
-                candidates = []
-        for mem in candidates[: max(1, limit)]:
-            mid = str(mem.get("id") or memory_id or "")
+                pool = []
+            # Prefer non-deprecated, non-already-durable when scanning
+            pool = [
+                m
+                for m in pool
+                if not self._is_deprecated(m)
+            ]
+
+        cap = max(1, int(limit))
+        for mem in pool:
+            mid = str(mem.get("id") or "")
             if not mid:
                 continue
             meta = dict(mem.get("metadata") or {})
             imp = float(meta.get("importance") or mem.get("importance") or 0.5)
-            if not meta.get("success") and memory_id is None and imp < min_importance:
+            success = meta.get("success")
+            already = self._is_durable(mem)
+
+            reason = "eligible"
+            eligible = True
+            if already:
+                eligible = False
+                reason = "already_durable"
+            elif self._is_deprecated(mem):
+                eligible = False
+                reason = "deprecated"
+            elif memory_id is None and imp < min_importance:
+                eligible = False
+                reason = f"below_min_importance ({imp:.3f} < {min_importance})"
+            elif memory_id is None and success is False:
+                eligible = False
+                reason = "failed_outcome"
+
+            row = {
+                "id": mid,
+                "eligible": eligible,
+                "reason": reason,
+                "importance": round(imp, 4),
+                "success": success,
+                "task_type": meta.get("task_type"),
+                "model": meta.get("model"),
+                "already_durable": already,
+                "preview": str(mem.get("content") or "")[:120],
+            }
+
+            if not eligible:
+                if len(skipped) < 40:
+                    skipped.append(row)
                 continue
-            if imp < min_importance and memory_id is None:
+
+            if memory_id is None and len(promoted) >= cap:
+                if len(skipped) < 40:
+                    skipped.append({**row, "reason": "over_limit"})
                 continue
+
+            candidates_out.append(row)
+            if dry_run:
+                promoted.append(mid)
+                continue
+
+            new_imp = max(imp, min(1.0, imp + 0.1))
             meta["durable"] = True
             meta["promoted_at"] = datetime.now().isoformat()
-            meta["importance"] = max(imp, min(1.0, imp + 0.1))
+            meta["importance"] = new_imp
             tags = list(mem.get("tags") or [])
             if "durable" not in tags:
                 tags.append("durable")
-            try:
-                if hasattr(self.memory, "update"):
-                    self.memory.update(mid, metadata=meta, tags=tags)
-                elif hasattr(self.memory, "store"):
-                    # re-store with durable tag when update unavailable
-                    self.memory.store(
-                        content=str(mem.get("content") or f"durable:{mid}"),
-                        tags=tags,
-                        metadata=meta,
-                        importance=meta["importance"],
+            ok = self._apply_learning_update(mid, metadata=meta, tags=tags)
+            if not ok:
+                try:
+                    ok = bool(
+                        self.memory.update_metadata(
+                            mid,
+                            {
+                                "durable": True,
+                                "promoted_at": meta["promoted_at"],
+                                "importance": new_imp,
+                            },
+                        )
                     )
+                except Exception:
+                    ok = False
+            if ok:
                 promoted.append(mid)
-            except Exception:
-                continue
+            else:
+                skipped.append({**row, "eligible": False, "reason": "update_failed"})
+
+        msg = (
+            f"{'Would promote' if dry_run else 'Promoted'} {len(promoted)} learning(s) "
+            f"to durable (min_importance={min_importance}"
+            f"{', dry_run' if dry_run else ''})."
+        )
         return {
             "ok": True,
-            "promoted": promoted,
+            "promoted": [] if dry_run else list(promoted),
+            "would_promote": list(promoted) if dry_run else list(promoted),
             "count": len(promoted),
             "min_importance": min_importance,
+            "dry_run": dry_run,
+            "candidates": candidates_out,
+            "skipped": skipped,
             "product": "learning.promote_durable",
+            "message": msg,
         }
 
     def deprecate_memory(self, memory_id: str, reason: str = "deprecated") -> Dict[str, Any]:
-        """Mark a memory deprecated (V6 M063 companion)."""
+        """Mark a memory deprecated (V6 M063 companion). Rows are retained."""
         try:
-            mem = None
-            if hasattr(self.memory, "get"):
-                mem = self.memory.get(memory_id)
-            meta = dict((mem or {}).get("metadata") or {})
+            mem = self._get_memory(memory_id)
+            if not mem:
+                return {
+                    "ok": False,
+                    "memory_id": memory_id,
+                    "deprecated": False,
+                    "not_found": True,
+                    "error": "id_not_found",
+                    "product": "learning.deprecate",
+                    "message": f"Memory id not found: {memory_id}",
+                }
+            meta = dict(mem.get("metadata") or {})
             meta["deprecated"] = True
             meta["deprecate_reason"] = reason
             meta["deprecated_reason"] = reason
             meta["deprecated_at"] = datetime.now().isoformat()
-            tags = list((mem or {}).get("tags") or [])
+            tags = list(mem.get("tags") or [])
             if "deprecated" not in tags:
                 tags.append("deprecated")
-            if hasattr(self.memory, "update"):
-                self.memory.update(memory_id, metadata=meta, tags=tags)
-            elif hasattr(self.memory, "update_metadata"):
-                self.memory.update_metadata(memory_id, meta)
+            ok = self._apply_learning_update(memory_id, metadata=meta, tags=tags)
+            if not ok and hasattr(self.memory, "update_metadata"):
+                ok = bool(self.memory.update_metadata(memory_id, meta))
             return {
-                "ok": True,
+                "ok": bool(ok),
                 "memory_id": memory_id,
-                "deprecated": True,
+                "deprecated": bool(ok),
                 "reason": reason,
+                "deletes_rows": False,
                 "product": "learning.deprecate",
+                "message": (
+                    f"Deprecated {memory_id} (row retained)."
+                    if ok
+                    else f"Failed to deprecate {memory_id}."
+                ),
             }
         except Exception as e:
-            return {"ok": False, "error": str(e)[:200], "memory_id": memory_id}
+            return {
+                "ok": False,
+                "error": str(e)[:200],
+                "memory_id": memory_id,
+                "product": "learning.deprecate",
+            }
+
+    def undeprecate_memory(self, memory_id: str) -> Dict[str, Any]:
+        """
+        Soft restore a deprecated learning (clear deprecated flags/tags).
+        Does not restore pre-deprecate importance.
+        """
+        mem = self._get_memory(memory_id)
+        if not mem:
+            return {
+                "ok": False,
+                "memory_id": memory_id,
+                "not_found": True,
+                "product": "learning.undeprecate",
+                "message": f"Memory id not found: {memory_id}",
+            }
+        meta = dict(mem.get("metadata") or {})
+        meta["deprecated"] = False
+        meta.pop("deprecate_reason", None)
+        meta.pop("deprecated_reason", None)
+        meta["undeprecated_at"] = datetime.now().isoformat()
+        tags = [t for t in (mem.get("tags") or []) if str(t).lower() != "deprecated"]
+        ok = self._apply_learning_update(memory_id, metadata=meta, tags=tags)
+        if not ok and hasattr(self.memory, "update_metadata"):
+            ok = bool(
+                self.memory.update_metadata(
+                    memory_id,
+                    {
+                        "deprecated": False,
+                        "undeprecated_at": meta["undeprecated_at"],
+                    },
+                )
+            )
+        return {
+            "ok": bool(ok),
+            "memory_id": memory_id,
+            "deprecated": False,
+            "product": "learning.undeprecate",
+            "message": (
+                f"Undeprecated {memory_id}."
+                if ok
+                else f"Failed to undeprecate {memory_id}."
+            ),
+        }
 
     def _is_learning(self, mem: Dict[str, Any]) -> bool:
         tags = [str(t).lower() for t in (mem.get("tags") or [])]
@@ -778,25 +1046,38 @@ class LearningEngine:
             "items": items,
         }
 
-    def resolve_conflicts(self, auto_resolve: bool = True) -> Dict[str, Any]:
+    def resolve_conflicts(
+        self,
+        auto_resolve: bool = True,
+        *,
+        keep_memory_id: Optional[str] = None,
+        task_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Resolve conflicts by multi-factor scoring:
         keep highest-scoring memories (prefer successful, important, recent);
         **deprecate** failures and low-score duplicates (does **not** delete rows).
+
+        keep_memory_id: optional operator override — prefer this id as keeper when
+        present in a conflict group.
         """
-        conflicts = self.detect_conflicts()
+        conflicts = self.detect_conflicts(task_type=task_type)
         resolved_count = 0
+        soft_demoted_count = 0
         resolved_details: List[Dict[str, Any]] = []
         emb = self.embedding_backend_info()
 
         if not auto_resolve:
             return {
+                "ok": True,
                 "conflicts_found": len(conflicts),
+                "conflicts": conflicts,
                 "conflicts_resolved": 0,
                 "resolved_details": [],
                 "deletes_rows": False,
-                "action": "deprecate_metadata_only",
+                "action": "list_only",
                 "embedding": emb,
+                "product": "learning.resolve_conflicts",
                 "message": "Auto-resolve disabled; conflicts listed only.",
             }
 
@@ -815,15 +1096,25 @@ class LearningEngine:
             scored = sorted(
                 group, key=lambda m: self._memory_score(m), reverse=True
             )
-            # Keep top success if any, else top overall
             keep_candidates = [
                 m
                 for m in scored
                 if (m.get("metadata") or {}).get("success") is True
             ] or scored
             keep = keep_candidates[0]
-            keep_score = self._memory_score(keep)
-            deprecated_ids = []
+            keep_override = False
+            if keep_memory_id:
+                forced = next(
+                    (m for m in scored if str(m.get("id")) == str(keep_memory_id)),
+                    None,
+                )
+                if forced is not None:
+                    keep = forced
+                    keep_override = True
+            keep_breakdown = self._memory_score_breakdown(keep)
+            keep_score = float(keep_breakdown["score"])
+            deprecated_ids: List[str] = []
+            soft_ids: List[str] = []
 
             for mem in scored:
                 if mem.get("id") == keep.get("id"):
@@ -832,10 +1123,9 @@ class LearningEngine:
                 if not mid:
                     continue
                 meta = mem.get("metadata") or {}
-                score = self._memory_score(mem)
-                # Always demote clear failures when a success exists
+                breakdown = self._memory_score_breakdown(mem)
+                score = float(breakdown["score"])
                 is_fail = meta.get("success") is False
-                # Keep diverse successes with high score close to keeper
                 if (
                     meta.get("success") is True
                     and score >= keep_score * 0.85
@@ -844,7 +1134,6 @@ class LearningEngine:
                     )
                     < 0.55
                 ):
-                    # soft demote only
                     new_imp = max(0.15, float(mem.get("importance") or 0.5) * 0.85)
                     self.memory.update_metadata(
                         mid,
@@ -853,6 +1142,8 @@ class LearningEngine:
                             "conflict_soft_demote": True,
                         },
                     )
+                    soft_demoted_count += 1
+                    soft_ids.append(str(mid))
                     continue
 
                 factor = 0.25 if is_fail else 0.45
@@ -862,7 +1153,6 @@ class LearningEngine:
                     f"(score={round(score, 3)} vs keep={round(keep_score, 3)}); "
                     "row kept, marked deprecated"
                 )
-                # Prefer full deprecate path (tags + metadata); fall back to metadata
                 dep = self.deprecate_memory(str(mid), reason=reason)
                 ok = bool(dep.get("ok"))
                 if not ok:
@@ -887,7 +1177,7 @@ class LearningEngine:
                     )
                 if ok:
                     resolved_count += 1
-                    deprecated_ids.append(mid)
+                    deprecated_ids.append(str(mid))
 
             resolved_details.append(
                 {
@@ -895,24 +1185,33 @@ class LearningEngine:
                     "model": conflict["model"],
                     "kept_memory_id": keep.get("id"),
                     "kept_score": round(keep_score, 3),
+                    "kept_score_factors": keep_breakdown,
+                    "keep_override": keep_override,
                     "deprecated_count": len(deprecated_ids),
+                    "deprecated_ids": deprecated_ids,
+                    "soft_demoted_ids": soft_ids,
+                    "soft_demoted_count": len(soft_ids),
                     "severity": conflict.get("severity"),
                     "entropy": conflict.get("entropy"),
                 }
             )
 
         return {
+            "ok": True,
             "conflicts_found": len(conflicts),
             "conflicts_resolved": resolved_count,
+            "soft_demoted": soft_demoted_count,
             "resolved_details": resolved_details,
             "method": "multi_factor_score+entropy",
             "deletes_rows": False,
             "action": "deprecate_metadata_only",
             "embedding": emb,
+            "product": "learning.resolve_conflicts",
             "message": (
                 f"Deprecated {resolved_count} lower-score conflicting memories "
-                f"(rows retained; not deleted) via multi-factor scoring."
-                if resolved_count
+                f"(rows retained; not deleted); soft-demoted {soft_demoted_count} "
+                f"diverse success(es) via multi-factor scoring."
+                if resolved_count or soft_demoted_count
                 else "No conflicts required resolution."
             ),
         }
@@ -922,6 +1221,8 @@ class LearningEngine:
         task_type: Optional[str] = None,
         min_memories: int = 5,
         similarity_threshold: float = 0.55,
+        *,
+        dry_run: bool = False,
     ) -> Dict[str, Any]:
         """
         Consolidate redundant learnings using content similarity within groups.
@@ -930,6 +1231,7 @@ class LearningEngine:
         - Falls back to **Jaccard** (lexical) under hash embeddings
         - Writes a consolidated summary memory; deprecates near-duplicates only
           (does not delete rows)
+        - dry_run: preview groups / would-deprecate without mutating
         - No-ops with a clear message when not enough memories / clusters
         """
         emb = self.embedding_backend_info()
@@ -945,6 +1247,7 @@ class LearningEngine:
 
         if len(memories) < min_memories:
             return {
+                "ok": True,
                 "distilled": False,
                 "noop": True,
                 "noop_reason": "insufficient_memories",
@@ -956,8 +1259,12 @@ class LearningEngine:
                 "groups_analyzed": 0,
                 "groups_distilled": 0,
                 "min_memories": min_memories,
+                "similarity_threshold": similarity_threshold,
+                "dry_run": dry_run,
+                "preview_groups": [],
                 "embedding": emb,
                 "deletes_rows": False,
+                "product": "learning.distill",
             }
 
         groups: Dict[tuple, List[Dict]] = {}
@@ -972,6 +1279,7 @@ class LearningEngine:
         summary_ids: List[str] = []
         sim_method_used = "jaccard"
         skipped_small_groups = 0
+        preview_groups: List[Dict[str, Any]] = []
 
         for key, mem_list in groups.items():
             if len(mem_list) < 4:
@@ -979,7 +1287,6 @@ class LearningEngine:
                 continue
             mem_list.sort(key=lambda x: self._memory_score(x), reverse=True)
             top = mem_list[0]
-            # Cluster near-duplicates of top by similarity
             cluster = [top]
             rest_keep = []
             for other in mem_list[1:]:
@@ -1004,7 +1311,27 @@ class LearningEngine:
             if len(cluster) < 2:
                 continue
 
-            # Deprecate duplicates in cluster (except top) — rows retained
+            would_deprecate = [
+                str(o.get("id")) for o in cluster[1:] if o.get("id")
+            ]
+            preview_groups.append(
+                {
+                    "task_type": key[0],
+                    "model": key[1],
+                    "cluster_size": len(cluster),
+                    "keep_id": top.get("id"),
+                    "would_deprecate_ids": would_deprecate,
+                    "similarity_method": sim_method_used,
+                    "similarity_threshold": similarity_threshold,
+                }
+            )
+
+            if dry_run:
+                distilled_count += 1
+                deprecated_count += len(would_deprecate)
+                consolidated_ids.extend(would_deprecate)
+                continue
+
             for other in cluster[1:]:
                 mid = other.get("id")
                 if not mid:
@@ -1030,7 +1357,6 @@ class LearningEngine:
                     deprecated_count += 1
                     consolidated_ids.append(mid)
 
-            # Store a consolidated summary memory
             try:
                 t_type, model = key
                 bullets = []
@@ -1051,7 +1377,8 @@ class LearningEngine:
                         "success": True,
                         "source": "learning_engine_distill",
                         "phase": "distill",
-                        "distilled_from": [top.get("id")] + consolidated_ids[:8],
+                        "distilled_from": [top.get("id")]
+                        + [x for x in consolidated_ids if x][:8],
                         "deprecated": False,
                         "similarity_method": sim_method_used,
                     },
@@ -1072,28 +1399,42 @@ class LearningEngine:
                 f"{skipped_small_groups} group(s) had <4 members). "
                 "Need enough similar learnings per (task_type, model)."
             )
+        elif dry_run:
+            msg = (
+                f"[dry-run] Would distill {distilled_count} group(s), "
+                f"deprecate {deprecated_count} near-duplicate(s) via "
+                f"{sim_method_used} (threshold={similarity_threshold}); "
+                f"embedding={emb.get('quality')}. No mutations applied."
+            )
         else:
             msg = (
                 f"Analyzed {len(groups)} groups. Distilled {distilled_count} "
                 f"group(s), deprecated {deprecated_count} near-duplicate(s) "
                 f"(rows retained), wrote {len(summary_ids)} summary memor(ies) "
-                f"via {sim_method_used}."
+                f"via {sim_method_used}; embedding={emb.get('quality')}."
             )
 
         return {
-            "distilled": distilled_count > 0,
+            "ok": True,
+            "distilled": distilled_count > 0 and not dry_run,
             "noop": noop,
             "noop_reason": "no_similar_clusters" if noop else None,
             "groups_analyzed": len(groups),
             "groups_distilled": distilled_count,
             "groups_skipped_small": skipped_small_groups,
-            "memories_deprecated": deprecated_count,
-            "consolidated_memory_ids": consolidated_ids,
-            "summary_memory_ids": summary_ids,
+            "memories_deprecated": 0 if dry_run else deprecated_count,
+            "would_deprecate_count": deprecated_count if dry_run else deprecated_count,
+            "consolidated_memory_ids": [] if dry_run else consolidated_ids,
+            "would_deprecate_ids": consolidated_ids if dry_run else [],
+            "summary_memory_ids": [] if dry_run else summary_ids,
+            "preview_groups": preview_groups,
             "method": f"{sim_method_used}+multi_factor_score",
             "similarity_threshold": similarity_threshold,
+            "similarity_method": sim_method_used,
+            "dry_run": dry_run,
             "deletes_rows": False,
             "embedding": emb,
+            "product": "learning.distill",
             "message": msg,
         }
 

@@ -36,6 +36,7 @@ def compare_models(
             block = budget_precheck(
                 estimated_usd=0.08 * max(1, len(models or [])),
                 tokens=300 * max(1, len(models or [])),
+                command_name="compare",
             )
             if block.get("blocked"):
                 return block

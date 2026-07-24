@@ -253,9 +253,26 @@ class ModelRouter:
                     return m
 
         # Blend score with bandit means; epsilon explore among top-K
+        # Pipeline: preference bias (M068) reorders candidate names, then bandit (M050).
         if self.use_bandit and self.bandit and len(ranked) > 1:
             top_k = ranked[: min(8, len(ranked))]
             candidates = [m.name for m, _ in top_k]
+            try:
+                from .preferences import UserPreferenceModel
+
+                candidates = UserPreferenceModel().bias_candidates(list(candidates))
+                # Rebuild top_k order to match preference-biased candidate order
+                by_name = {m.name: (m, parts) for m, parts in top_k}
+                reordered = []
+                for name in candidates:
+                    if name in by_name:
+                        reordered.append(by_name[name])
+                for item in top_k:
+                    if item not in reordered:
+                        reordered.append(item)
+                top_k = reordered
+            except Exception:
+                pass
             try:
                 # Epsilon-greedy among top scorers
                 import random

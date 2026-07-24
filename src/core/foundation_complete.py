@@ -22,28 +22,65 @@ def _ok(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # --- M061–M063 learning productization ---
-def learning_promote_durable(limit: int = 20, min_importance: float = 0.75) -> Dict[str, Any]:
+def learning_promote_durable(
+    limit: int = 20,
+    min_importance: float = 0.75,
+    *,
+    memory_id: Optional[str] = None,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
     from .learning_engine import LearningEngine
     from .memory_palace import MemoryPalace
 
     eng = LearningEngine(MemoryPalace())
-    return _ok(eng.promote_durable(limit=limit, min_importance=min_importance))
+    return _ok(
+        eng.promote_durable(
+            memory_id=memory_id,
+            limit=limit,
+            min_importance=min_importance,
+            dry_run=dry_run,
+        )
+    )
 
 
-def learning_resolve_conflicts(auto_resolve: bool = True) -> Dict[str, Any]:
+def learning_resolve_conflicts(
+    auto_resolve: bool = True,
+    *,
+    keep_memory_id: Optional[str] = None,
+    task_type: Optional[str] = None,
+) -> Dict[str, Any]:
     from .learning_engine import LearningEngine
     from .memory_palace import MemoryPalace
 
     eng = LearningEngine(MemoryPalace())
-    return _ok(eng.resolve_conflicts(auto_resolve=auto_resolve))
+    return _ok(
+        eng.resolve_conflicts(
+            auto_resolve=auto_resolve,
+            keep_memory_id=keep_memory_id,
+            task_type=task_type,
+        )
+    )
 
 
-def learning_distill(task_type: Optional[str] = None) -> Dict[str, Any]:
+def learning_distill(
+    task_type: Optional[str] = None,
+    *,
+    min_memories: int = 5,
+    similarity_threshold: float = 0.55,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
     from .learning_engine import LearningEngine
     from .memory_palace import MemoryPalace
 
     eng = LearningEngine(MemoryPalace())
-    return _ok(eng.distill_knowledge(task_type=task_type))
+    return _ok(
+        eng.distill_knowledge(
+            task_type=task_type,
+            min_memories=min_memories,
+            similarity_threshold=similarity_threshold,
+            dry_run=dry_run,
+        )
+    )
 
 
 def learning_lifecycle_status() -> Dict[str, Any]:
@@ -75,16 +112,38 @@ def learning_deprecate(memory_id: str, reason: str = "user_deprecated") -> Dict[
     return _ok(eng.deprecate_memory(memory_id, reason=reason))
 
 
+def learning_undeprecate(memory_id: str) -> Dict[str, Any]:
+    from .learning_engine import LearningEngine
+    from .memory_palace import MemoryPalace
+
+    eng = LearningEngine(MemoryPalace())
+    return _ok(eng.undeprecate_memory(memory_id))
+
+
 # --- M100 dashboard honesty ---
 def dashboard_state() -> Dict[str, Any]:
     from .config import Config
     from .foundation_modules import dashboard_honesty
+    from .observability import build_dashboard_snapshot
     from .spend_report import spend_report
 
     cfg = Config()
     base = dashboard_honesty({"use_mock": cfg.use_mock})
-    base["spend"] = spend_report(days=1)
+    try:
+        snap = build_dashboard_snapshot(history_limit=5, log_lines=5)
+        base["snapshot_honesty"] = snap.get("honesty")
+        base["mock_mode"] = snap.get("mock_mode", cfg.use_mock)
+        base["provider_health"] = snap.get("provider_health")
+        base["bandit_arms"] = snap.get("bandit_arms")
+        base["ts"] = snap.get("ts")
+    except Exception:
+        base["mock_mode"] = cfg.use_mock
+    try:
+        base["spend"] = spend_report(days=1)
+    except Exception as e:
+        base["spend"] = {"error": str(e)[:120]}
     base["contract"] = "superai.result.v1"
+    base["product"] = "dashboard.state"
     return _ok(base)
 
 

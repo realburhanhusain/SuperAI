@@ -686,6 +686,7 @@ def status(
         mem_count = st.get("total_memories", "n/a")
     except Exception:  # noqa: BLE001
         pass
+    honesty_label = "MOCK" if config.use_mock else "LIVE"
     payload: dict = {
         "ok": True,
         "product": "status",
@@ -693,6 +694,9 @@ def status(
         "config_path": str(config.config_path),
         "home": str(config.home_dir),
         "mock_mode": bool(config.use_mock),
+        "honesty": honesty_label,
+        "label": honesty_label,
+        "live": not bool(config.use_mock),
         "log_level": config.get("log_level"),
         "default_supervisor": config.default_supervisor,
         "history_entries": history.count(),
@@ -753,13 +757,21 @@ def status(
             pass
 
     def _human(data: dict) -> None:
+        h = data.get("honesty") or ("MOCK" if data.get("mock_mode") else "LIVE")
+        banner = (
+            "[bold yellow]MOCK MODE[/bold yellow] — simulated; not production live"
+            if h == "MOCK"
+            else "[bold red]LIVE MODE[/bold red] — real providers may incur cost"
+        )
         console.print(
             Panel.fit(
-                f"[bold]SuperAI Status[/bold]\n\n"
+                f"[bold]SuperAI Status[/bold]  [{h}]\n"
+                f"{banner}\n\n"
                 f"Version: {data.get('version')}\n"
                 f"Config: {data.get('config_path')}\n"
                 f"Home: {data.get('home')}\n"
                 f"mock_mode: {data.get('mock_mode')}\n"
+                f"honesty: {h}\n"
                 f"log_level: {data.get('log_level')}\n"
                 f"default_supervisor: {data.get('default_supervisor')}\n"
                 f"history_entries: {data.get('history_entries')}\n"
@@ -1981,13 +1993,20 @@ def _print_learning_result(data: dict, *, title: str = "Learning") -> None:
     # Rich human summary
     msg = data.get("message") or title
     lines = [f"[bold]{title}[/bold]", "", str(msg)]
+    if data.get("dry_run"):
+        lines.append("[yellow]dry-run — no mutations[/yellow]")
     for key in (
         "count",
         "promoted",
+        "would_promote",
         "conflicts_found",
         "conflicts_resolved",
+        "soft_demoted",
         "groups_distilled",
         "memories_deprecated",
+        "would_deprecate_count",
+        "similarity_method",
+        "similarity_threshold",
         "total_learnings",
         "active",
         "durable",
@@ -1995,12 +2014,36 @@ def _print_learning_result(data: dict, *, title: str = "Learning") -> None:
         "distilled_summaries",
         "conflict_groups",
         "ok",
+        "deletes_rows",
     ):
         if key in data and key != "message":
             val = data[key]
             if isinstance(val, list) and len(val) > 8:
                 val = f"{val[:8]} … (+{len(data[key]) - 8})"
             lines.append(f"{key}: {val}")
+    emb = data.get("embedding") or {}
+    if emb:
+        lines.append(
+            f"embedding: {emb.get('quality')} "
+            f"(hash={emb.get('is_hash')}, id={emb.get('embedding_id')})"
+        )
+    if data.get("candidates"):
+        lines.append("")
+        lines.append("[bold]Promote candidates[/bold]")
+        for it in data["candidates"][:15]:
+            flag = "YES" if it.get("eligible") else "no"
+            lines.append(
+                f"• [{flag}] {str(it.get('id') or '')[:14]}… "
+                f"imp={it.get('importance')} success={it.get('success')} "
+                f"{it.get('reason')} | {(it.get('preview') or '')[:60]}"
+            )
+    if data.get("skipped") and not data.get("candidates"):
+        lines.append("")
+        lines.append("[bold]Skipped[/bold]")
+        for it in data["skipped"][:10]:
+            lines.append(
+                f"• {str(it.get('id') or '')[:14]}… {it.get('reason')}"
+            )
     if data.get("items"):
         lines.append("")
         lines.append("[bold]Items[/bold]")
@@ -2018,14 +2061,47 @@ def _print_learning_result(data: dict, *, title: str = "Learning") -> None:
             lines.append(
                 f"• {it.get('id', '?')[:12]}… {(it.get('preview') or '')[:90]}"
             )
+    if data.get("conflicts") and not data.get("resolved_details"):
+        lines.append("")
+        lines.append("[bold]Conflict groups[/bold]")
+        for c in data["conflicts"][:12]:
+            lines.append(
+                f"• [{c.get('severity')}] {c.get('task_type')}/{c.get('model')} "
+                f"H={c.get('entropy')} ok={c.get('success_count')}/"
+                f"fail={c.get('failure_count')} "
+                f"suggest_keep={str(c.get('suggested_keep_id') or '')[:10]}…"
+            )
+            for s in (c.get("samples") or [])[:3]:
+                lines.append(
+                    f"    - id={str(s.get('id') or '')[:10]}… "
+                    f"score={s.get('score')} success={s.get('success')} "
+                    f"| {(s.get('preview') or '')[:50]}"
+                )
     if data.get("resolved_details"):
         lines.append("")
         lines.append("[bold]Resolve details[/bold]")
         for d in data["resolved_details"][:8]:
+            factors = d.get("kept_score_factors") or {}
             lines.append(
                 f"• {d.get('task_type')}/{d.get('model')}: "
                 f"kept={str(d.get('kept_memory_id') or '')[:10]}… "
-                f"deprecated={d.get('deprecated_count')}"
+                f"score={d.get('kept_score')} "
+                f"(imp={factors.get('importance')}, "
+                f"succ={factors.get('success_boost')}, "
+                f"rec={factors.get('recency')}) "
+                f"deprecated={d.get('deprecated_count')} "
+                f"soft={d.get('soft_demoted_count', 0)}"
+            )
+    if data.get("preview_groups"):
+        lines.append("")
+        lines.append("[bold]Distill groups[/bold]")
+        for g in data["preview_groups"][:10]:
+            lines.append(
+                f"• {g.get('task_type')}/{g.get('model')}: "
+                f"cluster={g.get('cluster_size')} "
+                f"method={g.get('similarity_method')} "
+                f"keep={str(g.get('keep_id') or '')[:10]}… "
+                f"would_deprecate={len(g.get('would_deprecate_ids') or [])}"
             )
     console.print(Panel.fit("\n".join(lines), border_style="cyan"))
 
@@ -2065,18 +2141,21 @@ def learning_promote_cmd(
         0.75, "--min-importance", help="Minimum importance for bulk promote"
     ),
     limit: int = typer.Option(20, "--limit", "-n"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview eligible promotions without mutating"
+    ),
 ):
     """Promote high-value learnings to durable patterns (M061)."""
     eng = _learning_engine()
     out = eng.promote_durable(
-        memory_id=memory_id, min_importance=min_importance, limit=limit
-    )
-    out.setdefault(
-        "message",
-        f"Promoted {out.get('count', 0)} learning(s) to durable "
-        f"(min_importance={min_importance}).",
+        memory_id=memory_id,
+        min_importance=min_importance,
+        limit=limit,
+        dry_run=dry_run,
     )
     _print_learning_result(out, title="Promote durable")
+    if not out.get("ok"):
+        raise _cli_exit(code=1)
 
 
 @learning_app.command("conflicts")
@@ -2084,37 +2163,62 @@ def learning_conflicts_cmd(
     resolve: bool = typer.Option(
         False, "--resolve", help="Auto-resolve (deprecate weaker memories)"
     ),
+    keep: Optional[str] = typer.Option(
+        None,
+        "--keep",
+        help="Prefer this memory id as keeper when resolving (optional)",
+    ),
     task_type: Optional[str] = typer.Option(None, "--type", "-t"),
 ):
     """Detect (and optionally resolve) conflicting learnings (M062)."""
     eng = _learning_engine()
-    found = eng.detect_conflicts(task_type=task_type)
-    data: dict = {
-        "ok": True,
-        "product": "learning.conflicts",
-        "conflicts_found": len(found),
-        "conflicts": found[:25],
-        "message": (
-            f"Found {len(found)} conflicting learning group(s)."
-            if found
-            else "No conflicts detected."
-        ),
-    }
     if resolve:
-        result = eng.resolve_conflicts(auto_resolve=True)
-        data.update(result)
-        data["message"] = result.get("message") or data["message"]
-    _print_learning_result(data, title="Learning conflicts")
+        result = eng.resolve_conflicts(
+            auto_resolve=True,
+            keep_memory_id=keep,
+            task_type=task_type,
+        )
+        result.setdefault("product", "learning.conflicts")
+        _print_learning_result(result, title="Learning conflicts (resolve)")
+    else:
+        found = eng.detect_conflicts(task_type=task_type)
+        data: dict = {
+            "ok": True,
+            "product": "learning.conflicts",
+            "conflicts_found": len(found),
+            "conflicts": found[:25],
+            "deletes_rows": False,
+            "message": (
+                f"Found {len(found)} conflicting learning group(s). "
+                "Use --resolve to deprecate losers (rows retained)."
+                if found
+                else "No conflicts detected."
+            ),
+        }
+        _print_learning_result(data, title="Learning conflicts")
 
 
 @learning_app.command("distill")
 def learning_distill_cmd(
     task_type: Optional[str] = typer.Option(None, "--type", "-t"),
     min_memories: int = typer.Option(5, "--min-memories"),
+    similarity_threshold: float = typer.Option(
+        0.55,
+        "--similarity-threshold",
+        help="Near-dup threshold (cosine or Jaccard, default 0.55)",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview clusters without mutating"
+    ),
 ):
     """Consolidate redundant learnings into summary memories (M063)."""
     eng = _learning_engine()
-    out = eng.distill_knowledge(task_type=task_type, min_memories=min_memories)
+    out = eng.distill_knowledge(
+        task_type=task_type,
+        min_memories=min_memories,
+        similarity_threshold=similarity_threshold,
+        dry_run=dry_run,
+    )
     out.setdefault("ok", True)
     out.setdefault("product", "learning.distill")
     _print_learning_result(out, title="Distill knowledge")
@@ -2125,12 +2229,24 @@ def learning_deprecate_cmd(
     memory_id: str = typer.Argument(..., help="Memory id to deprecate"),
     reason: str = typer.Option("user_deprecated", "--reason", "-r"),
 ):
-    """Manually deprecate a learning memory (M063 companion)."""
+    """Manually deprecate a learning memory (M063 companion). Rows retained."""
     eng = _learning_engine()
-    _print_learning_result(
-        eng.deprecate_memory(memory_id, reason=reason),
-        title="Deprecate learning",
-    )
+    out = eng.deprecate_memory(memory_id, reason=reason)
+    _print_learning_result(out, title="Deprecate learning")
+    if not out.get("ok"):
+        raise _cli_exit(code=1)
+
+
+@learning_app.command("undeprecate")
+def learning_undeprecate_cmd(
+    memory_id: str = typer.Argument(..., help="Memory id to restore from deprecated"),
+):
+    """Clear deprecated flag on a learning (soft undo). Rows were never deleted."""
+    eng = _learning_engine()
+    out = eng.undeprecate_memory(memory_id)
+    _print_learning_result(out, title="Undeprecate learning")
+    if not out.get("ok"):
+        raise _cli_exit(code=1)
 
 
 @config_app.command("show")
@@ -3420,16 +3536,46 @@ def data_schema(
 
 @app.command("pref")
 def pref_cmd(
-    action: str = typer.Argument("show", help="show | set | get | delete"),
-    key: Optional[str] = typer.Argument(None, help="Preference key"),
-    value: Optional[str] = typer.Argument(None, help="Value for set"),
+    action: str = typer.Argument(
+        "show",
+        help="show | set | get | delete | sticky | cheap | clear",
+    ),
+    key: Optional[str] = typer.Argument(None, help="Preference key or sticky model"),
+    value: Optional[str] = typer.Argument(None, help="Value for set / cheap on|off"),
 ):
-    """User preferences / learned profile"""
+    """User preferences that bias routing (M068). Stored in ~/.superai/preferences.json"""
     from core.preferences import UserPreferenceModel
+    from core.public_surface import emit_public, json_mode
 
     pm = UserPreferenceModel()
     if action == "show":
-        console.print_json(data=pm.profile_summary())
+        data = pm.profile_summary()
+        if json_mode():
+            emit_public(data, print_json=True, record_spend=False)
+            return
+        console.print_json(data=data)
+        return
+    if action == "sticky":
+        # pref sticky <model>  |  pref sticky clear
+        if not key or key.lower() in {"clear", "none", "off", ""}:
+            pm.set_sticky_model(None)
+            console.print("[green]Cleared sticky preferred_model[/green]")
+            return
+        pm.set_sticky_model(key)
+        console.print(f"[green]Sticky preferred_model[/green] = {key}")
+        return
+    if action == "cheap":
+        # pref cheap on|off|true|false
+        flag = (key or value or "on").lower()
+        enabled = flag in {"1", "true", "yes", "on", "enable", "enabled"}
+        if flag in {"0", "false", "no", "off", "disable", "disabled"}:
+            enabled = False
+        pm.set_sticky_cheap(enabled)
+        console.print(f"[green]cheap_mode[/green] = {enabled}")
+        return
+    if action == "clear":
+        pm.clear_routing_prefs()
+        console.print("[green]Cleared routing preferences (sticky/cheap)[/green]")
         return
     if action == "get":
         if not key:
@@ -3453,7 +3599,7 @@ def pref_cmd(
             raise _cli_exit(code=1)
         console.print(f"[green]Deleted[/green] {key}")
         return
-    console.print("[red]Unknown action[/red]")
+    console.print("[red]Unknown action (show|set|get|delete|sticky|cheap|clear)[/red]")
     raise _cli_exit(code=1)
 
 
@@ -3605,21 +3751,49 @@ def plugins_cmd(
 def bandit_cmd(
     action: str = typer.Argument("status", help="status | reset"),
 ):
-    """Show or reset contextual bandit routing state"""
+    """Continuous bandit routing state (M050). Path: ~/.superai/bandit_state.json"""
     from core.bandit_router import EpsilonGreedyBandit
+    from core.config import Config
+    from core.public_surface import emit_public, json_mode
 
-    b = EpsilonGreedyBandit()
+    cfg = Config()
+    b = EpsilonGreedyBandit(epsilon=float(cfg.get("bandit_epsilon") or 0.1))
     if action == "reset":
-        b.state = {}
-        b.save()
-        console.print("[green]Bandit state cleared[/green]")
-        return
-    console.print_json(
-        data={
-            "epsilon": b.epsilon,
-            "arms": b.state,
+        b.reset()
+        out = {
+            "ok": True,
+            "product": "bandit.reset",
+            "message": "Bandit state cleared",
             "path": str(b.path),
         }
+        if json_mode():
+            emit_public(out, print_json=True, record_spend=False)
+            return
+        console.print("[green]Bandit state cleared[/green]")
+        return
+    st = b.status()
+    if json_mode():
+        emit_public(st, print_json=True, record_spend=False)
+        return
+    table = Table(title="Bandit arms (mean reward)")
+    table.add_column("Model")
+    table.add_column("n", justify="right")
+    table.add_column("mean", justify="right")
+    table.add_column("sum", justify="right")
+    for arm in st.get("arms") or []:
+        table.add_row(
+            str(arm.get("model")),
+            str(arm.get("n")),
+            f"{float(arm.get('mean_reward') or 0):.3f}",
+            f"{float(arm.get('reward_sum') or 0):.3f}",
+        )
+    if not st.get("arms"):
+        console.print(f"[yellow]{st.get('message')}[/yellow]")
+    else:
+        console.print(table)
+    console.print(
+        f"epsilon={st.get('epsilon')}  path={st.get('path')}\n"
+        f"pipeline: {st.get('pipeline')}"
     )
 
 

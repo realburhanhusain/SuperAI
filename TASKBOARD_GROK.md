@@ -130,7 +130,7 @@ Close the **9 near-complete Musts** (80–90%) that need product depth, routing 
 | **Scorecard** | HOST-GATED · live keys required for 100% host |
 | **Deps** | M088 smoke harness never false-passes; M041 registration |
 | **Modules** | `core.live_smoke_complete`, `provider_smoke`, Phase 99 plan |
-| **AGY residual pickup** | [`docs/grok_work_review_result_I1_v1.md`](docs/grok_work_review_result_I1_v1.md) |
+| **AGY residual pickup** | [`docs/archive/2026-07-25-closed-docs/i1-reviews/grok_work_review_result_I1_v1.md`](docs/archive/2026-07-25-closed-docs/i1-reviews/grok_work_review_result_I1_v1.md) |
 
 **Offline code (I1 residual close-out):**
 
@@ -182,5 +182,5 @@ pytest tests/test_grok_i1_residuals.py -q
 | **What** | Closed AGY `grok_work_review_result_I1_v2` deep re-review P0–P2 (distill safety, routing integrity, promote errors, post_call idempotency). |
 | **Still open** | G5 M089 **host** live multi-provider run only (keys) |
 | **Evidence** | lifecycle + routing suites 35 passed; residual tests |
-| **Pickup closed** | v1 residuals + [v2 deep re-review](docs/grok_work_review_result_I1_v2.md) |
+| **Pickup closed** | v1 residuals + [v2 deep re-review](docs/archive/2026-07-25-closed-docs/i1-reviews/grok_work_review_result_I1_v2.md) |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

@@ -1,15 +1,14 @@
 # SuperAI documentation
 
-GitHub Pages / static docs entry.
+GitHub Pages / static docs entry. **Prefer** [README.md](README.md) for active-vs-archive map.
 
-## Core
+## Start here
 
+- [Docs map (active vs archive)](README.md)
 - [Architecture](architecture.md)
-- [Progress](PROGRESS.md)
-- [Other tool features](OTHER_TOOL_FEATURES.md)
+- [Strict scorecard](V1_V6_UNIFIED_IMPROVED_SCORECARD.md)
+- [Foundation safety](FOUNDATION_SAFETY.md)
 - [Checkpoint protocol](CHECKPOINT_PROTOCOL.md)
-- [Pending (smoke only)](PENDING_WORK_BY_PHASES.md)
-- [Stabilization status](STABILIZATION_STATUS.md)
 
 ## Root docs (also staged to Pages)
 
@@ -19,3 +18,9 @@ GitHub Pages / static docs entry.
 - [TASKBOARD](../TASKBOARD.md)
 - [CHANGELOG](../CHANGELOG.md)
 - [CONTRIBUTING](../CONTRIBUTING.md)
+
+## Archive
+
+Closed plans, reviews, old scorecards, and historical checkpoints:
+
+- [archive/](archive/)

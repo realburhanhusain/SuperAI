@@ -3,7 +3,7 @@
 **SuperAI** is a multi-model AI orchestration platform: plan → route → execute → learn, with safety rails.
 
 **Canonical tree:** this repo (`Documents\Personal\github\SuperAI`).  
-**Resume:** [TASKBOARD.md](TASKBOARD.md) (index) · [TASKBOARD_GROK.md](TASKBOARD_GROK.md) · [TASKBOARD_AGY.md](TASKBOARD_AGY.md) · **Backlog:** [docs/FEATURE_BACKLOG.md](docs/FEATURE_BACKLOG.md)
+**Resume:** [TASKBOARD.md](TASKBOARD.md) (index) · [TASKBOARD_GROK.md](TASKBOARD_GROK.md) · [TASKBOARD_AGY.md](TASKBOARD_AGY.md) · **Docs map:** [docs/README.md](docs/README.md) · **Scorecard:** [docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md](docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md)
 
 > **Status (2026-07-16):** Feature backlog (M/S/N waves 1–2) **implemented in code**.  
 > Memory Palace default: **pgvector** (Postgres) or SQLite cosine offline; Chroma removed.  
@@ -82,9 +82,10 @@ superai web   # http://127.0.0.1:8787  and  /pwa/
 | [TASKBOARD.md](TASKBOARD.md) | Index · live status |
 | [TASKBOARD_GROK.md](TASKBOARD_GROK.md) | Grok owner board |
 | [TASKBOARD_AGY.md](TASKBOARD_AGY.md) | AGY owner board |
+| [docs/README.md](docs/README.md) | Docs map (active vs archive) |
+| [docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md](docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md) | Strict scorecard |
 | [FEATURES.md](FEATURES.md) | Feature matrix |
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Commands |
-| [docs/PROGRESS.md](docs/PROGRESS.md) | Phase % |
 | [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | Security |
 | [docs/architecture.md](docs/architecture.md) | Architecture |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |

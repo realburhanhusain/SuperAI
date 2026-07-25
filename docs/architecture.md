@@ -128,5 +128,5 @@ Imports: `from core.…` and `from scli.…`
 ## References
 
 - Board: `TASKBOARD.md`
-- Progress: `docs/PROGRESS.md`
+- Docs map / status: `docs/README.md` · boards: `TASKBOARD.md`
 - Plans: `implementation_plan_detailed.md`

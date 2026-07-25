@@ -9,7 +9,7 @@
 
 **Legend:** `[ ]` open · `[~]` in progress · `[x]` done · `[!]` host-gated  
 
-> **I1 residual (mandatory read):** [`docs/agy_work_review_result_I1_v4.md`](docs/agy_work_review_result_I1_v4.md)  
+> **I1 residual (closed offline):** [`docs/archive/2026-07-25-closed-docs/i1-reviews/agy_work_review_result_I1_v4.md`](docs/archive/2026-07-25-closed-docs/i1-reviews/agy_work_review_result_I1_v4.md)  
 > Stage **I1** AGY A1–A5 offline **complete** (product wiring + real tests). Prefer demote if regressions appear.
 
 ---
@@ -45,7 +45,7 @@ Do **not** re-litigate closed exit-code / help / self-critique items unless regr
 ## Global DoD (every AGY item)
 
 1. **Code:** No silent bypass of budget/contract on public spend paths.
-2. **Docs:** Update `docs/IMPROVEMENT_V4_PLAN.md` / V5 plan / `FOUNDATION_SAFETY.md` / V6 backlog notes as needed.
+2. **Docs:** Update `FOUNDATION_SAFETY.md` / V6 backlog notes as needed (completed V4/V5 plans are under `docs/archive/2026-07-25-closed-docs/plans/`).
 3. **Tests:** Offline; prove wrap/precheck called; prove residual paths enumerated.
 4. **Registry honesty:** Extend `foundation_safety.SPEND_PATHS` / MCP matrices when adding paths.
 5. **Scorecard:** Promote only after exhaustive evidence; prefer demote over overclaim.
@@ -101,7 +101,7 @@ Do **not** re-litigate closed exit-code / help / self-critique items unless regr
 | Field | Value |
 |-------|--------|
 | **Scorecard** | Not every spend path |
-| **Plan** | `docs/IMPROVEMENT_V4_PLAN.md` — Budget not on all spend paths |
+| **Plan** | `docs/archive/.../plans/IMPROVEMENT_V4_PLAN.md` (historical) — Budget not on all spend paths |
 | **Implemented** | `spend_guard` on major paths via ModelCaller + board prechecks |
 
 **Backlog intent:** Hard budget ceilings on **every** spend entrypoint (CLI, MCP, HTTP, agent, boards).
@@ -416,6 +416,6 @@ rg "budget_precheck|emit_public|wrap_mcp_tool|TOP_30" src
 | **When** | 2026-07-24 |
 | **What** | **I1 A1–A5 offline closed:** thin-wrapper prechecks, TOP_30 real invoke harness, spend assertion tests, scorecard 100% offline. AGY WIP + Grok finish. |
 | **Still open** | None for offline A1–A5; host live keys still out of AGY board |
-| **Closeout** | [`docs/agy_work_review_result_I1_v4.md`](docs/agy_work_review_result_I1_v4.md) |
+| **Closeout** | [`docs/archive/2026-07-25-closed-docs/i1-reviews/agy_work_review_result_I1_v4.md`](docs/archive/2026-07-25-closed-docs/i1-reviews/agy_work_review_result_I1_v4.md) |
 | **Prior** | v3 re-audit (partial) · v2 overclaim · v1 pickup |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

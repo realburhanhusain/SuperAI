@@ -45,7 +45,7 @@ pip install -e ".[dev]"
 pytest -q
 ```
 
-**Always resume from `TASKBOARD.md`** (index) → your owner board `TASKBOARD_GROK.md` or `TASKBOARD_AGY.md` (and latest `docs/checkpoints/`).  
+**Always resume from `TASKBOARD.md`** (index) → your owner board `TASKBOARD_GROK.md` or `TASKBOARD_AGY.md`. Historical checkpoints: `docs/archive/2026-07-25-checkpoints/`. Docs map: `docs/README.md`.  
 Implementation tracks A–J are complete in code. Remaining board items are **deferred smoke** (API keys, live bots, rclone, Pages) unless new features are filed.
 ```powershell
 # After a meaningful change:

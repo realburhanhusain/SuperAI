@@ -2,7 +2,7 @@
 
 **Layout:** `src/cli` (`scli`) · `src/core` (`core`) · entry `superai = scli.main:app`  
 **Scorecard (strict):** [`docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`](docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md)  
-**Backlog:** [`docs/FEATURE_BACKLOG.md`](docs/FEATURE_BACKLOG.md) · **Progress:** [`docs/PROGRESS.md`](docs/PROGRESS.md)
+**Docs map:** [`docs/README.md`](docs/README.md) · V6 backlog: [`docs/IMPROVEMENT_V6_BACKLOG.md`](docs/IMPROVEMENT_V6_BACKLOG.md)
 
 **Legend:** `[x]` done · `[!]` external host only  
 
@@ -15,23 +15,19 @@
 | **Grok** | [`TASKBOARD_GROK.md`](TASKBOARD_GROK.md) | Learning product (M061–M063), routing/bandit (M068/M050), streaming honesty (M027/V4-M4), dashboard (M100), host smoke (M089) |
 | **AGY** | [`TASKBOARD_AGY.md`](TASKBOARD_AGY.md) | Spend spine (V4-M1/DOD-1, V5-M1/M2), contracts (V4-M2), JSON/MCP (M079/M093), cost (V5-M4), TOP_30 (M090) |
 
-Resume rules for agents: read **your** owner board first, then this index, then latest `docs/checkpoints/`.
+Resume rules for agents: read **your** owner board first, then this index. Closed plans/reviews/checkpoints live under `docs/archive/` — see [`docs/README.md`](docs/README.md).
 
 ---
 
-## Archived waves (2026-07-24)
+## Archives (closed — do not re-open unless regression)
 
-Prior **AGY Hardening Wave W0–W4** and **Grok memory handoff** residuals are **closed offline**.
+| Archive | Contents |
+|---------|----------|
+| [`docs/archive/2026-07-24-wave-handoffs/`](docs/archive/2026-07-24-wave-handoffs/) | AGY W0–W4 + Grok memory handoffs |
+| [`docs/archive/2026-07-25-closed-docs/`](docs/archive/2026-07-25-closed-docs/) | Stage I1 reviews, completed V1–V5 plans, old scorecards, status, closed gaps |
+| [`docs/archive/2026-07-25-checkpoints/`](docs/archive/2026-07-25-checkpoints/) | Historical session checkpoints |
 
-| Artifact | Location |
-|----------|----------|
-| Archive folder | [`docs/archive/2026-07-24-wave-handoffs/`](docs/archive/2026-07-24-wave-handoffs/) |
-| AGY findings (closed) | `…/AGY_HANDOFF_PENDING_AND_INCOMPLETE.md` |
-| AGY W0–W4 plan (closed) | `…/AGY_IMPROVEMENT_PLAN.md` |
-| Grok memory handoff (closed) | `…/GROK_HANDOFF_PENDING_AND_INCOMPLETE.md` |
-| Stubs (redirect only) | `docs/AGY_HANDOFF_…`, `docs/GROK_HANDOFF_…`, `docs/AGY_IMPROVEMENT_PLAN.md` |
-
-Do **not** re-open archived checklists unless a regression is proven.
+Old top-level paths were removed after archive — use the folders above (or git history).
 
 ---
 
@@ -76,7 +72,7 @@ Do **not** re-open archived checklists unless a regression is proven.
 
 | Field | Value |
 |-------|--------|
-| **When** | 2026-07-24 |
-| **What** | Stage **I1**: Grok G1–G4 offline complete. AGY A1–A5 offline closed (wrappers + TOP_30 invoke + scorecard). G5 M089 host-gated. |
-| **Still open** | Owner-board near-complete Musts + shared host gates |
-| **Prior** | Archived handoffs; created dual boards (`2059e3a`) |
+| **When** | 2026-07-25 |
+| **What** | Docs hygiene: archived closed I1 reviews, completed V1–V5 plans, old scorecards, status files, and historical checkpoints under `docs/archive/2026-07-25-*`. Active map: `docs/README.md`. Scorecard regen next if wanted. |
+| **Still open** | Scorecard long-tail incomplete + host M089 |
+| **Prior** | Stage I1 offline complete both boards |

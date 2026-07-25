@@ -11,20 +11,19 @@ C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 This is the **canonical SuperAI codebase** (renamed from `SuperAI_v1`).  
 Siblings such as `SuperAI_Master` / `SuperAI_v2` are separate trees — **prefer this `SuperAI` repo for product code.**
 
-## Always resume from the taskboard + checkpoints
+## Always resume from the taskboard
 
-1. Read **latest** `docs/checkpoints/CHECKPOINT_*.md` (if any) and **`TASKBOARD.md`** (index).
-2. Then open **your owner board**:
+1. Read **`TASKBOARD.md`** (index), then **your owner board**:
    - **Grok** → `TASKBOARD_GROK.md` (learning, routing, streaming honesty, dashboard, host smoke)
    - **AGY** → `TASKBOARD_AGY.md` (spend, contracts, JSON/MCP surfaces, cost, TOP_30)
-3. Read **`docs/PROGRESS.md`** for phase % snapshot.
-4. Do **not** restart packaging or re-do **archived** waves (`docs/archive/`) unless tests fail / regression proven.
-5. Pick the highest-priority incomplete item on **your** board (`[ ]` or `[~]`).
-6. Work autonomously through the plan; **do not stop for approval** between planned items unless blocked externally (`[!]` — keys, network, cloud credentials, GitHub admin).
-7. There is **no daily resume task**; continue in-session until blocked or plan complete.
-8. After each item (or ~30–45 min): update **your** owner board Last session (and index if needed), then run:
+2. Strict scorecard: **`docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`**. Docs map: **`docs/README.md`**.
+3. Do **not** re-open **archived** docs under `docs/archive/` unless tests fail / regression proven.
+4. Pick the highest-priority incomplete item on **your** board (`[ ]` or `[~]`).
+5. Work autonomously through the plan; **do not stop for approval** between planned items unless blocked externally (`[!]` — keys, network, cloud credentials, GitHub admin).
+6. There is **no daily resume task**; continue in-session until blocked or plan complete.
+7. After each item (or ~30–45 min): update **your** owner board Last session (and index if needed), then run:
    `powershell -File scripts/checkpoint.ps1 -Label "<item-id>"`
-9. See **`docs/CHECKPOINT_PROTOCOL.md`**.
+8. See **`docs/CHECKPOINT_PROTOCOL.md`**. New checkpoints still go under `docs/checkpoints/`; historical ones are in `docs/archive/2026-07-25-checkpoints/`.
 
 ## Scope (non-negotiable)
 
@@ -38,7 +37,7 @@ Siblings such as `SuperAI_Master` / `SuperAI_v2` are separate trees — **prefer
 1. `implementation_plan_detailed.md` — exhaustive DoD / algorithms  
 2. `implementation_plan_v2.md` — consolidated blueprint  
 3. `codes.md` — reuse existing snippets before rewriting  
-4. `docs/STABILIZATION_STATUS.md` — honest status after Track A  
+4. Owner taskboard + strict scorecard (above) — current status  
 
 ## Environment
 
@@ -59,7 +58,7 @@ src/superai/
 
 Entry point: `superai = "scli.main:app"` (folders `src/cli` + `src/core`; imports `scli` + `core`)
 
-Resume from `TASKBOARD.md` → owner board (`TASKBOARD_GROK.md` / `TASKBOARD_AGY.md`). Feature backlog: `docs/FEATURE_BACKLOG.md`. Security: `docs/SECURITY_REVIEW.md`.
+Resume from `TASKBOARD.md` → owner board (`TASKBOARD_GROK.md` / `TASKBOARD_AGY.md`). Security: `docs/SECURITY_REVIEW.md`. Closed plans/reviews: `docs/archive/`.
 
 ## Rules
 
@@ -68,4 +67,4 @@ Resume from `TASKBOARD.md` → owner board (`TASKBOARD_GROK.md` / `TASKBOARD_AGY
 - Do not claim Phase 2–5 complete without tests + smoke evidence.
 - Keep marketing docs (`README`, `SUPERAI_FINAL_SUMMARY`) honest.
 - When unsure, re-read your owner TASKBOARD + Phase DoD rather than inventing new architecture.
-- Closed handoffs live under `docs/archive/` — stubs at old paths redirect only.
+- Closed handoffs/plans/scorecards live under `docs/archive/` only (not under `docs/` root).

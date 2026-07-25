@@ -8,7 +8,7 @@ STRICT completion bar (user rule):
     3) fully tested
   Otherwise INCOMPLETE.
 
-Does NOT modify docs/V1_V6_UNIFIED_SCORECARD.md (left for concurrent validation).
+Does NOT modify the archived inventory scorecard (read-only source).
 """
 
 from __future__ import annotations
@@ -18,7 +18,15 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "docs" / "V1_V6_UNIFIED_SCORECARD.md"  # read-only inventory
+# Inventory source archived 2026-07-25 (superseded by IMPROVED scorecard as the live audit target)
+SOURCE = (
+    ROOT
+    / "docs"
+    / "archive"
+    / "2026-07-25-closed-docs"
+    / "scorecards"
+    / "V1_V6_UNIFIED_SCORECARD.md"
+)
 OUT = ROOT / "docs" / "V1_V6_UNIFIED_IMPROVED_SCORECARD.md"
 
 # (code_ok, docs_ok, tests_ok) each bool — complete only if all True
@@ -430,7 +438,7 @@ def main() -> None:
         "",
         "**Generated:** 2026-07-16  ",
         f"**Total unique improvement IDs:** {total}  ",
-        "**Source inventory (read-only):** `docs/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  ",
+        "**Source inventory (read-only):** `docs/archive/2026-07-25-closed-docs/scorecards/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  ",
         "**This file:** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`  ",
         "",
         "## Strict completion rule (mandatory)",
@@ -579,7 +587,7 @@ def main() -> None:
         "python scripts/gen_v1_v6_unified_improved_scorecard.py",
         "```",
         "",
-        "- Reads `docs/V1_V6_UNIFIED_SCORECARD.md` **read-only** for ID inventory.",
+        "- Reads archived `docs/archive/.../scorecards/V1_V6_UNIFIED_SCORECARD.md` **read-only** for ID inventory.",
         "- Writes **only** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`.",
         "- Does **not** modify the file under concurrent validation.",
         "",

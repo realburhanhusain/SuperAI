@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,12 +80,16 @@ V4_COMPLETE = {
     "V4-M3", "V4-M5", "V4-M6", "V4-M7", "V4-M8",
     "V4-S1", "V4-S4", "V4-S5", "V4-S6", "V4-S7", "V4-S8", "V4-S9", "V4-S10",
     "V4-DOD-2", "V4-DOD-3",
-    # V4-M1/M2/M4/S3/DOD-1: code strong but "every path" docs/tests not exhaustive → incomplete
+    # Stage I1 AGY offline closeout (2026-07-24): spend + contracts + stream API
+    "V4-M1", "V4-M2", "V4-M4", "V4-DOD-1",
+    # V4-S3 still incomplete (continuous bandit product)
 }
 V5_COMPLETE = {
     "V5-M3",  # CancelToken — closed with M017 exhaustive wire-up
     "V5-M5", "V5-M6", "V5-M7", "V5-M8",
     "V5-S1", "V5-S2", "V5-S3", "V5-S4", "V5-S5", "V5-S6", "V5-S7", "V5-S10",
+    # Stage I1 AGY offline: middleware, MCP matrix, cost honesty
+    "V5-M1", "V5-M2", "V5-M4",
 }
 W_COMPLETE = {
     "W1",
@@ -145,8 +150,18 @@ V6_MUST_COMPLETE = {
     "M082",  # completion show/install Typer env + PowerShell Register-ArgumentCompleter
     "M017",  # cooperative cancel — cancel_token + board/council/agent/orchestrator
     "M018",  # timeouts — subprocess_safety + model_timeouts + audit_m018
-    # MOS-N6 voice: code + tests + this session (docs: MOSCOW plan N6 section)
-    # V6 N213 maps separately
+    # Stage I1 Grok G1–G4 + AGY A1–A5 offline (2026-07-24) — code+docs+tests
+    "M027",  # streaming honesty — call_stream + STREAMING.md + stream tests
+    "M050",  # bandit continuous loop + ROUTING_PREFS_BANDIT.md
+    "M061",  # promote durable + LEARNING_LIFECYCLE.md
+    "M062",  # conflict resolution product + tests
+    "M063",  # distill/deprecate + undeprecate safety
+    "M068",  # preferences bias wired ModelCaller/Router
+    "M079",  # global --json automation surface
+    "M090",  # TOP_30 offline invoke_top30_offline (help + contracts)
+    "M093",  # MCP SPEND/MUTATE/FREE + ghost/unclassified matrix
+    "M100",  # dashboard MOCK|LIVE honesty
+    # M089 remains HOST — not complete without live keys
 }
 
 # V6 Should complete (narrow, tested)
@@ -188,44 +203,40 @@ COMPLETE_IDS = (
 # Explicit incomplete notes for borderline items that were previously over-claimed as full
 STRICT_INCOMPLETE: dict[str, Triple] = {
     # Pillars may be True but pct<100 ⇒ incomplete (intent not fully production-met)
-    # M017 moved to V6_MUST_COMPLETE after cancel_token exhaustive wire-up
-    "M027": T(True, True, True, 85, "call_stream SSE + fallback", "V6 M027", "test_improvement_v4 stream", "Not all providers proven live"),
-    "M050": T(True, True, True, 80, "bandit reorder+update", "V6 M050", "bandit tests partial", "Not continuous-product UI"),
-    "M061": T(True, True, True, 85, "promote_durable", "learning docs partial", "test_foundation_complete_must", "Product UX incomplete"),
-    "M062": T(True, True, True, 85, "resolve_conflicts", "partial", "learning tests", "Conflict UI incomplete"),
-    "M063": T(True, True, True, 85, "distill+deprecate", "partial", "learning tests", "Lifecycle product incomplete"),
-    "M068": T(True, True, True, 85, "preferences.bias_candidates", "partial", "tests", "Deep routing bias not fully proven"),
-    "M079": T(True, True, True, 85, "global --json", "CLI help", "partial tests", "Not all commands emit JSON by default"),
-    # M015/M080/M081/M082 + S104/S105/S109/S112/S115 closed to complete bar 2026-07-24
-    # (removed from STRICT_INCOMPLETE — handled via V6_MUST_COMPLETE / V6_S_COMPLETE)
-    "M090": T(True, True, True, 80, "TOP_30 + contract smoke", "V6 M090", "verify_top30 offline", "Not live invocation of all 30 CLIs"),
-    "M093": T(True, True, True, 85, "mcp_safety wrap", "V6 M093", "mcp tests partial", "Full MCP tool matrix not exhaustive"),
-    "M100": T(True, True, True, 80, "dashboard honesty labels", "partial", "tests partial", "Full dashboard product incomplete"),
-    "M089": T(True, True, True, 90, "smoke harness code", "plans document host gate", "harness tests offline", "HOST: live keys required"),
-    "MOS-N8": T(True, True, True, 90, "smoke harness", "MOSCOW N8 postponed", "test_n8 no false pass", "HOST live multi-vendor"),
-    "V1-P99": T(True, True, True, 90, "smoke code", "IMPROVEMENT_PLAN Phase 99", "offline harness", "HOST live smoke"),
-    # V1-N8 completed 2026-07-16: full browse product + PLUGIN_MARKETPLACE.md + test_plugin_marketplace_n8
-    # (removed from STRICT_INCOMPLETE — handled via V1_COMPLETE)
-
-    "V4-M1": T(True, True, True, 85, "spend_guard major paths", "V4 plan", "test_improvement_v4", "Not every spend path"),
-    "V4-M2": T(True, True, True, 85, "contracts major paths", "V4 plan", "test_improvement_v4", "Not everywhere public"),
-    "V4-M4": T(True, True, True, 85, "call_stream", "V4 plan", "test stream", "Provider coverage incomplete"),
-    "V4-S3": T(True, True, True, 80, "bandit feedback", "V4 plan", "partial", "Continuous bandit incomplete"),
-    "V4-DOD-1": T(True, True, True, 85, "spend_guard sweep", "V4 DoD", "tests", "Residual thin wrappers"),
-    "V5-M1": T(True, True, True, 85, "public_api.wrap key paths", "V5 plan", "test_improvement_v5", "Not all CLI cmds"),
-    "V5-M2": T(True, True, True, 85, "MCP superai_run budget", "V5 plan", "mcp tests", "Full MCP parity matrix incomplete"),
-    # V5-M3 closed with M017 exhaustive cancel wire-up
-    "V5-M4": T(True, True, True, 90, "cost_accounting", "V5 plan", "tests", "Estimate fallbacks remain"),
-    "V1-P1-1": T(True, True, True, 85, "result_contract", "IMPROVEMENT_PLAN P1", "test_result_contract", "Not all surfaces"),
-    "V1-P1-3": T(True, True, True, 85, "budget foundation", "P1 plan", "tests", "Universal ceiling incomplete"),
-    "V1-P1-4": T(True, True, True, 85, "cost fields", "P1 plan", "tests", "Accuracy gaps"),
-    "V1-P5-2": T(True, True, True, 85, "progress + stream", "P5 plan", "tests", "True SSE all providers incomplete"),
-    "V2-A4": T(True, True, True, 85, "contracts tool/agent", "V2 plan", "sprint tests", "Universal CLI incomplete"),
-    "V2-B3": T(True, True, True, 90, "session_compact", "V2 plan", "tests", "Decision/todo edge cases"),
-    "V2-C5": T(True, True, True, 80, "agent-graph SVG", "V2/V3 plan", "tests", "HTML graph legacy partial"),
-    "V3-A4": T(True, True, True, 85, "board contracts", "V3 plan", "tests", "Not all APIs"),
-    "V3-D1": T(True, True, True, 80, "bandit pin", "V3 plan", "tests", "Continuous product incomplete"),
-    "MOS-S1": T(True, True, True, 85, "token_stream TUI", "MOSCOW S1", "test_moscow", "Real provider SSE incomplete"),
+    # Stage I1 promoted items removed from this map — see V6_MUST_COMPLETE / V4_COMPLETE / V5_COMPLETE
+    "M089": T(
+        True, True, True, 92,
+        "smoke harness + live_smoke_complete offline",
+        "host-gate docs + I1 reviews (archive)",
+        "test_grok_i1_residuals (never false live pass)",
+        "HOST: run allow_live matrix with real keys",
+    ),
+    "MOS-N8": T(
+        True, True, True, 90,
+        "smoke harness",
+        "MOSCOW N8 postponed (archive plan)",
+        "test_n8 no false pass",
+        "HOST live multi-vendor",
+    ),
+    "V1-P99": T(
+        True, True, True, 90,
+        "smoke code",
+        "IMPROVEMENT_PLAN Phase 99 (archive)",
+        "offline harness",
+        "HOST live smoke",
+    ),
+    # Residual incomplete (not closed by I1)
+    "V4-S3": T(True, True, True, 80, "bandit feedback", "V4 plan (archive)", "partial", "Continuous bandit incomplete"),
+    "V1-P1-1": T(True, True, True, 85, "result_contract", "IMPROVEMENT_PLAN P1 (archive)", "test_result_contract", "Not all surfaces"),
+    "V1-P1-3": T(True, True, True, 85, "budget foundation", "P1 plan (archive)", "tests", "Universal ceiling incomplete"),
+    "V1-P1-4": T(True, True, True, 85, "cost fields", "P1 plan (archive)", "tests", "Accuracy gaps"),
+    "V1-P5-2": T(True, True, True, 85, "progress + stream", "P5 plan (archive)", "tests", "True SSE all providers incomplete"),
+    "V2-A4": T(True, True, True, 85, "contracts tool/agent", "V2 plan (archive)", "sprint tests", "Universal CLI incomplete"),
+    "V2-B3": T(True, True, True, 90, "session_compact", "V2 plan (archive)", "tests", "Decision/todo edge cases"),
+    "V2-C5": T(True, True, True, 80, "agent-graph SVG", "V2/V3 plan (archive)", "tests", "HTML graph legacy partial"),
+    "V3-A4": T(True, True, True, 85, "board contracts", "V3 plan (archive)", "tests", "Not all APIs"),
+    "V3-D1": T(True, True, True, 80, "bandit pin", "V3 plan (archive)", "tests", "Continuous product incomplete"),
+    "MOS-S1": T(True, True, True, 85, "token_stream TUI", "MOSCOW S1 (archive)", "test_moscow", "Real provider SSE incomplete"),
 }
 
 
@@ -344,8 +355,50 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
                 "tests/test_tui_process_native_n208_n215.py + "
                 "tests/test_tui_polish_conpty_atspi_restore.py"
             )
+        elif iid == "M027":
+            docs_note = "docs/STREAMING.md provider matrix"
+            tests_note = "tests/test_stream_dashboard_g3_g4.py"
+        elif iid in {"M061", "M062", "M063"}:
+            docs_note = "docs/LEARNING_LIFECYCLE.md"
+            tests_note = "tests/test_learning_lifecycle_m061_m063.py + tests/test_grok_i1_residuals.py"
+        elif iid in {"M050", "M068"}:
+            docs_note = "docs/ROUTING_PREFS_BANDIT.md"
+            tests_note = "tests/test_routing_prefs_bandit_g2.py"
+        elif iid == "M079":
+            docs_note = "docs/CLI_MIDDLEWARE_INVENTORY.md"
+            tests_note = "tests/test_cli_middleware.py + tests/test_top30_invoke.py"
+        elif iid == "M090":
+            docs_note = "docs/PUBLIC_CONTRACTS_INVENTORY.md + V6 M090"
+            tests_note = "tests/test_top30_invoke.py (invoke_top30_offline 30/30)"
+        elif iid == "M093":
+            docs_note = "docs/FOUNDATION_SAFETY.md + MCP SPEND/MUTATE/FREE matrix"
+            tests_note = "tests/test_mcp_server.py + tests/test_agy_i1_residuals.py"
+        elif iid == "M100":
+            docs_note = "dashboard/status honesty labels (MOCK|LIVE)"
+            tests_note = "tests/test_stream_dashboard_g3_g4.py"
+        elif iid in {"V4-M1", "V4-DOD-1", "V5-M1"}:
+            docs_note = "docs/FOUNDATION_SAFETY.md + CLI_MIDDLEWARE_INVENTORY.md"
+            tests_note = "tests/test_spend_path_assertions.py + tests/test_cli_middleware.py"
+        elif iid in {"V4-M2", "M090"}:
+            docs_note = "docs/PUBLIC_CONTRACTS_INVENTORY.md"
+            tests_note = "tests/test_top30_invoke.py + result_contract tests"
+        elif iid == "V4-M4":
+            docs_note = "docs/STREAMING.md"
+            tests_note = "tests/test_stream_dashboard_g3_g4.py"
+        elif iid == "V5-M2":
+            docs_note = "MCP safety matrix (SPEND/MUTATE/FREE)"
+            tests_note = "tests/test_agy_i1_residuals.py + mcp tests"
+        elif iid == "V5-M4":
+            docs_note = "docs/COST_ACCOUNTING.md"
+            tests_note = "cost + board_preflight estimate_call tests"
         elif iid.startswith("V1") or iid.startswith("V2") or iid.startswith("V3"):
-            docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs"
+            docs_note = "IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)"
+        elif iid.startswith("V4"):
+            docs_note = "IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY"
+        elif iid.startswith("V5"):
+            docs_note = "IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY"
+        elif iid.startswith("MOS-") or iid.startswith("W"):
+            docs_note = "MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)"
         return "complete", T(
             True, True, True, 100,
             f"Production-usable implementation for: {title}",
@@ -436,10 +489,11 @@ def main() -> None:
     lines = [
         "# SuperAI V1–V6 Unified IMPROVED Scorecard (strict bar)",
         "",
-        "**Generated:** 2026-07-16  ",
+        f"**Generated:** {date.today().isoformat()}  ",
         f"**Total unique improvement IDs:** {total}  ",
         "**Source inventory (read-only):** `docs/archive/2026-07-25-closed-docs/scorecards/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  ",
         "**This file:** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`  ",
+        "**Regen:** `python scripts/gen_v1_v6_unified_improved_scorecard.py`  ",
         "",
         "## Strict completion rule (mandatory)",
         "",
@@ -475,9 +529,11 @@ def main() -> None:
         "",
         "### Note for validators",
         "",
-        "- Do **not** treat the older `V1_V6_UNIFIED_SCORECARD.md` full@100% rows as complete under this bar.",
+        "- Do **not** treat the older archived `V1_V6_UNIFIED_SCORECARD.md` full@100% rows as complete under this bar.",
+        "- Stage **I1** offline closeout (2026-07-24): Grok G1–G4 + AGY A1–A5 Musts promoted only with code+docs+tests evidence.",
         "- MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.",
         "- M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).",
+        "- Host-gated: **M089**, **MOS-N8**, **V1-P99** remain incomplete until live keys.",
         "",
         "---",
         "",

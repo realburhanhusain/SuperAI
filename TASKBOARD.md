@@ -73,6 +73,6 @@ Old top-level paths were removed after archive — use the folders above (or git
 | Field | Value |
 |-------|--------|
 | **When** | 2026-07-25 |
-| **What** | Docs hygiene: archived closed I1 reviews, completed V1–V5 plans, old scorecards, status files, and historical checkpoints under `docs/archive/2026-07-25-*`. Active map: `docs/README.md`. Scorecard regen next if wanted. |
-| **Still open** | Scorecard long-tail incomplete + host M089 |
-| **Prior** | Stage I1 offline complete both boards |
+| **What** | Regenerated strict scorecard (`gen_v1_v6_unified_improved_scorecard.py`): **266 complete / 249 incomplete / 3 host / 15 refuse** (533 IDs). I1 offline Musts wired into generator COMPLETE sets. |
+| **Still open** | Incomplete long-tail + host M089 / MOS-N8 / V1-P99 |
+| **Prior** | Docs archive hygiene (`33783e3`) |

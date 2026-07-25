@@ -1,9 +1,10 @@
 # SuperAI V1–V6 Unified IMPROVED Scorecard (strict bar)
 
-**Generated:** 2026-07-16  
+**Generated:** 2026-07-25  
 **Total unique improvement IDs:** 533  
-**Source inventory (read-only):** `docs/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  
+**Source inventory (read-only):** `docs/archive/2026-07-25-closed-docs/scorecards/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  
 **This file:** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`  
+**Regen:** `python scripts/gen_v1_v6_unified_improved_scorecard.py`  
 
 ## Strict completion rule (mandatory)
 
@@ -25,27 +26,29 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **249** |
-| **INCOMPLETE** | **266** |
+| **COMPLETE (production + docs + tests)** | **266** |
+| **INCOMPLETE** | **249** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **48.1%**
-- **Average percent (incomplete only):** **28.3%**
-- **Average percent (all non-refuse):** **63.1%**
+- **Strict completion rate (complete / (total − refuse)):** **51.4%**
+- **Average percent (incomplete only):** **24.4%**
+- **Average percent (all non-refuse):** **63.6%**
 
 ### Note for validators
 
-- Do **not** treat the older `V1_V6_UNIFIED_SCORECARD.md` full@100% rows as complete under this bar.
+- Do **not** treat the older archived `V1_V6_UNIFIED_SCORECARD.md` full@100% rows as complete under this bar.
+- Stage **I1** offline closeout (2026-07-24): Grok G1–G4 + AGY A1–A5 Musts promoted only with code+docs+tests evidence.
 - MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.
 - M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).
+- Host-gated: **M089**, **MOS-N8**, **V1-P99** remain incomplete until live keys.
 
 ---
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 249
+**Count:** 266
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -307,6 +310,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M027 — Real token streaming where supported
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Real token streaming where supported
+- **Documentation (thorough):** YES — docs/STREAMING.md provider matrix
+- **Tests (full):** YES — tests/test_stream_dashboard_g3_g4.py
+- **Still incomplete:** —
+
 ### M028 — Context packing under hard token budget
 
 - **Track:** V6
@@ -527,6 +540,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M050 — Bandit / learned routing from outcomes
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Bandit / learned routing from outcomes
+- **Documentation (thorough):** YES — docs/ROUTING_PREFS_BANDIT.md
+- **Tests (full):** YES — tests/test_routing_prefs_bandit_g2.py
+- **Still incomplete:** —
+
 ### M051 — Bakeoff with report + pin winner
 
 - **Track:** V6
@@ -627,6 +650,36 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M061 — Learning: promote durable patterns only
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Learning: promote durable patterns only
+- **Documentation (thorough):** YES — docs/LEARNING_LIFECYCLE.md
+- **Tests (full):** YES — tests/test_learning_lifecycle_m061_m063.py + tests/test_grok_i1_residuals.py
+- **Still incomplete:** —
+
+### M062 — Conflict resolution for contradictory memories
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Conflict resolution for contradictory memories
+- **Documentation (thorough):** YES — docs/LEARNING_LIFECYCLE.md
+- **Tests (full):** YES — tests/test_learning_lifecycle_m061_m063.py + tests/test_grok_i1_residuals.py
+- **Still incomplete:** —
+
+### M063 — Distill / deprecate redundant memories
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Distill / deprecate redundant memories
+- **Documentation (thorough):** YES — docs/LEARNING_LIFECYCLE.md
+- **Tests (full):** YES — tests/test_learning_lifecycle_m061_m063.py + tests/test_grok_i1_residuals.py
+- **Still incomplete:** —
+
 ### M064 — Wings/rooms navigation
 
 - **Track:** V6
@@ -665,6 +718,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: Run history searchable by task/cost/model
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M068 — Preferences that bias routing
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Preferences that bias routing
+- **Documentation (thorough):** YES — docs/ROUTING_PREFS_BANDIT.md
+- **Tests (full):** YES — tests/test_routing_prefs_bandit_g2.py
 - **Still incomplete:** —
 
 ### M069 — Skills library (reusable playbooks)
@@ -767,6 +830,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M079 — JSON output mode for automation
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: JSON output mode for automation
+- **Documentation (thorough):** YES — docs/CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_cli_middleware.py + tests/test_top30_invoke.py
+- **Still incomplete:** —
+
 ### M080 — Trustworthy process exit codes
 
 - **Track:** V6
@@ -857,6 +930,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M090 — Contract tests on top 30 commands
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Contract tests on top 30 commands
+- **Documentation (thorough):** YES — docs/PUBLIC_CONTRACTS_INVENTORY.md + V6 M090
+- **Tests (full):** YES — tests/test_top30_invoke.py (invoke_top30_offline 30/30)
+- **Still incomplete:** —
+
 ### M092 — Deterministic mock fixtures for CI
 
 - **Track:** V6
@@ -865,6 +948,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: Deterministic mock fixtures for CI
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M093 — MCP parity with CLI safety rules
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: MCP parity with CLI safety rules
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + MCP SPEND/MUTATE/FREE matrix
+- **Tests (full):** YES — tests/test_mcp_server.py + tests/test_agy_i1_residuals.py
 - **Still incomplete:** —
 
 ### M094 — Web API auth for non-loopback
@@ -927,13 +1020,23 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M100 — Honest dashboard: mock vs live
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Honest dashboard: mock vs live
+- **Documentation (thorough):** YES — dashboard/status honesty labels (MOCK|LIVE)
+- **Tests (full):** YES — tests/test_stream_dashboard_g3_g4.py
+- **Still incomplete:** —
+
 ### MOS-M1 — Must M1 — Model tool protocol
 
 - **Track:** V1-V5
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M1 — Model tool protocol
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -943,7 +1046,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M2 — Failover + fail-closed
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -953,7 +1056,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M3 — Cost on workers
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -963,7 +1066,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M4 — Tenant R/W everywhere memory
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -973,7 +1076,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M5 — Diff check/apply
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -983,7 +1086,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M6 — Contract on all major public APIs
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -993,7 +1096,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M7 — Goals execute safe
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1003,7 +1106,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Must M8 — pytest -m unit
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1013,7 +1116,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Nice N1 — Richer agent TUI (panels, /diff confirm)
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1023,7 +1126,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Nice N2 — Assistant daemon tick + schedule goals
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1033,7 +1136,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Nice N3 — Worktree subagent runner
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1043,7 +1146,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Nice N4 — Bakeoff report file + eval hook
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1053,7 +1156,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Nice N5 — Plugin catalog verify-sha default path
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1063,7 +1166,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Nice N6 — Voice hooks in agent-tui
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1073,7 +1176,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Nice N7 — Team palace export/import by tenant
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1083,7 +1186,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S10 — Windows path_which tests
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1093,7 +1196,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S2 — Live vision call path
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1103,7 +1206,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S3 — Semantic board cache
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1113,7 +1216,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S4 — Worker diversity 1 premium + N cheap
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1123,7 +1226,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S5 — Bakeoff bandit pin
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1133,7 +1236,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S6 — Graph SVG UI
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1143,7 +1246,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S7 — Shared ask session MCP/TUI
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1153,7 +1256,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S8 — Side-effect audit
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1163,7 +1266,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Should S9 — NL for goals/bakeoff/agent-tui/profile
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1653,7 +1756,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N1 — Agent TUI
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1663,7 +1766,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N2 — Personal assistant goals
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1673,7 +1776,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N3 — Multimodal images
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1683,7 +1786,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N4 — Run/subagent graph API
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1693,7 +1796,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N5 — OpenRouter model refresh
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1703,7 +1806,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N6 — Model bake-off
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1713,7 +1816,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 8 N7 — Palace tenant
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1733,7 +1836,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 0 — Planning (IMPROVEMENT_PLAN, TASKBOARD, handoff)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1743,7 +1846,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 1 — Mock/dry_run honesty (never false live success)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1753,7 +1856,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 2 — Default agent / front-door entry
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1763,7 +1866,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 2 — Permission modes (plan/ask/auto/yolo)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1773,7 +1876,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 2 — Multi-turn ask session
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1783,7 +1886,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 3 — Registry validation
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1793,7 +1896,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 3 — Run profiles (cheap/balanced/quality/local-only)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1803,7 +1906,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 3 — Cost report / status spend visibility
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1813,7 +1916,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 4 — Prefer open-weight/local failover
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1823,7 +1926,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 4 — Smart board member sizing
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1833,7 +1936,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 4 — Board result cache
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1843,7 +1946,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 5 — In-process Read/Edit/Bash tools (workspace jail)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1853,7 +1956,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 5 — Provider health UX (circuit column)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1863,7 +1966,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 6 — Auto Ollama discover (opt-in)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1873,7 +1976,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 6 — NL intent map expand
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1883,7 +1986,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 6 — Windows PATH / CLI resolve hardening
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1893,7 +1996,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Phase 7 — Docs closeout
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1903,7 +2006,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint A — Tools in TUI (/tool read|grep|…)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1913,7 +2016,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint A — Git diff propose + dry-apply
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1923,7 +2026,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint A — Fail-closed readiness
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1933,7 +2036,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint B — Cost router shrink boards under budget
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1943,7 +2046,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint B — Goals execute
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1953,7 +2056,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint B — Tenant filter on memory
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1963,7 +2066,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Parallel multi-CLI board opinions
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1973,7 +2076,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Cache key normalize
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1983,7 +2086,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Vision message helpers
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -1993,7 +2096,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Bakeoff pin winner
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2003,7 +2106,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Permissions on goals notify
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2013,7 +2116,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint D — OpenRouter refresh schedule
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2023,7 +2126,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint D — NL profile / yolo directives
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2033,7 +2136,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint D — PATH / which tests
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2043,7 +2146,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint A — Tool protocol (JSON tool_call)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2053,7 +2156,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint A — Failover ordered multi-model try
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2063,7 +2166,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint A — Better diff check
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2073,7 +2176,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint B — Cost on workers/run
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2083,7 +2186,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint B — Tenant write-back everywhere memory
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2093,7 +2196,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint B — Goals execute safety (caps, no yolo)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2103,7 +2206,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint B — pytest -m unit marker suite
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2113,7 +2216,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Parallel board (prior + harden)
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2123,7 +2226,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Vision helpers deepen
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2133,7 +2236,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Graph SVG
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2143,7 +2246,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint C — Side-effect audit
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2153,7 +2256,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint D — NL hooks expansion
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2163,8 +2266,18 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Sprint D — Unit suite expansion / tests
-- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs
+- **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### V4-DOD-1 — DoD-strict — spend_guard on council/bakeoff/compare/HTTP
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: DoD-strict — spend_guard on council/bakeoff/compare/HTTP
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_spend_path_assertions.py + tests/test_cli_middleware.py
 - **Still incomplete:** —
 
 ### V4-DOD-2 — DoD-strict — front door CLI (interactive + do)
@@ -2173,7 +2286,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: DoD-strict — front door CLI (interactive + do)
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2183,8 +2296,28 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: DoD-strict — stream empty-success fallback
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### V4-M1 — M1 — Budget on all spend paths
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M1 — Budget on all spend paths
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_spend_path_assertions.py + tests/test_cli_middleware.py
+- **Still incomplete:** —
+
+### V4-M2 — M2 — Result contract everywhere public
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M2 — Result contract everywhere public
+- **Documentation (thorough):** YES — docs/PUBLIC_CONTRACTS_INVENTORY.md
+- **Tests (full):** YES — tests/test_top30_invoke.py + result_contract tests
 - **Still incomplete:** —
 
 ### V4-M3 — M3 — Fail-closed readiness before live agent
@@ -2193,8 +2326,18 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M3 — Fail-closed readiness before live agent
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### V4-M4 — M4 — Provider stream API path
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M4 — Provider stream API path
+- **Documentation (thorough):** YES — docs/STREAMING.md
+- **Tests (full):** YES — tests/test_stream_dashboard_g3_g4.py
 - **Still incomplete:** —
 
 ### V4-M5 — M5 — Tool result cache (path+mtime)
@@ -2203,7 +2346,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M5 — Tool result cache (path+mtime)
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2213,7 +2356,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M6 — Cheap-first step types
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2223,7 +2366,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M7 — Unified run trail
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2233,7 +2376,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M8 — Safety/money regression suite
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2243,7 +2386,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S1 — Complexity → member count
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2253,7 +2396,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S10 — Change-set apply/reject
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2263,7 +2406,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S4 — Timeout / partial status
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2273,7 +2416,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S5 — Front-door policy map
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2283,7 +2426,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S6 — Local-first escalate
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2293,7 +2436,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S7 — Context pack token budget
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2303,7 +2446,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S8 — Parallel independent tools
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2313,8 +2456,28 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S9 — superai status --cost
-- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### V5-M1 — M1 — CLI/public spend middleware
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M1 — CLI/public spend middleware
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_spend_path_assertions.py + tests/test_cli_middleware.py
+- **Still incomplete:** —
+
+### V5-M2 — M2 — MCP spend parity
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M2 — MCP spend parity
+- **Documentation (thorough):** YES — MCP safety matrix (SPEND/MUTATE/FREE)
+- **Tests (full):** YES — tests/test_agy_i1_residuals.py + mcp tests
 - **Still incomplete:** —
 
 ### V5-M3 — M3 — Cooperative cancel (CancelToken)
@@ -2323,8 +2486,18 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M3 — Cooperative cancel (CancelToken)
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### V5-M4 — M4 — Accurate cost from registry
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M4 — Accurate cost from registry
+- **Documentation (thorough):** YES — docs/COST_ACCOUNTING.md
+- **Tests (full):** YES — cost + board_preflight estimate_call tests
 - **Still incomplete:** —
 
 ### V5-M5 — M5 — Error taxonomy
@@ -2333,7 +2506,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M5 — Error taxonomy
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2343,7 +2516,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M6 — Idempotent writes
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2353,7 +2526,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M7 — Security regression pack
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2363,7 +2536,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: M8 — Golden offline eval
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2373,7 +2546,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S1 — Cross-session result cache
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2383,7 +2556,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S10 — Progress snapshot
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2393,7 +2566,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S2 — Adaptive escalate
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2403,7 +2576,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S3 — Run explain (explain-run)
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2413,7 +2586,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S4 — Smarter memory inject cap
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2423,7 +2596,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S5 — Profile auto-suggest
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2433,7 +2606,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S6 — Front-door confidence
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2443,7 +2616,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: S7 — Board early-exit consensus
-- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md
+- **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2453,7 +2626,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: SuperAI multi-agent package (superai_agent)
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2463,7 +2636,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Session export markdown
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2473,7 +2646,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Session list + resume
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2483,7 +2656,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Undo last turn
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2493,7 +2666,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Cost/token session totals
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2503,7 +2676,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Command palette + aliases
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2513,7 +2686,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Multi-line paste mode
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2533,7 +2706,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Complete?** **YES**
 - **Percent:** **100%**
 - **Code (production-ready):** YES — Production-usable implementation for: Smoke preflight checklist
-- **Documentation (thorough):** YES — MOSCOW_100_PLAN.md / NOT_IMPORTANT_PLAN.md
+- **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
@@ -2541,7 +2714,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 266
+**Count:** 249
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2552,115 +2725,11 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **90%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — session_compact
-- **Thorough documentation?** YES — V2 plan
+- **Thorough documentation?** YES — V2 plan (archive)
 - **Fully tested?** YES — tests
 - **Fully implemented:** session_compact
 - **Partially implemented:** —
 - **Still incomplete:** Decision/todo edge cases
-
-### V5-M4 — M4 — Accurate cost from registry
-
-- **Track:** V1-V5
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — cost_accounting + board_preflight estimate_call
-- **Thorough documentation?** YES — COST_ACCOUNTING + estimate_source fields
-- **Fully tested?** YES — cost + board preflight
-- **Fully implemented:** registry rates, estimate_call preflight, estimate_source/cost_source
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M027 — Real token streaming where supported
-
-- **Track:** V6
-- **Complete?** **YES** (offline)
-- **Percent:** **100%** offline · live SSE host-optional
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — call_stream SSE + mock_chunked + chunked_fallback + fallback_reason
-- **Thorough documentation?** YES — docs/STREAMING.md provider matrix
-- **Fully tested?** YES — test_stream_dashboard_g3_g4 + test_m079_m027_m093
-- **Fully implemented:** call_stream + stream_capabilities matrix + supports_stream
-- **Partially implemented:** —
-- **Still incomplete:** Live multi-provider SSE proof optional (M089 host)
-
-### M061 — Learning: promote durable patterns only
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — promote dry-run + in-place durable + candidate preview
-- **Thorough documentation?** YES — docs/LEARNING_LIFECYCLE.md
-- **Fully tested?** YES — test_learning_lifecycle_m061_m063
-- **Fully implemented:** promote_durable(dry_run), CLI --dry-run, id-not-found honesty
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M062 — Conflict resolution for contradictory memories
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Conflict UI samples + score factors + --keep
-- **Thorough documentation?** YES — Conflict UI section LEARNING_LIFECYCLE.md
-- **Fully tested?** YES — list-only, never-delete, keep override
-- **Fully implemented:** detect samples, resolve_conflicts(keep_memory_id)
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M063 — Distill / deprecate redundant memories
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — distill dry-run + threshold + undeprecate
-- **Thorough documentation?** YES — full operator loop + undeprecate story
-- **Fully tested?** YES — dry-run, product loop, no delete
-- **Fully implemented:** distill_knowledge(dry_run), undeprecate_memory, CLI flags
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M068 — Preferences that bias routing
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — bias_candidates wired into ModelCaller + ModelRouter
-- **Thorough documentation?** YES — docs/ROUTING_PREFS_BANDIT.md
-- **Fully tested?** YES — test_routing_prefs_bandit_g2
-- **Fully implemented:** prefs→bandit pipeline, pref sticky/cheap CLI
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M079 — JSON output mode for automation
-
-- **Track:** V6
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — global --json + status/doctor/learning --json
-- **Thorough documentation?** YES — CLI_MIDDLEWARE + public surface
-- **Fully tested?** YES — m079 + top30 offline
-- **Fully implemented:** emit_public/render_public JSON surface
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M093 — MCP parity with CLI safety rules
-
-- **Track:** V6
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — SPEND/MUTATE/FREE + ghost/unclassified gate
-- **Thorough documentation?** YES — V6 M093 + matrix
-- **Fully tested?** YES — mcp + residual matrix tests
-- **Fully implemented:** safety_matrix ok requires full classification
-- **Partially implemented:** —
-- **Still incomplete:** —
 
 ### MOS-S1 — Should S1 — Token streaming in agent-tui
 
@@ -2669,7 +2738,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **85%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — token_stream TUI
-- **Thorough documentation?** YES — MOSCOW S1
+- **Thorough documentation?** YES — MOSCOW S1 (archive)
 - **Fully tested?** YES — test_moscow
 - **Fully implemented:** token_stream TUI
 - **Partially implemented:** —
@@ -2682,7 +2751,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **85%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — result_contract
-- **Thorough documentation?** YES — IMPROVEMENT_PLAN P1
+- **Thorough documentation?** YES — IMPROVEMENT_PLAN P1 (archive)
 - **Fully tested?** YES — test_result_contract
 - **Fully implemented:** result_contract
 - **Partially implemented:** —
@@ -2695,7 +2764,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **85%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — budget foundation
-- **Thorough documentation?** YES — P1 plan
+- **Thorough documentation?** YES — P1 plan (archive)
 - **Fully tested?** YES — tests
 - **Fully implemented:** budget foundation
 - **Partially implemented:** —
@@ -2708,7 +2777,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **85%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — cost fields
-- **Thorough documentation?** YES — P1 plan
+- **Thorough documentation?** YES — P1 plan (archive)
 - **Fully tested?** YES — tests
 - **Fully implemented:** cost fields
 - **Partially implemented:** —
@@ -2721,7 +2790,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **85%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — progress + stream
-- **Thorough documentation?** YES — P5 plan
+- **Thorough documentation?** YES — P5 plan (archive)
 - **Fully tested?** YES — tests
 - **Fully implemented:** progress + stream
 - **Partially implemented:** —
@@ -2734,7 +2803,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **85%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — contracts tool/agent
-- **Thorough documentation?** YES — V2 plan
+- **Thorough documentation?** YES — V2 plan (archive)
 - **Fully tested?** YES — sprint tests
 - **Fully implemented:** contracts tool/agent
 - **Partially implemented:** —
@@ -2747,128 +2816,11 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **85%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — board contracts
-- **Thorough documentation?** YES — V3 plan
+- **Thorough documentation?** YES — V3 plan (archive)
 - **Fully tested?** YES — tests
 - **Fully implemented:** board contracts
 - **Partially implemented:** —
 - **Still incomplete:** Not all APIs
-
-### V4-DOD-1 — DoD-strict — spend_guard on council/bakeoff/compare/HTTP
-
-- **Track:** V1-V5
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — council/bakeoff/compare/web + thin wrappers
-- **Thorough documentation?** YES — FOUNDATION_SAFETY + CLI inventory
-- **Fully tested?** YES — spend path assertion suite
-- **Fully implemented:** command_name prechecks on public boards/HTTP/wrappers
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### V4-M1 — M1 — Budget on all spend paths
-
-- **Track:** V1-V5
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — stream pre_call + fail-closed + wrappers
-- **Thorough documentation?** YES — FOUNDATION_SAFETY spend inventory
-- **Fully tested?** YES — residual + spend path tests
-- **Fully implemented:** public spend graph gated
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### V4-M2 — M2 — Result contract everywhere public
-
-- **Track:** V1-V5
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — ensure_public_result + TOP_30 offline contracts
-- **Thorough documentation?** YES — PUBLIC_CONTRACTS_INVENTORY.md
-- **Fully tested?** YES — result_contract + invoke_top30_offline
-- **Fully implemented:** public contract inventory + offline enforcement
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### V4-M4 — M4 — Provider stream API path
-
-- **Track:** V1-V5
-- **Complete?** **YES** (offline API completeness)
-- **Percent:** **100%** offline · live host-optional
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — call_stream all kinds + supports_stream + fallback_reason
-- **Thorough documentation?** YES — docs/STREAMING.md + V4 plan
-- **Fully tested?** YES — stream matrix + fallback fixture
-- **Fully implemented:** call_stream public path + capability matrix
-- **Partially implemented:** —
-- **Still incomplete:** Live SSE multi-provider optional
-
-### V5-M1 — M1 — CLI/public spend middleware
-
-- **Track:** V1-V5
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — budget_gate + CLI inventory + wrappers
-- **Thorough documentation?** YES — CLI_MIDDLEWARE_INVENTORY.md
-- **Fully tested?** YES — test_cli_middleware
-- **Fully implemented:** SPEND/MUTATING/FREE classification + precheck wiring
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### V5-M2 — M2 — MCP spend parity
-
-- **Track:** V1-V5
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — wrap_mcp_tool + full classification matrix
-- **Thorough documentation?** YES — V5 plan + matrix message
-- **Fully tested?** YES — mcp residual matrix
-- **Fully implemented:** no ghosts/unclassified; live mcp command_name
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M050 — Bandit / learned routing from outcomes
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — post_call update + select + status UI
-- **Thorough documentation?** YES — docs/ROUTING_PREFS_BANDIT.md
-- **Fully tested?** YES — test_routing_prefs_bandit_g2 + bandit router tests
-- **Fully implemented:** continuous loop, bandit status table, route_candidates
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M090 — Contract tests on top 30 commands
-
-- **Track:** V6
-- **Complete?** **YES** (offline)
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — invoke_top30_offline help+contract
-- **Thorough documentation?** YES — V6 M090 + PUBLIC_CONTRACTS
-- **Fully tested?** YES — test_top30_invoke (30/30 help + contracts)
-- **Fully implemented:** CliRunner --help all TOP_30 + contract samples
-- **Partially implemented:** —
-- **Still incomplete:** —
-
-### M100 — Honest dashboard: mock vs live
-
-- **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — snapshot always MOCK|LIVE + spend + banner
-- **Thorough documentation?** YES — status/dashboard honesty labels
-- **Fully tested?** YES — test_stream_dashboard_g3_g4
-- **Fully implemented:** build_dashboard_snapshot honesty, status banner, dashboard panels
-- **Partially implemented:** —
-- **Still incomplete:** —
 
 ### V2-C5 — Sprint C — Graph HTML UI
 
@@ -2877,7 +2829,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **80%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — agent-graph SVG
-- **Thorough documentation?** YES — V2/V3 plan
+- **Thorough documentation?** YES — V2/V3 plan (archive)
 - **Fully tested?** YES — tests
 - **Fully implemented:** agent-graph SVG
 - **Partially implemented:** —
@@ -2890,7 +2842,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **80%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — bandit pin
-- **Thorough documentation?** YES — V3 plan
+- **Thorough documentation?** YES — V3 plan (archive)
 - **Fully tested?** YES — tests
 - **Fully implemented:** bandit pin
 - **Partially implemented:** —
@@ -2903,7 +2855,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Percent:** **80%**
 - **Heuristic bucket:** `foundation`
 - **Code production-ready?** YES — bandit feedback
-- **Thorough documentation?** YES — V4 plan
+- **Thorough documentation?** YES — V4 plan (archive)
 - **Fully tested?** YES — partial
 - **Fully implemented:** bandit feedback
 - **Partially implemented:** —
@@ -6012,12 +5964,12 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### M089 — Live multi-provider smoke matrix (host keys)
 
 - **Track:** V6
-- **Complete?** **NO** (host/live required for full matrix)
-- **Percent:** **92%** offline code · host live not proven
-- **Code:** YES — harness + budget `live-smoke` + offline stream sample (`live_smoke_complete`)
-- **Docs:** YES — grok_work_review_result_I1_v1 + host gate honesty
+- **Complete?** **NO** (host/live required)
+- **Percent:** **92%** (capped; live not proven)
+- **Code:** YES — smoke harness + live_smoke_complete offline
+- **Docs:** YES — host-gate docs + I1 reviews (archive)
 - **Tests (offline):** YES — test_grok_i1_residuals (never false live pass)
-- **Still incomplete:** HOST: run allow_live matrix with real keys; then promote
+- **Still incomplete:** HOST: run allow_live matrix with real keys
 
 ### MOS-N8 — Nice N8 — Live multi-vendor smoke
 
@@ -6025,7 +5977,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Complete?** **NO** (host/live required)
 - **Percent:** **90%** (capped; live not proven)
 - **Code:** YES — smoke harness
-- **Docs:** YES — MOSCOW N8 postponed
+- **Docs:** YES — MOSCOW N8 postponed (archive plan)
 - **Tests (offline):** YES — test_n8 no false pass
 - **Still incomplete:** HOST live multi-vendor
 
@@ -6035,7 +5987,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Complete?** **NO** (host/live required)
 - **Percent:** **90%** (capped; live not proven)
 - **Code:** YES — smoke code
-- **Docs:** YES — IMPROVEMENT_PLAN Phase 99
+- **Docs:** YES — IMPROVEMENT_PLAN Phase 99 (archive)
 - **Tests (offline):** YES — offline harness
 - **Still incomplete:** HOST live smoke
 
@@ -6173,7 +6125,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 python scripts/gen_v1_v6_unified_improved_scorecard.py
 ```
 
-- Reads `docs/V1_V6_UNIFIED_SCORECARD.md` **read-only** for ID inventory.
+- Reads archived `docs/archive/.../scorecards/V1_V6_UNIFIED_SCORECARD.md` **read-only** for ID inventory.
 - Writes **only** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`.
 - Does **not** modify the file under concurrent validation.
 

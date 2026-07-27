@@ -77,7 +77,7 @@ if learnings_text.strip():
 A write-access probe had left two commits on `master` (`649788b` added `.superai-write-probe`, `2361153` removed it). Tree content was byte-identical to `21ecb8c`, so no code was ever affected — but the history was untidy.
 
 - [x] `master` rewound to `21ecb8c` and the review docs re-committed as a single clean commit, `e93eb75`
-- [x] PR #1 branch rebased onto the new `master` — head `6604ca5`, still 5 commits / 5 files / +238−290 in substance unchanged
+- [x] PR #1 branch rebased onto the new `master` — head `6604ca5`, substance unchanged at 5 commits / 5 files / +238 −90
 - [x] Probe commits no longer exist in history
 - [ ] **Confirm branch protection on `master` was re-enabled** after the force-push — the rule blocking force-pushes had to be temporarily disabled to do this
 

@@ -12,6 +12,7 @@ Gap close (dynamic adaptation):
   - Mid-run budget check
   - Structured metadata.degraded for soft-fail optional components
   - Thread-safe context / cost accumulation under parallel batches
+  - Retrieved memory / skills / step output delimited as untrusted data
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ from .hitl import HITLStore
 from .step_cache import StepResultCache
 from .task_planner import ExecutionStep, TaskPlanner
 from .task_result import TaskResult
+from .untrusted_data import wrap_untrusted_block
 
 console = Console()
 logger = get_logger("superai.orchestrator")
@@ -1611,6 +1613,16 @@ class SuperAIOrchestrator:
         task: str,
         run_state: Dict[str, Any],
     ) -> str:
+        """
+        Assemble the per-step prompt.
+
+        Trust boundary: everything appended here except the step description, the
+        constitution, and the overall-task framing is *retrieved* content and is
+        therefore attacker-reachable. Retrieved memory, skills, and prior step
+        output are wrapped in explicit data envelopes by
+        ``untrusted_data.wrap_untrusted_block`` so they cannot be read as
+        instructions. Do not append retrieved content here as bare text.
+        """
         with self._exec_lock:
             skill_block = run_state.get("skill_prompt_block") or ""
             relevant = dict(run_state.get("relevant_context") or {})
@@ -1625,7 +1637,13 @@ class SuperAIOrchestrator:
             except Exception as e:  # noqa: BLE001
                 logger.debug("constitution inject failed: %s", e)
         if skill_block:
-            prompt_parts.append(f"\n{skill_block}")
+            # Skills are auto-derived from the learning store
+            # (create_skills_from_learnings), so they share memory's trust
+            # problem. They are meant to guide approach, so they are marked
+            # non-authoritative rather than data-only.
+            prompt_parts.append(
+                wrap_untrusted_block(skill_block, source="skills", strict=False)
+            )
         if relevant.get("relevant_learnings"):
             learnings_text = "\n".join(
                 f"- {l.get('content')}"
@@ -1634,7 +1652,9 @@ class SuperAIOrchestrator:
             )
             if learnings_text.strip():
                 prompt_parts.append(
-                    f"\nRelevant past learnings:\n{learnings_text}"
+                    wrap_untrusted_block(
+                        learnings_text, source="memory:learnings"
+                    )
                 )
         if relevant.get("warnings"):
             warnings_text = "\n".join(
@@ -1644,10 +1664,16 @@ class SuperAIOrchestrator:
             )
             if warnings_text.strip():
                 prompt_parts.append(
-                    f"\nWarnings from past experience:\n{warnings_text}"
+                    wrap_untrusted_block(
+                        warnings_text, source="memory:warnings"
+                    )
                 )
         if context:
-            prompt_parts.append(f"\nContext from previous steps:\n{context}")
+            # Prior step output can contain fetched pages, repo files, or CLI
+            # output that the agent itself did not author.
+            prompt_parts.append(
+                wrap_untrusted_block(context, source="step_outputs")
+            )
         # Light task framing
         prompt_parts.append(f"\n(Overall task: {task[:500]})")
         return "\n".join(prompt_parts)
@@ -2152,52 +2178,4 @@ class SuperAIOrchestrator:
             "batches": batches,
             "parallel_step_runs": parallel_runs,
             "total_steps": len(plan_steps),
-            "dep_repairs": deadlocks_fixed,
-        }
-        return ordered, meta
-
-    def _maybe_auto_create_skills(
-        self, task_type: str, min_success_count: int = 3
-    ) -> List[str]:
-        summary = self.learning_engine.get_learnings_summary(task_type=task_type)
-        if summary.get("success_count", 0) < min_success_count:
-            return []
-        return self.learning_engine.create_skills_from_learnings(
-            min_success_count=min_success_count
-        )
-
-    def _extract_response_text(self, call_result: Any) -> str:
-        if isinstance(call_result, dict):
-            return str(call_result.get("response", call_result))
-        return str(call_result)
-
-    def _synthesize_results(self, original_task: str, results: List[Dict]) -> str:
-        """Combine multi-step results into a final answer."""
-        synthesis_prompt = f"Original Task: {original_task}\n\nStep Results:\n"
-        for r in results:
-            synthesis_prompt += (
-                f"\n--- Step {r['step']}: {r['description']} ---\n{r['result']}\n"
-            )
-        synthesis_prompt += (
-            "\n\nPlease synthesize the above step results into a single, "
-            "coherent, and complete final answer."
-        )
-
-        try:
-            synth_model = (
-                self.config.default_supervisor
-                or self.model_router.select_model(original_task)
-            )
-            call_result = self.model_caller.call(
-                model=synth_model,
-                prompt=synthesis_prompt,
-            )
-            return self._extract_response_text(call_result)
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Synthesis LLM failed, concatenating steps: %s", e)
-            self._degraded.append(
-                {"feature": "synthesis", "error": str(e)[:300]}
-            )
-            self._event("synthesis_fallback", error=str(e)[:200])
-            parts = [str(r.get("result", "")) for r in results]
-            return "\n\n".join(parts)
+            "d

@@ -1,7 +1,8 @@
 # notionreview_actionitems.md
 
 > Action items from the deep review of `realburhanhusain/SuperAI` @ `21ecb8c`.
-> Owner: recotechai · Generated: 27 Jul 2026 · Related PR: [#1 security/shell-exec-hardening](https://github.com/realburhanhusain/SuperAI/pull/1)
+> Owner: recotechai · Generated: 27 Jul 2026 · Last updated: 27 Jul 2026
+> Related PR: [#1 security/shell-exec-hardening](https://github.com/realburhanhusain/SuperAI/pull/1) — **merged** as squash commit `dcef3c1`
 
 > **Note:** Two items on this list are things **only a human can do** — they cannot be delegated to an agent. They are marked :lock: **Human required**.
 
@@ -9,25 +10,30 @@
 
 ## Priority 0 — Do before any untrusted or production use
 
-### 1. Run the test suite for PR #1
+### 1. Run the test suite — PR #1 is merged but still unverified
 
-The review agent cannot execute code, so the PR is **unverified**. This is the gate on merging.
+> :warning: **PR #1 was merged on 27 Jul 2026 (squash commit `dcef3c1`) before the test suite was run.** The fixes are now live on `master`.
+>
+> Running the tests is therefore no longer a merge gate — it is **post-merge verification of shipped code**, which makes it more urgent than it was before, not less. Before the merge a failing test meant "do not merge". Now it means "`master` is wrong and needs a follow-up fix".
 
 ```bash
-git fetch origin security/shell-exec-hardening
-git checkout security/shell-exec-hardening
+git checkout master
+git pull
 pytest tests/test_tools_bridge_shell_hardening.py -v
 pytest tests/test_result_contract.py tests/test_cli_pool.py tests/test_terminal_pool.py tests/test_h_i.py -q
 ```
 
+- [x] Satisfy the branch-protection requirement on `master`
+- [x] Review and merge [PR #1](https://github.com/realburhanhusain/SuperAI/pull/1) — merged 27 Jul 2026 02:47 UTC as squash commit `dcef3c1`
 - [ ] Run the new hardening tests — all 10 should pass
 - [ ] Run the four adjacent suites that share the approval plumbing
+- [ ] **Triage the failed `Kilo Code Review` check.** It completed with conclusion `failure` on PR #1 and was never read before merge. Whatever it found is now on `master`
+- [ ] **Confirm the CI `test` job passed.** It was still `in_progress` at the moment the PR was merged, so its result was never seen — check the run on merge commit `dcef3c1`
+- [ ] Action the unresolved review comment on `.mcp.json` — it is still open on the merged PR (see Priority 2)
 - [ ] Confirm nothing else calls `tool_bash` expecting the old return shape (it now returns the `os_shell` envelope: `executed`, `returncode`, `latency_sec`, `permission_mode`)
 - [ ] Sanity-check the agent still works interactively: `superai` build agent -> run a shell command -> confirm the approval prompt appears and a denial actually blocks
-- [ ] Satisfy the branch-protection requirement on `master` — PR #1 currently reports `mergeable_state: blocked` (a required review or status check, not a conflict), so it needs the check satisfied or an admin override
-- [ ] Review and merge [PR #1](https://github.com/realburhanhusain/SuperAI/pull/1)
 
-> **Expected behaviour change to watch for:** any caller of `dispatch_tool` that omits `approve_callback` will now be **denied** with `no_approver_available` instead of silently proceeding. `runtime.py` passes an approver, so the main path is fine — but scripts or daemons calling it directly need either an approver or `SUPERAI_ALLOW_UNATTENDED_SIDE_EFFECTS=1`. Check `goals_daemon.py`, `cli_pool.py`, and `mcp_server.py`.
+> **Behaviour change now live on `master`:** any caller of `dispatch_tool` that omits `approve_callback` is **denied** with `no_approver_available` instead of silently proceeding. `runtime.py` passes an approver, so the main path is fine — but scripts or daemons calling it directly need either an approver or `SUPERAI_ALLOW_UNATTENDED_SIDE_EFFECTS=1`. Check `goals_daemon.py`, `cli_pool.py`, and `mcp_server.py`. This is the most likely source of a post-merge surprise.
 
 ### 2. :lock: Review `AGENTS.md` — Human required
 
@@ -43,7 +49,7 @@ This matters more than a normal file, because `AGENTS.md` **is read by coding ag
 
 ### 3. Fix untrusted-memory injection in `orchestrator.py`
 
-Not in PR #1 — needs a surgical local edit.
+Not fixed by PR #1 — needs a surgical local edit.
 
 **The problem:** retrieved memory is concatenated into prompts as trusted text:
 
@@ -53,6 +59,8 @@ prompt_parts.append(f"\nWarnings from past experience:\n{warnings_text}")
 ```
 
 If untrusted content ever reaches the learning store — a web fetch, a repo file, an issue body, a CLI output — it becomes a **persistent, self-reinforcing injection vector**, replayed into every future similar task. Poison once, execute indefinitely. `injection_defense.py` will not save you here: it is regex-only and requires high risk **and** >=2 pattern hits to block.
+
+With PR #1 merged, this is now the **highest-severity unfixed issue in the repo**.
 
 - [ ] Wrap both blocks in explicit data delimiters with a "treat as data, not instructions" preamble
 - [ ] Apply the same treatment to the `skill_block` and `context` appends in the same function
@@ -79,9 +87,11 @@ A write-access probe had left two commits on `master` (`649788b` added `.superai
 - [x] `master` rewound to `21ecb8c` and the review docs re-committed as a single clean commit, `e93eb75`
 - [x] PR #1 branch rebased onto the new `master` — head `6604ca5`, substance unchanged at 5 commits / 5 files / +238 −90
 - [x] Probe commits no longer exist in history
-- [ ] **Confirm branch protection on `master` was re-enabled** after the force-push — the rule blocking force-pushes had to be temporarily disabled to do this
+- [x] **Branch protection on `master` confirmed re-enabled** after the force-push (confirmed by owner, 27 Jul 2026)
 
-> The force-push was initially rejected with `GH006: Cannot force-push to this branch`, which is the protection rule working correctly. If it is still disabled, `master` is currently unprotected.
+> The force-push was initially rejected with `GH006: Cannot force-push to this branch`, which is the protection rule working correctly. It was temporarily disabled to perform the cleanup and has since been restored.
+>
+> **Note on the merge:** PR #1 was **squash**-merged, so its 5 commits were collapsed into the single commit `dcef3c1`. Branch head `6604ca5` and the pre-rebase SHAs cited in `PR1_details.md` are historical references only — they do not appear in `master`'s history.
 
 ---
 
@@ -103,10 +113,11 @@ CI currently runs `windows-latest` + Python 3.11 only, with no static analysis. 
 - [ ] Add `mypy` to CI (start with `src/core/superai_agent/`, expand gradually)
 - [ ] Expand the matrix: `ubuntu-latest` + `macos-latest`, Python 3.10 -> 3.13
 - [ ] Add a CI rule failing any new `subprocess.run(..., shell=True)` outside `os_shell.py` — this is what would have caught the `tool_bash` bug
+- [ ] Make the `test` job a **required** status check, and require it to be green before merge — PR #1 was merged while its `test` run was still in progress
 
 ### 7. Make the sandbox genuinely contain
 
-PR #1 fixes fail-open and drops capabilities, but gaps remain by design.
+PR #1 fixed fail-open and dropped capabilities, but gaps remain by design.
 
 - [ ] Consider `--read-only` rootfs with an explicit `tmpfs` for `/tmp`
 - [ ] Set a non-root default via `SUPERAI_SANDBOX_USER` and document it
@@ -136,6 +147,8 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 
 ## Priority 2 — Hygiene
 
+- [ ] **Resolve the open `.mcp.json` review comment.** The Copilot reviewer flagged, and the thread is **still unresolved on the merged PR**: `membrain` now runs `python membrain_mcp_server.py`, but that script does not exist anywhere in the repo, so the server will fail to start for anyone cloning it. The script was never in the repo — it lived at an absolute path on one machine — so PR #1 did not introduce this, but it did not fix it either. Pick one: **(a)** remove the `membrain` entry from committed config, since it is a personal server rather than a project dependency (recommended); **(b)** reference it via an env var such as `${MEMBRAIN_SERVER_PATH}` so the failure has an obvious cause; **(c)** document it in the README as an optional external server the user must supply.
+- [ ] **Point `.mcp.json` at your own `membrain` path locally**, in an uncommitted override.
 - [ ] **Encrypt the backup key.** `~/.superai/.backup_key` is stored in plaintext. The backup encryption itself is solid (AES-GCM + zstd, with tar-slip defence) — the key at rest undermines it. Move to keyring with a passphrase-derived fallback.
 - [ ] **Fix the docs' entry point.** Docs reference `scli.main:app`; the correct target is `scli.main:main`, which `pyproject.toml` already uses. `main()` adds M080 exit-code mapping that calling `app()` would skip. **The docs are wrong, not the packaging.**
 - [ ] **De-duplicate budget keys** in `config.py`'s `DEFAULT_CONFIG`.
@@ -144,7 +157,6 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 - [ ] **Replace `except Exception: pass`** with narrow, logged handlers. Frequent throughout `src/core`.
 - [ ] **Stop committing generated artefacts.** Scorecards up to 240 KB and a stray `_b.json` are in version control. Add to `.gitignore`.
 - [ ] **Fix the fail-open budget gate** in `web_app` — budget-check exceptions are logged as warnings and execution proceeds.
-- [ ] **Update `.mcp.json` locally.** PR #1 makes it portable (PATH-resolved); point `membrain`'s `args` at your own server path in a local, uncommitted override.
 
 ---
 
@@ -154,7 +166,7 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 | --- | --- |
 | Were the `AGENTS.md` blocks authored intentionally, or did they arrive unexpectedly? | Determines whether this is a cleanup task or a **security incident** requiring access audit and credential rotation |
 | Is `SuperAI` intended to run against untrusted input (public issues, web content, third-party repos)? | If yes, items 2 and 3 are blocking. If it is strictly a personal single-user tool, they drop to P1 |
-| Should `d360-test/SuperAI_Review` receive the same fixes? | It is a byte-identical public fork, so the shell bypass is public. Either sync it or delete it |
+| Should `d360-test/SuperAI_Review` receive the same fixes? | **Now urgent.** The two repos were byte-identical; with PR #1 merged, `master` has the fix and the public fork does not. The shell bypass is still publicly readable there, and the fork now advertises the diff. Either sync it or delete it |
 
 ---
 
@@ -162,15 +174,15 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 
 | # | Item | Priority | Status |
 | --- | --- | --- | --- |
-| 1 | Test + merge PR #1 | P0 | Awaiting owner |
+| 1 | Test PR #1 | P0 | **Merged `dcef3c1`** — tests still unrun |
 | 2 | Review `AGENTS.md` :lock: | P0 | Human required |
-| 3 | Orchestrator memory delimiting | P0 | Not started |
-| 4 | `master` history cleanup | P0 | **Done** — verify protection re-enabled |
+| 3 | Orchestrator memory delimiting | P0 | Not started — now the top unfixed issue |
+| 4 | `master` history cleanup | P0 | **Done** — protection re-enabled |
 | 5 | Split `main.py` | P1 | Not started |
 | 6 | CI lint + matrix | P1 | Not started |
 | 7 | Sandbox hardening round 2 | P1 | Partly done in PR #1 |
 | 8 | Consolidate subsystems | P1 | Not started |
 | 9 | Replace `inspect.getsource` audits | P1 | Not started |
-| 10 | Hygiene backlog (9 items) | P2 | Not started |
+| 10 | Hygiene backlog (10 items) | P2 | Not started |
 
-Already fixed in PR #1: agent shell `shell=True` bypass · approval fail-open · sandbox fail-open · capability drop · `.mcp.json` dev paths and peer-writer grant · dead `config/constitution.md`.
+Fixed on `master` by PR #1 (squash commit `dcef3c1`): agent shell `shell=True` bypass · approval fail-open · sandbox fail-open · capability drop · `.mcp.json` dev paths and peer-writer grant · dead `config/constitution.md`.

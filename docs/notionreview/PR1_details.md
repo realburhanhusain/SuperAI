@@ -1,8 +1,11 @@
 # PR1_details.md
 
 > Detailed rationale for [PR #1 — fix(security): harden agent shell execution, fail-closed sandbox, config hygiene](https://github.com/realburhanhusain/SuperAI/pull/1)
-> Repo: `realburhanhusain/SuperAI` · Base: `master` · Head: `security/shell-exec-hardening` · 5 commits
-> Describes the PR as originally submitted. See [`README.md`](./README.md) for the naming convention.
+> Repo: `realburhanhusain/SuperAI` · Base: `master` · Head: `security/shell-exec-hardening` · 5 commits · +238/−90 across 5 files
+> **Status: merged 27 Jul 2026 02:47 UTC by `realburhanhusain`, squashed into commit `dcef3c1`.**
+> Describes the PR as submitted. See [`README.md`](./README.md) for the naming convention, and the [post-merge state](#post-merge-state) section at the end for what remains open.
+
+> **On commit references below:** the PR was **squash**-merged, so its 5 commits were collapsed into `dcef3c1`. The per-change commit SHAs cited in this document are pre-rebase branch references, kept for traceability. They do not appear in `master`'s history.
 
 ## Selection criteria — why these five and nothing else
 
@@ -97,7 +100,7 @@ This is a working codebase with a `master` branch and a public fork, so the expo
 
 ### Verification
 
-`tests/test_tools_bridge_shell_hardening.py` — see Change 5.
+`tests/test_tools_bridge_shell_hardening.py` — see Change 5. **Not yet executed as of the merge.**
 
 ---
 
@@ -131,13 +134,13 @@ The workspace mount stays **read-write by default**. Tool shells legitimately wr
 
 ### Risk of the change itself — moderate, by design
 
-This is the one change with a deliberate behavioural break: environments that relied on silent host fallback will now **fail** instead of running. That is the point. Opt out with `SUPERAI_SANDBOX_FAIL_CLOSED=0` if a host fallback is genuinely wanted.
+This is the one change with a deliberate behavioural break: environments that relied on silent host fallback will now **fail** instead of running. That is the point, and it is now live on `master` — if sandbox-related failures appear, this is the first place to look. Opt out with `SUPERAI_SANDBOX_FAIL_CLOSED=0` if a host fallback is genuinely wanted.
 
 ---
 
 ## Change 3 — `.mcp.json`: remove dev paths and peer-writer grant
 
-**Commit `abb5071` (pre-rebase)**
+**Commit `abb5071` (pre-rebase) · Has an unresolved review comment — see [post-merge state](#post-merge-state)**
 
 ### What was there
 
@@ -166,9 +169,9 @@ Two distinct problems in eleven lines:
 
 Contributors get silent MCP startup failures with a confusing cause. Anyone cloning gets an unexpected write grant to their memory store. The internal path disclosure stays public in git history regardless — removing it going forward is still worth doing, but note **the history is not rewritten by this PR**, so treat those paths as already disclosed.
 
-### Risk of the change itself — low, but requires local action
+### Risk of the change itself — low, but incomplete
 
-PATH-resolved commands mean anyone actually using these servers must have them on PATH. Point `membrain`'s `args` at your own server path in a local, uncommitted override.
+PATH-resolved commands mean anyone actually using these servers must have them on PATH. The Copilot reviewer correctly pointed out that this change makes the config *portable* without making it *work*: `membrain_mcp_server.py` is not in the repo, so the entry now fails for everyone rather than for everyone-but-one. That thread is still open — see [post-merge state](#post-merge-state).
 
 ---
 
@@ -213,7 +216,7 @@ Selection criterion 4. Two of these tests **fail against pre-fix `master`** and 
 - `test_bash_rejects_whitespace_evaded_rm_root` -> `rm  -rf /`
 - `test_bash_rejects_flag_reordered_rm_root` -> `rm -fr /`
 
-That pairing is the whole point. They are not decoration — they are the **executable proof the vulnerability was real**, and the reason the analysis does not have to be taken on trust. Run them on `master`, watch them fail, then run them on the branch.
+That pairing is the whole point. They are not decoration — they are the **executable proof the vulnerability was real**, and the reason the analysis does not have to be taken on trust.
 
 Coverage: the two bypass proofs, `curl | sh`, empty commands, plan-mode non-execution, the three approval-denial paths (no approver / refused / approver raises), and agent allowlisting.
 
@@ -228,7 +231,7 @@ pytest tests/test_tools_bridge_shell_hardening.py -v
 pytest tests/test_result_contract.py tests/test_cli_pool.py tests/test_terminal_pool.py tests/test_h_i.py -q
 ```
 
-The tests were written but **never executed** — the review agent cannot run code. Treat them as unverified until you have run them.
+The tests were written but **never executed** — the review agent cannot run code, and the PR was merged before they were run locally. Treat them as unverified until you have run them against `master`.
 
 ---
 
@@ -273,12 +276,21 @@ if p.action in {"run_shell", "edit_file"} and not p.requires_human:
 
 ---
 
-## Merge checklist
+## Post-merge state
 
-1. **Run the tests** — the review agent cannot execute code, so this PR is unverified by it. Non-negotiable gate.
-2. **Check direct `dispatch_tool` callers** that may omit `approve_callback` — look at `goals_daemon.py`, `cli_pool.py`, `mcp_server.py`. They need an approver or the explicit opt-out env var.
-3. ~~Decide the `master` history question before merging.~~ **Done, 27 Jul 2026.** `master` was rewound to `21ecb8c`, the review docs re-committed as `e93eb75`, and this branch rebased onto the new head (head `6604ca5`, substance unchanged: 5 commits, 5 files, +238/−90). No history work remains — but confirm the force-push protection rule on `master` was re-enabled afterwards.
-4. **Satisfy branch protection.** The PR reports `mergeable_state: blocked` — a required review or status check, not a conflict.
-5. **Sync or delete the public fork** `d360-test/SuperAI_Review`. It is byte-identical, so the shell bypass is publicly visible there.
+Merged 27 Jul 2026 02:47 UTC by `realburhanhusain` as squash commit `dcef3c1`. All five changes are live on `master`.
+
+What was **not** satisfied before the merge, and is now outstanding:
+
+| # | Item | Why it still matters |
+| --- | --- | --- |
+| 1 | **The test suite was never run.** | The PR's own merge checklist called this a non-negotiable gate, and it was not met. The two bypass-proof tests are also the evidence the vulnerability was real; until they run, both the fix and the finding are unverified. A failure now requires a follow-up commit to `master`, not a rejected PR |
+| 2 | **The `Kilo Code Review` check failed and was never triaged.** | It completed with conclusion `failure` before the merge. Its findings, whatever they are, are now on `master` |
+| 3 | **The CI `test` job was still running at merge time.** | Its result was never observed. Check the run against `dcef3c1` |
+| 4 | **The `.mcp.json` review thread is unresolved.** | `membrain_mcp_server.py` is not in the repo, so that server entry fails for every clone. Not a regression — it was previously broken for everyone but one machine — but not fixed either. Options are in `notionreview_actionitems.md` under Priority 2 |
+| 5 | **The public fork has diverged.** | `d360-test/SuperAI_Review` was byte-identical before this merge. It now lacks the fix while `master` has it, so the shell bypass remains publicly readable there and the fix itself points at what to look for. Sync or delete it |
+| 6 | **Direct `dispatch_tool` callers are unchecked.** | Anything omitting `approve_callback` is now denied rather than silently permitted. `goals_daemon.py`, `cli_pool.py`, `mcp_server.py` are the candidates. This is the most likely source of an unexpected post-merge failure |
+
+Satisfied: branch protection on `master` was confirmed re-enabled after the earlier history cleanup, and the pre-merge history question is closed.
 
 > **Net assessment:** this PR fixes one genuinely exploitable vulnerability and three wrong-direction security defaults, and adds the tests that keep them fixed. It invents almost no new logic — four of five changes make weak code use protections the repo already had. **The two remaining P0 items are not in it** and still need a human: the orchestrator memory delimiting, and the `AGENTS.md` review.

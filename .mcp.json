@@ -2,17 +2,6 @@
   "mcpServers": {
     "mempalace": {
       "command": "mempalace-mcp"
-    },
-    "membrain": {
-      "command": "python",
-      "args": [
-        "membrain_mcp_server.py"
-      ],
-      "env": {
-        "PYTHONUNBUFFERED": "1",
-        "MEMBRAIN_SCHEMA": "membrain",
-        "MEMBRAIN_MCP_TIMEOUT": "120"
-      }
     }
   }
 }

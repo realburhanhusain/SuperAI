@@ -7,7 +7,89 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff
+      # Blocking. E9/F63/F7/F82 are genuine errors -- syntax errors and
+      # undefined names -- not style. A failure here means something is
+      # actually broken.
+      - name: Ruff (errors only, blocking)
+        run: ruff check --select E9,F63,F7,F82 --output-format=github .
+      # Advisory. The full rule set on an existing codebase produces a long
+      # backlog; surfacing it without blocking keeps it visible and keeps the
+      # build honest. Flip continue-on-error off once the backlog is cleared.
+      - name: Ruff (full rule set, advisory)
+        continue-on-error: true
+        run: ruff check --output-format=github .
+
+  typecheck:
+    name: Type check (advisory)
+    runs-on: ubuntu-latest
+    # Advisory for now. The codebase is largely unannotated, so a blocking
+    # mypy run would fail on day one. Scoped to the security-critical modules
+    # and widened over time.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install -e ".[dev]"
+          pip install mypy
+      - name: Mypy
+        run: mypy src/core/superai_agent/tools_bridge.py src/core/os_shell.py
+
+  guardrails:
+    name: Security guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # No unit test can catch a prompt append that does not exist yet, so
+      # this is a static check rather than a pytest case. It self-skips until
+      # the untrusted-data module lands.
+      - name: Retrieved content must be delimited
+        run: python scripts/check_untrusted_appends.py
+
   test:
+    name: Tests
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+        experimental: [false]
+        include:
+          # 3.13 is reported but not enforced: several dependencies may not
+          # have wheels yet, and that should not block a merge.
+          - os: ubuntu-latest
+            python-version: "3.13"
+            experimental: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Pytest
+        run: pytest -q
+
+  smoke:
+    name: CLI smoke
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,8 +98,6 @@ jobs:
           python-version: "3.11"
       - name: Install
         run: pip install -e ".[dev]"
-      - name: Pytest
-        run: pytest -q
       - name: Init + mock run
         run: |
           superai init --non-interactive

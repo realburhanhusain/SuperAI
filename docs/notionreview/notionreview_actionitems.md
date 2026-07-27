@@ -1,20 +1,21 @@
 # notionreview_actionitems.md
 
 > Action items from the deep review of `realburhanhusain/SuperAI` @ `21ecb8c`.
-> Owner: recotechai · Generated: 27 Jul 2026 · Last updated: 27 Jul 2026 (18:45 +03)
+> Owner: recotechai · Generated: 27 Jul 2026 · Last updated: 27 Jul 2026 (19:05 +03)
 > Related PRs:
 > · [#1 security/shell-exec-hardening](https://github.com/realburhanhusain/SuperAI/pull/1) — **merged** as squash commit `dcef3c1`
 > · [#2 security/untrusted-memory-delimiting](https://github.com/realburhanhusain/SuperAI/pull/2) — **open, awaiting review** (item 3)
 > · [#3 ci/lint-typecheck-and-matrix](https://github.com/realburhanhusain/SuperAI/pull/3) — **open** (item 6)
 > · [#4 security/sandbox-shell-containment](https://github.com/realburhanhusain/SuperAI/pull/4) — **open** (item 7)
-> · [#5 chore/mcp-remove-membrain](https://github.com/realburhanhusain/SuperAI/pull/5) — **open** (Priority 2, first bullet)
+> · [#5 chore/mcp-remove-membrain](https://github.com/realburhanhusain/SuperAI/pull/5) — **open** (Priority 2)
 > · [#6 security/sanitize-memory-on-write](https://github.com/realburhanhusain/SuperAI/pull/6) — **open, stacked on #2** (item 3, second half)
+> · [#7 docs/agents-md-accuracy](https://github.com/realburhanhusain/SuperAI/pull/7) — **open** (item 2, now downgraded — see the retraction)
 
-> **Note:** Two items on this list are things **only a human can do** — they cannot be delegated to an agent. They are marked :lock: **Human required**.
+> **Nothing in PRs #2, #3, #4 or #6 has been executed.** All four ship tests or checks that have never run — 11, plus a static check, plus 11, plus 13 respectively. PR #5 and PR #7 contain no Python and nothing to run. Treat "written" and "verified" as different words throughout this document.
 
-> **Nothing in PRs #2, #3, #4 or #6 has been executed.** All four ship tests or checks that have never run — 11, plus a static check, plus 11, plus 13 respectively. Treat "written" and "verified" as different words throughout this document.
+> **Merge order matters.** PR #6 is based on PR #2's branch, not on `master`, because it imports `neutralize_delimiters` from a module that exists only there. Merge **#2 before #6**. GitHub retargets #6 to `master` automatically once #2 lands. Repointing #6's base to `master` by hand will produce a branch that cannot import.
 
-> **Merge order matters now.** PR #6 is based on PR #2's branch, not on `master`, because it imports `neutralize_delimiters` from a module that exists only there. Merge **#2 before #6**. GitHub retargets #6 to `master` automatically once #2 lands. Repointing #6's base to `master` by hand will produce a branch that cannot import.
+> **Items needing a human, for reasons an agent cannot substitute for:** running the test suites (no execution capability), reading CI job logs (no tool exposes them), repository settings such as required status checks and branch protection, and every row in Open decisions. None of these are blocked on secrecy — they are blocked on capability and authority.
 
 ---
 
@@ -49,25 +50,31 @@ pytest tests/test_result_contract.py tests/test_cli_pool.py tests/test_terminal_
 >
 > The original review listed those three files correctly as *candidates to check*. They were then restated as a confirmed regression without being checked. Recorded here because a retracted finding is only useful if the retraction is as visible as the claim.
 
-### 2. :lock: Review `AGENTS.md` — Human required
+### 2. ~~:lock: Review `AGENTS.md`~~ — **RETRACTED, downgraded to P2 (27 Jul 2026)**
 
-`AGENTS.md` contains four blocks that read as obfuscated prompt-injection payloads. **The review agent deliberately did not touch this file.** Editing it means reproducing content that must be treated as untrusted data, with no way to verify the legitimate contributor guidance survives intact.
+> :rotating_light: **The claim in this slot was false.** Every earlier version of this document stated that `AGENTS.md` contained **four obfuscated prompt-injection payloads**, recorded it as **P0**, marked it :lock: **human-required**, and — once the `approve_callback` finding above was retracted — promoted it to *"the highest-severity item on the list that nobody has started"*.
+>
+> **The file has now been read end to end. There are no obfuscated blocks, nothing encoded, and no smuggled instructions.** It is an ordinary contributor guide: canonical path, taskboard workflow, scope rules, environment, package layout, commit conventions.
+>
+> **How the error persisted for a full day:** the claim was made without reading the file, and was then repeated *because* the file had been labelled untrusted. The label became the justification for not checking the label — a self-sealing loop. The recommendation "do not touch this, only a human can" made the loop worse by presenting the gap in evidence as a safety measure.
+>
+> This is the **second** retraction in this document, and both share one root cause: a candidate worth checking was restated as a confirmed finding without the check. See also the `approve_callback` retraction under item 1.
+>
+> **Consequences for anyone reading the old version:** there is no security incident here. There is nothing to quarantine, no access audit to run, and **no credentials to rotate** on account of this file. Those sub-items are struck, not deferred.
 
-This matters more than a normal file, because `AGENTS.md` **is read by coding agents by design**. That is exactly the delivery mechanism a payload there would use.
+The file does contain five real defects. They are documentation defects, now open as **[PR #7](https://github.com/realburhanhusain/SuperAI/pull/7)** and tracked under Priority 2 below.
 
-With the `approve_callback` scare retracted above, **this is now the highest-severity item on the list that nobody has started.** Six PRs later, it is still untouched, and no PR of the six goes anywhere near it.
+---
 
-- [ ] Open `AGENTS.md` and read it end to end
-- [ ] Decide per block: legitimate instruction, or injected payload?
-- [ ] Delete the payload blocks, keep the real guidance
-- [ ] If the blocks are intentional red-team fixtures, move them to `tests/fixtures/injection/` with a `README.md` stating they are inert test data
-- [ ] Confirm whether they were authored intentionally or arrived via an unintended commit — if the latter, audit repo access and rotate any exposed credentials
+## Priority 0 (continued)
 
 ### 3. Fix untrusted-memory injection in `orchestrator.py` — **read path in PR #2, write path in PR #6**
 
 > :arrow_right: **Read side: [PR #2 `security/untrusted-memory-delimiting`](https://github.com/realburhanhusain/SuperAI/pull/2)** — rationale in [`PR2_details.md`](./PR2_details.md).
 > :arrow_right: **Write side: [PR #6 `security/sanitize-memory-on-write`](https://github.com/realburhanhusain/SuperAI/pull/6)** — rationale in [`PR6_details.md`](./PR6_details.md). **Stacked on #2; merge #2 first.**
 > **Neither PR's tests have been run.**
+
+With item 2 retracted, **this is the highest-severity item that is still genuinely open.** Unlike item 2, it was verified by reading the source: the concatenation below is real, and it is on `master` today.
 
 **The problem:** retrieved memory was concatenated into prompts as trusted text:
 
@@ -140,7 +147,7 @@ CI ran `windows-latest` + Python 3.11 only, with no static analysis. `pyproject.
 >
 > **The guardrail check is inert until PR #2 merges.** `scripts/check_untrusted_appends.py` skips and exits 0 while `src/core/untrusted_data.py` does not exist on `master`. This is deliberate so PRs #2 and #3 can merge in either order. Once PR #2 lands it activates by itself — no further action needed.
 >
-> **`Kilo Code Review` has failed on every PR so far** — #1, #3 and #4. Offered as a **hypothesis, not a finding**: a misconfigured integration rather than four independent code problems. Worth ten minutes before treating any single one of its failures as meaningful.
+> **`Kilo Code Review` has failed on every PR so far** — #1, #3 and #4. Offered as a **hypothesis, not a finding**: a misconfigured integration rather than several independent code problems. Worth ten minutes before treating any single one of its failures as meaningful.
 
 ### 7. Make the sandbox genuinely contain — **in review as PR #4**
 
@@ -197,12 +204,28 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 
 ## Priority 2 — Hygiene
 
+### `AGENTS.md` — five real defects (was item 2, see the retraction above) — **PR #7**
+
+> :arrow_right: **Open as [PR #7 `docs/agents-md-accuracy`](https://github.com/realburhanhusain/SuperAI/pull/7).** Rationale in [`PR7_details.md`](./PR7_details.md).
+
+None of these is a security incident. The first is a live bug; the middle two are documentation that contradicts shipped controls; the last two are tidiness.
+
+- [x] **Wrong entry point.** The file states `superai = "scli.main:app"`. `pyproject.toml` correctly uses `scli.main:main`, and `main()` adds the M080 exit-code mapping that `app()` skips — so a script wired to `app` exits `0` on failure. **This file is the origin of the "docs reference the wrong entry point" item below**
+- [x] **Self-contradicting package layout.** Shows `src/superai/cli/main.py`, then states the real folders are `src/cli` + `src/core` two lines later. Only the second is true
+- [x] **Approval wording contradicts PR #1.** "Work autonomously through the plan; do not stop for approval between planned items" is read by coding agents by design, while PR #1 exists to close an approval fail-open. It does not defeat the gate, but documentation that contradicts a control is how a control gets argued away later. Reworded so autonomy covers planning and sequencing, while side-effecting actions still take the approval path
+- [x] **Scope rules forbade honest reporting.** "Features are never optional. Do not label plan work as optional, nice-to-have, or cancelled" reads to an agent as an instruction not to tell the owner something is unnecessary or unimplementable. Rewritten to keep the real guarantee — only the owner removes scope — while making reporting explicitly exempt
+- [x] **Hardcoded personal path** `C:\Users\<name>\...`, plus sibling trees that exist on one machine only
+- [ ] Review and merge PR #7. **Two rewordings change the meaning of instructions you may have written deliberately** (approval, scope). If the original intent was stricter, say so and they can be narrowed
+- [ ] **Not verified in PR #7:** whether `TASKBOARD.md`, `TASKBOARD_GROK.md`, `TASKBOARD_AGY.md`, `implementation_plan_*.md`, `codes.md` and `scripts/checkpoint.ps1` still exist. Those references were carried over unchanged and no claim is made either way
+
+### Remaining hygiene
+
 - [x] **Resolve the open `.mcp.json` review comment** — **now open as [PR #5](https://github.com/realburhanhusain/SuperAI/pull/5)**, rationale in [`PR5_details.md`](./PR5_details.md). Option **(a)** was taken: the `membrain` entry is removed from committed config. It pointed at `membrain_mcp_server.py`, which exists nowhere in the repo, so the server could only ever fail to start. Options (b) `${MEMBRAIN_SERVER_PATH}` and (c) "document as optional" were rejected — both leave a declared server that still cannot start. `mempalace` is untouched, since `mempalace-mcp` is a `PATH` console entry point rather than a path into this tree
 - [ ] Review and merge PR #5. No Python is touched, so no suite is affected
 - [ ] Resolve the PR #1 review thread on `.mcp.json` once PR #5 merges
 - [ ] **Point `.mcp.json` at your own `membrain` path locally**, in an uncommitted override, if you still use it
 - [ ] **Encrypt the backup key.** `~/.superai/.backup_key` is stored in plaintext. The backup encryption itself is solid (AES-GCM + zstd, with tar-slip defence) — the key at rest undermines it. Move to keyring with a passphrase-derived fallback
-- [ ] **Fix the docs' entry point.** Docs reference `scli.main:app`; the correct target is `scli.main:main`, which `pyproject.toml` already uses. `main()` adds M080 exit-code mapping that calling `app()` would skip. **The docs are wrong, not the packaging.**
+- [ ] **Fix the docs' entry point elsewhere.** PR #7 fixes `AGENTS.md`; check whether any other doc still references `scli.main:app`. **The docs are wrong, not the packaging**
 - [ ] **De-duplicate budget keys** in `config.py`'s `DEFAULT_CONFIG`
 - [ ] **Replace the module-level `Config` singleton** — it makes test isolation and per-run overrides unreliable
 - [ ] **Reconsider project-local `.superai/config.json` merging.** A cloned repo can currently influence runtime config, which is the same class of issue as the constitution file removed in PR #1
@@ -216,10 +239,11 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 
 | Question | Status |
 | --- | --- |
-| Were the `AGENTS.md` blocks authored intentionally, or did they arrive unexpectedly? | **Open.** Determines whether this is a cleanup task or a **security incident** requiring access audit and credential rotation |
-| Is `SuperAI` intended to run against untrusted input (public issues, web content, third-party repos)? | **Open.** If yes, items 2 and 3 are blocking. If it is strictly a personal single-user tool, they drop to P1 |
+| ~~Were the `AGENTS.md` blocks authored intentionally, or did they arrive unexpectedly?~~ | **Void.** There were no such blocks. The question was built on a finding that has been retracted — see item 2. No access audit and no credential rotation are indicated |
+| Is `SuperAI` intended to run against untrusted input (public issues, web content, third-party repos)? | **Open.** If yes, item 3 is blocking. If it is strictly a personal single-user tool, it drops to P1 |
 | Should the learning store sanitise on **write**, and if so: reject, escape, or quarantine? | **Answered 27 Jul 2026: escape.** Shipped for `central_memory.write_back` in PR #6. Still unimplemented for `learning_engine.learn_from_step` |
 | What to do about the `membrain` entry in `.mcp.json`? | **Answered 27 Jul 2026: remove it.** PR #5 |
+| Are the reworded approval and scope instructions in `AGENTS.md` faithful to your intent? | **Open.** PR #7 changes the meaning of two instructions. Needs your ruling, not just a merge |
 | Should the container sandbox be **on by default**? | **Open, with a recommendation on record** (item 7): ship PR #4 opt-in, flip the default in a separate release carrying a breaking-change note |
 | Should `--network none` be enforced rather than defaulted? | **Open, with a recommendation on record** (item 7): keep it as the default, make the exception explicit per command rather than global |
 | Should `d360-test/SuperAI_Review` receive the same fixes? | **Open and urgent.** The two repos were byte-identical; with PR #1 merged, `master` has the fix and the public fork does not. The shell bypass is still publicly readable there, and the fork now advertises the diff. Either sync it or delete it |
@@ -231,8 +255,8 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 | # | Item | Priority | Status |
 | --- | --- | --- | --- |
 | 1 | Test PR #1 | P0 | **Merged `dcef3c1`** — tests still unrun |
-| 2 | Review `AGENTS.md` :lock: | P0 | Human required — **still the top unstarted item** |
-| 3 | Memory injection, read path | P0 | **PR #2 open** — tests unrun |
+| 2 | ~~`AGENTS.md` injection payloads~~ | ~~P0~~ | **Retracted — the claim was false.** Five real doc defects remain, now P2 / **PR #7 open** |
+| 3 | Memory injection, read path | P0 | **PR #2 open** — tests unrun. **Now the top genuinely open item** |
 | 3b | Memory injection, write path | P0 | **PR #6 open** (stacked on #2) — covers `central_memory` only; `learning_engine` still open |
 | 4 | `master` history cleanup | P0 | **Done** — protection re-enabled |
 | 5 | Split `main.py` | P1 | Not started — and now blocking fixes, not just review |
@@ -241,7 +265,8 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 | 8 | Consolidate subsystems | P1 | Not started |
 | 9 | Replace `inspect.getsource` audits | P1 | Not started |
 | 10 | `.mcp.json` membrain entry | P2 | **PR #5 open** |
-| 11 | Hygiene backlog (remaining 9) | P2 | Not started |
+| 11 | `AGENTS.md` accuracy | P2 | **PR #7 open** — two rewordings need your ruling |
+| 12 | Hygiene backlog (remaining 9) | P2 | Not started |
 
 **Fixed on `master`** by PR #1 (squash commit `dcef3c1`): agent shell `shell=True` bypass · approval fail-open · sandbox fail-open · capability drop · `.mcp.json` dev paths and peer-writer grant · dead `config/constitution.md`.
 
@@ -255,6 +280,16 @@ Strong signal of AI-assisted feature accretion — each capability got a new mod
 
 **Open in PR #6:** secrets-then-delimiters escaping applied to all four bodies persisted by `central_memory.write_back`, with the invariant recorded in the function docstring.
 
-**Retracted:** the claim that `goals_daemon.py`, `cli_pool.py` and `mcp_server.py` were broken by PR #1's approval gate. None of them call `dispatch_tool`. See the note under item 1.
+**Open in PR #7:** `AGENTS.md` entry point corrected to `scli.main:main`, layout block fixed, approval and scope wording reconciled with the shipped controls, personal path removed, and a header stating the file grants no permissions.
 
-**Disproven:** the claim that a malformed `pyproject.toml` explained PR #3's red jobs. The file was read back in full and is valid. See the note under item 6.
+---
+
+## Retractions and disproven claims
+
+Kept together so they are as visible as the original assertions.
+
+1. **Retracted — `approve_callback` regression.** The claim that `goals_daemon.py`, `cli_pool.py` and `mcp_server.py` were broken by PR #1's approval gate. None of them call `dispatch_tool`. See item 1.
+2. **Retracted — `AGENTS.md` prompt-injection payloads.** The claim that the file contained four obfuscated injection blocks, held at P0 and human-only for a full day. The file is an ordinary contributor guide. See item 2.
+3. **Disproven — malformed `pyproject.toml`.** The hypothesis that it explained PR #3's red jobs. The file was read back in full and is valid TOML. The `Lint` failure remains unexplained. See item 6.
+
+**Common root cause of 1 and 2:** a candidate worth checking was restated as a confirmed finding without performing the check. The mitigation is procedural, not technical — verify before asserting, and label a candidate as a candidate.

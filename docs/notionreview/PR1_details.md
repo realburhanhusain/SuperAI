@@ -19,7 +19,7 @@ Everything else was deliberately excluded and is tracked in [`notionreview_actio
 
 ## Change 1 — `tools_bridge.py`: route agent shell through `os_shell`
 
-**Commit `d5775bc` · The reason this PR exists**
+**Commit `d5775bc` (pre-rebase) · The reason this PR exists**
 
 ### What was there
 
@@ -103,7 +103,7 @@ This is a working codebase with a `master` branch and a public fork, so the expo
 
 ## Change 2 — `container_sandbox.py`: fail closed, drop capabilities
 
-**Commit `eaceba9`**
+**Commit `eaceba9` (pre-rebase)**
 
 ### What was there
 
@@ -137,7 +137,7 @@ This is the one change with a deliberate behavioural break: environments that re
 
 ## Change 3 — `.mcp.json`: remove dev paths and peer-writer grant
 
-**Commit `abb5071`**
+**Commit `abb5071` (pre-rebase)**
 
 ### What was there
 
@@ -174,7 +174,7 @@ PATH-resolved commands mean anyone actually using these servers must have them o
 
 ## Change 4 — delete `config/constitution.md`
 
-**Commit `751b67b` · Includes a correction to an earlier review claim**
+**Commit `751b67b` (pre-rebase) · Includes a correction to an earlier review claim**
 
 ### The correction, first
 
@@ -204,11 +204,11 @@ No code path reads the file. Verified by reading `constitution.py`'s loader in f
 
 ## Change 5 — 10 regression tests
 
-**Commit `55321cf` · `tests/test_tools_bridge_shell_hardening.py`**
+**Commit `55321cf` (pre-rebase) · `tests/test_tools_bridge_shell_hardening.py`**
 
 ### Why it was picked
 
-Selection criterion 4. Two of these tests **fail against current `master`** and pass after the fix:
+Selection criterion 4. Two of these tests **fail against pre-fix `master`** and pass after the fix:
 
 - `test_bash_rejects_whitespace_evaded_rm_root` -> `rm  -rf /`
 - `test_bash_rejects_flag_reordered_rm_root` -> `rm -fr /`
@@ -277,7 +277,8 @@ if p.action in {"run_shell", "edit_file"} and not p.requires_human:
 
 1. **Run the tests** — the review agent cannot execute code, so this PR is unverified by it. Non-negotiable gate.
 2. **Check direct `dispatch_tool` callers** that may omit `approve_callback` — look at `goals_daemon.py`, `cli_pool.py`, `mcp_server.py`. They need an approver or the explicit opt-out env var.
-3. **Decide the `master` history question** before merging (see [`notionreview_actionitems.md`](./notionreview_actionitems.md) item 4) — a force-push after merge would orphan it.
-4. **Sync or delete the public fork** `d360-test/SuperAI_Review`. It is byte-identical, so the shell bypass is publicly visible there.
+3. ~~Decide the `master` history question before merging.~~ **Done, 27 Jul 2026.** `master` was rewound to `21ecb8c`, the review docs re-committed as `e93eb75`, and this branch rebased onto the new head (head `6604ca5`, substance unchanged: 5 commits, 5 files, +238/−90). No history work remains — but confirm the force-push protection rule on `master` was re-enabled afterwards.
+4. **Satisfy branch protection.** The PR reports `mergeable_state: blocked` — a required review or status check, not a conflict.
+5. **Sync or delete the public fork** `d360-test/SuperAI_Review`. It is byte-identical, so the shell bypass is publicly visible there.
 
 > **Net assessment:** this PR fixes one genuinely exploitable vulnerability and three wrong-direction security defaults, and adds the tests that keep them fixed. It invents almost no new logic — four of five changes make weak code use protections the repo already had. **The two remaining P0 items are not in it** and still need a human: the orchestrator memory delimiting, and the `AGENTS.md` review.

@@ -10,7 +10,7 @@
 
 | Option | Decision |
 |--------|----------|
-| **A. Tables in same SQL stack as palace** | **Chosen** — SQLite file `~/.superai/memory/kg.sqlite` by default; optional Postgres via `SUPERAI_KG_DSN` / `SUPERAI_MEMORY_DSN` |
+| **A. Tables in same SQL stack as palace** | **Chosen** — local PostgreSQL (`postgresql+psycopg://localhost/superai`) by default; an explicit DSN may select another Postgres instance or SQLite |
 | B. Embedded graph engine (Kuzu) | Deferred — extra dependency |
 | C. External Neo4j | Deferred — ops burden |
 
@@ -48,7 +48,7 @@ Upsert key for edges: `(from_id, to_id, relation, dataset_id)`.
 
 | Env | Behavior |
 |-----|----------|
-| unset | `sqlite:///<home>/.superai/memory/kg.sqlite` |
+| unset | `postgresql+psycopg://localhost/superai` |
 | `SUPERAI_KG_DSN` | Explicit SQLAlchemy URL |
 | `SUPERAI_MEMORY_DSN=postgresql…` | Reuse Postgres (tables `kg_*` only) |
 

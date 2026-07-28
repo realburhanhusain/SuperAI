@@ -10,7 +10,40 @@ jobs:
   test:
     runs-on: windows-latest
     # A stuck native/file lock should fail the job rather than consume a runner indefinitely.
-    timeout-minutes: 35
+    timeout-minutes: 55
+    # CI is intentionally offline: never depend on a developer-local PostgreSQL instance.
+    env:
+      SUPERAI_MEMORY_BACKEND: memory
+      SUPERAI_EMBEDDING_HASH: '1'
+      # The MCP knowledge graph has its own DSN; keep it offline as well.
+      SUPERAI_KG_DSN: sqlite:///./.superai-ci-kg.sqlite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # The protected suite is validated on the current supported CPython release.
+          python-version: '3.14'
+      - name: Install
+        run: pip install -e ".[dev]"
+      # Tests mutate process-global backend and lock state. A fresh interpreter per file
+      # preserves all coverage while making hosted Windows runs deterministic.
+      - name: Pytest (isolated files)
+        shell: pwsh
+        run: |
+          Get-ChildItem tests/test_*.py | ForEach-Object {
+            python -m pytest -q --timeout=300 --timeout-method=thread name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    # A stuck native/file lock should fail the job rather than consume a runner indefinitely.
+    timeout-minutes: 55
     # CI is intentionally offline: never depend on a developer-local PostgreSQL instance.
     env:
       SUPERAI_MEMORY_BACKEND: memory
@@ -52,6 +85,16 @@ jobs:
           tests/test_learning_engine_gaps.py
           tests/test_learning_lifecycle_m061_m063.py
       - name: Init + mock run
+        run: |
+          superai init --non-interactive
+          superai run "say hello" --format json
+      - name: Backup create + verify
+        run: |
+          superai backup --full
+          superai backup-verify
+.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }      - name: Init + mock run
         run: |
           superai init --non-interactive
           superai run "say hello" --format json

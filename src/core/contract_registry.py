@@ -4,7 +4,7 @@ Contract coverage for top public commands (V6 M008/M090).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 # Top public command families that must return result contracts
 TOP_COMMANDS: List[str] = [
@@ -66,8 +66,190 @@ def ensure_list(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+#: Commands excluded from live invocation with a stated reason. This is not the
+#: contract-coverage exemption list (``docs/SURFACE_EXEMPTIONS.md``) — those
+#: surfaces are exempt from carrying a contract at all. These *must* carry a
+#: contract; they are merely unsafe or too slow to invoke inside a unit test.
+#: Every entry is reported in the result, so nothing is skipped silently.
+UNINVOKABLE: Dict[str, str] = {
+    "doctor": "walks every host tool on PATH; tens of seconds on Windows",
+    "host-tools": "same host-tool walk as doctor",
+    "install": "guided installer; writes shell and config state",
+    "mcp-serve": "starts a blocking stdio server",
+    "serve": "starts a blocking HTTP server",
+    "web": "starts a blocking HTTP server",
+    "dashboard": "renders a live terminal dashboard loop",
+    "goals-daemon": "starts a background daemon",
+    "watch": "blocks watching the filesystem",
+}
+
+
+def invoke_cli_contracts_offline(
+    names: Optional[Sequence[str]] = None,
+    *,
+    app: Any = None,
+    limit: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Invoke real CLI commands under ``--json`` and check the emitted envelope.
+
+    This replaces sample-based evidence. ``smoke_contracts_offline`` validates
+    dicts the test author constructed by hand, so it passes whether or not a
+    single real handler is wrapped — it cannot detect an unwrapped surface.
+    This function runs the actual command and parses what it actually printed.
+
+    Scope, stated rather than implied: only surfaces the inventory classifies
+    ``read_only`` are invoked. ``spend`` / ``mutating`` / ``interactive``
+    handlers are proven statically (the inventory shows the wrapper is called),
+    because invoking them in a unit test would write real state. Mock mode is
+    the default, so nothing reaches a provider either way.
+    """
+    from typer.testing import CliRunner
+
+    from .result_contract import REQUIRED_KEYS
+    from .surface_inventory import CLASS_READ_ONLY, KIND_CLI, enumerate_cli_surfaces
+
+    if app is None:
+        from scli.main import app as cli_app
+
+        app = cli_app
+
+    rows = [
+        r
+        for r in enumerate_cli_surfaces(app=app)
+        if r["kind"] == KIND_CLI
+        and not r["exempt"]
+        and not r.get("shadowed")
+        and r["classification"] == CLASS_READ_ONLY
+    ]
+    candidates = [r["name"] for r in rows]
+    if names is not None:
+        wanted = set(names)
+        candidates = [c for c in candidates if c in wanted]
+    if limit is not None:
+        candidates = candidates[: int(limit)]
+
+    runner = CliRunner()
+    passed: List[str] = []
+    failures: List[Dict[str, Any]] = []
+    skipped: List[Dict[str, str]] = []
+
+    for name in candidates:
+        reason = UNINVOKABLE.get(name)
+        if reason:
+            skipped.append({"command": name, "reason": reason})
+            continue
+        argv = ["--json", *name.split(" ")]
+        try:
+            res = runner.invoke(app, argv, catch_exceptions=True)
+        except Exception as e:  # pragma: no cover - runner itself blew up
+            failures.append({"command": name, "error": f"runner: {e}"[:200]})
+            continue
+
+        payload = _first_json_object(res.stdout or "")
+        if payload is None:
+            failures.append(
+                {
+                    "command": name,
+                    "error": "no JSON object on stdout under --json",
+                    "exit_code": res.exit_code,
+                    "stdout_head": (res.stdout or "")[:160],
+                }
+            )
+            continue
+        missing = [k for k in REQUIRED_KEYS if k not in payload]
+        if missing:
+            failures.append(
+                {"command": name, "missing": missing, "keys": sorted(payload)[:20]}
+            )
+            continue
+        passed.append(name)
+
+    return {
+        "ok": not failures,
+        "product": "cli_contract_invocation",
+        "invoked": len(passed) + len(failures),
+        "passed": sorted(passed),
+        "passed_count": len(passed),
+        "failures": failures,
+        "failure_count": len(failures),
+        "skipped": skipped,
+        "candidates": len(candidates),
+        "required": list(REQUIRED_KEYS),
+        "note": (
+            "read_only surfaces only; spend/mutating/interactive are proven "
+            "statically via surface_inventory. Skips are enumerated, never silent."
+        ),
+    }
+
+
+def _first_json_value(text: str) -> Any:
+    """
+    Parse the first top-level JSON value on stdout — object **or array**.
+
+    Arrays matter. ``superai audit`` prints a bare JSON list, and an
+    object-only scanner reports the first element of that list as if it were
+    the result envelope, which turns "uncontracted" into the much milder
+    "missing a few fields". Returning the array lets the caller name the real
+    problem.
+
+    Rich's ``print_json`` output may be preceded by log lines, so parsing the
+    whole buffer is too strict; this scans for the first balanced ``{...}`` or
+    ``[...]`` and parses that. Returns ``None`` when no JSON value is found.
+    """
+    import json
+
+    openers = {"{": "}", "[": "]"}
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch not in openers:
+            i += 1
+            continue
+        depth = 0
+        in_str = False
+        esc = False
+        for j in range(i, len(text)):
+            c = text[j]
+            if in_str:
+                if esc:
+                    esc = False
+                elif c == "\\":
+                    esc = True
+                elif c == '"':
+                    in_str = False
+                continue
+            if c == '"':
+                in_str = True
+            elif c in openers:
+                depth += 1
+            elif c in ("}", "]"):
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[i : j + 1])
+                    except ValueError:
+                        break
+        i += 1
+    return None
+
+
+def _first_json_object(text: str) -> Optional[Dict[str, Any]]:
+    """First top-level JSON value, but only if it is an object."""
+    val = _first_json_value(text)
+    return val if isinstance(val, dict) else None
+
+
 def smoke_contracts_offline() -> Dict[str, Any]:
-    """Offline contract checks for major APIs (no live providers)."""
+    """
+    Offline contract checks against **hand-constructed sample envelopes**.
+
+    Kept because other modules import it, but be clear about what it proves:
+    the samples are built inside this function, so it passes whether or not any
+    real command is wrapped. It validates that ``ensure_public_result`` and
+    ``wrap_public_result`` produce a conforming envelope — nothing about
+    coverage. For coverage evidence use :func:`invoke_cli_contracts_offline`.
+    """
     from .public_api import wrap_public_result
     from .spend_guard import ensure_public_result
 

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 try:
-    from fastapi import FastAPI, HTTPException, Query, Request
+    from fastapi import FastAPI, HTTPException, Query, Request, Response
     from fastapi.responses import HTMLResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
     from pydantic import BaseModel, Field
@@ -84,6 +84,55 @@ def create_app() -> Any:
         if request.url.path.startswith("/api/"):
             _check_auth(request)
         return await call_next(request)
+
+    @app.middleware("http")
+    async def contract_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+        """
+        V4-M2/V3-A4: every JSON response under ``/api/*`` carries the contract.
+
+        One seam rather than editing 20 handlers, matching how the CLI does it
+        (``public_surface.contract_console``). Applied at the response layer so
+        a route added tomorrow is contracted without anyone remembering to.
+
+        Deliberately narrow:
+
+        - Only ``/api/*``. ``POST /mcp`` is JSON-RPC, whose envelope is fixed by
+          the MCP spec and contracted one layer in by ``wrap_mcp_tool``.
+        - Only ``application/json``. HTML pages and ``/api/charts/render``
+          (an ``HTMLResponse``) pass through untouched.
+        - Only top-level JSON objects. A bare array is not an envelope, and
+          wrapping it here would change the response type behind the caller's
+          back; those routes are fixed individually.
+        """
+        response = await call_next(request)
+        if not request.url.path.startswith("/api/"):
+            return response
+        if "application/json" not in (response.headers.get("content-type") or ""):
+            return response
+        body = b""
+        async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+            body += chunk
+        try:
+            import json as _json
+
+            from core.public_surface import contract_payload
+
+            payload = _json.loads(body.decode("utf-8"))
+            if isinstance(payload, dict):
+                payload = contract_payload(payload, ok=response.status_code < 400)
+                body = _json.dumps(payload, default=str).encode("utf-8")
+        except Exception:
+            # A body we cannot parse is returned exactly as produced. Never
+            # swallow a real response to satisfy a contract check.
+            pass
+        headers = dict(response.headers)
+        headers.pop("content-length", None)
+        return Response(
+            content=body,
+            status_code=response.status_code,
+            headers=headers,
+            media_type="application/json",
+        )
 
     class MemoryQuery(BaseModel):
         query: str = Field(..., min_length=1)

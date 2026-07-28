@@ -85,6 +85,78 @@ def emit_public(
     return data
 
 
+def contract_payload(
+    data: Any,
+    *,
+    mock: Optional[bool] = None,
+    ok: Optional[bool] = None,
+) -> Any:
+    """
+    Apply the public contract to a payload **without** printing or exiting.
+
+    ``emit_public`` both normalizes and emits. This is the normalize half, for
+    callers that already own their own printing — chiefly
+    :func:`contract_console`.
+
+    Non-dict payloads pass through untouched: a list or a string printed as
+    JSON is not a result envelope and wrapping it would change its type. The
+    input dict is copied first, because ``apply_contract`` mutates in place and
+    a display helper must not rewrite the caller's object.
+    """
+    if not isinstance(data, dict):
+        return data
+    from .error_codes import apply_error_taxonomy
+    from .exit_codes import from_result
+    from .result_contract import apply_contract
+
+    if mock is None:
+        try:
+            from .config import Config
+
+            mock = bool(Config().use_mock)
+        except Exception:
+            mock = None
+
+    out = apply_contract(dict(data), mock=mock, dry_run=dry_run(), ok=ok)
+    out = apply_error_taxonomy(out)
+    out["live"] = not bool(out.get("mock"))
+    out["honesty"] = "MOCK" if out.get("mock") else "LIVE"
+    out.setdefault("exit_code", int(from_result(out)))
+    return out
+
+
+def contract_console(*args: Any, **kwargs: Any) -> Any:
+    """
+    A Rich ``Console`` whose ``print_json`` always emits a contracted envelope.
+
+    ``src/cli/main.py`` prints results through ``console.print_json(data=...)``
+    at 264 call sites. Rewriting each one would be 264 chances to change
+    behaviour by hand; routing them through one console subclass is a single
+    seam that cannot be partially applied, and a newly added
+    ``console.print_json`` is contracted the day it is written rather than the
+    day someone notices it was missed.
+
+    Only ``data=`` payloads are contracted. A pre-serialized ``json=`` string is
+    passed through, because re-parsing it to inject fields would silently
+    reformat output the caller deliberately built.
+    """
+    from rich.console import Console
+
+    class _ContractConsole(Console):
+        def print_json(  # type: ignore[override]
+            self,
+            json: Optional[str] = None,
+            *,
+            data: Any = None,
+            **kw: Any,
+        ) -> None:
+            if json is None and isinstance(data, dict):
+                data = contract_payload(data)
+            return super().print_json(json, data=data, **kw)
+
+    return _ContractConsole(*args, **kwargs)
+
+
 def render_public(
     result: Any,
     *,
@@ -240,40 +312,70 @@ def json_surface_report() -> Dict[str, Any]:
     }
 
 
-def verify_top_commands_registered(app: Any = None) -> Dict[str, Any]:
-    """Check Typer app has top command names registered."""
-    names: set[str] = set()
-    if app is not None:
-        try:
-            for cmd in getattr(app, "registered_commands", []) or []:
-                n = getattr(cmd, "name", None) or getattr(cmd, "callback", None)
-                if hasattr(cmd, "name") and cmd.name:
-                    names.add(str(cmd.name))
-            # typer stores differently
-            for name, cmd in (getattr(app, "commands", {}) or {}).items():
-                names.add(str(name))
-            # walk registered_groups
-            for group in getattr(app, "registered_groups", []) or []:
-                gname = getattr(group, "name", None)
-                if gname:
-                    names.add(str(gname))
-        except Exception:
-            pass
-    # Also accept known command list from contract_registry
-    try:
-        from .contract_registry import top_commands
+def registered_command_names(app: Any = None) -> set:
+    """
+    Names actually registered on the Typer app, including nested sub-apps.
 
-        expected = list(TOP_30_COMMANDS)
-        # soft: we report coverage of expected names vs known CLI surface list
-        known = set(top_commands()) | set(TOP_30_COMMANDS) | names
-        missing = [c for c in expected if c not in known and c not in names]
-        # If we cannot introspect, treat offline contract smoke as evidence
+    Derived from the live app via ``surface_inventory``; falls back to a shallow
+    walk if that import is unavailable. Never seeded with the expected list —
+    see the note in :func:`verify_top_commands_registered`.
+    """
+    if app is None:
+        try:
+            from scli.main import app as cli_app
+
+            app = cli_app
+        except Exception:
+            return set()
+    try:
+        from .surface_inventory import enumerate_cli_surfaces
+
+        return {r["name"] for r in enumerate_cli_surfaces(app=app)}
+    except Exception:
+        pass
+    names: set = set()
+    try:
+        for cmd in getattr(app, "registered_commands", []) or []:
+            if getattr(cmd, "name", None):
+                names.add(str(cmd.name))
+        for name, _cmd in (getattr(app, "commands", {}) or {}).items():
+            names.add(str(name))
+        for group in getattr(app, "registered_groups", []) or []:
+            if getattr(group, "name", None):
+                names.add(str(group.name))
+    except Exception:
+        pass
+    return names
+
+
+def verify_top_commands_registered(app: Any = None) -> Dict[str, Any]:
+    """
+    Check every TOP_30 command is really registered on the Typer app.
+
+    Two defects were fixed here, and both are worth remembering because the
+    same shapes recur elsewhere in this codebase:
+
+    1. The pass condition was ``len(missing) <= 5`` — a completeness check with
+       five slots of built-in slack. Anything layered on top inherited it.
+    2. More seriously, ``missing`` was computed against
+       ``known = top_commands() | TOP_30_COMMANDS | names``. Since ``expected``
+       *is* ``TOP_30_COMMANDS``, every expected name was in ``known`` by
+       construction and ``missing`` was unconditionally empty. The check could
+       not fail — not for five missing commands, not for thirty.
+
+    ``missing`` is now computed against registered names only.
+    """
+    try:
         from .contract_registry import smoke_contracts_offline
 
+        names = registered_command_names(app)
+        expected = list(TOP_30_COMMANDS)
+        missing = sorted(c for c in expected if c not in names)
         smoke = smoke_contracts_offline()
         return {
-            "ok": bool(smoke.get("ok")) and len(missing) <= 5,
+            "ok": bool(smoke.get("ok")) and not missing,
             "expected": expected,
+            "registered_count": len(names),
             "registered_sample": sorted(names)[:40],
             "missing": missing,
             "contract_smoke": smoke,

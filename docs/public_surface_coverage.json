@@ -1,0 +1,1180 @@
+{
+  "scope": "read_only",
+  "timeout": 20.0,
+  "tally": {
+    "pass": 89,
+    "usage-error": 87,
+    "no-json": 19,
+    "json-array": 1,
+    "hang": 8,
+    "missing-fields": 1
+  },
+  "results": [
+    {
+      "command": "a11y",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "ab-route",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "agent-graph",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "agent-tools",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli agent-tools [OPTIONS] PROMPT Try 'python -m scli agent-tools --help' for help. +- Error ------------------------------"
+    },
+    {
+      "command": "audit",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "backup",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "[BackupManager] Encrypted backup created: C:\\Users\\burhan.husain\\.superai\\backups\\superai_backup_20260729_011545.tar.zst.enc (2 files) Encry"
+    },
+    {
+      "command": "backup-key",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli backup-key [OPTIONS] ACTION PATH Try 'python -m scli backup-key --help' for help. +- Error ---------------------------"
+    },
+    {
+      "command": "backup-status",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "+------------------------------- Backup Status -------------------------------+ | {'total_backups': 421, 'latest_backup':                   "
+    },
+    {
+      "command": "backup-verify",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "+------------------------------- Backup Verify -------------------------------+ | OK                                                        "
+    },
+    {
+      "command": "bandit",
+      "status": "json-array",
+      "exit_code": 0,
+      "detail": "top-level JSON list, not an envelope"
+    },
+    {
+      "command": "blacklist",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "board-preflight",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli board-preflight [OPTIONS] SUBJECT Try 'python -m scli board-preflight --help' for help. +- Error ---------------------"
+    },
+    {
+      "command": "browse",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli browse [OPTIONS] URL Try 'python -m scli browse --help' for help. +- Error -------------------------------------------"
+    },
+    {
+      "command": "budget",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli budget [OPTIONS] COMMAND [ARGS]... Try 'python -m scli budget --help' for help. +- Error -----------------------------"
+    },
+    {
+      "command": "budget command get",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli budget command get [OPTIONS] COMMAND_NAME Try 'python -m scli budget command get --help' for help. +- Error ----------"
+    },
+    {
+      "command": "budget command list",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "No per-command budget overrides configured. "
+    },
+    {
+      "command": "budget command set",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli budget command set [OPTIONS] COMMAND_NAME MAX_USD Try 'python -m scli budget command set --help' for help. +- Error --"
+    },
+    {
+      "command": "capabilities",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "capture config",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "capture end",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli capture end [OPTIONS] Try 'python -m scli capture end --help' for help. +- Error -------------------------------------"
+    },
+    {
+      "command": "capture start",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "capture stream",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli capture stream [OPTIONS] TURNS_JSON Try 'python -m scli capture stream --help' for help. +- Error --------------------"
+    },
+    {
+      "command": "capture turn",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli capture turn [OPTIONS] HOOK [CONTENT] Try 'python -m scli capture turn --help' for help. +- Error --------------------"
+    },
+    {
+      "command": "check critique",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli check critique [OPTIONS] FILE_PATH Try 'python -m scli check critique --help' for help. +- Error ---------------------"
+    },
+    {
+      "command": "check license",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli check license [OPTIONS] MANIFEST Try 'python -m scli check license --help' for help. +- Error ------------------------"
+    },
+    {
+      "command": "check lint",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli check lint [OPTIONS] FILES... Try 'python -m scli check lint --help' for help. +- Error ------------------------------"
+    },
+    {
+      "command": "check upgrades",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli check upgrades [OPTIONS] MANIFEST Try 'python -m scli check upgrades --help' for help. +- Error ----------------------"
+    },
+    {
+      "command": "ci-fix",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli ci-fix [OPTIONS] LOG_INPUT Try 'python -m scli ci-fix --help' for help. +- Error -------------------------------------"
+    },
+    {
+      "command": "ci-why",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Provide --file or --text "
+    },
+    {
+      "command": "cloud configure",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "cloud dry-sync",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "cloud push",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "cloud status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "cognify",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli cognify [OPTIONS] SOURCE Try 'python -m scli cognify --help' for help. +- Error --------------------------------------"
+    },
+    {
+      "command": "compliance",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "config get",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli config get [OPTIONS] KEY Try 'python -m scli config get --help' for help. +- Error -----------------------------------"
+    },
+    {
+      "command": "config set",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli config set [OPTIONS] KEY VALUE Try 'python -m scli config set --help' for help. +- Error -----------------------------"
+    },
+    {
+      "command": "config show",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "conflicts",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "Found 1 conflicting learning group(s):  \ufffd  Task Type: coding | Model: m1   Inconsistent 'coding' / m1: 4 ok / 6 fail (rate=40.0%, H=0.97)  "
+    },
+    {
+      "command": "constitution",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "# SuperAI Constitution  - Prefer local mock mode unless API keys are configured. - Never exfiltrate secrets; treat user data as private. - R"
+    },
+    {
+      "command": "context-pack",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli context-pack [OPTIONS] TASK Try 'python -m scli context-pack --help' for help. +- Error ------------------------------"
+    },
+    {
+      "command": "contract-smoke",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "daemon",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "data-ask",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli data-ask [OPTIONS] QUESTION Try 'python -m scli data-ask --help' for help. +- Error ----------------------------------"
+    },
+    {
+      "command": "data-schema",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "dataset create",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli dataset create [OPTIONS] NAME Try 'python -m scli dataset create --help' for help. +- Error --------------------------"
+    },
+    {
+      "command": "dataset export",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli dataset export [OPTIONS] NAME Try 'python -m scli dataset export --help' for help. +- Error --------------------------"
+    },
+    {
+      "command": "dataset forget",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli dataset forget [OPTIONS] NAME Try 'python -m scli dataset forget --help' for help. +- Error --------------------------"
+    },
+    {
+      "command": "dataset import",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli dataset import [OPTIONS] ARCHIVE Try 'python -m scli dataset import --help' for help. +- Error -----------------------"
+    },
+    {
+      "command": "dataset list",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "dataset status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "dataset use",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli dataset use [OPTIONS] NAME Try 'python -m scli dataset use --help' for help. +- Error --------------------------------"
+    },
+    {
+      "command": "debate",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli debate [OPTIONS] TOPIC Try 'python -m scli debate --help' for help. +- Error -----------------------------------------"
+    },
+    {
+      "command": "delegate",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli delegate [OPTIONS] GOAL Try 'python -m scli delegate --help' for help. +- Error --------------------------------------"
+    },
+    {
+      "command": "diagnose",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "diff-edit",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli diff-edit [OPTIONS] PATH CONTENT Try 'python -m scli diff-edit --help' for help. +- Error ----------------------------"
+    },
+    {
+      "command": "discover",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "ecosystem",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "emit-event",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli emit-event [OPTIONS] EVENT Try 'python -m scli emit-event --help' for help. +- Error ---------------------------------"
+    },
+    {
+      "command": "evolve",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli evolve [OPTIONS] TOPIC Try 'python -m scli evolve --help' for help. +- Error -----------------------------------------"
+    },
+    {
+      "command": "exit-codes",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "Trustworthy Exit Codes Registry (V6 M080):   \ufffd 0   OK                 - Success (clean execution)   \ufffd 1   GENERAL            - General execu"
+    },
+    {
+      "command": "explain-run",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli explain-run [OPTIONS] RUN_ID Try 'python -m scli explain-run --help' for help. +- Error ------------------------------"
+    },
+    {
+      "command": "failover",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "feedback",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli feedback [OPTIONS] TASK_ID TEXT Try 'python -m scli feedback --help' for help. +- Error ------------------------------"
+    },
+    {
+      "command": "forecast",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli forecast [OPTIONS] TASK Try 'python -m scli forecast --help' for help. +- Error --------------------------------------"
+    },
+    {
+      "command": "foundation-check",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "gates",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "git explain-pr",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "# Git Branch Pull Request Summary  ## Summary This Pull Request updates 0 file(s) with +0/-0 changes.  ## File-Level Findings  | File | Chan"
+    },
+    {
+      "command": "git resolve-conflicts",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli git resolve-conflicts [OPTIONS] FILE_PATH Try 'python -m scli git resolve-conflicts --help' for help. +- Error -------"
+    },
+    {
+      "command": "git suggest-branch",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli git suggest-branch [OPTIONS] DESCRIPTION Try 'python -m scli git suggest-branch --help' for help. +- Error -----------"
+    },
+    {
+      "command": "git suggest-commit",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli git suggest-commit [OPTIONS] DESCRIPTION Try 'python -m scli git suggest-commit --help' for help. +- Error -----------"
+    },
+    {
+      "command": "git-helper",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli git-helper [OPTIONS] ACTION Try 'python -m scli git-helper --help' for help. +- Error --------------------------------"
+    },
+    {
+      "command": "github",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "goals",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "history",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "                            Recent tasks (last 10)                              +-----------------------------------------------------------"
+    },
+    {
+      "command": "history-search",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "hitl",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "host-hook checklist",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "host-hook emit",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli host-hook emit [OPTIONS] EVENT Try 'python -m scli host-hook emit --help' for help. +- Error -------------------------"
+    },
+    {
+      "command": "host-hook install-snippet",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "ingest",
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Provide SOURCE path/text or --url "
+    },
+    {
+      "command": "install-postgres",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "json-surface",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "kg path",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "kg query",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "kg status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "kg upsert-edge",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "kg upsert-node",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli kg upsert-node [OPTIONS] NAME Try 'python -m scli kg upsert-node --help' for help. +- Error --------------------------"
+    },
+    {
+      "command": "lang",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "learning conflicts",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "learning deprecate",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli learning deprecate [OPTIONS] MEMORY_ID Try 'python -m scli learning deprecate --help' for help. +- Error -------------"
+    },
+    {
+      "command": "learning distill",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "learning list",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "learning promote",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "learning status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "learning undeprecate",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli learning undeprecate [OPTIONS] MEMORY_ID Try 'python -m scli learning undeprecate --help' for help. +- Error ---------"
+    },
+    {
+      "command": "learnings",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "+-------------------------------------------------------+ | Learning Summary                                      | |                       "
+    },
+    {
+      "command": "list-models",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "Registered models (source: C:\\Users\\burhan.husain\\.superai\\config\\models.json)  +-----------------------------------------------------------"
+    },
+    {
+      "command": "list-skills",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "                                    Skills                                      +-----------------------------------------------------------"
+    },
+    {
+      "command": "listen",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "lsp-check",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli lsp-check [OPTIONS] PATH Try 'python -m scli lsp-check --help' for help. +- Error ------------------------------------"
+    },
+    {
+      "command": "macros",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "mcp-config",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "memory-clusters",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "memory-forget",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-forget [OPTIONS] QUERY Try 'python -m scli memory-forget --help' for help. +- Error ---------------------------"
+    },
+    {
+      "command": "memory-palace",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "memory-session clear",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-session clear [OPTIONS] Try 'python -m scli memory-session clear --help' for help. +- Error -------------------"
+    },
+    {
+      "command": "memory-session end",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-session end [OPTIONS] Try 'python -m scli memory-session end --help' for help. +- Error -----------------------"
+    },
+    {
+      "command": "memory-session items",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-session items [OPTIONS] Try 'python -m scli memory-session items --help' for help. +- Error -------------------"
+    },
+    {
+      "command": "memory-session list",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "memory-session pin",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-session pin [OPTIONS] ITEM_ID Try 'python -m scli memory-session pin --help' for help. +- Error ---------------"
+    },
+    {
+      "command": "memory-session promote",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-session promote [OPTIONS] Try 'python -m scli memory-session promote --help' for help. +- Error ---------------"
+    },
+    {
+      "command": "memory-session purge-ttl",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "memory-session recall",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-session recall [OPTIONS] [QUERY] Try 'python -m scli memory-session recall --help' for help. +- Error ---------"
+    },
+    {
+      "command": "memory-session remember",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-session remember [OPTIONS] CONTENT Try 'python -m scli memory-session remember --help' for help. +- Error -----"
+    },
+    {
+      "command": "memory-session start",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "memory-session status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "memory-sync",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli memory-sync [OPTIONS] ACTION PATH Try 'python -m scli memory-sync --help' for help. +- Error -------------------------"
+    },
+    {
+      "command": "memory-ttl",
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Error: TypeError: can't subtract offset-naive and offset-aware datetimes "
+    },
+    {
+      "command": "metrics",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "mode",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli mode [OPTIONS] MODE Try 'python -m scli mode --help' for help. +- Error ----------------------------------------------"
+    },
+    {
+      "command": "models-refresh-openrouter",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "models-register",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli models-register [OPTIONS] Try 'python -m scli models-register --help' for help. +- Error -----------------------------"
+    },
+    {
+      "command": "models-sync-ollama",
+      "status": "pass",
+      "exit_code": 1
+    },
+    {
+      "command": "msg-broadcast",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli msg-broadcast [OPTIONS] MESSAGE Try 'python -m scli msg-broadcast --help' for help. +- Error -------------------------"
+    },
+    {
+      "command": "msg-channels",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "msg-inbound",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli msg-inbound [OPTIONS] CHANNEL TEXT Try 'python -m scli msg-inbound --help' for help. +- Error ------------------------"
+    },
+    {
+      "command": "msg-send",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli msg-send [OPTIONS] MESSAGE Try 'python -m scli msg-send --help' for help. +- Error -----------------------------------"
+    },
+    {
+      "command": "mux",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "nl-eval",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "notebook",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli notebook [OPTIONS] ACTION PATH Try 'python -m scli notebook --help' for help. +- Error -------------------------------"
+    },
+    {
+      "command": "notion",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "ontology induce",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "ontology map",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli ontology map [OPTIONS] LABEL Try 'python -m scli ontology map --help' for help. +- Error -----------------------------"
+    },
+    {
+      "command": "ontology show",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "ontology validate",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "otel demo",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "otel list",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "otel status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "parked",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "patterns",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "pin-model",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli pin-model [OPTIONS] NAME Try 'python -m scli pin-model --help' for help. +- Error ------------------------------------"
+    },
+    {
+      "command": "plugin-catalog",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "plugins",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "[   {     \"id\": \"core.databao\",     \"name\": \"Databao Adapter\",     \"version\": \"0.1.0\",     \"category\": \"data\",     \"description\": [   {     "
+    },
+    {
+      "command": "policy",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "pref",
+      "status": "missing-fields",
+      "exit_code": 0,
+      "missing": [
+        "ok",
+        "status",
+        "mock",
+        "dry_run",
+        "model_chain",
+        "tokens",
+        "estimated_cost_usd",
+        "members",
+        "memory_ids",
+        "contract"
+      ]
+    },
+    {
+      "command": "process-mux",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "profile",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "profile-bundle",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli profile-bundle [OPTIONS] ACTION PATH Try 'python -m scli profile-bundle --help' for help. +- Error -------------------"
+    },
+    {
+      "command": "profile-suggest",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "progress",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "project-budget",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "prompt-injection scan",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli prompt-injection scan [OPTIONS] PAYLOAD Try 'python -m scli prompt-injection scan --help' for help. +- Error ---------"
+    },
+    {
+      "command": "prompt-injection wrap",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli prompt-injection wrap [OPTIONS] CONTENT Try 'python -m scli prompt-injection wrap --help' for help. +- Error ---------"
+    },
+    {
+      "command": "proposal",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli proposal [OPTIONS] PROPOSAL_ID Try 'python -m scli proposal --help' for help. +- Error -------------------------------"
+    },
+    {
+      "command": "proposals",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "           Tool proposals            +----------------------------------+ | ID | Action | Status | Rationale | |----+--------+--------+-----"
+    },
+    {
+      "command": "propose",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli propose [OPTIONS] ACTION PAYLOAD Try 'python -m scli propose --help' for help. +- Error ------------------------------"
+    },
+    {
+      "command": "provider-health",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "                                Provider Health                                 +-----------------------------------------------------------"
+    },
+    {
+      "command": "providers",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "rate-queue",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "recall",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli recall [OPTIONS] QUERY Try 'python -m scli recall --help' for help. +- Error -----------------------------------------"
+    },
+    {
+      "command": "recipes",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "reflect",
+      "status": "hang",
+      "detail": ">20.0s, killed"
+    },
+    {
+      "command": "restore",
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Provide a local backup path or use --cloud "
+    },
+    {
+      "command": "routing-stats",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "+-----------------------------------------------------+ | Routing Stats                                       | |                           "
+    },
+    {
+      "command": "schedule",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "search-web",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli search-web [OPTIONS] QUERY Try 'python -m scli search-web --help' for help. +- Error ---------------------------------"
+    },
+    {
+      "command": "secrets",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "security scan-secrets",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli security scan-secrets [OPTIONS] TARGET Try 'python -m scli security scan-secrets --help' for help. +- Error ----------"
+    },
+    {
+      "command": "set-strategy",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli set-strategy [OPTIONS] STRATEGY Try 'python -m scli set-strategy --help' for help. +- Error --------------------------"
+    },
+    {
+      "command": "set-supervisor",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli set-supervisor [OPTIONS] MODEL Try 'python -m scli set-supervisor --help' for help. +- Error -------------------------"
+    },
+    {
+      "command": "shell",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli shell [OPTIONS] COMMAND Try 'python -m scli shell --help' for help. +- Error -----------------------------------------"
+    },
+    {
+      "command": "side-effects",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "skill",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli skill [OPTIONS] ACTION NAME [CONTENT] Try 'python -m scli skill --help' for help. +- Error ---------------------------"
+    },
+    {
+      "command": "skill-perms",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "skill-promote",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli skill-promote [OPTIONS] NAME Try 'python -m scli skill-promote --help' for help. +- Error ----------------------------"
+    },
+    {
+      "command": "skill-rollback",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli skill-rollback [OPTIONS] NAME Try 'python -m scli skill-rollback --help' for help. +- Error --------------------------"
+    },
+    {
+      "command": "speak",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli speak [OPTIONS] TEXT Try 'python -m scli speak --help' for help. +- Error --------------------------------------------"
+    },
+    {
+      "command": "spec",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "spend-report",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "surface-feedback",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli surface-feedback [OPTIONS] MESSAGE Try 'python -m scli surface-feedback --help' for help. +- Error -------------------"
+    },
+    {
+      "command": "symbol search",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli symbol search [OPTIONS] QUERY Try 'python -m scli symbol search --help' for help. +- Error ---------------------------"
+    },
+    {
+      "command": "tdd",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli tdd [OPTIONS] TASK Try 'python -m scli tdd --help' for help. +- Error ------------------------------------------------"
+    },
+    {
+      "command": "telemetry",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "tenant-export",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "tenant-import",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli tenant-import [OPTIONS] SRC Try 'python -m scli tenant-import --help' for help. +- Error -----------------------------"
+    },
+    {
+      "command": "term-jobs",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "term-parallel",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli term-parallel [OPTIONS] TASK Try 'python -m scli term-parallel --help' for help. +- Error ----------------------------"
+    },
+    {
+      "command": "test impacted",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli test impacted [OPTIONS] FILES... Try 'python -m scli test impacted --help' for help. +- Error ------------------------"
+    },
+    {
+      "command": "timeouts",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "todos",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "triage-log",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli triage-log [OPTIONS] LOG_PATH Try 'python -m scli triage-log --help' for help. +- Error ------------------------------"
+    },
+    {
+      "command": "tt-list",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli tt-list [OPTIONS] PATH Try 'python -m scli tt-list --help' for help. +- Error ----------------------------------------"
+    },
+    {
+      "command": "tt-restore",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli tt-restore [OPTIONS] PATH VERSION Try 'python -m scli tt-restore --help' for help. +- Error --------------------------"
+    },
+    {
+      "command": "tt-snapshot",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli tt-snapshot [OPTIONS] PATH Try 'python -m scli tt-snapshot --help' for help. +- Error --------------------------------"
+    },
+    {
+      "command": "update",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "v6-status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "validate-json",
+      "status": "usage-error",
+      "exit_code": 2,
+      "detail": "Usage: python -m scli validate-json [OPTIONS] TEXT Try 'python -m scli validate-json --help' for help. +- Error ----------------------------"
+    },
+    {
+      "command": "version",
+      "status": "no-json",
+      "exit_code": 0,
+      "detail": "SuperAI v0.1.0 - Core Foundation (stabilized SuperAI) "
+    },
+    {
+      "command": "vim-keys",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "voice",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "whats-new",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "wings",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "workspace-index",
+      "status": "pass",
+      "exit_code": 0
+    }
+  ],
+  "skipped": [
+    {
+      "command": "dashboard",
+      "reason": "renders a live terminal dashboard loop"
+    },
+    {
+      "command": "doctor",
+      "reason": "walks every host tool on PATH; tens of seconds on Windows"
+    },
+    {
+      "command": "host-tools",
+      "reason": "same host-tool walk as doctor"
+    },
+    {
+      "command": "mcp-serve",
+      "reason": "starts a blocking stdio server"
+    },
+    {
+      "command": "web",
+      "reason": "starts a blocking HTTP server"
+    }
+  ]
+}

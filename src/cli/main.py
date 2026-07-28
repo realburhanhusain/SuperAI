@@ -577,7 +577,7 @@ def run(
 
         # Cost / contract footer (Improvement Phase 1/3)
         console.print(
-            f"[dim]cost≈${float(result.get('estimated_cost_usd') or 0):.6f}  "
+            f"[dim]cost~${float(result.get('estimated_cost_usd') or 0):.6f}  "
             f"tokens={result.get('tokens') or result.get('total_tokens') or 0}  "
             f"mock={result.get('mock')} dry_run={result.get('dry_run')}  "
             f"profile={orchestrator.config.get('run_profile')}  "
@@ -4468,7 +4468,7 @@ def ask_cmd(
     # Cost report footer
     if out.get("executed"):
         console.print(
-            f"[dim]cost≈${float(out.get('estimated_cost_usd') or 0):.6f}  "
+            f"[dim]cost~${float(out.get('estimated_cost_usd') or 0):.6f}  "
             f"tokens={out.get('tokens') or 0}  "
             f"mock={out.get('mock')} dry_run={out.get('dry_run')}  "
             f"models={','.join(out.get('model_chain') or [])[:80]}[/dim]"

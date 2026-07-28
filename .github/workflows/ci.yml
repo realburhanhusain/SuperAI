@@ -30,9 +30,12 @@ jobs:
       - name: Pytest (core)
         run: >-
           pytest -q --timeout=300 --timeout-method=thread
+          --ignore=tests/test_mcp_server.py
           --ignore=tests/test_learning.py
           --ignore=tests/test_learning_engine_gaps.py
           --ignore=tests/test_learning_lifecycle_m061_m063.py
+      - name: Pytest (MCP server)
+        run: pytest -q --timeout=300 --timeout-method=thread tests/test_mcp_server.py
       - name: Pytest (learning lifecycle)
         run: >-
           pytest -q --timeout=300 --timeout-method=thread

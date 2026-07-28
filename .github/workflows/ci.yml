@@ -26,9 +26,14 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem tests/test_*.py | ForEach-Object {
-            python -m pytest -q --timeout=300 --timeout-method=thread $_.FullName
+            python -m pytest -q --timeout=300 --timeout-method=thread --deselect=tests/test_pgvector_store.py::test_pgvector_is_default_backend $_.FullName
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+      - name: Pytest (pgvector default policy)
+        shell: pwsh
+        run: |
+          Remove-Item Env:SUPERAI_MEMORY_BACKEND -ErrorAction SilentlyContinue
+          python -m pytest -q --timeout=300 --timeout-method=thread tests/test_pgvector_store.py::test_pgvector_is_default_backend
       - name: Init + mock run
         run: |
           superai init --non-interactive

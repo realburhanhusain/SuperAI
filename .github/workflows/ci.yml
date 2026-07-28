@@ -23,7 +23,21 @@ jobs:
           python-version: '3.14'
       - name: Install
         run: pip install -e ".[dev]"
-      # Run learning lifecycle tests in a fresh process. Earlier integration tests can leave\r\n      # process-local state behind on Windows runners; this keeps the full suite deterministic.\r\n      - name: Pytest (core)\r\n        run: >-\r\n          pytest -q --timeout=300 --timeout-method=thread\r\n          --ignore=tests/test_learning.py\r\n          --ignore=tests/test_learning_engine_gaps.py\r\n          --ignore=tests/test_learning_lifecycle_m061_m063.py\r\n      - name: Pytest (learning lifecycle)\r\n        run: >-\r\n          pytest -q --timeout=300 --timeout-method=thread\r\n          tests/test_learning.py\r\n          tests/test_learning_engine_gaps.py\r\n          tests/test_learning_lifecycle_m061_m063.py\r\n      - name: Init + mock run
+      # Run learning lifecycle tests in a fresh process. Earlier integration tests can leave
+      # process-local state behind on Windows runners; this keeps the full suite deterministic.
+      - name: Pytest (core)
+        run: >-
+          pytest -q --timeout=300 --timeout-method=thread
+          --ignore=tests/test_learning.py
+          --ignore=tests/test_learning_engine_gaps.py
+          --ignore=tests/test_learning_lifecycle_m061_m063.py
+      - name: Pytest (learning lifecycle)
+        run: >-
+          pytest -q --timeout=300 --timeout-method=thread
+          tests/test_learning.py
+          tests/test_learning_engine_gaps.py
+          tests/test_learning_lifecycle_m061_m063.py
+      - name: Init + mock run
         run: |
           superai init --non-interactive
           superai run "say hello" --format json

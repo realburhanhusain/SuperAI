@@ -12,7 +12,7 @@ import re
 import sys
 import traceback
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 from rich.console import Console
@@ -84,8 +84,30 @@ def _cli_exit(code_or_result=None, *, code: int | None = None) -> None:
     raise typer.Exit(GENERAL)
 
 
-console = Console()
+# V2-A4/V3-A4: every ``console.print_json(data=...)`` in this module emits a
+# contracted envelope. One seam instead of 264 hand-edits — see
+# ``public_surface.contract_console``. Falls back to a plain Console if the
+# helper is unavailable, so the CLI still runs rather than failing to import.
+try:
+    from core.public_surface import contract_console as _contract_console
+
+    console = _contract_console()
+except Exception:  # pragma: no cover - defensive import guard
+    console = Console()
 logger = get_logger("superai.cli")
+
+
+def _list_payload(key: str, items: Any) -> Dict[str, Any]:
+    """
+    Envelope a bare list so it can carry the public contract.
+
+    ``contract_console`` deliberately passes non-dict payloads through
+    untouched — retyping a caller's list into an object behind its back is
+    worse than leaving it uncontracted. So commands whose natural result *is*
+    a list name their own collection key here instead.
+    """
+    seq = list(items or [])
+    return {"ok": True, key: seq, "count": len(seq)}
 
 _AUTO_BACKUP_REGISTERED = False
 
@@ -3151,7 +3173,10 @@ def term_jobs_cmd(
         console.print(f"[green]Cleared {n} finished terminal sessions[/green]")
         return
     console.print_json(
-        data=mgr.list_sessions(status=status, workflow_id=workflow_id, limit=50)
+        data=_list_payload(
+            "sessions",
+            mgr.list_sessions(status=status, workflow_id=workflow_id, limit=50),
+        )
     )
 
 
@@ -4224,8 +4249,11 @@ def memory_clusters_cmd(
     from core.memory_palace import MemoryPalace
 
     console.print_json(
-        data=MemoryPalace().cluster_memories(
-            limit=limit, max_clusters=max_clusters, method=method
+        data=_list_payload(
+            "clusters",
+            MemoryPalace().cluster_memories(
+                limit=limit, max_clusters=max_clusters, method=method
+            ),
         )
     )
 
@@ -4578,7 +4606,7 @@ def audit(
     """S8: Show recent audit log entries"""
     from core.audit_log import AuditLog
 
-    console.print_json(data=AuditLog().recent(limit=limit))
+    console.print_json(data=_list_payload("entries", AuditLog().recent(limit=limit)))
 
 
 @app.command("backup-key")
@@ -4614,13 +4642,13 @@ def policy(
 
     pe = PolicyEngine()
     if action == "list":
-        console.print_json(data=pe.list_rules())
+        console.print_json(data=_list_payload("rules", pe.list_rules()))
         return
     if action in {"enable", "disable"} and rule_id:
         ok = pe.set_enabled(rule_id, action == "enable")
         if not ok:
             raise _cli_exit(code=1)
-        console.print_json(data=pe.list_rules())
+        console.print_json(data=_list_payload("rules", pe.list_rules()))
         return
     raise _cli_exit(code=1)
 
@@ -4637,7 +4665,7 @@ def schedule(
 
     store = ScheduleStore()
     if action == "list":
-        console.print_json(data=store.list_jobs())
+        console.print_json(data=_list_payload("jobs", store.list_jobs()))
         return
     if action == "add":
         if not name or not command:
@@ -5535,7 +5563,7 @@ def rate_queue_cmd(
 
     q = RateLimitQueue()
     if action == "list":
-        console.print_json(data=q.list_items())
+        console.print_json(data=_list_payload("items", q.list_items()))
         return
     if action == "clear" and item_id:
         console.print_json(data={"removed": q.remove(item_id)})

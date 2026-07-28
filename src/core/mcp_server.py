@@ -19,6 +19,25 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+# The fallback memory backend is process-local.  MCP store/search must therefore
+# share one palace instance when PostgreSQL is unavailable; rebuild it only when
+# a caller changes the home directory (as isolated tests do).
+_mcp_palace: Any = None
+_mcp_palace_home: Optional[Path] = None
+
+
+def _mcp_memory_palace() -> Any:
+    global _mcp_palace, _mcp_palace_home
+
+    home = Path.home()
+    if _mcp_palace is None or _mcp_palace_home != home:
+        from .memory_palace import MemoryPalace
+
+        _mcp_palace = MemoryPalace()
+        _mcp_palace_home = home
+    return _mcp_palace
+
+
 SERVER_NAME = "superai"
 SERVER_VERSION = "0.2.0"
 PROTOCOL_VERSION = "2024-11-05"
@@ -660,6 +679,7 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         out = run_recall(
             query,
             strategy=strategy,
+            palace=_mcp_memory_palace(),
             top_k=top_k,
             session_id=args.get("session_id"),
             dataset_id=args.get("dataset_id"),
@@ -1055,8 +1075,6 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         )
 
     if name == "superai_memory_store":
-        from .memory_palace import MemoryPalace
-
         content = str(args.get("content") or "").strip()
         if not content:
             raise ValueError("content required")
@@ -1066,7 +1084,7 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         if source and source not in tags:
             tags.append(source)
         importance = float(args.get("importance") or 0.7)
-        mid = MemoryPalace().store(
+        mid = _mcp_memory_palace().store(
             content,
             tags=tags,
             metadata={

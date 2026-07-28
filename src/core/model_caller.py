@@ -442,6 +442,10 @@ class ModelCaller:
                 except Exception:
                     pass
 
+        # An explicit cli:* selector is a user-chosen transport; keep it authoritative.
+        if str(model).startswith("cli:"):
+            models_to_try = [str(model)]
+
         # Routing pipeline (M068 → M050): shared route_candidates (prefs then bandit).
         # Single production path so tests of route_candidates match live behavior.
         try:

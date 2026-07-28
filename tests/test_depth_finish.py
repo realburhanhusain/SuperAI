@@ -26,6 +26,7 @@ def test_planner_heuristic_roles():
 def test_hierarchy_decompose_and_run(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
+    monkeypatch.setenv("SUPERAI_MEMORY_BACKEND", "memory")
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "true")
     from core.config import Config
 
@@ -54,6 +55,7 @@ def test_external_cli_model_call(tmp_path: Path, monkeypatch):
 
 def test_memory_cluster(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
+    monkeypatch.setenv("SUPERAI_MEMORY_BACKEND", "memory")
     mp = MemoryPalace(persist_directory=str(tmp_path / "mem"))
     mp.store("fastapi routing tips", tags=["coding"], metadata={"task_type": "coding"})
     mp.store("auth jwt patterns", tags=["coding"], metadata={"task_type": "coding"})
@@ -135,6 +137,7 @@ def test_dynamic_roles():
 def test_resume_checkpoint(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setenv("SUPERAI_EMBEDDING_HASH", "1")
+    monkeypatch.setenv("SUPERAI_MEMORY_BACKEND", "memory")
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "true")
     from core.config import Config
     from core.orchestrator import SuperAIOrchestrator

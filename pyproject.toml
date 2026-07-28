@@ -37,6 +37,7 @@ vector = [
 ]
 dev = [
     "pytest>=8.0",
+    "pytest-timeout>=2.4",
     "httpx>=0.27",
 ]
 docs = [

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.knowledge_graph import KnowledgeGraph
+from core.knowledge_graph import DEFAULT_KG_DSN, KnowledgeGraph, resolve_kg_dsn
 
 pytestmark = pytest.mark.unit
 
@@ -16,6 +16,13 @@ def kg(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SUPERAI_KG_DSN", f"sqlite:///{(tmp_path / 'kg.sqlite').as_posix()}")
     monkeypatch.delenv("SUPERAI_MEMORY_DSN", raising=False)
     return KnowledgeGraph(lock_root=tmp_path)
+
+
+def test_postgres_is_default_backend(monkeypatch):
+    monkeypatch.delenv("SUPERAI_KG_DSN", raising=False)
+    monkeypatch.delenv("SUPERAI_MEMORY_DSN", raising=False)
+
+    assert resolve_kg_dsn() == DEFAULT_KG_DSN
 
 
 def test_status_empty(kg: KnowledgeGraph):

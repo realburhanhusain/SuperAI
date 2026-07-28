@@ -1,10 +1,10 @@
 """
 Knowledge graph foundation (Memory Roadmap P0.1 → P1 / Cognee gap 1).
 
-Stores entity nodes and directed edges alongside the Memory Palace (default:
-SQLite file under ``~/.superai/memory/kg.sqlite``). Same process-lock discipline
-as the palace. Postgres DSN support mirrors pgvector_store when
-``SUPERAI_KG_DSN`` or ``SUPERAI_MEMORY_DSN`` is a Postgres URL.
+Stores entity nodes and directed edges alongside the Memory Palace. PostgreSQL is
+the default backend; SQLite remains available only through an explicit DSN. Same
+process-lock discipline as the palace. ``SUPERAI_KG_DSN`` and
+``SUPERAI_MEMORY_DSN`` override the built-in PostgreSQL URL.
 
 Does **not** replace MemoryPalace — chunks stay there; nodes can link via
 ``source_memory_id``.
@@ -94,10 +94,7 @@ class KGEdgeRow(Base):
     created_at: Mapped[str] = mapped_column(String(64), default=_now)
 
 
-def default_kg_path() -> Path:
-    root = Path(os.path.expanduser("~/.superai/memory"))
-    root.mkdir(parents=True, exist_ok=True)
-    return root / "kg.sqlite"
+DEFAULT_KG_DSN = "postgresql+psycopg://localhost/superai"
 
 
 def resolve_kg_dsn(explicit: Optional[str] = None) -> str:
@@ -105,7 +102,7 @@ def resolve_kg_dsn(explicit: Optional[str] = None) -> str:
     Resolve SQLAlchemy URL for the knowledge graph.
 
     Priority: explicit → SUPERAI_KG_DSN → SUPERAI_MEMORY_DSN (if postgres) →
-    sqlite under ~/.superai/memory/kg.sqlite
+    the local PostgreSQL ``superai`` database.
     """
     if explicit:
         return explicit
@@ -116,9 +113,7 @@ def resolve_kg_dsn(explicit: Optional[str] = None) -> str:
     if mem.startswith("postgresql") or mem.startswith("postgres"):
         # Separate schema/table names (kg_*) avoid clashing with superai_memories
         return mem
-    path = default_kg_path()
-    # four slashes for absolute path on Windows
-    return f"sqlite:///{path.as_posix()}"
+    return DEFAULT_KG_DSN
 
 
 class KnowledgeGraph:

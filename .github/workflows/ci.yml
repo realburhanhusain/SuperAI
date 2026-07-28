@@ -9,15 +9,33 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+    # File-level isolation prevents process-global test backend and lock leaks.
+    timeout-minutes: 55
+    env:
+      SUPERAI_MEMORY_BACKEND: memory
+      SUPERAI_EMBEDDING_HASH: '1'
+      # Ensure Python and Rich use UTF-8 on legacy Windows consoles.
+      PYTHONUTF8: '1'
+      SUPERAI_KG_DSN: sqlite:///./.superai-ci-kg.sqlite
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.14'
       - name: Install
         run: pip install -e ".[dev]"
-      - name: Pytest
-        run: pytest -q --timeout=300 --timeout-method=thread
+      - name: Pytest (isolated files)
+        shell: pwsh
+        run: |
+          Get-ChildItem tests/test_*.py | ForEach-Object {
+            python -m pytest -q --timeout=300 --timeout-method=thread --deselect=tests/test_pgvector_store.py::test_pgvector_is_default_backend $_.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Pytest (pgvector default policy)
+        shell: pwsh
+        run: |
+          Remove-Item Env:SUPERAI_MEMORY_BACKEND -ErrorAction SilentlyContinue
+          python -m pytest -q --timeout=300 --timeout-method=thread tests/test_pgvector_store.py::test_pgvector_is_default_backend
       - name: Init + mock run
         run: |
           superai init --non-interactive

@@ -72,7 +72,7 @@ Old top-level paths were removed after archive — use the folders above (or git
 
 | Field | Value |
 |-------|--------|
-| **When** | 2026-07-25 |
-| **What** | Regenerated strict scorecard (`gen_v1_v6_unified_improved_scorecard.py`): **266 complete / 249 incomplete / 3 host / 15 refuse** (533 IDs). I1 offline Musts wired into generator COMPLETE sets. |
-| **Still open** | Incomplete long-tail + host M089 / MOS-N8 / V1-P99 |
-| **Prior** | Docs archive hygiene (`33783e3`) |
+| **When** | 2026-07-28 |
+| **What** | Phase 0 CI stabilization: repaired CLI discovery/routing and MCP in-memory fallback visibility; added pytest timeout guard to CI. Focused affected tests pass. |
+| **Still open** | Finish a clean full protected suite (latest restart reached 149 passing before explicit-worker ordering fix); incomplete long-tail + host M089 / MOS-N8 / V1-P99. |
+| **Prior** | Strict scorecard regeneration (2026-07-25) |

@@ -46,3 +46,17 @@ def test_require_human_approval_config(tmp_path: Path, monkeypatch):
     cfg2.set("council_voting_mode", "weighted", persist=True)
     cfg3 = Config(config_path=str(path))
     assert cfg3.council_voting_mode == "weighted"
+
+
+def test_mock_council_default_members_skip_external_cli_discovery(monkeypatch):
+    from core import multi_cli_advisory
+
+    def fail_discovery(*args, **kwargs):
+        raise AssertionError("mock council must not discover host CLIs")
+
+    monkeypatch.setattr(multi_cli_advisory, "default_council_members", fail_discovery)
+    council = Council(caller=ModelCaller(use_mock=True), registry=ModelRegistry())
+    members = council._default_models(3)
+
+    assert members
+    assert all(not str(member).startswith("cli:") for member in members)

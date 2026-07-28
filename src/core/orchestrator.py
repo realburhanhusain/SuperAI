@@ -1088,6 +1088,23 @@ class SuperAIOrchestrator:
             elif members is not None and tag not in members:
                 members = [tag] + list(members)
 
+        # Legacy CLI delegation chooses a role-matched transport when callers did
+        # not explicitly provide workers.  This keeps cli_delegate_workers
+        # authoritative, including in mock-mode integration tests.
+        if members is None and prefer == "cli":
+            try:
+                from .external_cli import ExternalCLIRegistry
+
+                picked = ExternalCLIRegistry().pick_for_role(
+                    self._worker_role_for_step(role)
+                )
+                if picked:
+                    members = [
+                        picked if str(picked).startswith("cli:") else f"cli:{picked}"
+                    ]
+            except Exception:
+                pass
+
         # Profile: local-only / prefer open-weight — seed members from catalog
         if members is None and (
             self.config.get("local_only")
@@ -1127,12 +1144,20 @@ class SuperAIOrchestrator:
         router_failover = self._failover_candidates_router(
             router_primary or forced_model, step_desc
         )
+        # The first explicit worker is the requested primary.  Keep router
+        # suggestions as failover rather than allowing diversification to
+        # promote an API recommendation ahead of a user-configured pool.
+        selected_primary = forced_model
+        if selected_primary is None and members:
+            first_member = str(members[0]).strip()
+            if first_member:
+                selected_primary = first_member
         pool = resolve_worker_pool(
             members,
             prefer=prefer,
             role=self._worker_role_for_step(role),
             max_members=max_n,
-            forced_primary=forced_model,
+            forced_primary=selected_primary,
             router_primary=router_primary,
             router_failover=router_failover,
         )

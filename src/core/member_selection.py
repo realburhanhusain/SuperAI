@@ -303,7 +303,9 @@ def list_selectable_members(
     cli_model_rows: List[MemberSpec] = []
     cli_reg = ExternalCLIRegistry()
     cli_models_catalog: Dict[str, Any] = {}
-    if with_cli_models:
+    # Mock mode must not probe host CLI capabilities; mocked workers only need
+    # the stable API catalog and cached CLI registry metadata.
+    if with_cli_models and not mock:
         try:
             from .cli_models import list_cli_models_catalog
 

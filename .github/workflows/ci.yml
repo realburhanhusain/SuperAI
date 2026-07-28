@@ -14,6 +14,8 @@ jobs:
     env:
       SUPERAI_MEMORY_BACKEND: memory
       SUPERAI_EMBEDDING_HASH: '1'
+      # Ensure Python and Rich use UTF-8 on legacy Windows consoles.
+      PYTHONUTF8: '1'
       SUPERAI_KG_DSN: sqlite:///./.superai-ci-kg.sqlite
     steps:
       - uses: actions/checkout@v4

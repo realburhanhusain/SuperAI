@@ -11,6 +11,21 @@ Design:
 External AIs never open the DB directly — SuperAI injects text context and
 writes outcomes back so multi-CLI / multi-model / council / terminals share
 the same long-term memory when run *through* SuperAI.
+
+Trust boundary:
+  Memory bodies are attacker-influenced. Anything that reaches this module
+  may have come from a web page, a file, a tool result or another CLI's
+  stdout. Two things happen before a body is persisted, both in
+  ``_sanitize_for_memory``:
+
+    1. secrets are redacted, so the store never becomes a credential dump;
+    2. trust-boundary delimiters are neutralized, so stored text cannot
+       later close the fence that the orchestrator wraps it in at read time.
+
+  The read side (``untrusted_data.wrap_untrusted_block``) is the primary
+  defence. This is the second half of the same idea: escape on the way in
+  as well, so a memory written by an older build, or read by a path that
+  forgets to wrap, still cannot forge a delimiter.
 """
 
 from __future__ import annotations
@@ -28,6 +43,35 @@ def _env_flag(name: str) -> Optional[bool]:
     if raw in {"0", "false", "no", "off"}:
         return False
     return None
+
+
+def _sanitize_for_memory(text: str) -> str:
+    """
+    Make a body safe to persist: redact secrets, then escape delimiters.
+
+    Order matters. Redaction runs first so that a secret cannot hide behind
+    escaping, and neutralization runs last so that redaction markers cannot
+    reintroduce a delimiter.
+
+    Both steps degrade to the identity function rather than raising. A memory
+    write is never worth failing a run over, and a partially sanitized body is
+    still better than dropping the outcome on the floor. Delimiter escaping is
+    defence in depth; the read-side envelope remains the real boundary.
+    """
+    body = str(text or "")
+    try:
+        from .secrets import redact_text
+
+        body = redact_text(body)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from .untrusted_data import neutralize_delimiters
+
+        body = neutralize_delimiters(body)
+    except Exception:  # noqa: BLE001
+        pass
+    return body
 
 
 def central_memory_enabled() -> bool:
@@ -171,6 +215,10 @@ def write_back(
     Persist outcome into Memory Palace for future SuperAI-mediated AIs.
 
     Always-on when central_memory_write_back is enabled (default True).
+
+    Every body persisted here goes through ``_sanitize_for_memory`` first, so
+    it is both redacted and delimiter-escaped. Do not add a new store call in
+    this function that writes a raw string.
     """
     enabled = (
         central_memory_write_back_enabled()
@@ -185,7 +233,6 @@ def write_back(
         from .learning_engine import LearningEngine
         from .memory_palace import get_shared_palace
         from .palace_tenant import scope_metadata, tenant_tag
-        from .secrets import redact_text
 
         # Tenant isolation on writes (V3 B M4)
         meta = scope_metadata(metadata or {})
@@ -196,8 +243,8 @@ def write_back(
         tags = tag_list
         metadata = meta
 
-        safe_task = redact_text(str(task or "")[:500])
-        safe_err = redact_text(str(error)) if error else None
+        safe_task = _sanitize_for_memory(str(task or "")[:500])
+        safe_err = _sanitize_for_memory(str(error)) if error else None
         le = LearningEngine(get_shared_palace())
         learning_id = le.learn_from_task(
             task_description=f"[{source}] {safe_task}",
@@ -215,14 +262,13 @@ def write_back(
     except Exception as e:  # noqa: BLE001
         result["learning_error"] = str(e)
 
-    # Also store a richer result snippet for semantic recall (redacted)
+    # Also store a richer result snippet for semantic recall (redacted + escaped)
     if output or error:
         try:
             from .mcp_context import MCPContextPack
-            from .secrets import redact_text
 
-            safe_out = redact_text(str(output or ""))
-            safe_err = redact_text(str(error or ""))
+            safe_out = _sanitize_for_memory(str(output or ""))
+            safe_err = _sanitize_for_memory(str(error or ""))
             envelope = MCPContextPack().parse_cli_output(
                 stdout=safe_out,
                 stderr=safe_err,
@@ -239,7 +285,7 @@ def write_back(
                 try:
                     from .memory_palace import get_shared_palace
 
-                    snippet = redact_text(
+                    snippet = _sanitize_for_memory(
                         f"Source={source} model={model_or_cli} task={str(task)[:300]}\n"
                         f"Success={success}\n"
                         f"Output: {(output or '')[:1200]}"

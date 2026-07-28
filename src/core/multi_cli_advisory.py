@@ -505,6 +505,17 @@ def multi_cli_board(
             "board": merge_board([]),
         }
 
+    def _normalize_cached_board(payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Backfill metadata omitted by older board-cache payloads."""
+        for opinion in payload.get("opinions") or []:
+            if not isinstance(opinion, dict) or opinion.get("kind"):
+                continue
+            member_id = str(
+                opinion.get("member_id") or opinion.get("cli") or opinion.get("model") or ""
+            )
+            opinion["kind"] = "cli" if member_id.startswith("cli:") else "api"
+        return payload
+
     # Cache hit (identical subject+members+mode); normalize subject for soft match
     cache_subject = " ".join((subject or "").lower().split())
     if use_cache:
@@ -519,7 +530,7 @@ def multi_cli_board(
                 dry_run=dry_run,
             )
             if hit:
-                return hit
+                return _normalize_cached_board(hit)
         except Exception:
             pass
 
@@ -721,6 +732,16 @@ def multi_cli_board(
                     opinions = [by_m[m] for m in raw if m in by_m]
     finally:
         set_current(prev_tok)
+
+    # Preserve the transport type even for dry-run, cancelled, or legacy
+    # envelope responses so callers can reliably distinguish API and CLI votes.
+    for opinion in opinions:
+        if not isinstance(opinion, dict) or opinion.get("kind"):
+            continue
+        member_id = str(
+            opinion.get("member_id") or opinion.get("cli") or opinion.get("model") or ""
+        )
+        opinion["kind"] = "cli" if member_id.startswith("cli:") else "api"
 
     board = merge_board(opinions)
     if board_cancelled or any(

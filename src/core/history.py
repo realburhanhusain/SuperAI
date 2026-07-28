@@ -52,7 +52,11 @@ class TaskHistory:
             return json.load(f)
 
     def list(self, limit: int = 20) -> List[Dict[str, Any]]:
-        files = sorted(self.history_dir.glob("*.json"), reverse=True)
+        files = sorted(
+            self.history_dir.glob("*.json"),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
         records: List[Dict[str, Any]] = []
         for path in files[: max(limit, 0)]:
             try:

@@ -25,7 +25,9 @@ from typing import Any, Dict, List, Optional, Sequence
 # Catastrophic / clearly abusive patterns (case-insensitive)
 _DENY_PATTERNS = [
     r"rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(/\s|$|/\*|/\.\.)",
-    r"rm\s+-rf\s+/",
+r"rm\s+-rf\s+/",
+    # Match destructive rm flags in any order (for example: -rf and -fr).
+    r"\brm\s+-(?=[a-zA-Z]*r)(?=[a-zA-Z]*f)[a-zA-Z]+\s+/(?:\s|$|\*|\.)",
     r"mkfs\.",
     r"dd\s+if=",
     r":\(\)\s*\{\s*:\|:&\s*\};:",  # fork bomb

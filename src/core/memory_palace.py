@@ -70,6 +70,11 @@ def _parse_tags(meta: Dict[str, Any], mem: Optional[Dict] = None) -> set[str]:
 
 
 class MemoryPalace:
+    # The memory-only backend has no durable store. Share its fallback collection
+    # by palace root so separate helpers in the same process can still retrieve
+    # a just-written memory, while test homes remain isolated.
+    _memory_only_collections: Dict[str, List[Dict[str, Any]]] = {}
+
     def __init__(
         self,
         persist_directory: Optional[str] = None,
@@ -82,8 +87,9 @@ class MemoryPalace:
             self.persist_directory = os.path.expanduser("~/.superai/memory")
 
         os.makedirs(self.persist_directory, exist_ok=True)
-        self.memories: List[Dict[str, Any]] = []
-        self._root = Path(self.persist_directory)
+        self._root = Path(self.persist_directory).resolve()
+        fallback_key = str(self._root)
+        self.memories = self._memory_only_collections.setdefault(fallback_key, [])
         self._thread_lock = thread_lock_for(self._root)
 
         # F3.1: local EmbeddingGemma / ST / hash embeddings
@@ -1012,7 +1018,7 @@ class MemoryPalace:
                     except ValueError:
                         self.faiss_store.save()
                 return
-            self.memories = [m for m in self.memories if m.get("id") != memory_id]
+            self.memories[:] = [m for m in self.memories if m.get("id") != memory_id]
 
         self._locked_write(_do)
 

@@ -6,8 +6,14 @@ Safety:
 - Deny-list of catastrophic patterns (rm -rf /, format, fork bombs, etc.)
 - Optional allow-list mode
 - Workspace-relative cwd by default (jail)
+- Optional container sandbox; when enabled it fails closed, so a command is
+  never silently promoted to host execution because Docker was missing
 - Timeouts + audit trail
 - Contract-shaped results
+
+Note on the cwd jail: `cwd` confinement is a convenience boundary, not a
+security boundary. A command is free to reference absolute paths outside the
+workspace. Real confinement requires the container sandbox below.
 """
 
 from __future__ import annotations
@@ -25,7 +31,9 @@ from typing import Any, Dict, List, Optional, Sequence
 # Catastrophic / clearly abusive patterns (case-insensitive)
 _DENY_PATTERNS = [
     r"rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(/\s|$|/\*|/\.\.)",
-    r"rm\s+-rf\s+/",
+r"rm\s+-rf\s+/",
+    # Match destructive rm flags in any order (for example: -rf and -fr).
+    r"\brm\s+-(?=[a-zA-Z]*r)(?=[a-zA-Z]*f)[a-zA-Z]+\s+/(?:\s|$|\*|\.)",
     r"mkfs\.",
     r"dd\s+if=",
     r":\(\)\s*\{\s*:\|:&\s*\};:",  # fork bomb
@@ -60,6 +68,136 @@ def check_denied(command: str) -> Optional[str]:
     if "rm -rf /" in low or "rm -rf /*" in low:
         return "denied:rm_root"
     return None
+
+
+def sandbox_argv(command: str) -> List[str]:
+    """Build the argv used to run a shell string inside the container.
+
+    The command keeps its shell semantics -- pipes, redirects, globs -- but the
+    shell interpreting them belongs to the container, not the host. Inside a
+    container with all capabilities dropped, no new privileges, no network and
+    only the workspace mounted, shell metacharacters are not the threat; the
+    container is the boundary.
+
+    ``sh -lc`` is used regardless of host platform because the sandbox image is
+    Linux. A useful side effect is that sandboxed execution behaves identically
+    on Windows, macOS and Linux hosts.
+    """
+    return ["sh", "-lc", command]
+
+
+def _run_in_container(
+    command: str,
+    *,
+    cwd: str,
+    timeout: float,
+    mode: str,
+) -> Optional[Dict[str, Any]]:
+    """Try to run ``command`` inside the container sandbox.
+
+    Returns:
+      * ``None`` when the sandbox is not enabled, or when it is enabled but
+        unavailable *and* fail-closed has been explicitly disabled. In both
+        cases the caller proceeds with host execution.
+      * A blocking result envelope (``ok=False``) when the sandbox is enabled,
+        unavailable or failing, and fail-closed is in effect. The command is
+        NOT run on the host.
+      * A normal result envelope when the command ran inside the container.
+    """
+    from .spend_guard import ensure_public_result
+
+    try:
+        from .container_sandbox import try_sandboxed_shell
+    except Exception:
+        # Sandbox module unavailable: behave exactly as before it existed.
+        return None
+
+    try:
+        from .config import Config
+
+        prefer = bool(Config().get("prefer_container_sandbox"))
+    except Exception:
+        prefer = False
+
+    started = time.time()
+    try:
+        sand = try_sandboxed_shell(
+            sandbox_argv(command), timeout=float(timeout), prefer=prefer
+        )
+    except Exception as e:  # noqa: BLE001
+        # Treat an unexpected sandbox failure as fail-closed. Falling through to
+        # the host here would defeat the entire point of requesting a sandbox.
+        return ensure_public_result(
+            {
+                "ok": False,
+                "executed": False,
+                "error": f"sandbox_error:{str(e)[:200]}",
+                "error_code": "sandbox_unavailable",
+                "command": command,
+                "cwd": cwd,
+                "sandbox": "error",
+                "permission_mode": mode,
+            },
+            ok=False,
+        )
+
+    if sand is None:
+        # Sandbox not requested.
+        return None
+
+    status = sand.get("sandbox")
+    if status in {"unavailable", "error"}:
+        if sand.get("fallback"):
+            # SUPERAI_SANDBOX_FAIL_CLOSED=0 was set deliberately.
+            return None
+        return ensure_public_result(
+            {
+                "ok": False,
+                "executed": False,
+                "error": sand.get("stderr") or "sandbox unavailable",
+                "error_code": "sandbox_unavailable",
+                "command": command,
+                "cwd": cwd,
+                "sandbox": status,
+                "fail_closed": sand.get("fail_closed", True),
+                "permission_mode": mode,
+                "remedy": (
+                    "Install/start Docker, or set "
+                    "SUPERAI_SANDBOX_FAIL_CLOSED=0 to allow host execution."
+                ),
+            },
+            ok=False,
+        )
+
+    rc = sand.get("exit_code")
+    out = {
+        "ok": rc == 0,
+        "executed": True,
+        "dry_run": False,
+        "command": command,
+        "cwd": sand.get("workspace") or cwd,
+        "returncode": rc,
+        "stdout": sand.get("stdout") or "",
+        "stderr": sand.get("stderr") or "",
+        "latency_sec": round(time.time() - started, 3),
+        "permission_mode": mode,
+        "sandbox": sand.get("sandbox"),
+        "image": sand.get("image"),
+        "workspace_readonly": sand.get("workspace_readonly"),
+    }
+    try:
+        from .side_effect_audit import record_side_effect
+
+        record_side_effect(
+            "shell",
+            name="os_shell_sandboxed",
+            ok=bool(out["ok"]),
+            dry_run=False,
+            detail=command[:200],
+        )
+    except Exception:
+        pass
+    return ensure_public_result(out, ok=bool(out["ok"]))
 
 
 def parse_shell_from_nl(text: str) -> Optional[str]:
@@ -161,6 +299,11 @@ def run_shell(
 ) -> Dict[str, Any]:
     """
     Run an OS shell command with SuperAI safety policy.
+
+    Order of checks, and why: deny-list and cwd jail first (cheapest, and a
+    denied command should never reach an executor), then dry-run, then the
+    container sandbox, then host execution. The sandbox is consulted only after
+    we have decided the command is permitted and is actually meant to run.
     """
     from .permission_mode import force_dry_run, mode_from_config
     from .spend_guard import ensure_public_result
@@ -193,6 +336,15 @@ def run_shell(
             dry_run=True,
             ok=True,
         )
+
+    # Container sandbox, when requested. Returns None when the sandbox is not
+    # enabled, or when it is unavailable and fail-closed was explicitly
+    # disabled; in both cases we fall through to host execution below.
+    sandboxed = _run_in_container(
+        cmd, cwd=str(work), timeout=float(timeout), mode=mode
+    )
+    if sandboxed is not None:
+        return sandboxed
 
     started = time.time()
     try:
@@ -230,6 +382,7 @@ def run_shell(
             "stderr": (proc.stderr or "")[:20_000],
             "latency_sec": round(time.time() - started, 3),
             "permission_mode": mode,
+            "sandbox": "none",
         }
         try:
             from .side_effect_audit import record_side_effect

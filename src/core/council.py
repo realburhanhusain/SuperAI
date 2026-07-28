@@ -376,6 +376,16 @@ class Council:
 
     def _default_models(self, n: int) -> List[str]:
         """Mixed available CLIs + configured API models (cli:name@MODEL allowed)."""
+        # Mock mode must remain host-independent: discovering every CLI can be slow
+        # or hang on Windows PATH entries and cannot improve a mocked response.
+        if self.caller.use_mock:
+            names = [
+                m
+                for m in self.registry.list_all_models()
+                if not str(m).startswith("cli:")
+            ]
+            return (names or ["gpt-4o"])[:n]
+
         try:
             from .multi_cli_advisory import default_council_members
 

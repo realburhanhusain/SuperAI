@@ -7,6 +7,7 @@ Both surfaces read the same builders so feedback/status stays consistent.
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -181,11 +182,25 @@ def build_dashboard_snapshot(
     except Exception as e:  # noqa: BLE001
         snap["central_memory"] = {"error": str(e)}
 
-    # Memory Palace browser (wings/rooms + cluster suggestions)
+    # Memory Palace dashboard summary must stay bounded: a full browser snapshot
+    # loads every memory and clusters it, which can stall status refreshes on pgvector.
     try:
         from .memory_palace import MemoryPalace
 
-        snap["palace"] = MemoryPalace().browser_snapshot(limit=8)
+        palace = MemoryPalace()
+        if (os.getenv("SUPERAI_DASHBOARD_PALACE_DETAIL") or "").lower() in ("1", "true", "yes"):
+            snap["palace"] = palace.browser_snapshot(limit=8)
+        elif palace.use_pgvector and palace.pg_store is not None:
+            stats = palace.pg_store.stats()
+            snap["palace"] = {
+                "layout": {"total_located": stats["count"], "unassigned": 0, "by_wing": {}, "catalog": {}},
+                "top_wings": [],
+                "suggestions": [],
+                "browse": {"wing": None, "room": None, "items": []},
+                "storage": stats,
+            }
+        else:
+            snap["palace"] = palace.browser_snapshot(limit=8)
     except Exception as e:  # noqa: BLE001
         snap["palace"] = {"error": str(e)}
 

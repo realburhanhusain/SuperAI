@@ -251,17 +251,19 @@ class ParallelCLIManager:
                     with_context=with_context,
                     write_memory=True,
                 )
-                # If CLI not on PATH, force dry-run so parallel demos still work
-                force_dry = False
-                try:
-                    from .external_cli import ExternalCLIRegistry
+                # Dry runs never execute a host CLI, so they must stay host-independent.
+                # Probe PATH only for a real execution, where it determines fallback behavior.
+                force_dry = bool(dry_run)
+                if not dry_run:
+                    try:
+                        from .external_cli import ExternalCLIRegistry
 
-                    if cli_name not in ExternalCLIRegistry().available():
+                        if cli_name not in ExternalCLIRegistry().available():
+                            tool.dry_run = True
+                            force_dry = True
+                    except Exception:
                         tool.dry_run = True
                         force_dry = True
-                except Exception:
-                    tool.dry_run = True
-                    force_dry = True
 
                 # Role from job for supervisor–worker framing
                 role_name = "worker"

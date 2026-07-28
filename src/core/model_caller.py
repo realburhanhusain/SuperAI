@@ -442,6 +442,10 @@ class ModelCaller:
                 except Exception:
                     pass
 
+        # An explicit cli:* selector is a user-chosen transport; keep it authoritative.
+        if str(model).startswith("cli:"):
+            models_to_try = [str(model)]
+
         # Routing pipeline (M068 → M050): shared route_candidates (prefs then bandit).
         # Single production path so tests of route_candidates match live behavior.
         try:
@@ -768,7 +772,9 @@ class ModelCaller:
         except Exception:  # noqa: BLE001
             require_approval = True
 
-        dry = bool(self.use_mock) or (os.getenv("SUPERAI_MOCK_MODE") or "").lower() in ("1", "true", "yes")
+        # An explicit ModelCaller(use_mock=False) must not be overridden by a
+        # process-level mock flag: that would bypass the human approval gate.
+        dry = bool(self.use_mock)
         try:
             avail = ExternalCLIRegistry().available()
             if cli_name not in avail:

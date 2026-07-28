@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -176,23 +177,36 @@ DEFAULT_CLI_SPECS: List[ExternalCLISpec] = [
 
 
 class ExternalCLIRegistry:
+    _discovery_cache: Dict[tuple[str, str, str], tuple[float, List[Dict[str, Any]]]] = {}
+    _discovery_cache_lock = threading.Lock()
+    _discovery_cache_ttl_seconds = 60.0
+
     def __init__(self, specs: Optional[List[ExternalCLISpec]] = None):
         self.specs: Dict[str, ExternalCLISpec] = {
             s.name: s for s in (specs or DEFAULT_CLI_SPECS)
         }
+        self._cacheable = specs is None
+
+    def _discovery_cache_key(self) -> tuple[str, str, str]:
+        return (
+            os.environ.get("PATH", ""),
+            os.environ.get("PATHEXT", ""),
+            str(Path.home()),
+        )
 
     def discover(self) -> List[Dict[str, Any]]:
         from .path_which import resolve_candidates
 
+        cache_key = self._discovery_cache_key()
+        if self._cacheable:
+            with self._discovery_cache_lock:
+                cached = self._discovery_cache.get(cache_key)
+            if cached and time.monotonic() - cached[0] < self._discovery_cache_ttl_seconds:
+                return [dict(item) for item in cached[1]]
+
         found = []
         for name, spec in self.specs.items():
             path = resolve_candidates(spec.command, list(spec.detects or []))
-            if path is None:
-                # fallback classic which
-                for cand in [spec.command, *spec.detects]:
-                    path = shutil.which(cand)
-                    if path:
-                        break
             found.append(
                 {
                     "name": name,
@@ -205,6 +219,9 @@ class ExternalCLIRegistry:
                     "install_hint": spec.install_hint or "",
                 }
             )
+        if self._cacheable:
+            with self._discovery_cache_lock:
+                self._discovery_cache[cache_key] = (time.monotonic(), [dict(item) for item in found])
         return found
 
     def available(self) -> List[str]:

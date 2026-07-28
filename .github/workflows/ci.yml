@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+    # A stuck native/file lock should fail the job rather than consume a runner indefinitely.
+    timeout-minutes: 35
     # CI is intentionally offline: never depend on a developer-local PostgreSQL instance.
     env:
       SUPERAI_MEMORY_BACKEND: memory
@@ -17,7 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # The protected suite is validated on the current supported CPython release.
+          python-version: '3.14'
       - name: Install
         run: pip install -e ".[dev]"
       - name: Pytest

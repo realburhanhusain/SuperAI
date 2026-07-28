@@ -9,6 +9,10 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+    # CI is intentionally offline: never depend on a developer-local PostgreSQL instance.
+    env:
+      SUPERAI_MEMORY_BACKEND: memory
+      SUPERAI_EMBEDDING_HASH: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

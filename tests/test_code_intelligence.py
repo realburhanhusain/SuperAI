@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from pathlib import Path
 
 from core.code_intelligence import (
@@ -51,7 +53,10 @@ def test_incremental_index_reuses_and_refreshes_only_changed_files(tmp_path: Pat
     refreshed = index_code_graph(tmp_path, cache_dir=cache)
     assert refreshed["index"]["mode"] == "incremental"
     assert refreshed["index"]["refreshed_files"] == 1
-    assert code_index_status(tmp_path, cache_dir=cache)["ready"] is True
+    status = code_index_status(tmp_path, cache_dir=cache)
+    assert status["ready"] is True
+    assert status["last_index"]["cache_hit_rate"] == 0.0
+    assert status["last_index"]["duration_ms"] >= 0
 
 
 def test_reports_are_conservative_and_avoid_public_candidates(tmp_path: Path):
@@ -64,3 +69,28 @@ def test_reports_are_conservative_and_avoid_public_candidates(tmp_path: Path):
     assert report["report"] == "dead_code_candidates"
     assert [item["name"] for item in report["candidates"]] == ["_unused"]
     assert report["candidates"][0]["confidence"] == "low"
+
+def test_incremental_index_verify_content_detects_same_metadata_edit(tmp_path: Path):
+    source = tmp_path / "src" / "core.py"
+    _write(tmp_path, "src/core.py", "def alpha():\n    return 1\n")
+    cache = tmp_path / "cache"
+    index_code_graph(tmp_path, cache_dir=cache)
+    before = source.stat()
+    _write(tmp_path, "src/core.py", "def bravo():\n    return 1\n")
+    os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+    fast = index_code_graph(tmp_path, cache_dir=cache)
+    assert fast["index"]["mode"] == "cached"
+    verified = index_code_graph(tmp_path, cache_dir=cache, verify_content=True)
+    assert verified["index"]["mode"] == "incremental"
+    assert verified["index"]["refreshed_files"] == 1
+    assert {item["name"] for item in verified["symbols"]} == {"bravo"}
+
+
+def test_incremental_index_tracks_rename_without_false_removal(tmp_path: Path):
+    _write(tmp_path, "src/old_name.py", "def stable():\n    return 1\n")
+    cache = tmp_path / "cache"
+    index_code_graph(tmp_path, cache_dir=cache)
+    (tmp_path / "src" / "old_name.py").rename(tmp_path / "src" / "new_name.py")
+    refreshed = index_code_graph(tmp_path, cache_dir=cache)
+    assert refreshed["index"]["removed_files"] == []
+    assert refreshed["index"]["renamed_files"] == [{"from": "src/old_name.py", "to": "src/new_name.py"}]

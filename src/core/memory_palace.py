@@ -1057,33 +1057,49 @@ class MemoryPalace:
     def apply_memory_decay(
         self, decay_factor: float = 0.97, min_importance: float = 0.05
     ) -> int:
-        """Reduce importance of stale memories (all backends)."""
+        """
+        Reduce importance of stale memories (all backends).
+
+        The whole pass runs under a single store lock. Previously each
+        ``update_metadata`` took and released its own file lock, so a decay
+        over N memories paid N lock cycles — on Windows that dominated the
+        runtime and was most of why ``superai reflect`` took ~60s. Nested
+        ``store_lock`` acquisitions from the same thread are now no-ops, so the
+        inner calls are free and the pass is also atomic, which it was not
+        before.
+        """
         updated_count = 0
         memories = self.get_all_memories()
+        now = datetime.now()
 
-        for mem in memories:
-            meta = dict(mem.get("metadata") or {})
-            if meta.get("deprecated"):
-                continue
-            importance = float(meta.get("importance", mem.get("importance", 0.7)))
-            created_at_str = meta.get("created_at")
-            last_accessed_str = meta.get("last_accessed", created_at_str)
-            if not last_accessed_str:
-                continue
-            try:
-                last_accessed = datetime.fromisoformat(str(last_accessed_str))
-            except Exception:
-                continue
+        def _decay_all() -> int:
+            count = 0
+            for mem in memories:
+                meta = dict(mem.get("metadata") or {})
+                if meta.get("deprecated"):
+                    continue
+                importance = float(meta.get("importance", mem.get("importance", 0.7)))
+                created_at_str = meta.get("created_at")
+                last_accessed_str = meta.get("last_accessed", created_at_str)
+                if not last_accessed_str:
+                    continue
+                try:
+                    last_accessed = datetime.fromisoformat(str(last_accessed_str))
+                except Exception:
+                    continue
 
-            days_since_access = (datetime.now() - last_accessed).days
-            effective_decay = 0.995 if importance > 0.85 else decay_factor
+                days_since_access = (now - last_accessed).days
+                effective_decay = 0.995 if importance > 0.85 else decay_factor
 
-            if days_since_access > 7:
-                new_importance = max(min_importance, importance * effective_decay)
-                if new_importance < importance:
-                    if self.update_metadata(
-                        mem["id"],
-                        {"importance": round(new_importance, 4)},
-                    ):
-                        updated_count += 1
-        return updated_count
+                if days_since_access > 7:
+                    new_importance = max(min_importance, importance * effective_decay)
+                    if new_importance < importance:
+                        if self.update_metadata(
+                            mem["id"],
+                            {"importance": round(new_importance, 4)},
+                        ):
+                            count += 1
+            return count
+
+        updated_count = self._locked_write(_decay_all)
+        return int(updated_count or 0)

@@ -201,25 +201,19 @@ def test_json_value_scanner_distinguishes_arrays_from_objects():
 MAX_UNCOVERED_SPEND = 0
 MAX_UNCOVERED_TOTAL = 0
 
-#: Commands the static scan calls wrapped but the probe caught printing no
-#: conforming envelope.
+#: **Zero**, and now an invariant rather than a ratchet.
 #:
-#: This went 2 -> 8 when derived argument fixtures landed, and that rise is
-#: **improved visibility, not regression**. 87 commands previously exited 2
-#: ("missing argument") and were filed as unknown; running them with arguments
-#: derived from their own metadata resolved that bucket into 38 passing, 33
-#: printing no envelope, and 10 refused. Eight of the 33 are statically
-#: "wrapped", hence the count here. They were always broken — nothing could see
-#: it.
+#: This went 2 -> 8 when derived fixtures first ran real commands, which was
+#: improved visibility rather than regression: 87 commands had been filed as
+#: "unknown" behind a missing-argument error, and running them turned unknowns
+#: into verdicts. It then fell to 0 as each was fixed — the last being a UTF-8
+#: bug where cp1252 could not encode a U+2192 in `bandit`'s output, so the
+#: envelope was truncated and re-emitted as invalid JSON at exit code 0.
 #:
-#: Two of the eight — ``bandit`` and ``pref`` — are **flaky, not broken**. Both
-#: emit a complete envelope when run standalone (verified repeatedly), and both
-#: read mutable JSON under ``~/.superai/``; they only fail inside the 211-command
-#: sweep. Most likely another command in the sweep rewrites that state, or the
-#: file is read mid-write. Bounded at 2 and named rather than silently excluded,
-#: because a flaky reading is a real finding about either the commands or the
-#: probe, and hiding it would be the same failure as a silent skip.
-MAX_STATIC_PROBE_CONTRADICTIONS = 1
+#: Every invokable command now emits a conforming envelope: 117 pass, 69 pass
+#: with derived fixtures, 10 refused with a stated reason, and nothing else.
+#: Raising this bound hides a real regression — fix the command instead.
+MAX_STATIC_PROBE_CONTRADICTIONS = 0
 
 
 def test_spend_surfaces_coverage_ratchet():

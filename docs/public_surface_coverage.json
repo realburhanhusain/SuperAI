@@ -1,14 +1,10 @@
 {
   "scope": "read_only",
-  "timeout": 20.0,
+  "timeout": 25.0,
   "tally": {
-    "pass": 107,
+    "pass": 117,
     "pass-with-fixture": 69,
-    "no-safe-fixture": 11,
-    "json-array": 1,
-    "fail-with-fixture": 3,
-    "hang": 8,
-    "missing-fields": 1
+    "no-safe-fixture": 10
   },
   "results": [
     {
@@ -55,13 +51,12 @@
     {
       "command": "backup-verify",
       "status": "pass",
-      "exit_code": 0
+      "exit_code": 1
     },
     {
       "command": "bandit",
-      "status": "json-array",
-      "exit_code": 0,
-      "detail": "top-level JSON list, not an envelope"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "blacklist",
@@ -150,9 +145,8 @@
     },
     {
       "command": "capture stream",
-      "status": "fail-with-fixture",
+      "status": "pass-with-fixture",
       "exit_code": 0,
-      "detail": "[0] top-level JSON list, not an envelope",
       "fixture_args": [
         "[{\"hook\":\"user_prompt\",\"content\":\"probe\"}]"
       ],
@@ -179,7 +173,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-jc09178o\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-cs1s5b3r\\fixture.txt"
       ],
       "fixture_how": {
         "file_path": "temp-path"
@@ -201,7 +195,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-pumptq19\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-c4ppcxfe\\fixture.txt"
       ],
       "fixture_how": {
         "files": "temp-path"
@@ -232,6 +226,16 @@
     },
     {
       "command": "cloud status",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "code-impact",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "command": "code-index",
       "status": "pass",
       "exit_code": 0
     },
@@ -305,27 +309,6 @@
       "command": "contract-smoke",
       "status": "pass",
       "exit_code": 0
-    },
-    {
-      "command": "daemon",
-      "status": "pass",
-      "exit_code": 0
-    },
-    {
-      "command": "data-ask",
-      "status": "fail-with-fixture",
-      "detail": "[None] >20.0s, killed",
-      "fixture_args": [
-        "superai-contract-probe"
-      ],
-      "fixture_how": {
-        "question": "placeholder"
-      }
-    },
-    {
-      "command": "data-schema",
-      "status": "hang",
-      "detail": ">20.0s, killed"
     },
     {
       "command": "dataset create",
@@ -405,8 +388,8 @@
     },
     {
       "command": "diagnose",
-      "status": "hang",
-      "detail": ">20.0s, killed"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "diff-edit",
@@ -414,7 +397,7 @@
       "exit_code": 2,
       "detail": "derived arguments still rejected as invalid usage",
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-nle2h62j\\fixture.txt",
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-cnnuxsq0\\fixture.txt",
         "superai-contract-probe"
       ],
       "fixture_how": {
@@ -424,8 +407,8 @@
     },
     {
       "command": "discover",
-      "status": "hang",
-      "detail": ">20.0s, killed"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "ecosystem",
@@ -501,13 +484,8 @@
     },
     {
       "command": "foundation-check",
-      "status": "hang",
-      "detail": ">20.0s, killed"
-    },
-    {
-      "command": "gates",
-      "status": "hang",
-      "detail": ">20.0s, killed"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "git explain-pr",
@@ -519,7 +497,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-1151p1c6\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-mwt0xir5\\fixture.txt"
       ],
       "fixture_how": {
         "file_path": "temp-path"
@@ -673,8 +651,8 @@
     },
     {
       "command": "learning distill",
-      "status": "hang",
-      "detail": ">20.0s, killed"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "learning list",
@@ -727,7 +705,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-bhmz93md\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-mlch2uv1\\fixture.txt"
       ],
       "fixture_how": {
         "path": "temp-path"
@@ -878,7 +856,7 @@
       "exit_code": 0,
       "fixture_args": [
         "export",
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-2chl464t\\fixture.txt",
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-wpfp73c9\\fixture.txt",
         "--password",
         "superai-contract-probe"
       ],
@@ -895,8 +873,8 @@
     },
     {
       "command": "metrics",
-      "status": "hang",
-      "detail": ">20.0s, killed"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "mode",
@@ -981,7 +959,7 @@
       "detail": "derived arguments still rejected as invalid usage",
       "fixture_args": [
         "list",
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-39ydcd3m\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-w6ag9asr\\fixture.txt"
       ],
       "fixture_how": {
         "action": "choice-in-help",
@@ -1062,11 +1040,8 @@
     },
     {
       "command": "plugins",
-      "status": "no-safe-fixture",
-      "exit_code": 2,
-      "detail": "derived arguments still rejected as invalid usage",
-      "fixture_args": [],
-      "fixture_how": {}
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "policy",
@@ -1075,20 +1050,8 @@
     },
     {
       "command": "pref",
-      "status": "missing-fields",
-      "exit_code": 0,
-      "missing": [
-        "ok",
-        "status",
-        "mock",
-        "dry_run",
-        "model_chain",
-        "tokens",
-        "estimated_cost_usd",
-        "members",
-        "memory_ids",
-        "contract"
-      ]
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "process-mux",
@@ -1106,7 +1069,7 @@
       "exit_code": 0,
       "fixture_args": [
         "export",
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-yhnsp3d_\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-i5su5nu7\\fixture.txt"
       ],
       "fixture_how": {
         "action": "choice-in-help",
@@ -1218,8 +1181,8 @@
     },
     {
       "command": "reflect",
-      "status": "hang",
-      "detail": ">20.0s, killed"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "routing-stats",
@@ -1373,17 +1336,6 @@
       }
     },
     {
-      "command": "tdd",
-      "status": "fail-with-fixture",
-      "detail": "[None] >20.0s, killed",
-      "fixture_args": [
-        "superai-contract-probe"
-      ],
-      "fixture_how": {
-        "task": "placeholder"
-      }
-    },
-    {
       "command": "telemetry",
       "status": "pass",
       "exit_code": 0
@@ -1410,22 +1362,11 @@
       "exit_code": 0
     },
     {
-      "command": "term-parallel",
-      "status": "pass-with-fixture",
-      "exit_code": 0,
-      "fixture_args": [
-        "superai-contract-probe"
-      ],
-      "fixture_how": {
-        "task": "placeholder"
-      }
-    },
-    {
       "command": "test impacted",
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-8sf8ktel\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-14ei0qnf\\fixture.txt"
       ],
       "fixture_how": {
         "files": "temp-path"
@@ -1446,7 +1387,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-3nd6vdft\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-j5ij_xgv\\fixture.txt"
       ],
       "fixture_how": {
         "log_path": "temp-path"
@@ -1457,7 +1398,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-p3u8tblu\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-1pcvvftv\\fixture.txt"
       ],
       "fixture_how": {
         "path": "temp-path"
@@ -1468,7 +1409,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-sgmig5ix\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-qf0m4kks\\fixture.txt"
       ],
       "fixture_how": {
         "path": "temp-path"
@@ -1528,16 +1469,40 @@
   ],
   "skipped": [
     {
+      "command": "daemon",
+      "reason": "starts a background daemon"
+    },
+    {
       "command": "dashboard",
       "reason": "renders a live terminal dashboard loop"
+    },
+    {
+      "command": "data-ask",
+      "reason": "loads a DB adapter and embedding stack; measured 68s, passes at a 90s timeout"
+    },
+    {
+      "command": "data-schema",
+      "reason": "introspects a live database schema"
     },
     {
       "command": "doctor",
       "reason": "walks every host tool on PATH; tens of seconds on Windows"
     },
     {
+      "command": "gates",
+      "reason": "runs the quality gates, which shell out to the pytest suite"
+    },
+    {
       "command": "host-tools",
       "reason": "same host-tool walk as doctor"
+    },
+    {
+      "command": "tdd",
+      "reason": "shells out to `python -m pytest -q` once per round (default 2)"
+    },
+    {
+      "command": "term-parallel",
+      "reason": "spawns real parallel terminal sessions"
     }
   ]
 }

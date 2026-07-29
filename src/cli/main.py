@@ -1145,6 +1145,39 @@ def session_purge_cmd(
     _print_session(out, title="Session purge-ttl")
 
 
+def _kg_guarded(thunk: Any) -> Any:
+    """
+    Run a knowledge-graph call, emitting a contracted failure if the backend is down.
+
+    The knowledge graph defaults to PostgreSQL (``DEFAULT_KG_DSN``), so on a
+    machine without a reachable local Postgres every ``kg`` command died with a
+    raw ``psycopg.OperationalError`` traceback — no envelope, no error code,
+    nothing a script could branch on. An unreachable backend is a legitimate
+    runtime condition; crashing out of the command is not a legitimate way to
+    report it.
+
+    This does not change which backend is the default. It changes how the
+    failure is reported.
+    """
+    try:
+        return thunk()
+    except Exception as e:  # noqa: BLE001 - any backend failure is reportable
+        render_public(
+            {
+                "ok": False,
+                "product": "knowledge_graph",
+                "error": f"{type(e).__name__}: {e}"[:300],
+                "error_code": "backend_unavailable",
+                "hint": (
+                    "The knowledge graph defaults to PostgreSQL. Set SUPERAI_KG_DSN "
+                    "to a reachable database, or configure local Postgres."
+                ),
+            },
+            human_fn=lambda d: console.print(f"[red]{d.get('error')}[/red]"),
+        )
+        raise _cli_exit(code=1) from e
+
+
 def _print_kg(data: dict, *, title: str = "Knowledge graph") -> None:
     try:
         from core.public_surface import emit_public, json_mode
@@ -1202,7 +1235,7 @@ def kg_status_cmd():
     """Show knowledge graph node/edge counts."""
     from core.knowledge_graph import get_default_graph
 
-    _print_kg(get_default_graph().status(), title="KG status")
+    _print_kg(_kg_guarded(lambda: get_default_graph().status()), title="KG status")
 
 
 @kg_app.command("upsert-node")
@@ -1218,14 +1251,16 @@ def kg_upsert_node_cmd(
     """Create or update a graph node."""
     from core.knowledge_graph import get_default_graph
 
-    out = get_default_graph().upsert_node(
-        name=name,
-        type=type,
-        node_id=node_id,
-        dataset_id=dataset,
-        wing=wing,
-        room=room,
-        source_memory_id=memory_id,
+    out = _kg_guarded(
+        lambda: get_default_graph().upsert_node(
+            name=name,
+            type=type,
+            node_id=node_id,
+            dataset_id=dataset,
+            wing=wing,
+            room=room,
+            source_memory_id=memory_id,
+        )
     )
     out.setdefault(
         "message",
@@ -1250,17 +1285,19 @@ def kg_upsert_edge_cmd(
     """Create or update a directed edge (creates missing nodes by name)."""
     from core.knowledge_graph import get_default_graph
 
-    out = get_default_graph().upsert_edge(
-        from_id=from_id,
-        to_id=to_id,
-        from_name=from_name,
-        to_name=to_name,
-        from_type=from_type,
-        to_type=to_type,
-        relation=relation,
-        dataset_id=dataset,
-        weight=weight,
-        source_memory_id=memory_id,
+    out = _kg_guarded(
+        lambda: get_default_graph().upsert_edge(
+            from_id=from_id,
+            to_id=to_id,
+            from_name=from_name,
+            to_name=to_name,
+            from_type=from_type,
+            to_type=to_type,
+            relation=relation,
+            dataset_id=dataset,
+            weight=weight,
+            source_memory_id=memory_id,
+        )
     )
     out.setdefault(
         "message",
@@ -1280,8 +1317,10 @@ def kg_query_cmd(
     """Query nodes by type/name/dataset/wing."""
     from core.knowledge_graph import get_default_graph
 
-    out = get_default_graph().query_nodes(
-        type=type, name=name, dataset_id=dataset, wing=wing, limit=limit
+    out = _kg_guarded(
+        lambda: get_default_graph().query_nodes(
+            type=type, name=name, dataset_id=dataset, wing=wing, limit=limit
+        )
     )
     out.setdefault("message", f"{out.get('count', 0)} node(s)")
     _print_kg(out, title="KG query")
@@ -1299,13 +1338,15 @@ def kg_path_cmd(
     """Shortest path between two nodes (BFS, undirected)."""
     from core.knowledge_graph import get_default_graph
 
-    out = get_default_graph().path(
-        from_id=from_id,
-        to_id=to_id,
-        from_name=from_name,
-        to_name=to_name,
-        hops=hops,
-        dataset_id=dataset,
+    out = _kg_guarded(
+        lambda: get_default_graph().path(
+            from_id=from_id,
+            to_id=to_id,
+            from_name=from_name,
+            to_name=to_name,
+            hops=hops,
+            dataset_id=dataset,
+        )
     )
     _print_kg(out, title="KG path")
 
@@ -1740,8 +1781,10 @@ def ontology_induce_cmd(
         out = ont.induce_from_texts(texts)
         _print_ontology(out, title="Ontology induce (corpus)")
         return
-    kg = get_default_graph()
-    nodes = kg.query_nodes(dataset_id=dataset, limit=5000)
+    # Constructing the graph opens the connection, so it belongs inside the
+    # guard as well — not just the query.
+    kg = _kg_guarded(get_default_graph)
+    nodes = _kg_guarded(lambda: kg.query_nodes(dataset_id=dataset, limit=5000))
     type_counts: Counter = Counter()
     for n in nodes.get("nodes") or []:
         type_counts[str(n.get("type") or "Entity")] += 1
@@ -2780,7 +2823,14 @@ def skill_cmd(
     act = action.lower()
     if act == "create":
         if not content:
-            console.print("[red]Provide skill body content[/red]")
+            render_public(
+                {
+                    "ok": False,
+                    "error": "Provide skill body content",
+                    "error_code": "invalid_input",
+                },
+                human_fn=lambda d: console.print(f"[red]{d.get('error')}[/red]"),
+            )
             raise _cli_exit(code=1)
         tag_list = [t.strip() for t in tags.split(",")] if tags else []
         path = sm.create_skill(
@@ -3443,19 +3493,38 @@ def proposal_cmd(
     from core.tool_proposals import ToolProposalManager
 
     mgr = ToolProposalManager()
-    if action == "show":
-        p = mgr._get(proposal_id)
-        console.print_json(data=p.to_dict())
-        return
-    if action == "approve":
-        p = mgr.approve(proposal_id)
-    elif action == "reject":
-        p = mgr.reject(proposal_id)
-    elif action == "execute":
-        p = mgr.execute(proposal_id)
-    else:
-        console.print(f"[red]Unknown action {action}[/red]")
-        raise _cli_exit(code=1)
+    # An unknown id raised KeyError straight out of the command, so automation
+    # got a traceback instead of a contracted failure.
+    try:
+        if action == "show":
+            p = mgr._get(proposal_id)
+        elif action == "approve":
+            p = mgr.approve(proposal_id)
+        elif action == "reject":
+            p = mgr.reject(proposal_id)
+        elif action == "execute":
+            p = mgr.execute(proposal_id)
+        else:
+            render_public(
+                {
+                    "ok": False,
+                    "error": f"Unknown action {action}",
+                    "error_code": "invalid_input",
+                },
+                human_fn=lambda d: console.print(f"[red]{d.get('error')}[/red]"),
+            )
+            raise _cli_exit(code=1)
+    except KeyError as e:
+        render_public(
+            {
+                "ok": False,
+                "error": str(e).strip("'\""),
+                "error_code": "not_found",
+                "proposal_id": proposal_id,
+            },
+            human_fn=lambda d: console.print(f"[red]{d.get('error')}[/red]"),
+        )
+        raise _cli_exit(code=1) from e
     console.print_json(data=p.to_dict())
 
 
@@ -5034,16 +5103,37 @@ def git_helper(
             text=True,
             shell=False,
         )
-        console.print(r.stdout or r.stderr)
         AuditLog().record("git_status", {"cwd": cwd})
+        render_public(
+            {
+                "ok": True,
+                "product": "git_helper.status",
+                "cwd": cwd,
+                "status": r.stdout or r.stderr,
+            },
+            human_fn=lambda d: console.print(d.get("status") or ""),
+        )
         return
     if action == "branch-hint":
         name = (task or "feature-work")[:40].lower().replace(" ", "-")
-        console.print(f"Suggested: git checkout -b superai/{name}")
+        render_public(
+            {
+                "ok": True,
+                "product": "git_helper.branch_hint",
+                "branch": f"superai/{name}",
+                "command": f"git checkout -b superai/{name}",
+            },
+            human_fn=lambda d: console.print(f"Suggested: {d.get('command')}"),
+        )
         return
     if action == "commit-msg":
-        console.print(
-            f"Suggested message:\n\nfeat: {task or 'superai task'}\n\nGenerated by SuperAI (review before commit)."
+        message = (
+            f"feat: {task or 'superai task'}\n\n"
+            "Generated by SuperAI (review before commit)."
+        )
+        render_public(
+            {"ok": True, "product": "git_helper.commit_msg", "message": message},
+            human_fn=lambda d: console.print(f"Suggested message:\n\n{d.get('message')}"),
         )
         return
     raise _cli_exit(code=1)
@@ -5523,32 +5613,35 @@ def evolve(
     from core.memory_palace import MemoryPalace
 
     engine = LearningEngine(MemoryPalace())
-    result = engine.track_knowledge_evolution(topic, limit=limit)
-    console.print(
-        Panel.fit(
-            f"[bold]Knowledge Evolution[/bold]\n\n"
-            f"Topic: {result.get('topic')}\n"
-            f"Detected: {result.get('evolution_detected')}\n"
-            f"Memories: {result.get('total_memories')}\n"
-            f"{result.get('message')}",
-            border_style="magenta",
-        )
-    )
-    timeline = result.get("timeline") or []
-    if timeline:
-        table = Table(title="Timeline")
-        table.add_column("When")
-        table.add_column("Model")
-        table.add_column("OK")
-        table.add_column("Insight")
-        for row in timeline:
-            table.add_row(
-                str(row.get("timestamp") or "")[:19],
-                str(row.get("model") or ""),
-                str(row.get("success")),
-                str(row.get("key_insight") or "")[:70],
+    result = dict(engine.track_knowledge_evolution(topic, limit=limit) or {})
+    result.setdefault("ok", True)
+
+    def _human(data):
+        console.print(
+            Panel.fit(
+                f"[bold]Knowledge Evolution[/bold]\n\n"
+                f"Topic: {data.get('topic')}\n"
+                f"Detected: {data.get('evolution_detected')}\n"
+                f"Memories: {data.get('total_memories')}\n"
+                f"{data.get('message')}",
+                border_style="magenta",
             )
-        console.print(table)
+        )
+        timeline = data.get("timeline") or []
+        if timeline:
+            table = Table(title="Timeline")
+            for col in ("When", "Model", "OK", "Insight"):
+                table.add_column(col)
+            for row in timeline:
+                table.add_row(
+                    str(row.get("timestamp") or "")[:19],
+                    str(row.get("model") or ""),
+                    str(row.get("success")),
+                    str(row.get("key_insight") or "")[:70],
+                )
+            console.print(table)
+
+    render_public(result, human_fn=_human)
 
 
 @app.command()
@@ -5601,7 +5694,19 @@ def feedback(
         )
     except Exception:  # noqa: BLE001
         pass
-    console.print(f"[green]Feedback stored[/green] memory_id={mid} task_id={task_id}")
+    render_public(
+        {
+            "ok": True,
+            "product": "feedback",
+            "memory_id": mid,
+            "task_id": task_id,
+            "success": success,
+        },
+        human_fn=lambda d: console.print(
+            f"[green]Feedback stored[/green] memory_id={d.get('memory_id')} "
+            f"task_id={d.get('task_id')}"
+        ),
+    )
 
 
 @app.command("set-supervisor")
@@ -5831,7 +5936,11 @@ def profile_bundle_cmd(
     from pathlib import Path as P
 
     if action == "export":
-        console.print(f"[green]{export_profile(P(path))}[/green]")
+        out = export_profile(P(path))
+        render_public(
+            {"ok": True, "product": "profile_bundle.export", "path": str(out)},
+            human_fn=lambda d: console.print(f"[green]{d.get('path')}[/green]"),
+        )
         return
     if action == "import":
         console.print_json(data=import_profile(P(path), dry_run=dry_run))
@@ -8094,12 +8203,21 @@ def test_impacted_cmd(
     from core.auto_test_runner import run_impacted_tests
 
     res = run_impacted_tests(files)
-    if res["ok"]:
-        console.print(f"[bold green]PASSED ({res['count']} test suite(s)):[/bold green]")
-        for t in res["impacted_tests"]:
-            console.print(f"  • [cyan]{t}[/cyan]")
-    else:
-        console.print(f"[bold red]FAILED impacted tests:[/bold red] {res.get('message', 'Pytest failures')}")
+
+    def _human(data):
+        if data.get("ok"):
+            console.print(
+                f"[bold green]PASSED ({data.get('count')} test suite(s)):[/bold green]"
+            )
+            for t in data.get("impacted_tests") or []:
+                console.print(f"  • [cyan]{t}[/cyan]")
+        else:
+            console.print(
+                "[bold red]FAILED impacted tests:[/bold red] "
+                f"{data.get('message', 'Pytest failures')}"
+            )
+
+    render_public(res, human_fn=_human)
 
 
 check_app = typer.Typer(name="check", help="Code quality, lint, and syntax verification (V6 S106)")
@@ -8140,12 +8258,35 @@ def check_license_cmd(
     from core.license_check import scan_dependency_licenses
 
     res = scan_dependency_licenses(manifest)
-    if res.is_compliant:
-        console.print(f"[bold green]COMPLIANT ({res.total_packages} package(s)):[/bold green] No copyleft or restricted licenses detected.")
-    else:
-        console.print(f"[bold red]COMPLIANCE ALERT ({len(res.issues)} issue(s)):[/bold red]")
-        for i in res.issues:
-            console.print(f"  • [{i.category}] {i.package_name}: {i.message}")
+    issues = [
+        {"category": i.category, "package": i.package_name, "message": i.message}
+        for i in res.issues
+    ]
+
+    def _human(data):
+        rows = data.get("issues") or []
+        if data.get("is_compliant"):
+            console.print(
+                f"[bold green]COMPLIANT ({data.get('total_packages')} package(s)):"
+                "[/bold green] No copyleft or restricted licenses detected."
+            )
+            return
+        console.print(f"[bold red]COMPLIANCE ALERT ({len(rows)} issue(s)):[/bold red]")
+        for i in rows:
+            console.print(f"  • [{i['category']}] {i['package']}: {i['message']}")
+
+    render_public(
+        {
+            "ok": True,
+            "product": "license_check",
+            "manifest": manifest,
+            "is_compliant": bool(res.is_compliant),
+            "total_packages": res.total_packages,
+            "issues": issues,
+            "count": len(issues),
+        },
+        human_fn=_human,
+    )
 
 
 @check_app.command("critique")
@@ -8156,24 +8297,44 @@ def check_critique_cmd(
     from core.self_critique import run_self_critique_pass
 
     res = run_self_critique_pass(file_path)
-    if res.passed:
-        console.print(
-            f"[bold green]CRITIQUE PASSED (Score: {res.score}/100):[/bold green] "
-            "Code quality meets DoD bar."
-        )
-    else:
-        console.print(
-            f"[bold red]CRITIQUE FINDINGS ({len(res.findings)} finding(s)):[/bold red]"
-        )
-        for f in res.findings:
+    findings = [
+        {
+            "line": f.line_number,
+            "category": f.category,
+            "severity": f.severity,
+            "message": f.message,
+        }
+        for f in res.findings
+    ]
+
+    def _human(data):
+        rows = data.get("findings") or []
+        if data.get("passed"):
             console.print(
-                f"  • Line {f.line_number} [{f.category} - {f.severity}]: {f.message}"
+                f"[bold green]CRITIQUE PASSED (Score: {data.get('score')}/100):"
+                "[/bold green] Code quality meets DoD bar."
             )
-    if res.findings and res.passed:
-        for f in res.findings[:20]:
+        else:
             console.print(
-                f"  • Line {f.line_number} [{f.category} - {f.severity}]: {f.message}"
+                f"[bold red]CRITIQUE FINDINGS ({len(rows)} finding(s)):[/bold red]"
             )
+        for f in rows[:20]:
+            console.print(
+                f"  • Line {f['line']} [{f['category']} - {f['severity']}]: {f['message']}"
+            )
+
+    render_public(
+        {
+            "ok": True,
+            "product": "self_critique",
+            "file": file_path,
+            "passed": bool(res.passed),
+            "score": res.score,
+            "findings": findings,
+            "count": len(findings),
+        },
+        human_fn=_human,
+    )
 
 
 @check_app.command("upgrades")
@@ -8619,7 +8780,15 @@ def pi_wrap_cmd(
     """Wrap untrusted input in safe XML boundary tags."""
     from core.prompt_injection import wrap_untrusted_input
 
-    console.print(wrap_untrusted_input(content, label=label))
+    render_public(
+        {
+            "ok": True,
+            "product": "prompt_injection.wrap",
+            "label": label,
+            "wrapped": wrap_untrusted_input(content, label=label),
+        },
+        human_fn=lambda d: console.print(d.get("wrapped") or ""),
+    )
 
 
 sec_app = typer.Typer(name="security", help="Security scan hooks (V6 S114)")
@@ -8698,10 +8867,19 @@ def ci_fix_cmd(
     else:
         res = analyze_ci_log_paste(log_input)
 
-    console.print(res.summary_report)
+    payload = {"ok": True, "product": "ci_fix", "summary": res.summary_report}
     if plan_out:
-        out = write_repair_plan(res, plan_out)
-        console.print(f"[dim]Repair plan: {out.get('path')} ({out.get('items')} items)[/dim]")
+        payload["repair_plan"] = write_repair_plan(res, plan_out)
+
+    def _human(data):
+        console.print(data.get("summary") or "")
+        plan = data.get("repair_plan")
+        if plan:
+            console.print(
+                f"[dim]Repair plan: {plan.get('path')} ({plan.get('items')} items)[/dim]"
+            )
+
+    render_public(payload, human_fn=_human)
 
 
 @app.command("memory-eval")

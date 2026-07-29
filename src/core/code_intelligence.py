@@ -322,6 +322,21 @@ def _dead_code_suppressions(root: Path) -> Set[str]:
     except (OSError, ValueError, TypeError):
         return set()
     return {str(item) for item in (data.get("exclude") or []) if isinstance(item, str)}
+def _private_module_candidates(root: Path, max_files: int) -> List[Dict[str, Any]]:
+    """Return private Python modules with no simple project import reference."""
+    files = list(_python_files(root, max_files))
+    imported: Set[str] = set()
+    for source in files:
+        try:
+            tree = ast.parse(source.read_text(encoding="utf-8-sig", errors="replace"))
+        except (OSError, SyntaxError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.rsplit(".", 1)[-1] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.rsplit(".", 1)[-1])
+    return [{"file": source.relative_to(root).as_posix(), "name": source.stem, "confidence": "low", "reason": "private module has no simple project import"} for source in files if source.stem.startswith("_") and source.stem not in imported]
 def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
                      cache_dir: Optional[Path] = None) -> Dict[str, Any]:
     """Return conservative private-function candidates, never deletion instructions."""
@@ -332,15 +347,15 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
     suppressions = _dead_code_suppressions(base)
     candidates = [
         {"id": item["id"], "file": item["file"], "name": item["name"], "line": item["line"],
-         "reason": "private function has no uniquely resolved inbound call", "confidence": "low", "evidence": {"inbound_calls": 0, "dynamic_reference": False, "decorated": False}}
+         "reason": "private symbol has no uniquely resolved inbound call", "confidence": "low", "evidence": {"inbound_calls": 0, "dynamic_reference": False, "decorated": False}}
         for item in graph["symbols"]
-        if item["kind"] in {"function", "async_function"} and str(item["name"]).startswith("_")
+        if item["kind"] in {"function", "async_function", "class"} and str(item["name"]).startswith("_")
         and not str(item["name"]).startswith("__") and not item.get("is_test") and str(item["id"]) not in incoming
         and str(item["name"]) not in dynamic_refs and str(item["name"]) not in value_refs
         and (str(item["file"]), int(item["line"])) not in decorated
         and str(item["name"]) not in suppressions and f"{item["file"]}:{item["name"]}" not in suppressions
     ]
-    return {"ok": True, "product": graph["product"], "report": "dead_code_candidates",
+    return {"ok": True, "product": graph["product"], "report": "dead_code_candidates", "scope": ["functions", "methods", "classes", "private_modules"], "module_candidates": _private_module_candidates(base, max_files),
             "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"],
             "index": graph["index"], "suppressions": sorted(suppressions), "limitations": [
                 "Candidates are not proof of dead code", "Dynamic lookups, exports, imports, callbacks, and decorated functions are excluded", "Dynamic imports, callbacks, reflection, and external callers are not resolved",

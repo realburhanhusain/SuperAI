@@ -114,3 +114,9 @@ def test_dead_code_honors_exact_suppressions(tmp_path: Path):
     out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
     assert [item["name"] for item in out["candidates"]] == ["_candidate"]
     assert out["suppressions"] == ["_suppressed"]
+
+def test_dead_code_includes_private_class_candidate(tmp_path: Path):
+    _write(tmp_path, "src/core.py", "class _Unused:\n    pass\n\nclass Used:\n    pass\n\ndef make():\n    return Used()\n")
+    out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
+    assert [(item["name"], item["reason"]) for item in out["candidates"]] == [("_Unused", "private symbol has no uniquely resolved inbound call")]
+    assert "classes" in out["scope"]

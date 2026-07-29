@@ -47,7 +47,7 @@ def get_shared_palace(
     if persist_directory:
         key = str(Path(persist_directory).expanduser().resolve())
     else:
-        key = str(Path(os.path.expanduser("~/.superai/memory")).resolve())
+        key = str((Path.home() / ".superai" / "memory").resolve())
     with _PALACE_SINGLETONS_GUARD:
         if key not in _PALACE_SINGLETONS:
             _PALACE_SINGLETONS[key] = MemoryPalace(
@@ -84,7 +84,7 @@ class MemoryPalace:
         if persist_directory:
             self.persist_directory = persist_directory
         else:
-            self.persist_directory = os.path.expanduser("~/.superai/memory")
+            self.persist_directory = str(Path.home() / ".superai" / "memory")
 
         os.makedirs(self.persist_directory, exist_ok=True)
         self._root = Path(self.persist_directory).resolve()

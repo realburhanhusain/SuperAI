@@ -164,11 +164,15 @@ V6_MUST_COMPLETE = {
     # M089 remains HOST — not complete without live keys
 }
 
-# V6 Should complete (narrow, tested)
-V6_SHOULD_COMPLETE = {
-    "M101": None,  # placeholder wrong
-}
-# fix - S ids
+# V6 Should complete (narrow, tested).
+#
+# Removed 2026-07-29: a dead ``V6_SHOULD_COMPLETE = {"M101": None}`` sat here,
+# self-annotated "placeholder wrong". It was referenced nowhere else in this
+# file, and "M101" is not an ID in the source inventory at all — the V6 Must
+# range ends at M100 and the Shoulds start at S101, which is the set below. So
+# its removal drops nothing from the generated scorecard; it was a typo in
+# unreachable code inside the generator that produces the completeness audit
+# every other document defers to.
 V6_S_COMPLETE = {
     "S101", "S102", "S104", "S105", "S106", "S107", "S108", "S109", "S110", "S112", "S114", "S115",
     "S116", "S117", "S118", "S122", "S124", "S125", "S126",

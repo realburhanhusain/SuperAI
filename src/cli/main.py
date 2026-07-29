@@ -3366,8 +3366,10 @@ def proposals_list(
     console.print(table)
 
 
-@app.command()
-def debate(
+# Renamed from "debate": a later @app.command("debate") (role_debate, V6 N261)
+# shadowed this one, so Click never reached it. Distinct feature, distinct name.
+@app.command("debate-models")
+def debate_models_cmd(
     topic: str = typer.Argument(..., help="Debate topic"),
     models: Optional[str] = typer.Option(
         None, "--models", help="Comma-separated model names"
@@ -3377,13 +3379,33 @@ def debate(
     """Run a multi-model debate / critique pattern (I2)"""
     from core.agentic import AgenticWorkflows
 
+    from core.public_surface import render_public
+
     wf = AgenticWorkflows()
     model_list = [m.strip() for m in models.split(",")] if models else None
     result = wf.debate(topic, models=model_list, rounds=rounds)
-    for p in result.get("proposals") or []:
-        console.print(Panel(str(p.get("text")), title=f"Debater {p.get('model')}", border_style="blue"))
-    for c in result.get("critiques") or []:
-        console.print(Panel(str(c.get("text")), title=f"Critique {c.get('model')}", border_style="yellow"))
+
+    def _human(data: Dict[str, Any]) -> None:
+        for p in data.get("proposals") or []:
+            console.print(
+                Panel(
+                    str(p.get("text")),
+                    title=f"Debater {p.get('model')}",
+                    border_style="blue",
+                )
+            )
+        for c in data.get("critiques") or []:
+            console.print(
+                Panel(
+                    str(c.get("text")),
+                    title=f"Critique {c.get('model')}",
+                    border_style="yellow",
+                )
+            )
+
+    # Rich panels for humans, contract envelope under --json. This is a spend
+    # command, so it must be machine-readable like every other one.
+    render_public(result, human_fn=_human)
 
 
 @app.command()
@@ -4757,8 +4779,10 @@ def constitution(
     console.print(load_constitution())
 
 
-@app.command()
-def profile(
+# Renamed from "profile": shadowed by a later @app.command("profile") (run
+# profiles: cheap/balanced/quality). This one reads/writes the config profile key.
+@app.command("profile-config")
+def profile_config_cmd(
     action: str = typer.Argument("show", help="show | set"),
     name: Optional[str] = typer.Argument(None),
 ):
@@ -5634,8 +5658,11 @@ def profile_bundle_cmd(
     raise _cli_exit(code=1)
 
 
-@app.command()
-def onboard(
+# Renamed from "onboard": shadowed by a later @app.command("onboard")
+# (onboarding_quest, V6 S199). This is the host-tools/Postgres setup wizard and
+# was unreachable from the CLI entirely.
+@app.command("onboard-wizard")
+def onboard_wizard_cmd(
     non_interactive: bool = typer.Option(
         True,
         "--non-interactive/--interactive",

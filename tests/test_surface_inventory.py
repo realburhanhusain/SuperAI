@@ -250,23 +250,70 @@ def test_shadowing_verdict_matches_click_resolution(fixture_module):
     assert resolved.callback.__name__ == live["handler"]
 
 
-def test_shadowed_commands_are_not_counted_as_uncovered():
+def test_no_shadowed_commands_on_the_real_app():
+    """
+    Zero command names may be registered twice.
+
+    Three were (``debate``, ``onboard``, ``profile``), and each pair turned out
+    to be two *different* features colliding on one name — including the
+    host-tools/Postgres setup wizard, which no user could reach. They were
+    renamed rather than deleted, so nothing was lost. A new collision means
+    someone's feature just became unreachable, silently.
+    """
+    rows = si.enumerate_cli_surfaces()
+    shadowed = sorted(
+        (r["id"], r["handler"]) for r in rows if r.get("shadowed")
+    )
+    assert not shadowed, f"command names registered twice; earlier handler dead: {shadowed}"
+
+
+def test_renamed_shadowed_features_are_reachable():
+    """Both halves of each former collision must be invocable."""
+    names = {r["name"] for r in si.enumerate_cli_surfaces()}
+    for pair in (
+        ("debate", "debate-models"),
+        ("onboard", "onboard-wizard"),
+        ("profile", "profile-config"),
+    ):
+        for name in pair:
+            assert name in names, f"{name} is not registered"
+
+
+def test_spend_paths_modules_all_import():
+    """
+    Every ``SPEND_PATHS`` row must name a real, importable module.
+
+    One row pointed at ``cli.web_app`` for months. The package installs as
+    ``scli``, so that row proved nothing about the HTTP spend path it claimed
+    to cover — and a registry entry that cannot be resolved is worse than a
+    missing one, because it reads as coverage.
+    """
+    dis = si.disagreements()
+    assert dis["spend_paths_unimportable"] == []
+    assert dis["spend_paths_freeform_module"] == []
+
+
+def test_shadowed_commands_are_not_counted_as_uncovered(fixture_module):
     """
     Dead handlers cannot be wrapped and must not inflate the gap count.
 
-    Asserted per row, not per id: a shadowed row shares its id with the live
-    handler that won registration, and that live one may legitimately still be
-    uncovered.
+    Asserted against the fixture: the real app no longer has any shadowed
+    commands (see ``test_no_shadowed_commands_on_the_real_app``), so the
+    exclusion logic has to be exercised somewhere that still does. Checked per
+    row, not per id — a shadowed row shares its id with the live handler that
+    won registration, and that live one may legitimately still be uncovered.
     """
-    rows = si.enumerate_cli_surfaces()
+    app, call_map = fixture_module
+    rows = si.enumerate_cli_surfaces(app=app, call_map=call_map)
     uncovered = si.uncovered_surfaces(rows)
-    assert any(r.get("shadowed") for r in rows), "expected some shadowed rows to exist"
+
+    assert any(r.get("shadowed") for r in rows), "fixture should contain a shadowed row"
     assert not [r for r in uncovered if r.get("shadowed")]
 
     # The live handler for a shadowed name is still evaluated normally.
-    live_debate = [r for r in rows if r["id"] == "cli:debate" and not r.get("shadowed")]
-    assert len(live_debate) == 1
-    assert live_debate[0]["handler"] == "debate_cmd"
+    live = [r for r in rows if r["name"] == "dupe-cmd" and not r.get("shadowed")]
+    assert len(live) == 1
+    assert live[0]["handler"] == "dupe_second"
 
 
 # ---------------------------------------------------------------------------

@@ -20,11 +20,19 @@ Close the **9 near-complete Musts** (80–90%) that need **universal spend**, **
 
 | Wave | IDs | Theme | Target | Status |
 |------|-----|--------|--------|--------|
-| A1 | V4-M1, V4-DOD-1, V5-M1, V5-M2 | Spend universality + MCP spend | 85% → 100% | [x] DONE |
-| A2 | V4-M2 | Result contract everywhere public | 85% → 100% | [x] DONE |
-| A3 | M079, M093 | JSON automation + MCP safety matrix | 85% → 100% | [x] DONE |
-| A4 | V5-M4 | Cost registry accuracy / estimate fallbacks | 90% → 100% | [x] DONE |
-| A5 | M090 | TOP_30 contract live invocation depth | 80% → 100% | [x] DONE |
+| A1 | V4-M1, V4-DOD-1, V5-M1, V5-M2 | Spend universality + MCP spend | 85% → 100% | [~] partial |
+| A2 | V4-M2 | Result contract everywhere public | 85% → 100% | [~] partial |
+| A3 | M079, M093 | JSON automation + MCP safety matrix | 85% → 100% | [~] partial |
+| A4 | V5-M4 | Cost registry accuracy / estimate fallbacks | 90% → 100% | [~] partial |
+| A5 | M090 | TOP_30 contract live invocation depth | 80% → 100% | [~] partial |
+
+> **Demoted 2026-07-29.** These five read `[x] DONE` while every one of the ~45
+> leaf checkboxes below them was still unticked, and two of those leaves carried
+> explicit reopen notes written during the I1 review (`A1.1` "falsely checked —
+> audit is shallow; reopen"; `A1.3` "live SSE still skips pre_call — P0"). The
+> leaves were right and the headers were wrong. See
+> [`docs/PLAN_CONTRACT_SPEND_RESIDUALS.md`](docs/PLAN_CONTRACT_SPEND_RESIDUALS.md)
+> for measured coverage, and tick a header only when its own leaves are ticked.
 
 **Suggested order:** A1 (spend spine) → A2 (contracts) → A3 (surfaces) → A4 (cost) → A5 (TOP_30).
 
@@ -196,7 +204,16 @@ pytest tests/test_improvement_v5.py tests/test_public* -q
 
 **Current SPEND_TOOLS (extend as needed)**
 
-`superai_run`, `superai_ask`, `superai_agent`, `cli_run`, `superai_cli_run`, `superai_council`, `superai_compare`, `superai_bakeoff`, `superai_review`, `superai_advise`, `superai_do`
+`superai_run`, `superai_ask_session`, `superai_cli_parallel`, `superai_cli_run`
+
+> **Corrected 2026-07-29.** This list previously named 11 tools —
+> `superai_ask`, `superai_agent`, `cli_run`, `superai_council`,
+> `superai_compare`, `superai_bakeoff`, `superai_review`, `superai_advise`,
+> `superai_do` — none of which exist in `mcp_safety.SPEND_TOOLS`. The live set
+> has 4. Verified with `python -c "from core.mcp_safety import SPEND_TOOLS;
+> print(sorted(SPEND_TOOLS))"`. Deciding whether the 7 missing capabilities
+> should be MCP spend tools is A1.4 work; the board must not imply they already
+> are.
 
 **Gaps to close**
 
@@ -413,9 +430,11 @@ rg "budget_precheck|emit_public|wrap_mcp_tool|TOP_30" src
 
 | Field | Value |
 |-------|--------|
-| **When** | 2026-07-24 |
-| **What** | **I1 A1–A5 offline closed:** thin-wrapper prechecks, TOP_30 real invoke harness, spend assertion tests, scorecard 100% offline. AGY WIP + Grok finish. |
-| **Still open** | None for offline A1–A5; host live keys still out of AGY board |
+| **When** | 2026-07-29 |
+| **What** | Wave headers A1–A5 demoted from `[x] DONE` to `[~] partial`; `SPEND_TOOLS` list corrected 11 → 4. Contract coverage is now measured rather than asserted: `core/surface_inventory.py` derives 315 public surfaces, two seams contract the CLI and HTTP surfaces, and `scripts/probe_cli_contracts.py` invokes real commands. |
+| **Still open** | A1 spend universality (3 spend surfaces uncovered; `audit_m001` still uses `inspect.getsource`; `command_name` not passed from most CLI commands). A2/A3: 19 commands print Rich tables only, 87 need argument fixtures, 4 statically-wrapped commands print no envelope. A4 cost: `estimate_source` not unified. A5: TOP_30 registration check fixed, invocation depth partial. |
+| **Measured by** | [`docs/PUBLIC_SURFACE_COVERAGE.md`](docs/PUBLIC_SURFACE_COVERAGE.md) · [`docs/PLAN_CONTRACT_SPEND_RESIDUALS.md`](docs/PLAN_CONTRACT_SPEND_RESIDUALS.md) |
+| **Prior** | 2026-07-24 claimed "I1 A1–A5 offline closed / still open: None". That claim did not survive measurement. |
 | **Closeout** | [`docs/archive/2026-07-25-closed-docs/i1-reviews/agy_work_review_result_I1_v4.md`](docs/archive/2026-07-25-closed-docs/i1-reviews/agy_work_review_result_I1_v4.md) |
 | **Prior** | v3 re-audit (partial) · v2 overclaim · v1 pickup |
 | **Archive** | `docs/archive/2026-07-24-wave-handoffs/` |

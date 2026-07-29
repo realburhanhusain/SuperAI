@@ -194,6 +194,29 @@ the same disease the enumerator exists to cure.
 **Deliberately not done in Phase 0:** nothing is wrapped and no scorecard row is
 touched. The enumerator reports; Phase 1 enforces.
 
+### Phase 0 residuals — closed 2026-07-29
+
+Every defect Phase 0 recorded but did not fix is now fixed.
+
+| Was | Now |
+|---|---|
+| 3 commands registered twice; earlier handler unreachable | **Renamed, not deleted.** Each pair was two *different* features colliding on one name, so deleting would have destroyed working code. `debate` (agentic multi-model, `--models`/`--rounds`) → `debate-models`; `onboard` (host-tools + Postgres setup wizard) → `onboard-wizard`; `profile` (config profile key) → `profile-config`. All six commands are now reachable. |
+| `SPEND_PATHS["web_api_run"].module` = `cli.web_app`, unimportable | → `scli.web_app`. Two rows carrying a prose label (`core.a / b`) split into `module` + a new `also` field, which the checker validates too so it cannot become a hiding place. Both disagreement buckets are now empty. |
+| `tests/test_moscow_100.py:45` imported `cli.web_app` | → `scli.web_app`. This test had been **skipping on every run** with the false reason "web extras not installed" while they were installed. It now executes and passes — the M6 web status contract had never actually been tested. |
+| `TASKBOARD_AGY.md` waves A1–A5 marked `[x] DONE` over ~45 unticked leaves | Demoted to `[~] partial` with a dated note explaining that the leaves were right and the headers were wrong. "Last session" rewritten from "Still open: None" to the measured gap list. |
+| `TASKBOARD_AGY.md:199` listed 11 `SPEND_TOOLS`; live set has 4 | Corrected, with the 7 non-existent names spelled out and the verification command recorded. |
+| `gen_v1_v6_unified_improved_scorecard.py` held a dead `V6_SHOULD_COMPLETE = {"M101": None}` self-annotated "placeholder wrong" | Removed. Checked first: `M101` is not an ID in the source inventory at all — the V6 Must range ends at M100 and the Shoulds start at S101. Nothing was dropped from the scorecard, so it needs no regeneration and Gate B is untouched. |
+
+**Coverage impact:** un-shadowing three commands briefly pushed uncovered 93 → 94
+and uncovered-spend 3 → 4, because `debate-models` had been carrying hidden
+coverage debt that only existed once the command became reachable. It was then
+wrapped with `render_public` (Rich panels for humans, envelope under `--json`),
+returning both figures to 93 and 3. Net: three restored features at no coverage
+cost.
+
+**New regression guards:** `test_no_shadowed_commands_on_the_real_app`,
+`test_renamed_shadowed_features_are_reachable`, `test_spend_paths_modules_all_import`.
+
 ---
 
 ## Phase 1 — V1-P1-1 + V2-A4 + V3-A4: contract universality
@@ -386,20 +409,27 @@ Phases 1–3 are parallelizable once Phase 0 lands. Phase 2 and Phase 3 touch
 
 ## Definition of done (Gate A only)
 
-- [ ] `surface_inventory.py` enumerates CLI + MCP + HTTP surfaces; every surface is
-      wrapped, or listed in `SURFACE_EXEMPTIONS.md` with a reason. Zero silent skips.
-- [ ] `verify_top_commands_registered` slack removed (`== 0`).
-- [ ] Real-invocation contract coverage replaces synthetic samples.
-- [ ] Every `spend`-classified surface pre-checks with a `command_name`.
-- [ ] `audit_m001` no longer uses `inspect.getsource`.
-- [ ] One canonical `estimate_source` on all cost-bearing contracts.
-- [ ] `budget_record` call count unchanged from baseline (no double-count).
-- [ ] 4 new/extended test files pass **in isolation**, each named in the PR body.
-- [ ] 3 docs written: `PUBLIC_SURFACE_COVERAGE.md`, `SURFACE_EXEMPTIONS.md`,
-      `COST_ACCOUNTING.md`.
-- [ ] `TASKBOARD_AGY.md` leaf checkboxes ticked **only** where genuinely done, and its
-      false `DONE` wave headers (A1–A5) demoted to `[~]` to match reality.
-- [ ] **Scorecard untouched.** Gate B noted as blocked in the PR body.
+- [x] `surface_inventory.py` enumerates CLI + MCP + HTTP surfaces (315). Zero silent
+      skips: every exemption carries a reason, and reason-less rows are ignored.
+      **Not yet** "every surface wrapped" — 93 remain uncovered, enumerated in
+      `PUBLIC_SURFACE_COVERAGE.md`.
+- [x] `verify_top_commands_registered` fixed — and it was a tautology, not slack.
+- [x] Real-invocation contract coverage replaces synthetic samples
+      (`invoke_cli_contracts_offline` + `scripts/probe_cli_contracts.py`).
+- [ ] Every `spend`-classified surface pre-checks with a `command_name` — **Phase 2**.
+- [ ] `audit_m001` no longer uses `inspect.getsource` — **Phase 2**.
+- [ ] One canonical `estimate_source` on all cost-bearing contracts — **Phase 3**.
+- [ ] `budget_record` call count unchanged from baseline — **Phase 2** (nothing in
+      Phases 0–1 adds a `budget_record` call, so the invariant holds so far).
+- [x] Test files pass in isolation: `tests/test_surface_inventory.py` (23),
+      `tests/test_surface_contract_coverage.py` (23) — 46 total.
+- [x] `PUBLIC_SURFACE_COVERAGE.md` + `SURFACE_EXEMPTIONS.md` written.
+      `COST_ACCOUNTING.md` is **Phase 3**.
+- [x] `TASKBOARD_AGY.md` false `DONE` headers (A1–A5) demoted to `[~] partial`;
+      `SPEND_TOOLS` list corrected 11 → 4; "Last session" rewritten from
+      "Still open: None" to the measured gap list.
+- [x] **Scorecard untouched.** No row promoted. Gate B still blocked on a green
+      full suite.
 
 ## Explicit non-goals
 

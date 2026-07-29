@@ -290,22 +290,50 @@ def architecture_report(root: Optional[Path] = None, *, max_files: int = 2000,
             "limitations": ["Module relationships use uniquely resolved Python CALLS edges only"]}
 
 
+def _dead_code_exclusions(root: Path, max_files: int) -> Tuple[Set[str], Set[str], Set[Tuple[str, int]]]:
+    """Find indirect references and decorated definitions that static CALLS cannot prove."""
+    dynamic_refs: Set[str] = set()
+    value_refs: Set[str] = set()
+    decorated: Set[Tuple[str, int]] = set()
+    for source in _python_files(root, max_files):
+        rel = source.relative_to(root).as_posix()
+        try:
+            tree = ast.parse(source.read_text(encoding="utf-8-sig", errors="replace"), filename=str(source))
+        except (OSError, SyntaxError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                value_refs.add(node.id)
+            if isinstance(node, ast.alias):
+                dynamic_refs.add(node.asname or node.name.rsplit(".", 1)[-1])
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.decorator_list:
+                decorated.add((rel, int(node.lineno)))
+            if isinstance(node, ast.Call) and _call_name(node.func) in {"getattr", "setattr", "hasattr"}:
+                if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) and isinstance(node.args[1].value, str):
+                    dynamic_refs.add(node.args[1].value)
+            if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets):
+                if isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
+                    dynamic_refs.update(item.value for item in node.value.elts if isinstance(item, ast.Constant) and isinstance(item.value, str))
+    return dynamic_refs, value_refs, decorated
 def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
                      cache_dir: Optional[Path] = None) -> Dict[str, Any]:
     """Return conservative private-function candidates, never deletion instructions."""
     graph = index_code_graph(root, max_files=max_files, cache_dir=cache_dir)
     incoming = {str(edge["to"]) for edge in graph["edges"]}
+    dynamic_refs, value_refs, decorated = _dead_code_exclusions(Path(graph["root"]), max_files)
     candidates = [
         {"id": item["id"], "file": item["file"], "name": item["name"], "line": item["line"],
-         "reason": "private function has no uniquely resolved inbound call", "confidence": "low"}
+         "reason": "private function has no uniquely resolved inbound call", "confidence": "low", "evidence": {"inbound_calls": 0, "dynamic_reference": False, "decorated": False}}
         for item in graph["symbols"]
         if item["kind"] in {"function", "async_function"} and str(item["name"]).startswith("_")
         and not str(item["name"]).startswith("__") and not item.get("is_test") and str(item["id"]) not in incoming
+        and str(item["name"]) not in dynamic_refs and str(item["name"]) not in value_refs
+        and (str(item["file"]), int(item["line"])) not in decorated
     ]
     return {"ok": True, "product": graph["product"], "report": "dead_code_candidates",
             "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"],
             "index": graph["index"], "limitations": [
-                "Candidates are not proof of dead code", "Dynamic imports, callbacks, reflection, and external callers are not resolved",
+                "Candidates are not proof of dead code", "Dynamic lookups, exports, imports, callbacks, and decorated functions are excluded", "Dynamic imports, callbacks, reflection, and external callers are not resolved",
                 "No source files are modified"],}
 
 

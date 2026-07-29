@@ -205,3 +205,11 @@ def test_code_intelligence_mcp_can_verify_incremental_content(tmp_path: Path):
     checked = call_tool("superai_code_intelligence", {"action": "index", "incremental": True, "verify_content": True, "root": str(tmp_path)})
     assert first["index"]["mode"] == "full"
     assert checked["index"]["refreshed_files"] == 1
+
+def test_code_intelligence_dead_code_safety_via_mcp(tmp_path: Path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "sample.py").write_text("def _unused():\n    return 1\n\ndef _dynamic():\n    return 2\n", encoding="utf-8")
+    (src / "use.py").write_text("value = getattr(module, '_dynamic')\n", encoding="utf-8")
+    out = call_tool("superai_code_intelligence", {"action": "dead_code", "root": str(tmp_path)})
+    assert [item["name"] for item in out["candidates"]] == ["_unused"]

@@ -26,15 +26,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **272** |
-| **INCOMPLETE** | **243** |
+| **COMPLETE (production + docs + tests)** | **273** |
+| **INCOMPLETE** | **242** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **52.5%**
+- **Strict completion rate (complete / (total − refuse)):** **52.7%**
 - **Average percent (incomplete only):** **23.2%**
-- **Average percent (all non-refuse):** **64.0%**
+- **Average percent (all non-refuse):** **64.1%**
 
 ### Note for validators
 
@@ -4032,16 +4032,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### N235 — Dead code detection
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Heuristic bucket:** `complete`
+- **Code production-ready?** YES — conservative private-function candidates with indirect-use exclusions and evidence
+- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md
+- **Fully tested?** YES — tests/test_code_intelligence.py + tests/test_mcp_server.py
+- **Fully implemented:** Excludes decorators, dynamic lookups, exports, imports, and callback/value references; never edits source
 - **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
+- **Still incomplete:** —
 ### N236 — Complexity hotspots map
 
 - **Track:** V6

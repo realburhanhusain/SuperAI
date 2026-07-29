@@ -168,3 +168,14 @@ def test_code_intelligence_via_mcp(tmp_path: Path):
     )
     assert out["ok"] is True
     assert out["count"] == 1
+
+
+def test_code_intelligence_phase3_reports_via_mcp(tmp_path: Path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "sample.py").write_text("def public_api():\n    return _unused()\n\ndef _unused():\n    return True\n", encoding="utf-8")
+    architecture = call_tool("superai_code_intelligence", {"action": "architecture", "root": str(tmp_path)})
+    assert architecture["ok"] is True
+    assert architecture["report"] == "architecture"
+    status = call_tool("superai_code_intelligence", {"action": "status", "root": str(tmp_path)})
+    assert status["ready"] is True

@@ -198,7 +198,13 @@ def probe_with_fixture(name: str, timeout: float) -> Dict[str, Any]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--timeout", type=float, default=30.0)
+    # 90s, not 30s. Commands that take 3-10s standalone were being killed at
+    # 25s inside a 205-command sweep: each probe pays full interpreter start
+    # plus SuperAI's import chain, and the machine is under sustained load from
+    # the sweep itself. A killed run was recorded as a contract failure it had
+    # not earned, so the timeout was manufacturing gaps. Measured: ci-why 10s,
+    # feedback 7s, forecast 4s, cloud configure 3s — all reported "hang" at 25s.
+    ap.add_argument("--timeout", type=float, default=90.0)
     ap.add_argument(
         "--no-fixtures",
         action="store_true",

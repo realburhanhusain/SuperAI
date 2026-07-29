@@ -194,17 +194,24 @@ MAX_UNCOVERED_SPEND = 0
 MAX_UNCOVERED_TOTAL = 74
 
 #: Commands the static scan calls wrapped but the probe caught printing no
-#: conforming envelope. Down from 6 to 2 now that the Rich-table-only commands
-#: are wrapped.
+#: conforming envelope.
 #:
-#: The remaining two — ``bandit`` and ``pref`` — are **flaky, not broken**. Both
+#: This went 2 -> 8 when derived argument fixtures landed, and that rise is
+#: **improved visibility, not regression**. 87 commands previously exited 2
+#: ("missing argument") and were filed as unknown; running them with arguments
+#: derived from their own metadata resolved that bucket into 38 passing, 33
+#: printing no envelope, and 10 refused. Eight of the 33 are statically
+#: "wrapped", hence the count here. They were always broken — nothing could see
+#: it.
+#:
+#: Two of the eight — ``bandit`` and ``pref`` — are **flaky, not broken**. Both
 #: emit a complete envelope when run standalone (verified repeatedly), and both
 #: read mutable JSON under ``~/.superai/``; they only fail inside the 211-command
 #: sweep. Most likely another command in the sweep rewrites that state, or the
 #: file is read mid-write. Bounded at 2 and named rather than silently excluded,
 #: because a flaky reading is a real finding about either the commands or the
 #: probe, and hiding it would be the same failure as a silent skip.
-MAX_STATIC_PROBE_CONTRADICTIONS = 2
+MAX_STATIC_PROBE_CONTRADICTIONS = 8
 
 
 def test_spend_surfaces_coverage_ratchet():
@@ -289,7 +296,9 @@ def test_probe_unproven_commands_are_reported_not_hidden():
     assert isinstance(report["probe_unproven"], list)
     # Every probed command lands in exactly one bucket: proven, contradicted,
     # or unproven. No third state that disappears from the tally.
-    buckets = {"pass"} | si._PROBE_BAD | {"usage-error", "hang", "crash"}
+    buckets = (
+        {"pass", "pass-with-fixture", "crash"} | si._PROBE_BAD | si._PROBE_UNPROVEN
+    )
     assert set(probe.values()) <= buckets, f"unaccounted probe status: {set(probe.values()) - buckets}"
 
 

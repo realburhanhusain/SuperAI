@@ -369,6 +369,44 @@ archive each time, 211 times over. `create_backup`, `restore_backup`,
 `restore_from_cloud`, `apply_retention` and `sync_to_cloud` are now
 `MUTATING_MARKERS`, which excludes those commands from the read_only sweep.
 
+### Derived argument fixtures — 2026-07-29
+
+The 87 `usage-error` commands were the largest remaining gap: 41% of the surface
+with no contract evidence in *either* direction. Hand-writing 87 fixtures would
+have created exactly the kind of hand-maintained list this whole plan exists to
+eliminate, so `core/cli_fixtures.py` **derives** them from Click's own parameter
+metadata — required params, declared `Choice` types, the `a | b | c`
+enumerations already sitting in help strings, and type defaults.
+
+81 of 87 derive automatically. The other 6 are refused with a stated reason
+(`browse` fetches a live URL, `shell` executes arbitrary commands, `backup-key`
+touches the encryption key, and so on) — refusal, never a guess.
+
+Fixture runs execute against a **throwaway HOME**. `Config` resolves its state
+directory from `Path.home()`, so redirecting `HOME`/`USERPROFILE` means a
+command invoked with synthesized arguments cannot write to the real
+`~/.superai`. Without that, this pass would have mutated live state 80+ times
+per sweep — the same mistake that had `backup` writing a real archive on every
+run.
+
+**The 87 unknowns resolved:**
+
+| Outcome | Count |
+|---|---:|
+| Passed once given derived arguments | **38** |
+| Ran and printed no valid envelope | **33** |
+| No safe argument derivable (reason recorded) | **10** |
+| Hang / other | remainder |
+
+Probe-unproven dropped **95 → 28**. Commands proven to emit a conforming
+envelope rose **101 → 136**.
+
+The 33 `fail-with-fixture` commands are newly-visible genuine gaps — they were
+always broken; nothing could see it while they hid behind "missing argument".
+Eight of them are statically "wrapped", which is why
+`static_wrapped_but_probe_failed` rose 2 → 8. **That rise is improved
+visibility, not regression.**
+
 ### Still open after the tail
 
 - **5 commands blocked by a regression, not by contract work** — `kg path`,

@@ -6,12 +6,15 @@ Scope: `read_only` surfaces only; per-command timeout 20s.
 
 | Outcome | Count | Meaning |
 |---|---:|---|
-| `pass` | 101 | Emitted a JSON object carrying every required contract field |
+| `pass` | 98 | Emitted a JSON object carrying every required contract field |
 | `missing-fields` | 1 | Emitted JSON, but the contract envelope is incomplete |
 | `no-json` | 5 | Printed no JSON at all despite `--json` — unwrapped |
 | `json-array` | 1 | Printed a bare JSON array; needs an envelope around it |
-| `usage-error` | 87 | Needs a required argument (exit 2); not a contract failure |
-| `hang` | 9 | Did not return before the timeout and was killed |
+| `usage-error` | 0 | Needs a required argument (exit 2); not a contract failure |
+| `pass-with-fixture` | 38 | Passed once given arguments derived from its own metadata |
+| `fail-with-fixture` | 33 | Ran with derived arguments but emitted no valid envelope |
+| `no-safe-fixture` | 10 | No safe argument could be derived; reason recorded |
+| `hang` | 18 | Did not return before the timeout and was killed |
 | `crash` | 0 | Subprocess could not be run |
 | `skipped` | 5 | Listed as uninvokable, with a reason |
 
@@ -19,15 +22,24 @@ Scope: `read_only` surfaces only; per-command timeout 20s.
 
 These never returned. Relevant beyond contract coverage: a command that hangs here hangs in CI too.
 
+- `ci-fix` — >20.0s, killed
+- `ci-why` — >20.0s, killed
 - `data-schema` — >20.0s, killed
 - `diagnose` — >20.0s, killed
+- `diff-edit` — >20.0s, killed
 - `discover` — >20.0s, killed
 - `foundation-check` — >20.0s, killed
 - `gates` — >20.0s, killed
-- `github` — >20.0s, killed
+- `learning conflicts` — >20.0s, killed
+- `learning deprecate` — >20.0s, killed
 - `learning distill` — >20.0s, killed
 - `metrics` — >20.0s, killed
+- `msg-channels` — >20.0s, killed
+- `msg-inbound` — >20.0s, killed
 - `reflect` — >20.0s, killed
+- `routing-stats` — >20.0s, killed
+- `schedule` — >20.0s, killed
+- `test impacted` — >20.0s, killed
 
 ## no-json
 
@@ -51,97 +63,58 @@ These never returned. Relevant beyond contract coverage: a command that hangs he
 |---|---:|---|
 | `pref` | 0 | missing: ok, status, mock, dry_run, model_chain, tokens, estimated_cost_usd, members, memory_ids, contract |
 
-## Needs arguments (not a contract failure)
+## fail-with-fixture
 
-These exit 2 without a required argument. Proving their contract needs per-command fixtures, which is follow-up work, not a gap to silently drop.
+| Command | Exit | Detail |
+|---|---:|---|
+| `budget command get` | 0 | [0] No spend limit set for command 'superai-contract-probe'.  |
+| `budget command set` | 0 | [0] Updated command budget: `superai-contract-probe` = $0.01  |
+| `capture stream` | 0 | [0] top-level JSON list, not an envelope |
+| `check critique` | 0 | [0] CRITIQUE FINDINGS (1 finding(s)):   � Line 0 [FILE - ERROR]: Invalid file path  |
+| `check license` | 0 | [0] COMPLIANCE ALERT (1 issue(s)):   � [ERROR] N/A: Manifest file not found: superai-contract-probe  |
+| `check lint` | 0 | [0] CLEAN (1 file(s)): No lint or AST issues found.  |
+| `check upgrades` |  | [None] >20.0s, killed |
+| `config get` | 0 | [0] None  |
+| `config set` | 0 | [0] Set superai-contract-probe = superai-contract-probe  |
+| `data-ask` |  | [None] >20.0s, killed |
+| `evolve` | 0 | [0] +----------------------------------------------------+ | Knowledge Evolution                               |
+| `feedback` | 0 | [0] Feedback stored memory_id=1785306343.228384-98d7e33b  task_id=superai-contract-probe  |
+| `git resolve-conflicts` | 0 | [0] CLEAN: No merge conflict markers found.  |
+| `git suggest-branch` | 0 | [0] feat/superai-contract-probe  |
+| `git suggest-commit` | 0 | [0] feat: superai-contract-probe  |
+| `git-helper` | 0 | [0] ## phase1-fixtures  D implementation_plan_detailed.md  D implementation_plan_v2.md  M scripts/probe_cli_co |
+| `kg upsert-node` | 1 | [1] Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at "127.0.0.1 |
+| `memory-sync` | 0 | [0] C:\Users\BURHAN~1.HUS\AppData\Local\Temp\superai-probe-j7w3bnbq\fixture.txt  |
+| `profile-bundle` | 0 | [0] C:\Users\BURHAN~1.HUS\AppData\Local\Temp\superai-probe-gzji690z\fixture.txt  |
+| `prompt-injection scan` | 0 | [0] SAFE: No prompt injection threats detected.  |
+| `prompt-injection wrap` | 0 | [0] <untrusted_content> [SYSTEM NOTICE: The text below is untrusted external data retrieved from  'untrusted_c |
+| `proposal` | 1 | [1] Error: KeyError: 'Unknown proposal: superai-contract-probe'  |
+| `security scan-secrets` | 0 | [0] CLEAN: No secret leaks or exposed credentials detected.  |
+| `set-strategy` | 0 | [0] Strategy set to: smart_fallback  |
+| `set-supervisor` | 0 | [0] Default supervisor set to: superai-contract-probe  |
+| `skill` | 1 | [1] Provide skill body content  |
+| `skill-promote` | 1 | [1] Skill not found: superai-contract-probe  |
+| `skill-rollback` | 1 | [1] Nothing to rollback or skill missing: superai-contract-probe  |
+| `symbol search` | 0 | [0] No symbols found matching 'superai-contract-probe'.  |
+| `tdd` |  | [None] >20.0s, killed |
+| `term-parallel` |  | [None] >20.0s, killed |
+| `triage-log` | 0 | [0] No stack trace / error detected in log.  |
+| `tt-list` | 0 | [0] No versions  |
 
-- `agent-tools`
-- `backup-key`
-- `board-preflight`
-- `browse`
-- `budget`
-- `budget command get`
-- `budget command set`
-- `capture end`
-- `capture stream`
-- `capture turn`
-- `check critique`
-- `check license`
-- `check lint`
-- `check upgrades`
-- `ci-fix`
-- `ci-why`
-- `cognify`
-- `config get`
-- `config set`
-- `context-pack`
-- `data-ask`
-- `dataset create`
-- `dataset export`
-- `dataset forget`
-- `dataset import`
-- `dataset use`
-- `debate`
-- `delegate`
-- `diff-edit`
-- `emit-event`
-- `evolve`
-- `explain-run`
-- `feedback`
-- `forecast`
-- `git resolve-conflicts`
-- `git suggest-branch`
-- `git suggest-commit`
-- `git-helper`
-- `host-hook emit`
-- `kg upsert-node`
-- `learning deprecate`
-- `learning undeprecate`
-- `lsp-check`
-- `memory-forget`
-- `memory-session clear`
-- `memory-session end`
-- `memory-session items`
-- `memory-session pin`
-- `memory-session promote`
-- `memory-session recall`
-- `memory-session remember`
-- `memory-sync`
-- `mode`
-- `models-register`
-- `msg-broadcast`
-- `msg-inbound`
-- `msg-send`
-- `notebook`
-- `ontology map`
-- `pin-model`
-- `plugins`
-- `profile-bundle`
-- `prompt-injection scan`
-- `prompt-injection wrap`
-- `proposal`
-- `propose`
-- `recall`
-- `search-web`
-- `security scan-secrets`
-- `set-strategy`
-- `set-supervisor`
-- `shell`
-- `skill`
-- `skill-promote`
-- `skill-rollback`
-- `speak`
-- `surface-feedback`
-- `symbol search`
-- `tdd`
-- `tenant-import`
-- `term-parallel`
-- `test impacted`
-- `triage-log`
-- `tt-list`
-- `tt-restore`
-- `tt-snapshot`
-- `validate-json`
+## no-safe-fixture
+
+| Command | Exit | Detail |
+|---|---:|---|
+| `backup-key` |  | exports or imports the backup encryption key |
+| `browse` |  | fetches a live URL; the sweep is offline by contract |
+| `budget` | 2 | derived arguments still rejected as invalid usage |
+| `models-register` |  | no safe value for 'base_url' (needs-url) |
+| `notebook` | 2 | derived arguments still rejected as invalid usage |
+| `plugins` | 2 | derived arguments still rejected as invalid usage |
+| `propose` | 2 | derived arguments still rejected as invalid usage |
+| `search-web` |  | performs a live web search |
+| `shell` |  | executes an arbitrary shell command |
+| `tt-restore` |  | restores a time-travel snapshot over current state |
 
 ## Skipped, with reason
 
@@ -155,5 +128,5 @@ These exit 2 without a required argument. Proving their contract needs per-comma
 
 ## Passing
 
-`a11y`, `ab-route`, `agent-graph`, `audit`, `backup-status`, `backup-verify`, `blacklist`, `budget command list`, `capabilities`, `capture config`, `capture start`, `cloud configure`, `cloud dry-sync`, `cloud push`, `cloud status`, `compliance`, `config show`, `conflicts`, `constitution`, `contract-smoke`, `daemon`, `dataset list`, `dataset status`, `ecosystem`, `exit-codes`, `failover`, `git explain-pr`, `goals`, `history`, `history-search`, `hitl`, `host-hook checklist`, `host-hook install-snippet`, `ingest`, `install-postgres`, `json-surface`, `lang`, `learning conflicts`, `learning list`, `learning promote`, `learning status`, `learnings`, `list-models`, `list-skills`, `listen`, `macros`, `mcp-config`, `memory-clusters`, `memory-palace`, `memory-session list`, `memory-session purge-ttl`, `memory-session start`, `memory-session status`, `memory-ttl`, `models-refresh-openrouter`, `models-sync-ollama`, `msg-channels`, `mux`, `nl-eval`, `notion`, `ontology show`, `ontology validate`, `otel demo`, `otel list`, `otel status`, `parked`, `patterns`, `plugin-catalog`, `policy`, `process-mux`, `profile`, `profile-config`, `profile-suggest`, `progress`, `project-budget`, `proposals`, `provider-health`, `providers`, `rate-queue`, `recipes`, `routing-stats`, `schedule`, `secrets`, `side-effects`, `skill-perms`, `spec`, `spend-report`, `status`, `telemetry`, `tenant-export`, `term-jobs`, `timeouts`, `todos`, `update`, `v6-status`, `version`, `vim-keys`, `voice`, `whats-new`, `wings`, `workspace-index`
+`a11y`, `ab-route`, `agent-graph`, `audit`, `backup-status`, `backup-verify`, `blacklist`, `budget command list`, `capabilities`, `capture config`, `capture start`, `cloud configure`, `cloud dry-sync`, `cloud push`, `cloud status`, `compliance`, `config show`, `conflicts`, `constitution`, `contract-smoke`, `daemon`, `dataset list`, `dataset status`, `ecosystem`, `exit-codes`, `failover`, `git explain-pr`, `github`, `goals`, `history`, `history-search`, `hitl`, `host-hook checklist`, `host-hook install-snippet`, `ingest`, `install-postgres`, `json-surface`, `lang`, `learning list`, `learning promote`, `learning status`, `learnings`, `list-models`, `list-skills`, `listen`, `macros`, `mcp-config`, `memory-clusters`, `memory-palace`, `memory-session list`, `memory-session purge-ttl`, `memory-session start`, `memory-session status`, `memory-ttl`, `models-refresh-openrouter`, `models-sync-ollama`, `mux`, `nl-eval`, `notion`, `ontology show`, `ontology validate`, `otel demo`, `otel list`, `otel status`, `parked`, `patterns`, `plugin-catalog`, `policy`, `process-mux`, `profile`, `profile-config`, `profile-suggest`, `progress`, `project-budget`, `proposals`, `provider-health`, `providers`, `rate-queue`, `recipes`, `secrets`, `side-effects`, `skill-perms`, `spec`, `spend-report`, `status`, `telemetry`, `tenant-export`, `term-jobs`, `timeouts`, `todos`, `update`, `v6-status`, `version`, `vim-keys`, `voice`, `whats-new`, `wings`, `workspace-index`
 

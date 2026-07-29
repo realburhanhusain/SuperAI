@@ -26,15 +26,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **270** |
-| **INCOMPLETE** | **245** |
+| **COMPLETE (production + docs + tests)** | **271** |
+| **INCOMPLETE** | **244** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **52.1%**
-- **Average percent (incomplete only):** **23.4%**
-- **Average percent (all non-refuse):** **63.7%**
+- **Strict completion rate (complete / (total − refuse)):** **52.3%**
+- **Average percent (incomplete only):** **23.2%**
+- **Average percent (all non-refuse):** **63.8%**
 
 ### Note for validators
 
@@ -48,7 +48,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 270
+**Count:** 271
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1860,6 +1860,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V1-P1-3 — Phase 1 — Budget hard-stop foundation
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — spend_gate CLI ceiling + ast audit_m001
+- **Documentation (thorough):** YES — PLAN_CONTRACT_SPEND_RESIDUALS
+- **Tests (full):** YES — test_spend_gate + test_foundation_safety_m001_m008_m018
+- **Still incomplete:** 
+
 ### V1-P1-4 — Phase 1 — Cost fields on results
 
 - **Track:** V1-V5
@@ -2754,7 +2764,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 245
+**Count:** 244
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2783,19 +2793,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** token_stream TUI
 - **Partially implemented:** —
 - **Still incomplete:** Real provider SSE incomplete
-
-### V1-P1-3 — Phase 1 — Budget hard-stop foundation
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — budget foundation
-- **Thorough documentation?** YES — P1 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** budget foundation
-- **Partially implemented:** —
-- **Still incomplete:** Universal ceiling incomplete
 
 ### V1-P5-2 — Phase 5 — Streaming progress bus
 

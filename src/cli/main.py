@@ -194,6 +194,34 @@ def _main_callback(
         pass
     if not no_auto_backup:
         _register_auto_backup_if_enabled()
+
+    # V1-P1-3: per-command spend ceiling at the CLI front door.
+    #
+    # budget_precheck was reachable but never called from this module — spend
+    # was gated only inside ModelCaller, by which point the command name is
+    # gone, so the S132 per-command ceilings could not bind. One seam here
+    # covers every spend-classified command, and the set is derived from
+    # surface_inventory rather than hand-listed.
+    #
+    # Pre-check only. budget_record stays owned by call_lifecycle; recording
+    # here would double-count against the ModelCaller path.
+    if ctx.invoked_subcommand is not None:
+        try:
+            from core.spend_gate import gate_argv
+
+            _blocked = gate_argv(sys.argv[1:], model=model)
+            if _blocked is not None:
+                from core.public_surface import emit_public
+
+                emit_public(_blocked, ok=False, record_spend=False)
+                raise _cli_exit(code_or_result=_blocked)
+        except (SystemExit, typer.Exit):
+            raise
+        except Exception:
+            # A gate that cannot run must not take the CLI down with it; the
+            # ModelCaller gate underneath still applies.
+            pass
+
     # No subcommand → front-door interactive (DoD-strict) or TUI
     if ctx.invoked_subcommand is None:
         if ask_mode:

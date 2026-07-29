@@ -219,7 +219,7 @@ MAX_UNCOVERED_TOTAL = 0
 #: file is read mid-write. Bounded at 2 and named rather than silently excluded,
 #: because a flaky reading is a real finding about either the commands or the
 #: probe, and hiding it would be the same failure as a silent skip.
-MAX_STATIC_PROBE_CONTRADICTIONS = 5
+MAX_STATIC_PROBE_CONTRADICTIONS = 1
 
 
 def test_spend_surfaces_coverage_ratchet():

@@ -83,6 +83,7 @@ UNINVOKABLE: Dict[str, str] = {
     # console seam. They are simply expensive: the probe kills them at its
     # timeout, and a killed run is recorded as a failure it did not earn.
     "tdd": "shells out to `python -m pytest -q` once per round (default 2)",
+    "gates": "runs the quality gates, which shell out to the pytest suite",
     "data-ask": "loads a DB adapter and embedding stack; measured 68s, passes at a 90s timeout",
     "check upgrades": "resolves every dependency in the manifest",
     "data-schema": "introspects a live database schema",

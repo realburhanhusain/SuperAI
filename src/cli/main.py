@@ -4037,7 +4037,7 @@ def plugins_cmd(
 
     reg = PluginRegistry()
     if action == "list":
-        console.print_json(data=reg.list_plugins(category=category))
+        console.print_json(data=_list_payload("plugins", reg.list_plugins(category=category)))
         return
     if action == "summary":
         console.print_json(data=reg.marketplace_summary())

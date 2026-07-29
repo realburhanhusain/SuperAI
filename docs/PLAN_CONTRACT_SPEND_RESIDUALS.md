@@ -407,6 +407,30 @@ Eight of them are statically "wrapped", which is why
 `static_wrapped_but_probe_failed` rose 2 → 8. **That rise is improved
 visibility, not regression.**
 
+### Newly-visible gaps closed — 2026-07-29
+
+The 33 `fail-with-fixture` commands were the direct product of the fixture work:
+commands that had always printed plain text on their not-found, empty-result and
+success paths, invisible while they hid behind "missing argument". 17 are now
+wrapped:
+
+`budget command get`, `budget command set`, `config get`, `config set`,
+`git suggest-branch`, `git suggest-commit`, `git resolve-conflicts`,
+`set-strategy`, `set-supervisor`, `symbol search`, `triage-log`, `tt-list`,
+`skill-promote`, `skill-rollback`, `prompt-injection scan`, `check lint`,
+`security scan-secrets` (plus `memory-sync export`).
+
+`skill-promote` and `skill-rollback` additionally gained `error_code: not_found`
+on their failure paths, which previously exited 1 with only red text.
+
+| | Before | After |
+|---|---:|---:|
+| Uncovered surfaces (static) | 74 | **57** |
+| Probe: conforming envelope | 136 | **158** |
+| Probe: `fail-with-fixture` | 33 | **17** |
+| Probe: unproven | 28 | **22** |
+| Static-wrapped but probe-failed | 8 | **7** |
+
 ### Still open after the tail
 
 - **5 commands blocked by a regression, not by contract work** — `kg path`,

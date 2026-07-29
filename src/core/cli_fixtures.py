@@ -20,6 +20,7 @@ refused-with-a-reason. Nothing is silently skipped.
 
 from __future__ import annotations
 
+import inspect
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -78,7 +79,7 @@ def _first_choice(text: str) -> Optional[str]:
     return m.group(1).split("|")[0].strip()
 
 
-def _value_for(param: Any, command: str, tmp_path: Optional[str]) -> Tuple[Optional[str], str]:
+def _value_for(param: Any, command: str, tmp_path: Optional[str], annotation: Any = None) -> Tuple[Optional[str], str]:
     """Derive one parameter value. Returns ``(value, how)``."""
     name = str(getattr(param, "name", "") or "")
 
@@ -95,17 +96,18 @@ def _value_for(param: Any, command: str, tmp_path: Optional[str]) -> Tuple[Optio
     # The codebase documents most action arguments as "a | b | c" in help.
     from_help = _first_choice(str(getattr(param, "help", "") or ""))
     if from_help:
-        return from_help, "choice-in-help"    # Click's human-readable ``name`` varies by release (notably under the
-    # Python 3.14 toolchain), so use its stable parameter-type classes.
-    try:
-        import click
+        return from_help, "choice-in-help"
 
-        if isinstance(ptype, click.types.FloatParamType):
-            return "0.01", "type-default"
-        if isinstance(ptype, click.types.IntParamType):
-            return "1", "type-default"
-    except Exception:
-        pass
+    type_name = getattr(ptype, "name", "") or ""
+    if type_name == "float":
+        return "0.01", "type-default"
+    if type_name == "integer":
+        return "1", "type-default"
+
+    if annotation is float:
+        return "0.01", "type-default"
+    if annotation is int:
+        return "1", "type-default"
 
     lowered = name.lower()
     if any(h in lowered for h in _URL_HINTS):
@@ -162,10 +164,14 @@ def synthesize_args(
 
     args: List[str] = []
     how: Dict[str, str] = {}
+    try:
+        annotations = inspect.get_annotations(getattr(node, "callback", None), eval_str=False)
+    except Exception:
+        annotations = {}
     for param in getattr(node, "params", []) or []:
         if not getattr(param, "required", False):
             continue
-        value, provenance = _value_for(param, command, tmp_path)
+        value, provenance = _value_for(param, command, tmp_path, annotations.get(str(param.name)))
         if value is None:
             return {
                 "ok": False,

@@ -74,3 +74,14 @@ def test_smart_compact_preserves_decisions_first_under_budget():
 def test_turn_text_helpers():
     assert "hello" in turn_text({"role": "user", "content": "hello"})
     assert "world" in turn_text({"content": [{"type": "text", "text": "world"}]})
+
+
+def test_tool_result_shape_preserves_open_work_without_tool_arguments():
+    turn = {
+        'tool_calls': [{'name': 'write', 'arguments': 'very large opaque payload'}],
+        'tool_result': {'content': 'Decision: use the atomic write path.\nNext: add recovery tests.'},
+    }
+    out = extract_decisions_and_todos([turn])
+    assert any('atomic write' in item.lower() for item in out['decisions'])
+    assert any('recovery tests' in item.lower() for item in out['todos'])
+    assert 'opaque payload' not in turn_text(turn)

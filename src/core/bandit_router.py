@@ -64,12 +64,19 @@ class EpsilonGreedyBandit:
                 best = m
         return best or candidates[0]
 
-    def update(self, model: str, reward: float) -> None:
+    def update(self, model: str, reward: float, *, event_id: Optional[str] = None) -> bool:
+        """Record one outcome; ignore a replayed event for the same model."""
         arm = self._arm(model)
+        seen = list(arm.get("event_ids") or [])
+        if event_id and event_id in seen:
+            return False
         arm["n"] += 1
         arm["reward_sum"] += float(reward)
         arm["updated_at"] = time.time()
+        if event_id:
+            arm["event_ids"] = (seen + [event_id])[-100:]
         self.save()
+        return True
 
     def reset(self) -> None:
         self.state = {}

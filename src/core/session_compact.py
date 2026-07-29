@@ -18,7 +18,7 @@ _DECISION_RE = re.compile(
     r"decided|decision\s*:|we\s+will|we\s+agreed|agreed\s+to|chose\s+to|"
     r"going\s+with|final\s+decision|we'll\s+use|we\s+will\s+use|"
     r"settled\s+on|the\s+plan\s+is"
-    r")\b"
+    r")"
 )
 _TODO_LINE_RE = re.compile(
     r"(?i)(?:^|\n)\s*(?:"
@@ -87,6 +87,10 @@ def _text_from_parts(parts: Any) -> str:
                 chunks.append(str(p.get("text") or ""))
             elif p.get("content"):
                 chunks.append(str(p.get("content") or ""))
+            for key in ("output", "result", "message"):
+                val = p.get(key)
+                if isinstance(val, str) and val.strip():
+                    chunks.append(val)
     return "\n".join(chunks)
 
 
@@ -125,6 +129,15 @@ def turn_text(turn: Any) -> str:
         chunks.append(turn_text(nested))
     elif isinstance(nested, str) and nested.strip():
         chunks.append(nested)
+
+    for key in ("tool_result", "tool_results", "result"):
+        val = turn.get(key)
+        if isinstance(val, str) and val.strip():
+            chunks.append(val)
+        elif isinstance(val, list):
+            chunks.append(_text_from_parts(val))
+        elif isinstance(val, dict):
+            chunks.append(turn_text(val))
 
     return "\n".join(chunks)
 

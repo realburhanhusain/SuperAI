@@ -625,7 +625,17 @@ def uncovered_surfaces(surfaces: Optional[List[Dict[str, Any]]] = None) -> List[
 _PROBE_JSON = "docs/public_surface_coverage.json"
 
 #: Probe outcomes that mean "no conforming envelope was printed".
-_PROBE_BAD = {"no-json", "json-array", "missing-fields"}
+#:
+#: ``fail-with-fixture`` belongs here: the command ran with arguments derived
+#: from its own metadata and still printed no valid envelope. Before fixtures
+#: existed those commands hid behind ``usage-error``, counted as "unknown"
+#: rather than "broken" — so including them makes the contradiction count rise
+#: even though coverage did not regress. Visibility improved; the number
+#: follows.
+_PROBE_BAD = {"no-json", "json-array", "missing-fields", "fail-with-fixture"}
+
+#: Probe outcomes carrying no contract evidence in either direction.
+_PROBE_UNPROVEN = {"usage-error", "hang", "no-safe-fixture"}
 
 
 def load_probe_results(path: Optional[Path] = None) -> Dict[str, str]:
@@ -664,7 +674,7 @@ def _probe_disagreement(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     # Commands the probe could not judge either way: it never got them to run
     # with the arguments they need. Not evidence of coverage in either direction.
     unproven = sorted(
-        name for name, status in probe.items() if status in {"usage-error", "hang"}
+        name for name, status in probe.items() if status in _PROBE_UNPROVEN
     )
     return {
         "probe_available": True,

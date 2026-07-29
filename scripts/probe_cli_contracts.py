@@ -21,10 +21,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -49,11 +51,32 @@ STATUS_MISSING = "missing-fields"
 STATUS_USAGE = "usage-error"
 STATUS_HANG = "hang"
 STATUS_CRASH = "crash"
+STATUS_FIXTURE_PASS = "pass-with-fixture"
+STATUS_FIXTURE_FAIL = "fail-with-fixture"
+STATUS_NO_FIXTURE = "no-safe-fixture"
 
 
-def probe(name: str, timeout: float) -> Dict[str, Any]:
-    """Run one command in a subprocess and classify the outcome."""
-    argv = [sys.executable, "-m", "scli", "--json", *name.split(" ")]
+def probe(
+    name: str,
+    timeout: float,
+    *,
+    extra_args: Optional[List[str]] = None,
+    home: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Run one command in a subprocess and classify the outcome.
+
+    ``home`` redirects HOME/USERPROFILE at the OS level, which is what makes a
+    fixture run safe: ``Config`` resolves its state directory from
+    ``Path.home()``, so a sandboxed home means a command invoked with
+    synthesized arguments cannot touch the real ``~/.superai``.
+    """
+    argv = [sys.executable, "-m", "scli", "--json", *name.split(" "), *(extra_args or [])]
+    env = None
+    if home:
+        env = dict(os.environ)
+        env["HOME"] = home
+        env["USERPROFILE"] = home
     try:
         proc = subprocess.run(
             argv,
@@ -63,6 +86,7 @@ def probe(name: str, timeout: float) -> Dict[str, Any]:
             cwd=str(ROOT),
             encoding="utf-8",
             errors="replace",
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return {"command": name, "status": STATUS_HANG, "detail": f">{timeout}s, killed"}
@@ -99,9 +123,61 @@ def probe(name: str, timeout: float) -> Dict[str, Any]:
     return {"command": name, "status": STATUS_PASS, "exit_code": proc.returncode}
 
 
+def probe_with_fixture(name: str, timeout: float) -> Dict[str, Any]:
+    """
+    Retry a usage-erroring command with arguments derived from its own metadata.
+
+    Runs against a throwaway HOME so a command invoked with synthesized
+    arguments cannot write to the real ``~/.superai``. Without that isolation
+    this pass would mutate live state 80+ times per sweep — the same mistake
+    that had ``backup`` writing a real archive on every run.
+    """
+    from core.cli_fixtures import synthesize_args
+
+    # ignore_cleanup_errors: on Windows the just-exited CLI subprocess can still
+    # hold a handle on its own log file inside the sandbox, and a failed cleanup
+    # must not abort the sweep. The leftover directory is in the OS temp tree.
+    with tempfile.TemporaryDirectory(
+        prefix="superai-probe-", ignore_cleanup_errors=True
+    ) as home:
+        (Path(home) / ".superai").mkdir(parents=True, exist_ok=True)
+        tmp_file = Path(home) / "fixture.txt"
+        tmp_file.write_text("probe", encoding="utf-8")
+
+        spec = synthesize_args(name, tmp_path=str(tmp_file))
+        if not spec["ok"]:
+            return {
+                "command": name,
+                "status": STATUS_NO_FIXTURE,
+                "detail": spec["reason"],
+            }
+
+        res = probe(name, timeout, extra_args=spec["args"], home=home)
+
+    res["fixture_args"] = spec["args"]
+    res["fixture_how"] = spec.get("how")
+    if res["status"] == STATUS_PASS:
+        res["status"] = STATUS_FIXTURE_PASS
+    elif res["status"] == STATUS_USAGE:
+        # Still a usage error with derived args: the derivation produced a
+        # syntactically valid but semantically rejected value.
+        res["status"] = STATUS_NO_FIXTURE
+        res["detail"] = "derived arguments still rejected as invalid usage"
+    else:
+        res["status"] = STATUS_FIXTURE_FAIL
+        res.setdefault("detail", "")
+        res["detail"] = f"[{res.get('exit_code')}] {res['detail']}"[:140]
+    return res
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--timeout", type=float, default=30.0)
+    ap.add_argument(
+        "--no-fixtures",
+        action="store_true",
+        help="Do not retry usage-erroring commands with derived arguments.",
+    )
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument(
         "--all-classes",
@@ -131,6 +207,11 @@ def main() -> int:
             print(f"[{i}/{len(names)}] {name}: skip ({reason})", flush=True)
             continue
         res = probe(name, args.timeout)
+        # A command that only failed for want of an argument has no contract
+        # evidence either way. Retry it with derived arguments in a sandboxed
+        # home so the gap resolves to a real verdict instead of "unknown".
+        if res["status"] == STATUS_USAGE and not args.no_fixtures:
+            res = probe_with_fixture(name, args.timeout)
         results.append(res)
         print(f"[{i}/{len(names)}] {name}: {res['status']}", flush=True)
 
@@ -189,6 +270,9 @@ def write_doc(
         STATUS_NO_JSON: "Printed no JSON at all despite `--json` — unwrapped",
         STATUS_ARRAY: "Printed a bare JSON array; needs an envelope around it",
         STATUS_USAGE: "Needs a required argument (exit 2); not a contract failure",
+        STATUS_FIXTURE_PASS: "Passed once given arguments derived from its own metadata",
+        STATUS_FIXTURE_FAIL: "Ran with derived arguments but emitted no valid envelope",
+        STATUS_NO_FIXTURE: "No safe argument could be derived; reason recorded",
         STATUS_HANG: "Did not return before the timeout and was killed",
         STATUS_CRASH: "Subprocess could not be run",
     }
@@ -209,7 +293,13 @@ def write_doc(
             lines.append(f"- `{r['command']}` — {r['detail']}")
         lines.append("")
 
-    for status in (STATUS_NO_JSON, STATUS_ARRAY, STATUS_MISSING):
+    for status in (
+        STATUS_NO_JSON,
+        STATUS_ARRAY,
+        STATUS_MISSING,
+        STATUS_FIXTURE_FAIL,
+        STATUS_NO_FIXTURE,
+    ):
         items = by_status.get(status, [])
         if not items:
             continue

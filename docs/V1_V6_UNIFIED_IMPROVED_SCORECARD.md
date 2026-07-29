@@ -26,15 +26,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **273** |
-| **INCOMPLETE** | **242** |
+| **COMPLETE (production + docs + tests)** | **272** |
+| **INCOMPLETE** | **243** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **52.7%**
+- **Strict completion rate (complete / (total − refuse)):** **52.5%**
 - **Average percent (incomplete only):** **23.2%**
-- **Average percent (all non-refuse):** **64.1%**
+- **Average percent (all non-refuse):** **64.0%**
 
 ### Note for validators
 
@@ -4032,15 +4032,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### N235 — Dead code detection
 
 - **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `complete`
-- **Code production-ready?** YES — conservative private-function candidates with indirect-use exclusions and evidence
-- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md
-- **Fully tested?** YES — tests/test_code_intelligence.py + tests/test_mcp_server.py
-- **Fully implemented:** Excludes decorators, dynamic lookups, exports, imports, and callback/value references; never edits source
-- **Partially implemented:** —
-- **Still incomplete:** —
+- **Complete?** **NO**
+- **Percent:** **60%**
+- **Heuristic bucket:** `partial`
+- **Code production-ready?** PARTIAL — safe Python private-function candidates with indirect-use exclusions; no methods, classes, modules, or multi-language analysis
+- **Thorough documentation?** PARTIAL — generic Code Intelligence safety guidance; no dedicated N235 operating guide or suppression configuration
+- **Fully tested?** PARTIAL — dedicated Python and MCP regressions cover dynamic references, exports, imports, callbacks, and decorators
+- **Fully implemented:** Conservative candidate reporting with no source modification
+- **Partially implemented:** Python-only static detection; candidates remain low-confidence review evidence
+- **Still incomplete:** Method/class/module analysis, advanced-engine languages, stronger reference resolution, configurable suppressions, dedicated documentation
 ### N236 — Complexity hotspots map
 
 - **Track:** V6

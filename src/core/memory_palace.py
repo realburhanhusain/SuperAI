@@ -36,6 +36,21 @@ _PALACE_SINGLETONS: Dict[str, "MemoryPalace"] = {}
 _PALACE_SINGLETONS_GUARD = threading.Lock()
 
 
+def default_memory_root() -> Path:
+    """
+    Default memory store root, resolved through ``Path.home()``.
+
+    This must not use ``os.path.expanduser("~")``. That reads the environment
+    directly, so a test doing ``monkeypatch.setattr(Path, "home", ...)`` — the
+    isolation idiom used throughout this suite — did not redirect it. Tests
+    believing they were sandboxed were reading and writing the developer's real
+    ``~/.superai/memory``, taking its store lock in the process. A full-suite
+    run that died mid-write therefore stranded a lock on the real store, which
+    then blocked every later run.
+    """
+    return Path.home() / ".superai" / "memory"
+
+
 def get_shared_palace(
     persist_directory: Optional[str] = None,
     **kwargs: Any,
@@ -47,7 +62,7 @@ def get_shared_palace(
     if persist_directory:
         key = str(Path(persist_directory).expanduser().resolve())
     else:
-        key = str(Path(os.path.expanduser("~/.superai/memory")).resolve())
+        key = str(default_memory_root().resolve())
     with _PALACE_SINGLETONS_GUARD:
         if key not in _PALACE_SINGLETONS:
             _PALACE_SINGLETONS[key] = MemoryPalace(
@@ -84,7 +99,8 @@ class MemoryPalace:
         if persist_directory:
             self.persist_directory = persist_directory
         else:
-            self.persist_directory = os.path.expanduser("~/.superai/memory")
+            # Path.home(), not os.path.expanduser — see default_memory_root().
+            self.persist_directory = str(default_memory_root())
 
         os.makedirs(self.persist_directory, exist_ok=True)
         self._root = Path(self.persist_directory).resolve()

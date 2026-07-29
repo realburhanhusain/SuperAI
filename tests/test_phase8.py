@@ -63,3 +63,13 @@ def test_tenant_and_plugins():
     assert "tenant:acme" in meta["tags"]
     cat = browse_catalog(query="memory")
     assert cat["ok"] is True
+
+
+def test_graph_page_accepts_task_id():
+    from cli.web_app import create_app
+
+    route = next(r for r in create_app().routes if getattr(r, "path", None) == "/graph")
+    html = route.endpoint()
+    assert "URLSearchParams" in html
+    assert "task_id" in html
+    assert "aria-live" in html

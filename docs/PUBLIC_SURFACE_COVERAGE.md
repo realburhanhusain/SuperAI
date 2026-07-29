@@ -6,12 +6,12 @@ Scope: `read_only` surfaces only; per-command timeout 20s.
 
 | Outcome | Count | Meaning |
 |---|---:|---|
-| `pass` | 89 | Emitted a JSON object carrying every required contract field |
+| `pass` | 101 | Emitted a JSON object carrying every required contract field |
 | `missing-fields` | 1 | Emitted JSON, but the contract envelope is incomplete |
-| `no-json` | 19 | Printed no JSON at all despite `--json` — unwrapped |
+| `no-json` | 5 | Printed no JSON at all despite `--json` — unwrapped |
 | `json-array` | 1 | Printed a bare JSON array; needs an envelope around it |
 | `usage-error` | 87 | Needs a required argument (exit 2); not a contract failure |
-| `hang` | 8 | Did not return before the timeout and was killed |
+| `hang` | 9 | Did not return before the timeout and was killed |
 | `crash` | 0 | Subprocess could not be run |
 | `skipped` | 5 | Listed as uninvokable, with a reason |
 
@@ -24,6 +24,7 @@ These never returned. Relevant beyond contract coverage: a command that hangs he
 - `discover` — >20.0s, killed
 - `foundation-check` — >20.0s, killed
 - `gates` — >20.0s, killed
+- `github` — >20.0s, killed
 - `learning distill` — >20.0s, killed
 - `metrics` — >20.0s, killed
 - `reflect` — >20.0s, killed
@@ -32,25 +33,11 @@ These never returned. Relevant beyond contract coverage: a command that hangs he
 
 | Command | Exit | Detail |
 |---|---:|---|
-| `backup` | 0 | [BackupManager] Encrypted backup created: C:\Users\burhan.husain\.superai\backups\superai_backup_20260729_0115 |
-| `backup-status` | 0 | +------------------------------- Backup Status -------------------------------+ | {'total_backups': 421, 'late |
-| `backup-verify` | 0 | +------------------------------- Backup Verify -------------------------------+ | OK                           |
-| `budget command list` | 0 | No per-command budget overrides configured.  |
-| `conflicts` | 0 | Found 1 conflicting learning group(s):  �  Task Type: coding | Model: m1   Inconsistent 'coding' / m1: 4 ok /  |
-| `constitution` | 0 | # SuperAI Constitution  - Prefer local mock mode unless API keys are configured. - Never exfiltrate secrets; t |
-| `exit-codes` | 0 | Trustworthy Exit Codes Registry (V6 M080):   � 0   OK                 - Success (clean execution)   � 1   GENE |
-| `git explain-pr` | 0 | # Git Branch Pull Request Summary  ## Summary This Pull Request updates 0 file(s) with +0/-0 changes.  ## File |
-| `history` | 0 |                             Recent tasks (last 10)                              +----------------------------- |
-| `ingest` | 1 | Provide SOURCE path/text or --url  |
-| `learnings` | 0 | +-------------------------------------------------------+ | Learning Summary                                   |
-| `list-models` | 0 | Registered models (source: C:\Users\burhan.husain\.superai\config\models.json)  +----------------------------- |
-| `list-skills` | 0 |                                     Skills                                      +----------------------------- |
-| `memory-ttl` | 1 | Error: TypeError: can't subtract offset-naive and offset-aware datetimes  |
-| `proposals` | 0 |            Tool proposals            +----------------------------------+ | ID | Action | Status | Rationale | |
-| `provider-health` | 0 |                                 Provider Health                                 +----------------------------- |
-| `restore` | 1 | Provide a local backup path or use --cloud  |
-| `routing-stats` | 0 | +-----------------------------------------------------+ | Routing Stats                                        |
-| `version` | 0 | SuperAI v0.1.0 - Core Foundation (stabilized SuperAI)  |
+| `kg path` | 1 | Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at "127.0.0.1", p |
+| `kg query` | 1 | Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at "127.0.0.1", p |
+| `kg status` | 1 | Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at "127.0.0.1", p |
+| `kg upsert-edge` | 1 | Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at "127.0.0.1", p |
+| `ontology induce` | 1 | Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at "127.0.0.1", p |
 
 ## json-array
 
@@ -168,5 +155,5 @@ These exit 2 without a required argument. Proving their contract needs per-comma
 
 ## Passing
 
-`a11y`, `ab-route`, `agent-graph`, `audit`, `blacklist`, `capabilities`, `capture config`, `capture start`, `cloud configure`, `cloud dry-sync`, `cloud push`, `cloud status`, `compliance`, `config show`, `contract-smoke`, `daemon`, `dataset list`, `dataset status`, `ecosystem`, `failover`, `github`, `goals`, `history-search`, `hitl`, `host-hook checklist`, `host-hook install-snippet`, `install-postgres`, `json-surface`, `kg path`, `kg query`, `kg status`, `kg upsert-edge`, `lang`, `learning conflicts`, `learning list`, `learning promote`, `learning status`, `listen`, `macros`, `mcp-config`, `memory-clusters`, `memory-palace`, `memory-session list`, `memory-session purge-ttl`, `memory-session start`, `memory-session status`, `models-refresh-openrouter`, `models-sync-ollama`, `msg-channels`, `mux`, `nl-eval`, `notion`, `ontology induce`, `ontology show`, `ontology validate`, `otel demo`, `otel list`, `otel status`, `parked`, `patterns`, `plugin-catalog`, `policy`, `process-mux`, `profile`, `profile-suggest`, `progress`, `project-budget`, `providers`, `rate-queue`, `recipes`, `schedule`, `secrets`, `side-effects`, `skill-perms`, `spec`, `spend-report`, `status`, `telemetry`, `tenant-export`, `term-jobs`, `timeouts`, `todos`, `update`, `v6-status`, `vim-keys`, `voice`, `whats-new`, `wings`, `workspace-index`
+`a11y`, `ab-route`, `agent-graph`, `audit`, `backup-status`, `backup-verify`, `blacklist`, `budget command list`, `capabilities`, `capture config`, `capture start`, `cloud configure`, `cloud dry-sync`, `cloud push`, `cloud status`, `compliance`, `config show`, `conflicts`, `constitution`, `contract-smoke`, `daemon`, `dataset list`, `dataset status`, `ecosystem`, `exit-codes`, `failover`, `git explain-pr`, `goals`, `history`, `history-search`, `hitl`, `host-hook checklist`, `host-hook install-snippet`, `ingest`, `install-postgres`, `json-surface`, `lang`, `learning conflicts`, `learning list`, `learning promote`, `learning status`, `learnings`, `list-models`, `list-skills`, `listen`, `macros`, `mcp-config`, `memory-clusters`, `memory-palace`, `memory-session list`, `memory-session purge-ttl`, `memory-session start`, `memory-session status`, `memory-ttl`, `models-refresh-openrouter`, `models-sync-ollama`, `msg-channels`, `mux`, `nl-eval`, `notion`, `ontology show`, `ontology validate`, `otel demo`, `otel list`, `otel status`, `parked`, `patterns`, `plugin-catalog`, `policy`, `process-mux`, `profile`, `profile-config`, `profile-suggest`, `progress`, `project-budget`, `proposals`, `provider-health`, `providers`, `rate-queue`, `recipes`, `routing-stats`, `schedule`, `secrets`, `side-effects`, `skill-perms`, `spec`, `spend-report`, `status`, `telemetry`, `tenant-export`, `term-jobs`, `timeouts`, `todos`, `update`, `v6-status`, `version`, `vim-keys`, `voice`, `whats-new`, `wings`, `workspace-index`
 

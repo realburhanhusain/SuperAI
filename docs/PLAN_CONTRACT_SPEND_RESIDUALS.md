@@ -336,6 +336,59 @@ A subprocess per command is why these are data rather than a stalled suite. The
 in-process harness is deliberately restricted to a small sample for the same
 reason.
 
+### Phase 1 tail — closed 2026-07-29
+
+| | After seams | Now |
+|---|---:|---:|
+| Uncovered surfaces (static) | 93 | **74** |
+| Uncovered **spend** surfaces | 3 | **0** |
+| Probe: emitted a conforming envelope | 87 | **105** |
+| Probe: printed no JSON | 24 | **6** |
+| Static-wrapped but probe-failed | 6 | **2** |
+
+**Zero uncovered spend surfaces.** `council`, `cli-parallel` and `smoke-providers`
+were wrapped with `render_public` — Rich output for humans, envelope under
+`--json`. Every surface that can cost money is now machine-readable.
+
+**19 Rich-table-only commands wrapped:** `version`, `backup`, `backup-status`,
+`backup-verify`, `budget command list`, `conflicts`, `constitution`, `discover`,
+`exit-codes`, `git explain-pr`, `history`, `ingest`, `learnings`, `list-models`,
+`list-skills`, `proposals`, `provider-health`, `restore`, `routing-stats`. The
+two early-exit paths (`restore` and `ingest` with no argument) now emit a
+contracted failure with `error_code: invalid_input` instead of bare red text.
+
+**`memory-ttl` crash fixed.** `TypeError: can't subtract offset-naive and
+offset-aware datetimes` — a stored timestamp without a UTC suffix parsed naive,
+and the subtraction sat outside the `except ValueError`, so one bad row took the
+whole command down instead of being skipped. Seven regression tests in
+`tests/test_memory_gdpr_ttl.py`.
+
+**Classification bug found by its own side effects.** `backup` was classified
+`read_only`, so the sweep invoked it on every run — creating a real encrypted
+archive each time, 211 times over. `create_backup`, `restore_backup`,
+`restore_from_cloud`, `apply_retention` and `sync_to_cloud` are now
+`MUTATING_MARKERS`, which excludes those commands from the read_only sweep.
+
+### Still open after the tail
+
+- **5 commands blocked by a regression, not by contract work** — `kg path`,
+  `kg query`, `kg status`, `kg upsert-edge`, `ontology induce` all crash with a
+  Postgres connection error. PR #10 (merged 2026-07-29) set
+  `DEFAULT_KG_DSN = "postgresql+psycopg://localhost/superai"` and dropped the
+  SQLite default, so every `kg` command fails on any machine without a
+  passwordless local Postgres. Its CI check was green, so CI must provide one.
+  Not fixed here: reverting or adding a fallback is a product decision on
+  someone else's feature.
+- **2 flaky probe readings** — `bandit` and `pref` emit complete envelopes when
+  run standalone but fail inside the 211-command sweep. Both read mutable JSON
+  under `~/.superai/`; likely another command rewrites that state mid-sweep.
+  Bounded and named rather than excluded.
+- **87 `usage-error` commands** — still need per-command argument fixtures. This
+  is now the single largest gap: 41% of the sweep has no contract evidence in
+  either direction.
+- **6 hangs** — `data-schema`, `diagnose`, `foundation-check`, `gates`,
+  `learning distill`, `reflect`.
+
 ### Remaining Phase 1 work
 
 - **20 `no-json`** — commands that only print Rich tables. Each needs a result

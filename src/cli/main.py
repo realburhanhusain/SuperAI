@@ -88,6 +88,8 @@ def _cli_exit(code_or_result=None, *, code: int | None = None) -> None:
 # contracted envelope. One seam instead of 264 hand-edits — see
 # ``public_surface.contract_console``. Falls back to a plain Console if the
 # helper is unavailable, so the CLI still runs rather than failing to import.
+from core.public_surface import render_public
+
 try:
     from core.public_surface import contract_console as _contract_console
 
@@ -296,9 +298,12 @@ def _print_error(exc: Exception, debug: bool = False) -> None:
 @app.command()
 def version():
     """Show SuperAI version"""
-    console.print(
-        f"[bold green]SuperAI v{__version__}[/bold green] "
-        "- Core Foundation (stabilized SuperAI)"
+    render_public(
+        {"ok": True, "product": "version", "version": __version__},
+        human_fn=lambda _d: console.print(
+            f"[bold green]SuperAI v{__version__}[/bold green] "
+            "- Core Foundation (stabilized SuperAI)"
+        ),
     )
 
 
@@ -834,25 +839,26 @@ def history(
         return
 
     records = store.list(limit=limit)
-    if not records:
-        console.print("[yellow]No task history yet. Run a task first.[/yellow]")
-        return
 
-    table = Table(title=f"Recent tasks (last {len(records)})")
-    table.add_column("Task ID")
-    table.add_column("Status")
-    table.add_column("Model")
-    table.add_column("Duration")
-    table.add_column("Task")
-    for r in records:
-        table.add_row(
-            str(r.get("task_id", "")),
-            str(r.get("status", "")),
-            str(r.get("model_used", "")),
-            str(r.get("duration", "")),
-            str(r.get("task", ""))[:60],
-        )
-    console.print(table)
+    def _human(data: Dict[str, Any]) -> None:
+        rows = data.get("records") or []
+        if not rows:
+            console.print("[yellow]No task history yet. Run a task first.[/yellow]")
+            return
+        table = Table(title=f"Recent tasks (last {len(rows)})")
+        for col in ("Task ID", "Status", "Model", "Duration", "Task"):
+            table.add_column(col)
+        for r in rows:
+            table.add_row(
+                str(r.get("task_id", "")),
+                str(r.get("status", "")),
+                str(r.get("model_used", "")),
+                str(r.get("duration", "")),
+                str(r.get("task", ""))[:60],
+            )
+        console.print(table)
+
+    render_public(_list_payload("records", records), human_fn=_human)
 
 
 config_app = typer.Typer(help="View and modify configuration")
@@ -1953,7 +1959,14 @@ def ingest_cmd(
         return
 
     if not source and not url:
-        console.print("[red]Provide SOURCE path/text or --url[/red]")
+        render_public(
+            {
+                "ok": False,
+                "error": "Provide SOURCE path/text or --url",
+                "error_code": "invalid_input",
+            },
+            human_fn=lambda d: console.print(f"[red]{d.get('error')}[/red]"),
+        )
         raise _cli_exit(code=1)
 
     out = run_ingest(
@@ -2381,9 +2394,14 @@ def learnings(
 
     if query:
         results = memory.query_semantic(query, top_k=limit)
-        if results:
-            console.print(f"[bold]Results for:[/bold] {query}\n")
-            for r in results:
+
+        def _human_results(data: Dict[str, Any]) -> None:
+            rows = data.get("results") or []
+            if not rows:
+                console.print("[yellow]No relevant learnings found.[/yellow]")
+                return
+            console.print(f"[bold]Results for:[/bold] {data.get('query')}\n")
+            for r in rows:
                 content = r.get("content", "")
                 meta = r.get("metadata") or {}
                 badge = "ok" if meta.get("success") is True else (
@@ -2393,23 +2411,31 @@ def learnings(
                     f"• [{badge}] {meta.get('model', '?')} / "
                     f"{meta.get('task_type', '?')}: {content[:280]}...\n"
                 )
-        else:
-            console.print("[yellow]No relevant learnings found.[/yellow]")
+
+        payload = _list_payload("results", results)
+        payload["query"] = query
+        render_public(payload, human_fn=_human_results)
     else:
-        summary = engine.get_learnings_summary(task_type=task_type)
-        stats = memory.get_memory_stats()
-        console.print(
-            Panel.fit(
-                f"[bold]Learning Summary[/bold]\n\n"
-                f"Total Learnings: {summary['total_learnings']}\n"
-                f"Success Rate: {summary['success_rate']}%\n"
-                f"Successes: {summary['success_count']} | "
-                f"Failures: {summary['failure_count']}\n"
-                f"Memory store: {stats.get('total_memories')} "
-                f"(pgvector={stats.get('using_pgvector')} backend={stats.get('backend')})",
-                border_style="green",
+        summary = dict(engine.get_learnings_summary(task_type=task_type) or {})
+        summary.setdefault("ok", True)
+        summary["memory_stats"] = memory.get_memory_stats()
+
+        def _human_summary(data: Dict[str, Any]) -> None:
+            st = data.get("memory_stats") or {}
+            console.print(
+                Panel.fit(
+                    f"[bold]Learning Summary[/bold]\n\n"
+                    f"Total Learnings: {data.get('total_learnings')}\n"
+                    f"Success Rate: {data.get('success_rate')}%\n"
+                    f"Successes: {data.get('success_count')} | "
+                    f"Failures: {data.get('failure_count')}\n"
+                    f"Memory store: {st.get('total_memories')} "
+                    f"(pgvector={st.get('using_pgvector')} backend={st.get('backend')})",
+                    border_style="green",
+                )
             )
-        )
+
+        render_public(summary, human_fn=_human_summary)
 
 
 @app.command()
@@ -2429,26 +2455,35 @@ def conflicts(
     engine = LearningEngine(memory)
     found = engine.detect_conflicts(task_type=task_type)
 
-    if found:
-        console.print(f"[bold red]Found {len(found)} conflicting learning group(s):[/bold red]\n")
-        for c in found:
-            console.print(
-                f"• [{c.get('severity', '?')}] "
-                f"Task Type: {c.get('task_type')} | Model: {c.get('model')}"
-            )
-            console.print(f"  {c.get('description')}\n")
-    else:
-        console.print("[green]No conflicts detected.[/green]")
-
+    payload = _list_payload("conflicts", found)
     if resolve:
-        result = engine.resolve_conflicts(auto_resolve=True)
-        console.print(
-            Panel.fit(
-                f"[bold]Resolve[/bold]\n{result.get('message')}\n"
-                f"Deprecated: {result.get('conflicts_resolved', 0)}",
-                border_style="yellow",
+        payload["resolve"] = engine.resolve_conflicts(auto_resolve=True)
+
+    def _human(data: Dict[str, Any]) -> None:
+        rows = data.get("conflicts") or []
+        if rows:
+            console.print(
+                f"[bold red]Found {len(rows)} conflicting learning group(s):[/bold red]\n"
             )
-        )
+            for c in rows:
+                console.print(
+                    f"• [{c.get('severity', '?')}] "
+                    f"Task Type: {c.get('task_type')} | Model: {c.get('model')}"
+                )
+                console.print(f"  {c.get('description')}\n")
+        else:
+            console.print("[green]No conflicts detected.[/green]")
+        res = data.get("resolve")
+        if res:
+            console.print(
+                Panel.fit(
+                    f"[bold]Resolve[/bold]\n{res.get('message')}\n"
+                    f"Deprecated: {res.get('conflicts_resolved', 0)}",
+                    border_style="yellow",
+                )
+            )
+
+    render_public(payload, human_fn=_human)
 
 
 @app.command()
@@ -2485,13 +2520,24 @@ def backup(
     path = bm.create_backup(
         force_full=full, incremental=not full, scopes=scopes
     )
-    if path:
-        console.print(f"[green]Encrypted backup created:[/green] {path}")
-    else:
-        console.print(
-            "[yellow]No new/changed files to backup (or sources empty). "
-            "Try --full after creating data.[/yellow]"
-        )
+    result: Dict[str, Any] = {
+        "ok": True,
+        "product": "backup.create",
+        "path": str(path) if path else None,
+        "created": bool(path),
+        "scopes": scopes,
+    }
+
+    def _human(data: Dict[str, Any]) -> None:
+        if data.get("created"):
+            console.print(f"[green]Encrypted backup created:[/green] {data.get('path')}")
+        else:
+            console.print(
+                "[yellow]No new/changed files to backup (or sources empty). "
+                "Try --full after creating data.[/yellow]"
+            )
+
+    render_public(result, human_fn=_human)
     if keep is not None:
         ret = bm.apply_retention(keep=keep)
         console.print(
@@ -2514,12 +2560,17 @@ def backup_status():
     from core.backup_manager import BackupManager
 
     bm = BackupManager()
-    status_data = bm.get_backup_status()
-    console.print(Panel.fit(str(status_data), title="Backup Status", border_style="blue"))
-    if not status_data.get("key_present"):
-        console.print(
-            "[yellow]Warning: encryption key missing — create a backup to generate one.[/yellow]"
-        )
+    status_data = dict(bm.get_backup_status() or {})
+    status_data.setdefault("ok", True)
+
+    def _human(data: Dict[str, Any]) -> None:
+        console.print(Panel.fit(str(data), title="Backup Status", border_style="blue"))
+        if not data.get("key_present"):
+            console.print(
+                "[yellow]Warning: encryption key missing — create a backup to generate one.[/yellow]"
+            )
+
+    render_public(status_data, human_fn=_human)
 
 
 @app.command("backup-verify")
@@ -2533,19 +2584,24 @@ def backup_verify(
 
     bm = BackupManager()
     result = bm.verify_backup(path)
-    if result.get("ok"):
-        console.print(
-            Panel.fit(
-                f"[bold green]OK[/bold green]\n{result.get('message')}\n"
-                f"Path: {result.get('path')}\n"
-                f"SHA256: {result.get('sha256')}\n"
-                f"Members: {result.get('member_count')}",
-                title="Backup Verify",
-                border_style="green",
+
+    def _human(data: Dict[str, Any]) -> None:
+        if data.get("ok"):
+            console.print(
+                Panel.fit(
+                    f"[bold green]OK[/bold green]\n{data.get('message')}\n"
+                    f"Path: {data.get('path')}\n"
+                    f"SHA256: {data.get('sha256')}\n"
+                    f"Members: {data.get('member_count')}",
+                    title="Backup Verify",
+                    border_style="green",
+                )
             )
-        )
-    else:
-        console.print(f"[red]Verify failed:[/red] {result.get('error')}")
+        else:
+            console.print(f"[red]Verify failed:[/red] {data.get('error')}")
+
+    render_public(result, human_fn=_human)
+    if not result.get("ok"):
         raise _cli_exit(code=1)
 
 
@@ -2581,22 +2637,33 @@ def restore(
         )
     else:
         if not path:
-            console.print("[red]Provide a local backup path or use --cloud[/red]")
+            render_public(
+                {
+                    "ok": False,
+                    "error": "Provide a local backup path or use --cloud",
+                    "error_code": "invalid_input",
+                },
+                human_fn=lambda d: console.print(f"[red]{d.get('error')}[/red]"),
+            )
             raise _cli_exit(code=1)
         result = bm.restore_backup(path, restore_dir=dest)
 
-    if result.get("ok"):
-        console.print(
-            Panel.fit(
-                f"[bold green]Restored[/bold green]\n{result.get('message')}\n"
-                f"Files: {result.get('member_count')}\n"
-                f"Local: {result.get('local_backup', path)}",
-                title="Restore",
-                border_style="green",
+    def _human(data: Dict[str, Any]) -> None:
+        if data.get("ok"):
+            console.print(
+                Panel.fit(
+                    f"[bold green]Restored[/bold green]\n{data.get('message')}\n"
+                    f"Files: {data.get('member_count')}\n"
+                    f"Local: {data.get('local_backup', path)}",
+                    title="Restore",
+                    border_style="green",
+                )
             )
-        )
-    else:
-        console.print(f"[red]Restore failed:[/red] {result.get('error')}")
+        else:
+            console.print(f"[red]Restore failed:[/red] {data.get('error')}")
+
+    render_public(result, human_fn=_human)
+    if not result.get("ok"):
         raise _cli_exit(code=1)
 
 
@@ -2607,26 +2674,29 @@ def list_skills():
 
     sm = SkillsManager()
     skills = sm.list_skills()
-    if not skills:
-        console.print("[yellow]No skills yet. Successful tasks can auto-create them.[/yellow]")
-        return
-    table = Table(title="Skills")
-    table.add_column("Name")
-    table.add_column("Status")
-    table.add_column("Tags")
-    table.add_column("Uses")
-    table.add_column("Success rate")
-    table.add_column("Description")
-    for s in skills:
-        table.add_row(
-            str(s.get("name")),
-            str(s.get("status", "active")),
-            ",".join(s.get("tags") or []),
-            str(s.get("usage_count", 0)),
-            str(s.get("success_rate", "")),
-            str(s.get("description", ""))[:50],
-        )
-    console.print(table)
+
+    def _human(data: Dict[str, Any]) -> None:
+        rows = data.get("skills") or []
+        if not rows:
+            console.print(
+                "[yellow]No skills yet. Successful tasks can auto-create them.[/yellow]"
+            )
+            return
+        table = Table(title="Skills")
+        for col in ("Name", "Status", "Tags", "Uses", "Success rate", "Description"):
+            table.add_column(col)
+        for sk in rows:
+            table.add_row(
+                str(sk.get("name")),
+                str(sk.get("status", "active")),
+                ",".join(sk.get("tags") or []),
+                str(sk.get("usage_count", 0)),
+                str(sk.get("success_rate", "")),
+                str(sk.get("description", ""))[:50],
+            )
+        console.print(table)
+
+    render_public(_list_payload("skills", skills), human_fn=_human)
 
 
 @app.command("skill-promote")
@@ -2893,30 +2963,33 @@ def discover():
     """Discover installed AI CLIs, API keys, and environment"""
     from core.discovery import discover_environment
 
-    env = discover_environment()
-    table = Table(title="External CLIs")
-    table.add_column("Name")
-    table.add_column("Available")
-    table.add_column("Path")
-    table.add_column("Modifies files")
-    for c in env.get("clis") or []:
-        table.add_row(
-            str(c.get("name")),
-            str(c.get("available")),
-            str(c.get("path") or ""),
-            str(c.get("modifies_files")),
+    env = dict(discover_environment() or {})
+    env.setdefault("ok", True)
+
+    def _human(data: Dict[str, Any]) -> None:
+        table = Table(title="External CLIs")
+        for col in ("Name", "Available", "Path", "Modifies files"):
+            table.add_column(col)
+        for c in data.get("clis") or []:
+            table.add_row(
+                str(c.get("name")),
+                str(c.get("available")),
+                str(c.get("path") or ""),
+                str(c.get("modifies_files")),
+            )
+        console.print(table)
+        console.print(
+            Panel.fit(
+                f"Models registered: {data.get('models_registered')} ({data.get('model_source')})\n"
+                f"API keys: {data.get('api_keys_present')}\n"
+                f"ollama: {data.get('ollama_on_path')} | rclone: {data.get('rclone_on_path')}\n"
+                f"mock_recommended: {data.get('mock_recommended')}",
+                title="Environment",
+                border_style="cyan",
+            )
         )
-    console.print(table)
-    console.print(
-        Panel.fit(
-            f"Models registered: {env.get('models_registered')} ({env.get('model_source')})\n"
-            f"API keys: {env.get('api_keys_present')}\n"
-            f"ollama: {env.get('ollama_on_path')} | rclone: {env.get('rclone_on_path')}\n"
-            f"mock_recommended: {env.get('mock_recommended')}",
-            title="Environment",
-            border_style="cyan",
-        )
-    )
+
+    render_public(env, human_fn=_human)
 
 
 @app.command("cli-parallel")
@@ -2979,36 +3052,39 @@ def cli_parallel(
             "dry_run": dry_run,
         },
     )
-    # Compact table
-    table = Table(title=f"Parallel CLI — {result.get('workflow_id')}")
-    table.add_column("CLI")
-    table.add_column("Role")
-    table.add_column("Status")
-    table.add_column("Sec")
-    table.add_column("Output")
-    for j in result.get("jobs") or []:
-        table.add_row(
-            str(j.get("cli")),
-            str(j.get("role")),
-            str(j.get("status")),
-            str(j.get("duration_sec")),
-            str(j.get("stdout_tail") or j.get("error") or "")[:60].replace("\n", " "),
-        )
-    console.print(table)
-    if result.get("synthesis"):
-        console.print(
-            Panel(
-                str((result.get("synthesis") or {}).get("text") or result.get("synthesis"))[
-                    :2000
-                ],
-                title="Supervisor synthesis",
-                border_style="green",
+    def _human(data: Dict[str, Any]) -> None:
+        # Compact table
+        table = Table(title=f"Parallel CLI — {data.get('workflow_id')}")
+        for col in ("CLI", "Role", "Status", "Sec", "Output"):
+            table.add_column(col)
+        for j in data.get("jobs") or []:
+            table.add_row(
+                str(j.get("cli")),
+                str(j.get("role")),
+                str(j.get("status")),
+                str(j.get("duration_sec")),
+                str(j.get("stdout_tail") or j.get("error") or "")[:60].replace("\n", " "),
             )
+        console.print(table)
+        if data.get("synthesis"):
+            console.print(
+                Panel(
+                    str((data.get("synthesis") or {}).get("text") or data.get("synthesis"))[
+                        :2000
+                    ],
+                    title="Supervisor synthesis",
+                    border_style="green",
+                )
+            )
+        console.print(
+            f"[dim]Dashboard: superai dashboard · web /cli-pool · "
+            f"ok={data.get('succeeded')}/{data.get('total')}[/dim]"
         )
-    console.print(
-        f"[dim]Dashboard: superai dashboard · web /cli-pool · "
-        f"ok={result.get('succeeded')}/{result.get('total')}[/dim]"
-    )
+
+    # Spend surface: Rich for humans, contract envelope under --json.
+    from core.public_surface import render_public
+
+    render_public(result, human_fn=_human)
     if not result.get("ok") and not dry_run:
         raise _cli_exit(code=1)
 
@@ -3356,14 +3432,27 @@ def proposals_list(
 
     mgr = ToolProposalManager()
     items = mgr.list(status=status)
-    table = Table(title="Tool proposals")
-    table.add_column("ID")
-    table.add_column("Action")
-    table.add_column("Status")
-    table.add_column("Rationale")
-    for p in items[:50]:
-        table.add_row(p.id, p.action, p.status, (p.rationale or "")[:40])
-    console.print(table)
+    rows = [
+        {
+            "id": p.id,
+            "action": p.action,
+            "status": p.status,
+            "rationale": p.rationale or "",
+        }
+        for p in items
+    ]
+
+    def _human(data: Dict[str, Any]) -> None:
+        table = Table(title="Tool proposals")
+        for col in ("ID", "Action", "Status", "Rationale"):
+            table.add_column(col)
+        for r in (data.get("proposals") or [])[:50]:
+            table.add_row(
+                str(r["id"]), str(r["action"]), str(r["status"]), str(r["rationale"])[:40]
+            )
+        console.print(table)
+
+    render_public(_list_payload("proposals", rows), human_fn=_human)
 
 
 # Renamed from "debate": a later @app.command("debate") (role_debate, V6 N261)
@@ -3486,19 +3575,27 @@ def council(
         with_critique=critique,
         document_paths=document,
     )
-    console.print(
-        Panel.fit(
-            f"[bold]Council[/bold]\nMode: {result.get('voting_mode')}\n"
-            f"Members: {', '.join(result.get('members') or [])}",
-            border_style="magenta",
-        )
-    )
-    for p in result.get("proposals") or []:
+    def _human(data: Dict[str, Any]) -> None:
         console.print(
-            f"• {p.get('model')}: key={p.get('vote_key')} "
-            f"conf={p.get('confidence')} — {str(p.get('summary'))[:120]}"
+            Panel.fit(
+                f"[bold]Council[/bold]\nMode: {data.get('voting_mode')}\n"
+                f"Members: {', '.join(data.get('members') or [])}",
+                border_style="magenta",
+            )
         )
-    console.print(Panel.fit(str(result.get("decision")), title="Decision", border_style="green"))
+        for prop in data.get("proposals") or []:
+            console.print(
+                f"• {prop.get('model')}: key={prop.get('vote_key')} "
+                f"conf={prop.get('confidence')} — {str(prop.get('summary'))[:120]}"
+            )
+        console.print(
+            Panel.fit(str(data.get("decision")), title="Decision", border_style="green")
+        )
+
+    # Spend surface: Rich for humans, contract envelope under --json.
+    from core.public_surface import render_public
+
+    render_public(result, human_fn=_human)
 
 
 @app.command("data-ask")
@@ -4771,12 +4868,19 @@ def constitution(
 
     if action == "init":
         p = ensure_default_constitution()
-        console.print(f"[green]Wrote[/green] {p}")
+        render_public(
+            {"ok": True, "product": "constitution.init", "path": str(p)},
+            human_fn=lambda d: console.print(f"[green]Wrote[/green] {d.get('path')}"),
+        )
         return
     if action == "path":
-        console.print_json(data=[str(p) for p in constitution_paths()])
+        render_public(_list_payload("paths", [str(p) for p in constitution_paths()]))
         return
-    console.print(load_constitution())
+    text = load_constitution()
+    render_public(
+        {"ok": True, "product": "constitution", "text": text},
+        human_fn=lambda d: console.print(d.get("text") or ""),
+    )
 
 
 # Renamed from "profile": shadowed by a later @app.command("profile") (run
@@ -5108,14 +5212,8 @@ def list_models(
     if refresh:
         registry.refresh()
 
-    table = Table(title=f"Registered models (source: {registry.source})")
-    table.add_column("Name")
-    table.add_column("Provider")
-    table.add_column("Model ID")
-    table.add_column("OW")
-    table.add_column("Local")
-    table.add_column("Latest")
     local_provs = {"ollama", "ollama_openai", "lmstudio", "vllm"}
+    rows = []
     for name in registry.list_all_models():
         m = registry.get_model(name)
         if not m:
@@ -5137,15 +5235,33 @@ def list_models(
             continue
         if local_only and not is_local:
             continue
-        table.add_row(
-            m.name,
-            m.provider,
-            m.model_id,
-            "y" if is_ow else "",
-            "y" if is_local else "",
-            "yes" if m.is_latest else "",
-        )
-    console.print(table)
+        rows.append({
+            "name": m.name,
+            "provider": m.provider,
+            "model_id": m.model_id,
+            "open_weight": is_ow,
+            "local": is_local,
+            "latest": bool(m.is_latest),
+        })
+
+    def _human(data: Dict[str, Any]) -> None:
+        table = Table(title=f"Registered models (source: {data.get('source')})")
+        for col in ("Name", "Provider", "Model ID", "OW", "Local", "Latest"):
+            table.add_column(col)
+        for r in data.get("models") or []:
+            table.add_row(
+                str(r["name"]),
+                str(r["provider"]),
+                str(r["model_id"]),
+                "y" if r["open_weight"] else "",
+                "y" if r["local"] else "",
+                "yes" if r["latest"] else "",
+            )
+        console.print(table)
+
+    payload = _list_payload("models", rows)
+    payload["source"] = str(registry.source)
+    render_public(payload, human_fn=_human)
 
 
 @app.command("providers")
@@ -5286,29 +5402,33 @@ def smoke_providers(
     from core.provider_smoke import run_provider_smoke
 
     summary = run_provider_smoke(use_mock=mock)
-    console.print(
-        Panel.fit(
-            f"[bold]Provider Smoke[/bold]\n\n{summary.get('message')}\n"
-            f"Available targets: {summary.get('targets_available')}",
-            border_style="cyan",
+
+    def _human(data: Dict[str, Any]) -> None:
+        console.print(
+            Panel.fit(
+                f"[bold]Provider Smoke[/bold]\n\n{data.get('message')}\n"
+                f"Available targets: {data.get('targets_available')}",
+                border_style="cyan",
+            )
         )
-    )
-    table = Table(title="Results")
-    table.add_column("Provider")
-    table.add_column("Model")
-    table.add_column("Status")
-    table.add_column("Latency")
-    table.add_column("Detail")
-    for r in summary.get("results") or []:
-        detail = r.get("error") or r.get("response_preview") or ""
-        table.add_row(
-            str(r.get("provider")),
-            str(r.get("model")),
-            str(r.get("status")),
-            str(r.get("latency", "")),
-            str(detail)[:50],
-        )
-    console.print(table)
+        table = Table(title="Results")
+        for col in ("Provider", "Model", "Status", "Latency", "Detail"):
+            table.add_column(col)
+        for r in data.get("results") or []:
+            detail = r.get("error") or r.get("response_preview") or ""
+            table.add_row(
+                str(r.get("provider")),
+                str(r.get("model")),
+                str(r.get("status")),
+                str(r.get("latency", "")),
+                str(detail)[:50],
+            )
+        console.print(table)
+
+    # Spend surface: Rich for humans, contract envelope under --json.
+    from core.public_surface import render_public
+
+    render_public(summary, human_fn=_human)
     if not summary.get("ok") and summary.get("failed", 0) > 0:
         raise _cli_exit(code=1)
 
@@ -5319,30 +5439,37 @@ def provider_health_cmd():
     from core.provider_health import ProviderHealthStore
 
     store = ProviderHealthStore()
-    snap = store.snapshot()
-    if not snap:
-        console.print("[yellow]No provider health data yet. Run tasks or smoke-providers.[/yellow]")
-        return
-    table = Table(title="Provider Health")
-    table.add_column("Provider")
-    table.add_column("Health")
-    table.add_column("Success rate")
-    table.add_column("Calls")
-    table.add_column("Can call")
-    table.add_column("Circuit")
-    table.add_column("Quota throttled")
-    for name, p in sorted(snap.items()):
-        q = p.get("quota") or {}
-        table.add_row(
-            name,
-            str(p.get("health")),
-            str(p.get("success_rate")),
-            str(p.get("calls")),
-            str(p.get("can_call")),
-            str(p.get("circuit_open")),
-            str(q.get("throttled")),
-        )
-    console.print(table)
+    snap = store.snapshot() or {}
+
+    def _human(data: Dict[str, Any]) -> None:
+        rows = data.get("providers") or {}
+        if not rows:
+            console.print(
+                "[yellow]No provider health data yet. Run tasks or smoke-providers.[/yellow]"
+            )
+            return
+        table = Table(title="Provider Health")
+        for col in (
+            "Provider", "Health", "Success rate", "Calls",
+            "Can call", "Circuit", "Quota throttled",
+        ):
+            table.add_column(col)
+        for name, p in sorted(rows.items()):
+            q = p.get("quota") or {}
+            table.add_row(
+                name,
+                str(p.get("health")),
+                str(p.get("success_rate")),
+                str(p.get("calls")),
+                str(p.get("can_call")),
+                str(p.get("circuit_open")),
+                str(q.get("throttled")),
+            )
+        console.print(table)
+
+    render_public(
+        {"ok": True, "providers": dict(snap), "count": len(snap)}, human_fn=_human
+    )
 
 
 @app.command()
@@ -5469,62 +5596,67 @@ def routing_stats(
     from core.routing_stats import summarize_routing
 
     cfg = Config()
-    summary = summarize_routing(limit=limit)
-    console.print(
-        Panel.fit(
-            f"[bold]Routing Stats[/bold]\n\n"
-            f"Strategy: {cfg.get('load_balancing_strategy')}\n"
-            f"Runs sampled: {summary.get('total_runs_sampled')}\n"
-            f"Models seen: {summary.get('total_models_seen')}\n"
-            f"{summary.get('message')}",
-            border_style="cyan",
-        )
-    )
-
-    top = summary.get("top_models") or []
-    if top:
-        table = Table(title="Top models by success rate")
-        table.add_column("Model")
-        table.add_column("Success rate")
-        table.add_column("Runs")
-        table.add_column("Avg duration")
-        for row in top:
-            table.add_row(
-                str(row["model"]),
-                str(row["success_rate"]),
-                str(row["total"]),
-                str(row["avg_duration"]),
-            )
-        console.print(table)
+    summary = dict(summarize_routing(limit=limit) or {})
+    summary.setdefault("ok", True)
+    summary["strategy"] = cfg.get("load_balancing_strategy")
 
     if explain:
         registry = ModelRegistry()
         lb = LoadBalancer(strategy=parse_strategy(cfg.get("load_balancing_strategy")))
         router = ModelRouter(registry, lb)
         router.refresh_history_stats()
-        ranked = router.explain_selection(explain, top_k=8)
-        table = Table(title=f"Score breakdown for: {explain[:50]}")
-        table.add_column("Model")
-        table.add_column("Provider")
-        table.add_column("Score")
-        table.add_column("Task match")
-        table.add_column("History")
-        table.add_column("Cost")
-        table.add_column("Latency")
-        table.add_column("Health")
-        for row in ranked:
-            c = row["components"]
-            table.add_row(
-                row["model"],
-                row["provider"],
-                str(row["score"]),
-                str(c.get("task_type_match")),
-                str(c.get("historical_success_rate")),
-                str(c.get("cost_efficiency")),
-                str(c.get("latency_score")),
-                str(c.get("provider_health")),
+        summary["explain"] = {
+            "task": explain,
+            "ranked": router.explain_selection(explain, top_k=8),
+        }
+
+    def _human(data: Dict[str, Any]) -> None:
+        console.print(
+            Panel.fit(
+                f"[bold]Routing Stats[/bold]\n\n"
+                f"Strategy: {data.get('strategy')}\n"
+                f"Runs sampled: {data.get('total_runs_sampled')}\n"
+                f"Models seen: {data.get('total_models_seen')}\n"
+                f"{data.get('message')}",
+                border_style="cyan",
             )
-        console.print(table)
+        )
+        top = data.get("top_models") or []
+        if top:
+            table = Table(title="Top models by success rate")
+            for col in ("Model", "Success rate", "Runs", "Avg duration"):
+                table.add_column(col)
+            for row in top:
+                table.add_row(
+                    str(row["model"]),
+                    str(row["success_rate"]),
+                    str(row["total"]),
+                    str(row["avg_duration"]),
+                )
+            console.print(table)
+        exp = data.get("explain")
+        if exp:
+            table = Table(title=f"Score breakdown for: {str(exp.get('task'))[:50]}")
+            for col in (
+                "Model", "Provider", "Score", "Task match",
+                "History", "Cost", "Latency", "Health",
+            ):
+                table.add_column(col)
+            for row in exp.get("ranked") or []:
+                c = row["components"]
+                table.add_row(
+                    row["model"],
+                    row["provider"],
+                    str(row["score"]),
+                    str(c.get("task_type_match")),
+                    str(c.get("historical_success_rate")),
+                    str(c.get("cost_efficiency")),
+                    str(c.get("latency_score")),
+                    str(c.get("provider_health")),
+                )
+            console.print(table)
+
+    render_public(summary, human_fn=_human)
 
 
 @app.command()
@@ -8058,12 +8190,20 @@ def budget_command_list_cmd():
     from core.command_budget import list_command_budgets
 
     budgets = list_command_budgets()
-    if not budgets:
-        console.print("[yellow]No per-command budget overrides configured.[/yellow]")
-    else:
+
+    def _human(data: Dict[str, Any]) -> None:
+        rows = data.get("budgets") or {}
+        if not rows:
+            console.print("[yellow]No per-command budget overrides configured.[/yellow]")
+            return
         console.print("[bold green]Per-Command Spend Budget Overrides:[/bold green]")
-        for cmd, limit in budgets.items():
+        for cmd, limit in rows.items():
             console.print(f"  • [cyan]{cmd:<16}[/cyan] = ${limit:.2f}")
+
+    render_public(
+        {"ok": True, "budgets": dict(budgets or {}), "count": len(budgets or {})},
+        human_fn=_human,
+    )
 
 
 
@@ -8079,12 +8219,28 @@ def exit_codes_cmd():
     """
     from core.exit_codes import EXIT_CODES_TABLE
 
-    console.print("[bold green]Trustworthy Exit Codes Registry (V6 M080):[/bold green]")
-    for code, name, desc in EXIT_CODES_TABLE:
-        console.print(f"  • [cyan]{code:<3}[/cyan] [bold]{name:<18}[/bold] - {desc}")
-    console.print(
-        "[dim]CLI maps uncaught errors via from_exception at the app entry "
-        "(see docs/EXIT_CODES.md). Many command paths still use Exit(1) as residual.[/dim]"
+    def _human(data: Dict[str, Any]) -> None:
+        console.print("[bold green]Trustworthy Exit Codes Registry (V6 M080):[/bold green]")
+        for row in data.get("exit_codes") or []:
+            console.print(
+                f"  • [cyan]{row['code']:<3}[/cyan] "
+                f"[bold]{row['name']:<18}[/bold] - {row['description']}"
+            )
+        console.print(
+            "[dim]CLI maps uncaught errors via from_exception at the app entry "
+            "(see docs/EXIT_CODES.md). Many command paths still use Exit(1) as residual.[/dim]"
+        )
+
+    render_public(
+        {
+            "ok": True,
+            "product": "exit_codes",
+            "exit_codes": [
+                {"code": code, "name": name, "description": desc}
+                for code, name, desc in EXIT_CODES_TABLE
+            ],
+        },
+        human_fn=_human,
     )
 
 
@@ -8244,7 +8400,10 @@ def git_explain_pr_cmd():
     from core.pr_explainer import generate_pr_explanation_from_repo
 
     res = generate_pr_explanation_from_repo()
-    console.print(res.markdown_output)
+    render_public(
+        {"ok": True, "product": "pr_explanation", "markdown": res.markdown_output},
+        human_fn=lambda data: console.print(data.get("markdown") or ""),
+    )
 
 
 @git_app.command("resolve-conflicts")

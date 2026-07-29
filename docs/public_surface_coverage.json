@@ -2,11 +2,11 @@
   "scope": "read_only",
   "timeout": 20.0,
   "tally": {
-    "pass": 89,
+    "pass": 101,
     "usage-error": 87,
-    "no-json": 19,
     "json-array": 1,
-    "hang": 8,
+    "hang": 9,
+    "no-json": 5,
     "missing-fields": 1
   },
   "results": [
@@ -37,12 +37,6 @@
       "exit_code": 0
     },
     {
-      "command": "backup",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "[BackupManager] Encrypted backup created: C:\\Users\\burhan.husain\\.superai\\backups\\superai_backup_20260729_011545.tar.zst.enc (2 files) Encry"
-    },
-    {
       "command": "backup-key",
       "status": "usage-error",
       "exit_code": 2,
@@ -50,15 +44,13 @@
     },
     {
       "command": "backup-status",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "+------------------------------- Backup Status -------------------------------+ | {'total_backups': 421, 'latest_backup':                   "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "backup-verify",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "+------------------------------- Backup Verify -------------------------------+ | OK                                                        "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "bandit",
@@ -97,9 +89,8 @@
     },
     {
       "command": "budget command list",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "No per-command budget overrides configured. "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "budget command set",
@@ -184,12 +175,12 @@
     {
       "command": "cloud dry-sync",
       "status": "pass",
-      "exit_code": 0
+      "exit_code": 1
     },
     {
       "command": "cloud push",
       "status": "pass",
-      "exit_code": 0
+      "exit_code": 1
     },
     {
       "command": "cloud status",
@@ -226,15 +217,13 @@
     },
     {
       "command": "conflicts",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "Found 1 conflicting learning group(s):  \ufffd  Task Type: coding | Model: m1   Inconsistent 'coding' / m1: 4 ok / 6 fail (rate=40.0%, H=0.97)  "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "constitution",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "# SuperAI Constitution  - Prefer local mock mode unless API keys are configured. - Never exfiltrate secrets; treat user data as private. - R"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "context-pack",
@@ -350,9 +339,8 @@
     },
     {
       "command": "exit-codes",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "Trustworthy Exit Codes Registry (V6 M080):   \ufffd 0   OK                 - Success (clean execution)   \ufffd 1   GENERAL            - General execu"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "explain-run",
@@ -389,9 +377,8 @@
     },
     {
       "command": "git explain-pr",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "# Git Branch Pull Request Summary  ## Summary This Pull Request updates 0 file(s) with +0/-0 changes.  ## File-Level Findings  | File | Chan"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "git resolve-conflicts",
@@ -419,8 +406,8 @@
     },
     {
       "command": "github",
-      "status": "pass",
-      "exit_code": 0
+      "status": "hang",
+      "detail": ">20.0s, killed"
     },
     {
       "command": "goals",
@@ -429,9 +416,8 @@
     },
     {
       "command": "history",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "                            Recent tasks (last 10)                              +-----------------------------------------------------------"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "history-search",
@@ -461,9 +447,8 @@
     },
     {
       "command": "ingest",
-      "status": "no-json",
-      "exit_code": 1,
-      "detail": "Provide SOURCE path/text or --url "
+      "status": "pass",
+      "exit_code": 1
     },
     {
       "command": "install-postgres",
@@ -477,23 +462,27 @@
     },
     {
       "command": "kg path",
-      "status": "pass",
-      "exit_code": 0
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at \"127.0.0.1\", port 5432 failed: fe_sendauth: "
     },
     {
       "command": "kg query",
-      "status": "pass",
-      "exit_code": 0
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at \"127.0.0.1\", port 5432 failed: fe_sendauth: "
     },
     {
       "command": "kg status",
-      "status": "pass",
-      "exit_code": 0
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at \"127.0.0.1\", port 5432 failed: fe_sendauth: "
     },
     {
       "command": "kg upsert-edge",
-      "status": "pass",
-      "exit_code": 0
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at \"127.0.0.1\", port 5432 failed: fe_sendauth: "
     },
     {
       "command": "kg upsert-node",
@@ -545,21 +534,18 @@
     },
     {
       "command": "learnings",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "+-------------------------------------------------------+ | Learning Summary                                      | |                       "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "list-models",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "Registered models (source: C:\\Users\\burhan.husain\\.superai\\config\\models.json)  +-----------------------------------------------------------"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "list-skills",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "                                    Skills                                      +-----------------------------------------------------------"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "listen",
@@ -668,9 +654,8 @@
     },
     {
       "command": "memory-ttl",
-      "status": "no-json",
-      "exit_code": 1,
-      "detail": "Error: TypeError: can't subtract offset-naive and offset-aware datetimes "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "metrics",
@@ -745,8 +730,9 @@
     },
     {
       "command": "ontology induce",
-      "status": "pass",
-      "exit_code": 0
+      "status": "no-json",
+      "exit_code": 1,
+      "detail": "Error: OperationalError: (psycopg.OperationalError) connection failed:  connection to server at \"127.0.0.1\", port 5432 failed: fe_sendauth: "
     },
     {
       "command": "ontology map",
@@ -845,6 +831,11 @@
       "detail": "Usage: python -m scli profile-bundle [OPTIONS] ACTION PATH Try 'python -m scli profile-bundle --help' for help. +- Error -------------------"
     },
     {
+      "command": "profile-config",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
       "command": "profile-suggest",
       "status": "pass",
       "exit_code": 0
@@ -879,9 +870,8 @@
     },
     {
       "command": "proposals",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "           Tool proposals            +----------------------------------+ | ID | Action | Status | Rationale | |----+--------+--------+-----"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "propose",
@@ -891,9 +881,8 @@
     },
     {
       "command": "provider-health",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "                                Provider Health                                 +-----------------------------------------------------------"
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "providers",
@@ -922,16 +911,9 @@
       "detail": ">20.0s, killed"
     },
     {
-      "command": "restore",
-      "status": "no-json",
-      "exit_code": 1,
-      "detail": "Provide a local backup path or use --cloud "
-    },
-    {
       "command": "routing-stats",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "+-----------------------------------------------------+ | Routing Stats                                       | |                           "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "schedule",
@@ -1125,9 +1107,8 @@
     },
     {
       "command": "version",
-      "status": "no-json",
-      "exit_code": 0,
-      "detail": "SuperAI v0.1.0 - Core Foundation (stabilized SuperAI) "
+      "status": "pass",
+      "exit_code": 0
     },
     {
       "command": "vim-keys",

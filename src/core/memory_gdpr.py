@@ -49,6 +49,12 @@ def apply_ttl(max_age_days: float = 90.0, *, dry_run: bool = False) -> Dict[str,
             dt = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
         except ValueError:
             continue
+        if dt.tzinfo is None:
+            # A timestamp stored without a UTC suffix parses naive, and
+            # subtracting naive from aware raises TypeError — which crashed
+            # `superai memory-ttl` outright instead of skipping the row.
+            # Memory timestamps are written in UTC, so assume it.
+            dt = dt.replace(tzinfo=timezone.utc)
         age = (now - dt).total_seconds() / 86400.0
         imp = float(meta.get("importance") or m.get("importance") or 0.5)
         if age > max_age_days and imp < 0.85:

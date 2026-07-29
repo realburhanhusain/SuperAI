@@ -129,6 +129,13 @@ MUTATING_MARKERS: Set[str] = {
     "apply_patch",
     "commit",
     "atomic_write_json",
+    # Found the hard way: `backup` classified read_only, so the contract sweep
+    # invoked it 211 times over and created a real encrypted archive each run.
+    "create_backup",
+    "restore_backup",
+    "restore_from_cloud",
+    "apply_retention",
+    "sync_to_cloud",
 }
 
 #: Calling any of these means the handler blocks on a human at a terminal.

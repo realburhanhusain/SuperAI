@@ -731,21 +731,24 @@ def disagreements(surfaces: Optional[List[Dict[str, Any]]] = None) -> Dict[str, 
         stale: List[str] = []
         freeform: List[str] = []
         for row in SPEND_PATHS:
-            mod = str(row.get("module") or "").strip()
             rid = str(row.get("id") or "")
-            if not mod:
-                continue
-            # Several rows carry a prose label ("core.a / b"), not a dotted path.
-            # Reporting those as stale would be a false alarm, which is the same
-            # disease this module exists to cure — bucket them separately.
-            if not _DOTTED_PATH.match(mod):
-                freeform.append(rid)
-                continue
-            base = ".".join(mod.split(".")[:2])
-            try:
-                import_module(base)
-            except Exception:
-                stale.append(rid)
+            # ``also`` carries a second module for rows that genuinely span two.
+            # Checked as well, so it cannot become a place stale names hide.
+            for field in ("module", "also"):
+                mod = str(row.get(field) or "").strip()
+                if not mod:
+                    continue
+                # A row carrying a prose label ("core.a / b") rather than a dotted
+                # path would be reported as stale, which is a false alarm — the
+                # same disease this module exists to cure. Bucket it separately.
+                if not _DOTTED_PATH.match(mod):
+                    freeform.append(rid)
+                    continue
+                base = ".".join(mod.split(".")[:2])
+                try:
+                    import_module(base)
+                except Exception:
+                    stale.append(f"{rid}.{field}" if field != "module" else rid)
         out["spend_paths_unimportable"] = sorted(x for x in stale if x)
         out["spend_paths_freeform_module"] = sorted(x for x in freeform if x)
     except Exception:

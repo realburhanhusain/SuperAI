@@ -42,7 +42,10 @@ def test_m6_web_status_contract(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     (tmp_path / ".superai").mkdir(parents=True)
     try:
-        from cli.web_app import create_app
+        # The package installs as ``scli`` (src/cli -> scli). This said
+        # ``cli.web_app``, which never imports, so the test skipped on every run
+        # claiming "web extras not installed" while they were in fact installed.
+        from scli.web_app import create_app
     except Exception:
         pytest.skip("web extras not installed")
     try:

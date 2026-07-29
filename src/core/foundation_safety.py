@@ -71,7 +71,9 @@ SPEND_PATHS: List[Dict[str, str]] = [
     },
     {
         "id": "web_api_run",
-        "module": "cli.web_app",
+        # The package installs as ``scli`` (src/cli -> scli). "cli.web_app"
+        # is not importable, so this row proved nothing about the path it claimed.
+        "module": "scli.web_app",
         "budget": "budget_precheck + ensure_public_result",
         "notes": "HTTP /api/superai/run",
     },
@@ -89,13 +91,15 @@ SPEND_PATHS: List[Dict[str, str]] = [
     },
     {
         "id": "bakeoff_compare",
-        "module": "core.model_bakeoff / model_compare",
+        "module": "core.model_bakeoff",
+        "also": "core.model_compare",
         "budget": "ModelCaller + spend_guard on public paths",
         "notes": "Eval spend",
     },
     {
         "id": "nl_ask_run",
-        "module": "core.nl_intent / nl_preview",
+        "module": "core.nl_intent",
+        "also": "core.nl_preview",
         "budget": "ask_superai → ModelCaller / orchestrator",
         "notes": "NL front door",
     },

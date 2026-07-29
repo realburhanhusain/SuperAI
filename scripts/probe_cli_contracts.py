@@ -71,7 +71,21 @@ def probe(
     ``Path.home()``, so a sandboxed home means a command invoked with
     synthesized arguments cannot touch the real ``~/.superai``.
     """
-    argv = [sys.executable, "-m", "scli", "--json", *name.split(" "), *(extra_args or [])]
+    # --no-auto-backup: the atexit auto-backup writes a Rich log line to stdout
+    # ("[07/29/26 12:00:00] INFO Auto-backup on exit: ..."), which races with
+    # the JSON the command printed. That is the only difference between a
+    # command passing in isolation and the same command reporting json-array
+    # inside a sweep — the leading "[" is what the value scanner sees first.
+    # It also stops the sweep creating one encrypted backup per command.
+    argv = [
+        sys.executable,
+        "-m",
+        "scli",
+        "--no-auto-backup",
+        "--json",
+        *name.split(" "),
+        *(extra_args or []),
+    ]
     env = None
     if home:
         env = dict(os.environ)

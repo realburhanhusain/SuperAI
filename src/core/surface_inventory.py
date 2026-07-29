@@ -708,7 +708,23 @@ _PROBE_JSON = "docs/public_surface_coverage.json"
 _PROBE_BAD = {"no-json", "json-array", "missing-fields", "fail-with-fixture"}
 
 #: Probe outcomes carrying no contract evidence in either direction.
-_PROBE_UNPROVEN = {"usage-error", "hang", "no-safe-fixture"}
+#:
+#: ``refused-unsafe`` and ``no-derivable-argument`` replaced the ambiguous
+#: ``no-safe-fixture`` (kept for older sidecars). ``fail-with-fixture`` is
+#: deliberately NOT in _PROBE_BAD: it covers both "ran and printed no envelope"
+#: and "was killed at the deadline", and a killed run is a statement about the
+#: harness, not the command — counting it as a contract failure manufactures
+#: gaps. ``_probe_disagreement`` filters those by detail.
+_PROBE_UNPROVEN = {
+    "usage-error",
+    "hang",
+    "no-safe-fixture",
+    "refused-unsafe",
+    "no-derivable-argument",
+}
+
+#: A killed run says nothing about the command's contract.
+_PROBE_KILLED_MARK = "killed"
 
 
 def load_probe_results(path: Optional[Path] = None) -> Dict[str, str]:
@@ -727,9 +743,26 @@ def load_probe_results(path: Optional[Path] = None) -> Dict[str, str]:
     }
 
 
+def load_probe_details(path: Optional[Path] = None) -> Dict[str, str]:
+    """Command → probe detail string, for distinguishing killed runs."""
+    doc = path or (repo_root() / _PROBE_JSON)
+    try:
+        import json
+
+        data = json.loads(doc.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {
+        str(r.get("command")): str(r.get("detail") or "")
+        for r in data.get("results", [])
+        if r.get("command")
+    }
+
+
 def _probe_disagreement(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Commands the static scan calls wrapped but the probe found uncontracted."""
     probe = load_probe_results()
+    probe_detail = load_probe_details()
     if not probe:
         return {
             "probe_available": False,
@@ -742,7 +775,9 @@ def _probe_disagreement(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     contradicted = sorted(
         name
         for name, status in probe.items()
-        if status in _PROBE_BAD and name in wrapped_names
+        if status in _PROBE_BAD
+        and name in wrapped_names
+        and _PROBE_KILLED_MARK not in str(probe_detail.get(name, ""))
     )
     # Commands the probe could not judge either way: it never got them to run
     # with the arguments they need. Not evidence of coverage in either direction.

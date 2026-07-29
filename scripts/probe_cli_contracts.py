@@ -124,6 +124,9 @@ def probe(
             "status": STATUS_ARRAY,
             "exit_code": proc.returncode,
             "detail": f"top-level JSON {type(payload).__name__}, not an envelope",
+            # Raw prefix so a surprising verdict is diagnosable instead of
+            # mysterious — a status alone cannot tell you what was printed.
+            "stdout_head": (proc.stdout or "")[:400],
         }
 
     missing = [k for k in REQUIRED_KEYS if k not in payload]

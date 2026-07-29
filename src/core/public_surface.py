@@ -19,6 +19,33 @@ _DRY_RUN: ContextVar[bool] = ContextVar("superai_dry_run", default=False)
 
 def set_json_mode(enabled: bool) -> None:
     _JSON_MODE.set(bool(enabled))
+    if enabled:
+        _force_utf8_stdout()
+
+
+def _force_utf8_stdout() -> None:
+    """
+    JSON is UTF-8 by definition, so ``--json`` output must be.
+
+    Without this, a payload containing a non-ASCII character silently produced
+    malformed JSON on Windows. ``superai --json bandit`` reports a pipeline of
+    ``preferences.bias_candidates → bandit.select → call``; that arrow is not
+    encodable in cp1252, and on a stock console the write failed part-way and
+    the envelope was re-emitted, so stdout held a truncated object followed by
+    a second copy — 878 bytes instead of 652, and **exit code 0**. Any
+    automation parsing that got a corrupt document with no error to catch.
+
+    It never reproduced under investigation because every manual run set
+    PYTHONIOENCODING=utf-8; only the sweep, which does not, saw real behaviour.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if getattr(stream, "encoding", "").lower().replace("-", "") != "utf8":
+                stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+        except Exception:
+            # Not all streams are reconfigurable (pytest capture, pipes on some
+            # platforms). Failing to upgrade the encoding must not break the CLI.
+            pass
 
 
 def json_mode() -> bool:

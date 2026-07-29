@@ -348,3 +348,46 @@ def test_main_has_no_bare_console_outside_the_import_guard():
     assert not offenders, (
         f"bare Console() outside the contract_console import guard: {offenders}"
     )
+
+
+# ---------------------------------------------------------------------------
+# JSON output encoding
+# ---------------------------------------------------------------------------
+
+
+def test_json_mode_forces_utf8_stdout():
+    """
+    JSON is UTF-8 by definition, and `--json` output must be.
+
+    A payload containing a non-ASCII character silently produced malformed JSON
+    on Windows: `superai --json bandit` reports a pipeline containing an arrow
+    (U+2192), which cp1252 cannot encode, so the write failed part-way and the
+    envelope was re-emitted — 878 bytes instead of 652, two copies of the
+    object, and exit code 0. Automation parsing that got a corrupt document
+    with nothing to catch.
+    """
+    import sys
+
+    from core.public_surface import set_json_mode
+
+    set_json_mode(True)
+    try:
+        for stream in (sys.stdout, sys.stderr):
+            enc = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+            # pytest's capture streams may not be reconfigurable; only assert
+            # when the stream reports an encoding at all.
+            if enc:
+                assert enc == "utf8", f"{stream} left at {enc}"
+    finally:
+        set_json_mode(False)
+
+
+def test_non_ascii_payload_survives_a_roundtrip():
+    """The exact shape that broke: an arrow inside a contracted payload."""
+    import json
+
+    from core.public_surface import contract_payload
+
+    out = contract_payload({"pipeline": "preferences → bandit.select → call"})
+    reparsed = json.loads(json.dumps(out))
+    assert reparsed["pipeline"] == "preferences → bandit.select → call"

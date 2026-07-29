@@ -5965,6 +5965,33 @@ def workspace_index_cmd(
     )
 
 
+@app.command("code-index")
+def code_index_cmd(
+    root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
+    query: Optional[str] = typer.Option(None, "--query", "-q"),
+):
+    """Build or search SuperAI's native Python code graph (no external MCP)."""
+    from core.code_intelligence import build_code_graph, search_code_graph
+
+    base = Path(root).resolve() if root else None
+    out = search_code_graph(query, base) if query else build_code_graph(base)
+    console.print_json(data=out)
+
+
+@app.command("code-impact")
+def code_impact_cmd(
+    ref: str = typer.Option("HEAD~1", "--ref", help="Git base revision"),
+    root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
+    files: Optional[str] = typer.Option(None, "--files", help="Comma-separated changed paths; skips git diff"),
+):
+    """Map a diff to changed symbols, callers, and suggested tests."""
+    from core.code_intelligence import code_impact
+
+    selected = [x.strip() for x in files.split(",") if x.strip()] if files else None
+    base = Path(root).resolve() if root else None
+    console.print_json(data=code_impact(root=base, ref=ref, files=selected))
+
+
 @app.command("profile-bundle")
 def profile_bundle_cmd(
     action: str = typer.Argument(..., help="export | import"),

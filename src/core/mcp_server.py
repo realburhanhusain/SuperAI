@@ -195,6 +195,17 @@ TOOLS: List[Dict[str, Any]] = [
         },
     ),
     _tool(
+        "superai_code_intelligence",
+        "Native local Python source graph: index, search, or map a diff to impacted tests. Does not use Memory Palace or require another MCP.",
+        {
+            "action": {"type": "string", "description": "index | search | impact (default index)"},
+            "root": {"type": "string", "description": "Repository root; defaults to current working directory"},
+            "query": {"type": "string", "description": "Required for action=search"},
+            "ref": {"type": "string", "description": "Git base revision for impact (default HEAD~1)"},
+            "files": {"type": "string", "description": "Optional comma-separated changed paths for impact"},
+        },
+    ),
+    _tool(
         "superai_session",
         "Session memory buffer: start/remember/recall/promote/end/clear (short-term → palace).",
         {
@@ -744,6 +755,24 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
             dataset_id=dataset,
             source_memory_id=args.get("source_memory_id"),
         )
+
+    if name == "superai_code_intelligence":
+        from .code_intelligence import build_code_graph, code_impact, search_code_graph
+
+        action = str(args.get("action") or "index").lower()
+        root = Path(str(args["root"])).resolve() if args.get("root") else None
+        if action == "index":
+            return build_code_graph(root)
+        if action == "search":
+            query = str(args.get("query") or "").strip()
+            if not query:
+                raise ValueError("query required for code intelligence search")
+            return search_code_graph(query, root)
+        if action == "impact":
+            raw_files = str(args.get("files") or "")
+            files = [item.strip() for item in raw_files.split(",") if item.strip()] or None
+            return code_impact(root=root, ref=str(args.get("ref") or "HEAD~1"), files=files)
+        raise ValueError("action must be index|search|impact")
 
     if name == "superai_session":
         from .session_memory import get_default_session_memory

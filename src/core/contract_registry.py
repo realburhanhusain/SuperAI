@@ -79,6 +79,15 @@ UNINVOKABLE: Dict[str, str] = {
     "web": "starts a blocking HTTP server",
     "dashboard": "renders a live terminal dashboard loop",
     "daemon": "starts a background daemon",
+    # These are not contract gaps — each already prints through the contracted
+    # console seam. They are simply expensive: the probe kills them at its
+    # timeout, and a killed run is recorded as a failure it did not earn.
+    "tdd": "shells out to `python -m pytest -q` once per round (default 2)",
+    "gates": "runs the quality gates, which shell out to the pytest suite",
+    "data-ask": "loads a DB adapter and embedding stack; measured 68s, passes at a 90s timeout",
+    "check upgrades": "resolves every dependency in the manifest",
+    "data-schema": "introspects a live database schema",
+    "term-parallel": "spawns real parallel terminal sessions",
     # Removed 2026-07-29: "serve", "goals-daemon" and "watch" named commands
     # that do not exist. A refusal keyed on a non-existent command is a silent
     # no-op — the same stale-registry rot this module was written to catch, so

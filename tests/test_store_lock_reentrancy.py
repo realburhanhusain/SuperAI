@@ -91,6 +91,44 @@ def test_thread_lock_identity_per_path(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Test isolation from the real home
+# ---------------------------------------------------------------------------
+
+
+def test_memory_root_honours_patched_home(tmp_path, monkeypatch):
+    """
+    The default memory root must follow ``Path.home()``.
+
+    It used ``os.path.expanduser("~")``, which reads the environment directly,
+    so ``monkeypatch.setattr(Path, "home", ...)`` — the isolation idiom this
+    suite uses in 15 places in test_memory_concurrency alone — did not redirect
+    it. Tests that believed they were sandboxed were reading and writing the
+    developer's real ``~/.superai/memory`` and taking its store lock. A
+    full-suite run that died mid-write stranded that lock, and every later run
+    then blocked on it for 45s before failing.
+    """
+    from pathlib import Path as _Path
+
+    from core.memory_palace import default_memory_root
+
+    monkeypatch.setattr(_Path, "home", lambda: tmp_path)
+    root = default_memory_root().resolve()
+    assert root == (tmp_path / ".superai" / "memory").resolve()
+
+
+def test_shared_palace_honours_patched_home(tmp_path, monkeypatch):
+    """The process-wide singleton must be keyed under the patched home too."""
+    from pathlib import Path as _Path
+
+    from core import memory_palace as mp
+
+    monkeypatch.setattr(_Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(mp, "_PALACE_SINGLETONS", {})
+    palace = mp.get_shared_palace()
+    assert _Path(palace.persist_directory).resolve().is_relative_to(tmp_path.resolve())
+
+
+# ---------------------------------------------------------------------------
 # PATH resolution
 # ---------------------------------------------------------------------------
 

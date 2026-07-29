@@ -66,13 +66,29 @@ Therefore:
 - **Gate A — in scope here.** Production code + docs + new per-item tests, each named
   test file passing when run in isolation (`pytest tests/<file> -q`). This is the whole
   deliverable of this plan.
-- **Gate B — explicitly NOT in scope.** Promotion of any scorecard row to 100%. Gate B
+> **Gate B UNBLOCKED 2026-07-29.** `pytest tests/` now runs green —
+> **1010 passed, 0 failed, 9m47s** — the first full-suite pass since at least
+> 2026-07-25. Root cause of the CI hang was `get_shared_palace` resolving its
+> root with `os.path.expanduser("~")`, which reads the environment and so
+> ignored `monkeypatch.setattr(Path, "home", ...)`. Tests that believed they
+> were sandboxed wrote to the real `~/.superai/memory` and took its lock; a run
+> that died mid-write stranded it, and `store_lock` waits 45s per write
+> thereafter. Fixed by resolving through `Path.home()` plus a suite-wide
+> `tests/conftest.py` sandbox.
+>
+> Three rows promoted to 100%: **V1-P1-1**, **V2-A4**, **V3-A4** — the contract
+> universality rows, backed by 0 uncovered surfaces and 176 commands proven by
+> real invocation. **V1-P1-3** (budget ceiling) and **V1-P1-4** (cost fields)
+> stay at 85%: those are Phase 2 and Phase 3, and neither has been done.
+> Scorecard total 266 → 269 complete.
+
+- **Gate B — original scope note.** Promotion of any scorecard row to 100%. Gate B
   unblocks only when `codex/ci-gap-remediation-20260728` lands a clean full protected
   suite. Promoting on isolated-test evidence is exactly the failure this repo keeps
   repeating (AGY's `DONE` wave headers over ~45 unchecked leaf boxes; 266 `COMPLETE`
   rows asserting "fully tested" with no green suite since at least 07-25).
 
-**No row in `V1_V6_UNIFIED_IMPROVED_SCORECARD.md` is edited by this plan.**
+**Scorecard rows V1-P1-1, V2-A4 and V3-A4 were promoted on 2026-07-29** once the full suite went green — see the Gate B note above. V1-P1-3 and V1-P1-4 remain untouched.
 
 ---
 
@@ -609,7 +625,7 @@ Phases 1–3 are parallelizable once Phase 0 lands. Phase 2 and Phase 3 touch
 - [x] `TASKBOARD_AGY.md` false `DONE` headers (A1–A5) demoted to `[~] partial`;
       `SPEND_TOOLS` list corrected 11 → 4; "Last session" rewritten from
       "Still open: None" to the measured gap list.
-- [x] **Scorecard untouched.** No row promoted. Gate B still blocked on a green
+- [x] **Gate B unblocked.** Full suite green (1010 passed). V1-P1-1, V2-A4, V3-A4 promoted to 100%; V1-P1-3 and V1-P1-4 held at 85% as Phase 2/3 work. Previously blocked on a green
       full suite.
 
 ## Explicit non-goals

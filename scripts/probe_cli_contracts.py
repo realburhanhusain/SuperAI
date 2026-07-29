@@ -71,7 +71,21 @@ def probe(
     ``Path.home()``, so a sandboxed home means a command invoked with
     synthesized arguments cannot touch the real ``~/.superai``.
     """
-    argv = [sys.executable, "-m", "scli", "--json", *name.split(" "), *(extra_args or [])]
+    # --no-auto-backup: the atexit auto-backup writes a Rich log line to stdout
+    # ("[07/29/26 12:00:00] INFO Auto-backup on exit: ..."), which races with
+    # the JSON the command printed. That is the only difference between a
+    # command passing in isolation and the same command reporting json-array
+    # inside a sweep — the leading "[" is what the value scanner sees first.
+    # It also stops the sweep creating one encrypted backup per command.
+    argv = [
+        sys.executable,
+        "-m",
+        "scli",
+        "--no-auto-backup",
+        "--json",
+        *name.split(" "),
+        *(extra_args or []),
+    ]
     env = None
     if home:
         env = dict(os.environ)
@@ -110,6 +124,9 @@ def probe(
             "status": STATUS_ARRAY,
             "exit_code": proc.returncode,
             "detail": f"top-level JSON {type(payload).__name__}, not an envelope",
+            # Raw prefix so a surprising verdict is diagnosable instead of
+            # mysterious — a status alone cannot tell you what was printed.
+            "stdout_head": (proc.stdout or "")[:400],
         }
 
     missing = [k for k in REQUIRED_KEYS if k not in payload]
@@ -200,13 +217,39 @@ def main() -> int:
 
     results: List[Dict[str, Any]] = []
     skipped: List[Dict[str, str]] = []
+
+    # Sandbox HOME for the WHOLE sweep, not just the fixture retries.
+    #
+    # tests/conftest.py sandboxes pytest, but it does nothing for this script:
+    # every probe here is a raw subprocess, so plain probe() ran against the
+    # developer's real ~/.superai. That is why `bandit` and `pref` passed
+    # standalone and failed only inside the sweep — 200 commands reading and
+    # rewriting one shared state directory, with each other as the noise
+    # source. A measurement harness has to be hermetic or it measures itself.
+    with tempfile.TemporaryDirectory(
+        prefix="superai-sweep-", ignore_cleanup_errors=True
+    ) as sweep_home:
+        sandbox_home = sweep_home
+        (Path(sweep_home) / ".superai").mkdir(parents=True, exist_ok=True)
+        _run_probes(names, args, results, skipped, sandbox_home)
+
+    return _finish(results, skipped, rows, args)
+
+
+def _run_probes(
+    names: List[str],
+    args: argparse.Namespace,
+    results: List[Dict[str, Any]],
+    skipped: List[Dict[str, str]],
+    sandbox_home: str,
+) -> None:
     for i, name in enumerate(names, 1):
         reason = UNINVOKABLE.get(name)
         if reason:
             skipped.append({"command": name, "reason": reason})
             print(f"[{i}/{len(names)}] {name}: skip ({reason})", flush=True)
             continue
-        res = probe(name, args.timeout)
+        res = probe(name, args.timeout, home=sandbox_home)
         # A command that only failed for want of an argument has no contract
         # evidence either way. Retry it with derived arguments in a sandboxed
         # home so the gap resolves to a real verdict instead of "unknown".
@@ -215,6 +258,13 @@ def main() -> int:
         results.append(res)
         print(f"[{i}/{len(names)}] {name}: {res['status']}", flush=True)
 
+
+def _finish(
+    results: List[Dict[str, Any]],
+    skipped: List[Dict[str, str]],
+    rows: List[Dict[str, Any]],
+    args: argparse.Namespace,
+) -> int:
     write_doc(results, skipped, rows, args)
     tally: Dict[str, int] = {}
     for r in results:

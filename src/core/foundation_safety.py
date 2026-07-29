@@ -13,7 +13,7 @@ from __future__ import annotations
 import ast
 import inspect
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
 # ---------------------------------------------------------------------------
 # M001 — spend path registry (exhaustive known entrypoints)
@@ -158,6 +158,47 @@ def _import_handler(dotted: str) -> Optional[Callable[..., Any]]:
     return None
 
 
+def _source_tokens_for_method(
+    filename: str, class_name: str, method_name: str
+) -> Optional[Set[str]]:
+    """
+    Names referenced inside ``class_name.method_name``, read via ast.
+
+    Returns ``None`` when the source file is unavailable — a packaged install
+    with no ``.py`` alongside. ``None`` means "cannot prove", which callers
+    must not conflate with "proved absent"; ``inspect.getsource`` gave no way
+    to tell those apart.
+    """
+    path = Path(__file__).resolve().parent / filename
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return None
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef) or node.name != class_name:
+            continue
+        for item in node.body:
+            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if item.name != method_name:
+                continue
+            names: Set[str] = set()
+            for sub in ast.walk(item):
+                if isinstance(sub, ast.Name):
+                    names.add(sub.id)
+                elif isinstance(sub, ast.Attribute):
+                    names.add(sub.attr)
+                elif isinstance(sub, ast.keyword) and sub.arg:
+                    names.add(sub.arg)
+                elif isinstance(sub, ast.arg):
+                    names.add(sub.arg)
+                elif isinstance(sub, ast.alias):
+                    names.add((sub.asname or sub.name).split(".")[-1])
+            return names
+    return set()
+
+
 def audit_m001() -> Dict[str, Any]:
     """Prove ModelCaller always budgets and spend registry is non-empty/complete."""
     from .spend_guard import ensure_public_result
@@ -165,21 +206,28 @@ def audit_m001() -> Dict[str, Any]:
     issues: List[str] = []
     evidence: Dict[str, Any] = {"spend_paths": len(SPEND_PATHS)}
 
-    # 1) Source proof: ModelCaller.call invokes pre_call
-    try:
-        from . import model_caller as mc
-
-        src = inspect.getsource(mc.ModelCaller.call)
-        if "pre_call" not in src:
+    # 1) Static proof: ModelCaller.call invokes pre_call and honours skip_budget.
+    #
+    # This used inspect.getsource, which reads the .py file off disk at
+    # runtime. Under a wheel/bytecode-only install that raises, so the audit
+    # degraded to an "model_caller_inspect:..." issue on exactly the
+    # deployments where the proof matters most — reporting a spend gap that was
+    # really a packaging artefact. Parsing with ast keeps the proof and makes
+    # the unavailable case explicit instead of counting it as a failure.
+    tokens = _source_tokens_for_method("model_caller.py", "ModelCaller", "call")
+    if tokens is None:
+        evidence["model_caller_source"] = "unavailable (packaged install)"
+        evidence["model_caller_pre_call"] = None
+        evidence["skip_budget_flag"] = None
+    else:
+        if "pre_call" not in tokens:
             issues.append("ModelCaller.call missing pre_call")
         else:
             evidence["model_caller_pre_call"] = True
-        if "skip_budget" not in src:
+        if "skip_budget" not in tokens:
             issues.append("ModelCaller.call missing skip_budget handling")
         else:
             evidence["skip_budget_flag"] = True
-    except Exception as e:
-        issues.append(f"model_caller_inspect:{e}")
 
     # 2) Runtime: pre_call blocks when budget exhausted
     try:

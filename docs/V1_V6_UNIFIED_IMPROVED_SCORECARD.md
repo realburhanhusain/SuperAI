@@ -1,6 +1,6 @@
 # SuperAI V1–V6 Unified IMPROVED Scorecard (strict bar)
 
-**Generated:** 2026-07-25  
+**Generated:** 2026-07-29  
 **Total unique improvement IDs:** 533  
 **Source inventory (read-only):** `docs/archive/2026-07-25-closed-docs/scorecards/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  
 **This file:** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`  
@@ -26,15 +26,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **266** |
-| **INCOMPLETE** | **249** |
+| **COMPLETE (production + docs + tests)** | **271** |
+| **INCOMPLETE** | **244** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **51.4%**
-- **Average percent (incomplete only):** **24.4%**
-- **Average percent (all non-refuse):** **63.6%**
+- **Strict completion rate (complete / (total − refuse)):** **52.3%**
+- **Average percent (incomplete only):** **23.2%**
+- **Average percent (all non-refuse):** **63.8%**
 
 ### Note for validators
 
@@ -48,7 +48,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 266
+**Count:** 271
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1840,6 +1840,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V1-P1-1 — Phase 1 — Stable result contract
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — result_contract + contract_console/middleware seams
+- **Documentation (thorough):** YES — PLAN_CONTRACT_SPEND_RESIDUALS + PUBLIC_SURFACE_COVERAGE
+- **Tests (full):** YES — test_result_contract + test_surface_contract_coverage
+- **Still incomplete:** 
+
 ### V1-P1-2 — Phase 1 — Mock/dry_run honesty (never false live success)
 
 - **Track:** V1-V5
@@ -1849,6 +1859,26 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
+
+### V1-P1-3 — Phase 1 — Budget hard-stop foundation
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — spend_gate CLI ceiling + ast audit_m001
+- **Documentation (thorough):** YES — PLAN_CONTRACT_SPEND_RESIDUALS
+- **Tests (full):** YES — test_spend_gate + test_foundation_safety_m001_m008_m018
+- **Still incomplete:** 
+
+### V1-P1-4 — Phase 1 — Cost fields on results
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — cost fields + canonical estimate_source
+- **Documentation (thorough):** YES — COST_ACCOUNTING.md
+- **Tests (full):** YES — test_estimate_source + test_cost_accounting_m002
+- **Still incomplete:** 
 
 ### V1-P2-1 — Phase 2 — Default agent / front-door entry
 
@@ -2030,6 +2060,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V2-A4 — Sprint A — Result contract on tool/agent paths
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — contracts tool/agent via contract_console seam (264 call sites)
+- **Documentation (thorough):** YES — PLAN_CONTRACT_SPEND_RESIDUALS
+- **Tests (full):** YES — test_surface_contract_coverage + test_surface_inventory
+- **Still incomplete:** 
+
 ### V2-B1 — Sprint B — Cost router shrink boards under budget
 
 - **Track:** V1-V5
@@ -2169,6 +2209,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
+
+### V3-A4 — Sprint A — Contracts on more board APIs
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — board + HTTP contracts via contract_middleware (all /api/* JSON)
+- **Documentation (thorough):** YES — PLAN_CONTRACT_SPEND_RESIDUALS + SURFACE_EXEMPTIONS
+- **Tests (full):** YES — test_surface_contract_coverage
+- **Still incomplete:** 
 
 ### V3-B1 — Sprint B — Cost on workers/run
 
@@ -2714,7 +2764,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 249
+**Count:** 244
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2744,45 +2794,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** —
 - **Still incomplete:** Real provider SSE incomplete
 
-### V1-P1-1 — Phase 1 — Stable result contract
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — result_contract
-- **Thorough documentation?** YES — IMPROVEMENT_PLAN P1 (archive)
-- **Fully tested?** YES — test_result_contract
-- **Fully implemented:** result_contract
-- **Partially implemented:** —
-- **Still incomplete:** Not all surfaces
-
-### V1-P1-3 — Phase 1 — Budget hard-stop foundation
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — budget foundation
-- **Thorough documentation?** YES — P1 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** budget foundation
-- **Partially implemented:** —
-- **Still incomplete:** Universal ceiling incomplete
-
-### V1-P1-4 — Phase 1 — Cost fields on results
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — cost fields
-- **Thorough documentation?** YES — P1 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** cost fields
-- **Partially implemented:** —
-- **Still incomplete:** Accuracy gaps
-
 ### V1-P5-2 — Phase 5 — Streaming progress bus
 
 - **Track:** V1-V5
@@ -2795,32 +2806,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** progress + stream
 - **Partially implemented:** —
 - **Still incomplete:** True SSE all providers incomplete
-
-### V2-A4 — Sprint A — Result contract on tool/agent paths
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — contracts tool/agent
-- **Thorough documentation?** YES — V2 plan (archive)
-- **Fully tested?** YES — sprint tests
-- **Fully implemented:** contracts tool/agent
-- **Partially implemented:** —
-- **Still incomplete:** Universal CLI incomplete
-
-### V3-A4 — Sprint A — Contracts on more board APIs
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — board contracts
-- **Thorough documentation?** YES — V3 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** board contracts
-- **Partially implemented:** —
-- **Still incomplete:** Not all APIs
 
 ### V2-C5 — Sprint C — Graph HTML UI
 

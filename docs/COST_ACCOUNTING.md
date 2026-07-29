@@ -45,4 +45,80 @@ aggregate_costs(list_of_member_results)  # council / multi-CLI
 
 ## Tests
 
-`tests/test_cost_accounting_m002.py`
+`tests/test_cost_accounting_m002.py` · `tests/test_estimate_source.py`
+
+---
+
+# `estimate_source` — the one field to read (V1-P1-4)
+
+The two fields above answer different questions: `cost_source` says where the
+**tokens** came from, `pricing_source` says where the **rate** came from. A
+consumer had to know both, and how they combine, to tell a metered figure from
+a guessed one. A third name, `estimate_source`, existed on exactly one contract
+(`board_preflight`) and reported `pricing_source`'s vocabulary.
+
+`estimate_source` is now canonical, with three values ordered by trust.
+
+| `estimate_source` | Meaning | Trust |
+|---|---|---|
+| **`actual`** | Metered provider usage priced from the registry — or a genuine `$0` for a local/CLI model, where nothing was estimated | Highest |
+| **`registry`** | Token count *estimated*, but priced with real registry rates | Medium |
+| **`fallback`** | Heuristic rates; model not in the registry. An order of magnitude, not a price | Lowest |
+
+On any aggregate the **weakest link wins** — one `fallback` row makes the whole
+total `fallback`, because a sum is only as honest as its worst term.
+
+```python
+from core.cost_accounting import resolve_estimate_source
+```
+
+- `zero_local` on either field → `actual`
+- `cost_source == "usage"` → `actual`
+- `pricing_source` in `registry` / `registry_io` → `registry`
+- otherwise → `fallback`
+
+`cost_source` and `pricing_source` are still emitted unchanged; they are simply
+no longer the fields to reason about.
+
+## Pre-flight estimates now use the registry
+
+`budget_precheck` used a flat **0.1 USD / 500 tokens** for every command, so a
+ceiling check against a local CLI model and one against Opus saw the same
+number. Naming a model prices it properly:
+
+```python
+budget_precheck(model="gpt-4o", tokens=1000, command_name="council")
+```
+
+| Call | Estimate | `estimate_source` |
+|---|---|---|
+| `estimate_for_model("gpt-4o", tokens=1000)` | `0.005` from registry rate | `registry` |
+| `estimate_for_model("cli:claude", tokens=1000)` | `0.0` | `actual` |
+| `estimate_for_model("unknown-model", tokens=1000)` | heuristic rate | `fallback` |
+| `estimate_for_model(None)` | `DEFAULT_ESTIMATE_USD` (0.1) | `fallback` |
+
+**Backwards compatible.** `estimated_usd` defaults to `None` rather than `0.1`.
+An explicit estimate still wins, and a caller passing neither model nor
+estimate gets the old constant — existing call sites behave exactly as before,
+but are now honestly labelled `fallback` instead of implying precision.
+
+## Reading a cost in automation
+
+```python
+cost = result.get("estimated_cost_usd")
+match result.get("estimate_source"):
+    case "actual":   ...  # safe to bill or report
+    case "registry": ...  # safe to gate on; token count is approximate
+    case "fallback": ...  # order of magnitude only — never report as a price
+```
+
+## Where it appears
+
+- `from_usage` and everything built on it (`from_result`, `estimate_call`,
+  `attach_cost_fields`)
+- `aggregate_costs` — weakest link across rows
+- `spend_guard.estimate_for_model`, and blocked `budget_precheck` envelopes
+- `board_preflight.estimate_board` — weakest link across **all** members.
+  This previously read `per[0]["pricing_source"]`, so a five-member board
+  containing one unpriced model advertised a registry-grade estimate.
+

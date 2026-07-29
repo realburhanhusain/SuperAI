@@ -231,14 +231,25 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     ),
     # Residual incomplete (not closed by I1)
     "V4-S3": T(True, True, True, 80, "bandit feedback", "V4 plan (archive)", "partial", "Continuous bandit incomplete"),
-    "V1-P1-1": T(True, True, True, 85, "result_contract", "IMPROVEMENT_PLAN P1 (archive)", "test_result_contract", "Not all surfaces"),
-    "V1-P1-3": T(True, True, True, 85, "budget foundation", "P1 plan (archive)", "tests", "Universal ceiling incomplete"),
-    "V1-P1-4": T(True, True, True, 85, "cost fields", "P1 plan (archive)", "tests", "Accuracy gaps"),
+    # Promoted 2026-07-29: 0 uncovered public surfaces (300 wrapped / 26 exempt
+    # with a stated reason), 176 commands proven by real invocation, and a green
+    # full suite (1010 passed) — the first since the strict bar was introduced.
+    "V1-P1-1": T(True, True, True, 100, "result_contract + contract_console/middleware seams", "PLAN_CONTRACT_SPEND_RESIDUALS + PUBLIC_SURFACE_COVERAGE", "test_result_contract + test_surface_contract_coverage", ""),
+    # Promoted 2026-07-29 (Phase 2): core/spend_gate.py gates all 32 gated
+    # spend commands at the CLI front door with command_name, so the S132
+    # per-command ceilings finally bind; audit_m001 proves ModelCaller via ast
+    # instead of inspect.getsource, which failed under packaged installs.
+    "V1-P1-3": T(True, True, True, 100, "spend_gate CLI ceiling + ast audit_m001", "PLAN_CONTRACT_SPEND_RESIDUALS", "test_spend_gate + test_foundation_safety_m001_m008_m018", ""),
+    # Promoted 2026-07-29 (Phase 3): estimate_source is now one canonical field
+    # (actual > registry > fallback) on every cost-bearing result, aggregates
+    # take the weakest link, and budget_precheck prices from the registry
+    # instead of a flat 0.1 USD.
+    "V1-P1-4": T(True, True, True, 100, "cost fields + canonical estimate_source", "COST_ACCOUNTING.md", "test_estimate_source + test_cost_accounting_m002", ""),
     "V1-P5-2": T(True, True, True, 85, "progress + stream", "P5 plan (archive)", "tests", "True SSE all providers incomplete"),
-    "V2-A4": T(True, True, True, 85, "contracts tool/agent", "V2 plan (archive)", "sprint tests", "Universal CLI incomplete"),
+    "V2-A4": T(True, True, True, 100, "contracts tool/agent via contract_console seam (264 call sites)", "PLAN_CONTRACT_SPEND_RESIDUALS", "test_surface_contract_coverage + test_surface_inventory", ""),
     "V2-B3": T(True, True, True, 90, "session_compact", "V2 plan (archive)", "tests", "Decision/todo edge cases"),
     "V2-C5": T(True, True, True, 80, "agent-graph SVG", "V2/V3 plan (archive)", "tests", "HTML graph legacy partial"),
-    "V3-A4": T(True, True, True, 85, "board contracts", "V3 plan (archive)", "tests", "Not all APIs"),
+    "V3-A4": T(True, True, True, 100, "board + HTTP contracts via contract_middleware (all /api/* JSON)", "PLAN_CONTRACT_SPEND_RESIDUALS + SURFACE_EXEMPTIONS", "test_surface_contract_coverage", ""),
     "V3-D1": T(True, True, True, 80, "bandit pin", "V3 plan (archive)", "tests", "Continuous product incomplete"),
     "MOS-S1": T(True, True, True, 85, "token_stream TUI", "MOSCOW S1 (archive)", "test_moscow", "Real provider SSE incomplete"),
 }

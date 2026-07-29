@@ -12,19 +12,45 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 
 
+#: Shim extensions worth probing when PATHEXT does not already cover them.
+_SHIM_EXTS = (".CMD", ".BAT", ".EXE", ".COM")
+
+
 def which_cmd(name: str) -> Optional[str]:
-    """Resolve executable on PATH; try Windows extensions explicitly."""
+    """
+    Resolve executable on PATH; try Windows extensions explicitly.
+
+    Performance note, because this sits on a hot path. ``shutil.which`` already
+    tries every extension in ``PATHEXT``. This function used to re-try *all* of
+    them itself, and each retry re-scans every PATH directory — with 14 PATHEXT
+    entries and 52 PATH directories that is a 14x multiplier buying no extra
+    coverage. Measured: 0.079s for ``shutil.which`` on a miss versus 1.089s
+    here, which made ``ExternalCLIRegistry.discover()`` take 25.8s for nine
+    tools and ``superai metrics`` take 60s.
+
+    The hardening intent is kept. A truncated or customised ``PATHEXT`` really
+    can omit ``.CMD``, which is how npm shims get missed — so the fallback still
+    runs, but only for extensions ``PATHEXT`` does not already list. On a
+    default Windows install that is none of them.
+    """
     if not name:
         return None
     found = shutil.which(name)
     if found:
         return found
     if os.name == "nt":
-        # PATHEXT order
-        exts = os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
-        for ext in exts:
-            e = ext if ext.startswith(".") else f".{ext}"
-            cand = name if name.lower().endswith(e.lower()) else f"{name}{e}"
+        covered = {
+            e if e.startswith(".") else f".{e}"
+            for e in (
+                x.strip().upper()
+                for x in os.environ.get("PATHEXT", "").split(";")
+                if x.strip()
+            )
+        }
+        for ext in _SHIM_EXTS:
+            if ext in covered:
+                continue  # shutil.which already tried this one
+            cand = name if name.upper().endswith(ext) else f"{name}{ext}"
             found = shutil.which(cand)
             if found:
                 return found

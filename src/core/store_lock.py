@@ -23,8 +23,37 @@ _THREAD_LOCKS: Dict[str, threading.RLock] = {}
 _THREAD_LOCKS_GUARD = threading.Lock()
 
 
-def thread_lock_for(path: Union[str, Path]) -> threading.RLock:
+# Raw input path -> resolved key. ``Path.resolve()`` is a realpath syscall and
+# on Windows it is slow enough to dominate write-heavy loops: every
+# ``update_metadata`` takes a store lock, so a decay pass over N memories paid
+# N realpaths. Caching is semantically free — the same input string always
+# resolves to the same key, and two different strings naming one path each
+# resolve once and then share a lock, exactly as before.
+_RESOLVED_KEYS: Dict[str, str] = {}
+
+
+class _HeldLocks(threading.local):
+    """Per-thread set of store-lock keys this thread currently holds."""
+
+    def __init__(self) -> None:
+        self.roots: set = set()
+
+
+_HELD_LOCKS = _HeldLocks()
+
+
+def _resolved_key(path: Union[str, Path]) -> str:
+    raw = str(path)
+    cached = _RESOLVED_KEYS.get(raw)
+    if cached is not None:
+        return cached
     key = str(Path(path).expanduser().resolve())
+    _RESOLVED_KEYS[raw] = key
+    return key
+
+
+def thread_lock_for(path: Union[str, Path]) -> threading.RLock:
+    key = _resolved_key(path)
     with _THREAD_LOCKS_GUARD:
         if key not in _THREAD_LOCKS:
             _THREAD_LOCKS[key] = threading.RLock()
@@ -119,10 +148,31 @@ def store_lock(
     root_p = Path(root).expanduser()
     root_p.mkdir(parents=True, exist_ok=True)
     tlock = thread_lock_for(root_p)
+    held_key = f"{_resolved_key(root_p)}::{name}"
+
+    # Re-entrancy. The thread RLock is reentrant but ``FileLock`` is not:
+    # ``msvcrt.locking`` takes the byte range on a *handle*, so a nested
+    # acquire from the same thread opens a second handle, fails to lock, and
+    # spins until it raises TimeoutError. That made batching writes under one
+    # outer lock impossible — every helper that locks internally had to be
+    # called unlocked, so a decay pass over N memories paid N file locks.
+    #
+    # Tracking held roots per thread makes the inner acquire a no-op, which is
+    # correct: this thread already holds exclusive access.
+    already_held = held_key in _HELD_LOCKS.roots
+    if already_held:
+        with tlock:
+            yield
+        return
+
     flock = FileLock(root_p / name, timeout=timeout)
     with tlock:
         with flock:
-            yield
+            _HELD_LOCKS.roots.add(held_key)
+            try:
+                yield
+            finally:
+                _HELD_LOCKS.roots.discard(held_key)
 
 
 def atomic_write_text(

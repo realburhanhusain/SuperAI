@@ -182,3 +182,71 @@ def test_overrides_target_live_parameters():
         assert node is not None, f"override for unknown command: {command}"
         names = {str(p.name) for p in getattr(node, "params", []) or []}
         assert param in names, f"override for unknown param: {key}"
+
+
+# ---------------------------------------------------------------------------
+# Groups are not surfaces
+# ---------------------------------------------------------------------------
+
+
+def test_command_groups_are_not_invokable():
+    """
+    `superai budget` is a Typer *group*: it prints "Missing command." and has no
+    result to contract. Its subcommands are the real surfaces. Enumerating
+    groups alongside commands made `budget` read as a permanent coverage gap.
+    """
+    out = cf.synthesize_args("budget")
+    assert out["ok"] is False
+    assert out.get("is_group") is True
+    assert "group" in out["reason"]
+
+
+def test_group_names_finds_nested_groups():
+    from core.surface_inventory import group_names
+
+    groups = group_names()
+    assert "budget" in groups
+    assert "check" in groups
+    # Nested: `budget command set` lives under `budget command`.
+    assert "budget command" in groups
+    # A real command must not be listed as a group.
+    assert "status" not in groups
+
+
+# ---------------------------------------------------------------------------
+# Options a command needs but does not declare required
+# ---------------------------------------------------------------------------
+
+
+def test_extra_args_are_appended():
+    """
+    `ci-why` declares --file and --text optional but rejects being called with
+    neither. Click cannot express "exactly one of these", so introspection
+    alone can never find it.
+    """
+    out = cf.synthesize_args("ci-why")
+    assert out["ok"] is True
+    assert "--text" in out["args"]
+    assert out["how"].get("<extra_args>") == "extra-args"
+
+
+def test_extra_args_target_live_commands():
+    """A stale EXTRA_ARGS key is a silent no-op, same as a stale override."""
+    from scli.main import app
+
+    for command in cf.EXTRA_ARGS:
+        assert cf.resolve_command(app, command) is not None, command
+
+
+def test_workspace_jail_commands_are_refused_not_reported_as_gaps():
+    """
+    `diff-edit` and `notebook` enforce the workspace jail (M006) — a path
+    outside the repo is rejected. The probe deliberately writes fixtures to a
+    sandboxed HOME so it cannot touch real state, so satisfying the jail would
+    mean writing into the working tree during a read-only sweep. Refusing is
+    correct; the jail is a security control working as designed.
+    """
+    for command in ("diff-edit", "notebook"):
+        out = cf.synthesize_args(command)
+        assert out["ok"] is False
+        assert "workspace jail" in out["reason"]

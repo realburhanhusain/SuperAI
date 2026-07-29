@@ -31,12 +31,14 @@ from typing import Any, Dict, List, Optional
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from core.cli_fixtures import REFUSE  # noqa: E402
 from core.contract_registry import UNINVOKABLE, _first_json_value  # noqa: E402
 from core.result_contract import REQUIRED_KEYS  # noqa: E402
 from core.surface_inventory import (  # noqa: E402
     CLASS_READ_ONLY,
     KIND_CLI,
     enumerate_cli_surfaces,
+    group_names,
 )
 
 OUT_DOC = ROOT / "docs" / "PUBLIC_SURFACE_COVERAGE.md"
@@ -53,7 +55,8 @@ STATUS_HANG = "hang"
 STATUS_CRASH = "crash"
 STATUS_FIXTURE_PASS = "pass-with-fixture"
 STATUS_FIXTURE_FAIL = "fail-with-fixture"
-STATUS_NO_FIXTURE = "no-safe-fixture"
+STATUS_REFUSED = "refused-unsafe"
+STATUS_NO_FIXTURE = "no-derivable-argument"
 
 
 def probe(
@@ -163,9 +166,15 @@ def probe_with_fixture(name: str, timeout: float) -> Dict[str, Any]:
 
         spec = synthesize_args(name, tmp_path=str(tmp_file))
         if not spec["ok"]:
+            # Two very different findings shared one status. A deliberate
+            # refusal ("executes an arbitrary shell command") is a safety
+            # decision and permanent; a derivation failure is this tool being
+            # unable to guess a value, and is closable work. Reporting both as
+            # "no-safe-fixture" read as coverage when half of it was a gap.
+            refused = name.split()[0] in REFUSE or name in REFUSE
             return {
                 "command": name,
-                "status": STATUS_NO_FIXTURE,
+                "status": STATUS_REFUSED if refused else STATUS_NO_FIXTURE,
                 "detail": spec["reason"],
             }
 
@@ -203,10 +212,17 @@ def main() -> int:
     )
     args = ap.parse_args()
 
+    # Typer groups are not invokable surfaces — running `superai budget` prints
+    # "Missing command." and has no result to contract. Its subcommands are the
+    # real surfaces and are enumerated separately.
+    groups = group_names()
     rows = [
         r
         for r in enumerate_cli_surfaces()
-        if r["kind"] == KIND_CLI and not r["exempt"] and not r.get("shadowed")
+        if r["kind"] == KIND_CLI
+        and not r["exempt"]
+        and not r.get("shadowed")
+        and r["name"] not in groups
     ]
     if not args.all_classes:
         rows = [r for r in rows if r["classification"] == CLASS_READ_ONLY]
@@ -322,7 +338,8 @@ def write_doc(
         STATUS_USAGE: "Needs a required argument (exit 2); not a contract failure",
         STATUS_FIXTURE_PASS: "Passed once given arguments derived from its own metadata",
         STATUS_FIXTURE_FAIL: "Ran with derived arguments but emitted no valid envelope",
-        STATUS_NO_FIXTURE: "No safe argument could be derived; reason recorded",
+        STATUS_REFUSED: "Deliberately not invoked — unsafe at any argument; reason recorded",
+        STATUS_NO_FIXTURE: "No argument could be derived; a closable gap, not a safety decision",
         STATUS_HANG: "Did not return before the timeout and was killed",
         STATUS_CRASH: "Subprocess could not be run",
     }
@@ -349,6 +366,7 @@ def write_doc(
         STATUS_MISSING,
         STATUS_FIXTURE_FAIL,
         STATUS_NO_FIXTURE,
+        STATUS_REFUSED,
     ):
         items = by_status.get(status, [])
         if not items:

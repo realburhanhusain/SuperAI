@@ -410,6 +410,41 @@ def _typer_command_name(cmd: Any) -> str:
     return "<unnamed>"
 
 
+def group_names(app: Any = None) -> Set[str]:
+    """
+    Command paths that are *groups*, not invokable commands.
+
+    ``superai budget`` is a Typer group: running it prints "Missing command."
+    and cannot emit a result envelope, because it has no result. It is not a
+    public surface — its subcommands are. Enumerating groups alongside real
+    commands made ``budget`` look like a coverage gap forever.
+    """
+    if app is None:
+        try:
+            from scli.main import app as cli_app
+
+            app = cli_app
+        except Exception:
+            return set()
+
+    names: Set[str] = set()
+
+    def _walk(node: Any, prefix: Tuple[str, ...]) -> None:
+        for group in getattr(node, "registered_groups", []) or []:
+            sub = getattr(group, "typer_instance", None)
+            if sub is None:
+                continue
+            gname = getattr(group, "name", None) or getattr(
+                getattr(sub, "info", None), "name", None
+            )
+            path = prefix + (str(gname or "<group>"),)
+            names.add(" ".join(path))
+            _walk(sub, path)
+
+    _walk(app, ())
+    return names
+
+
 def _walk_typer(app: Any, prefix: Tuple[str, ...] = ()) -> List[Tuple[Tuple[str, ...], Any]]:
     """Depth-first walk yielding ``(path_parts, command)`` for nested Typer apps."""
     found: List[Tuple[Tuple[str, ...], Any]] = []

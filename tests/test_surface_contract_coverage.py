@@ -186,12 +186,20 @@ def test_json_value_scanner_distinguishes_arrays_from_objects():
 # ---------------------------------------------------------------------------
 
 
-#: Ratchet bounds. Phase 1 took these from 26/229 to 0/75 — the two seams did
-#: the bulk, then the Rich-table-only commands were wrapped individually.
-#: Move them **down** as surfaces are wrapped; never up. A raise means a new
-#: unwrapped public surface landed, which is the regression these guard.
+#: Both are **zero**, and that is now an invariant rather than a ratchet.
+#:
+#: Phase 1 began at 26 uncovered spend surfaces and 229 uncovered overall. The
+#: two seams did the bulk, the Rich-table-only commands were wrapped
+#: individually, and resolving local helper calls in the static scan corrected
+#: a 48-command false negative. Every public surface is now either wrapped or
+#: listed in ``docs/SURFACE_EXEMPTIONS.md`` with a stated reason — the exact
+#: end-state the Phase 0 plan specified: *an unlisted, unwrapped surface is a
+#: test failure*.
+#:
+#: Do not raise these to make a build pass. Wrap the surface, or exempt it with
+#: a reason a reviewer would still accept in six months.
 MAX_UNCOVERED_SPEND = 0
-MAX_UNCOVERED_TOTAL = 49
+MAX_UNCOVERED_TOTAL = 0
 
 #: Commands the static scan calls wrapped but the probe caught printing no
 #: conforming envelope.
@@ -258,6 +266,21 @@ def test_http_contract_middleware_is_installed():
     from scli.web_app import create_app
 
     assert si._has_contract_middleware(create_app())
+
+
+def test_uninvokable_entries_name_live_commands():
+    """
+    A refusal keyed on a non-existent command is a silent no-op.
+
+    Three entries (``serve``, ``goals-daemon``, ``watch``) named commands that
+    do not exist, so they refused nothing while reading as deliberate safety.
+    Same failure mode as the stale ``SPEND_PATHS`` module reference and the
+    stale fixture override — a registry entry that cannot resolve is worse than
+    a missing one, because it looks like coverage.
+    """
+    names = {r["name"] for r in si.enumerate_cli_surfaces()}
+    missing = sorted(c for c in UNINVOKABLE if c not in names)
+    assert not missing, f"UNINVOKABLE names commands that do not exist: {missing}"
 
 
 def test_static_wrapped_claim_agrees_with_the_probe():

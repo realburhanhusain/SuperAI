@@ -50,6 +50,7 @@ There is no single result to serialize.
 | `cli:init` | interactive | Guided project scaffolding wizard |
 | `cli:onboard` | interactive | Guided onboarding quest; prompts throughout |
 | `cli:members` | interactive | Interactive member picker |
+| `cli:mcp-serve` | read_only | Blocks serving MCP over stdio for the process lifetime; stdout is the JSON-RPC channel, so anything else printed there corrupts the protocol |
 
 ## CLI — shell-protocol output
 

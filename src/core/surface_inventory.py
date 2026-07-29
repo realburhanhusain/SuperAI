@@ -254,11 +254,49 @@ def _function_calls(source_path: str) -> Dict[str, frozenset]:
     return {k: frozenset(v) for k, v in acc.items()}
 
 
+#: How many local helper hops to follow when deciding "is this wrapped".
+_HELPER_DEPTH = 3
+
+
+def resolve_local_helpers(
+    call_map: Dict[str, frozenset], depth: int = _HELPER_DEPTH
+) -> Dict[str, frozenset]:
+    """
+    Fold each function's locally-defined callees into its own signal set.
+
+    Without this the scan reports false negatives wherever a module shares a
+    rendering helper. ``kg status`` calls ``_print_kg``, which calls
+    ``emit_public`` — the command is genuinely wrapped, but a one-level scan
+    sees only ``_print_kg`` and reports it uncovered. That mislabelled 48
+    commands across the ``kg``, ``capture``, ``dataset`` and ``learning``
+    families, every one of which the dynamic probe proved was fine.
+
+    Bounded at ``depth`` hops and iterated to a fixed point, so recursion
+    between helpers terminates rather than spinning.
+    """
+    resolved = {k: set(v) for k, v in call_map.items()}
+    for _ in range(depth):
+        changed = False
+        for name, signals in resolved.items():
+            # Only follow names defined in this module — an arbitrary callee
+            # is not evidence of anything.
+            for callee in list(signals & resolved.keys()):
+                if callee == name:
+                    continue
+                new = resolved[callee] - signals
+                if new:
+                    signals |= new
+                    changed = True
+        if not changed:
+            break
+    return {k: frozenset(v) for k, v in resolved.items()}
+
+
 def _cli_call_map() -> Dict[str, frozenset]:
     path = _cli_source_path()
     if path is None:
         return {}
-    return _function_calls(str(path))
+    return resolve_local_helpers(_function_calls(str(path)))
 
 
 def call_map_for_source(path: Path) -> Dict[str, frozenset]:

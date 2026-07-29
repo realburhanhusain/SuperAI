@@ -2396,35 +2396,41 @@ def reflect(
 
     memory = MemoryPalace()
     engine = LearningEngine(memory)
-    result = engine.reflect()
-
-    patterns = result.get("patterns_identified") or result.get("insights") or []
-    pattern_text = "\n".join(f"• {p}" for p in patterns) if patterns else "• (none yet)"
-
-    console.print(
-        Panel.fit(
-            f"[bold]Reflection Report[/bold]\n\n"
-            f"Total Learnings: {result.get('total_learnings', 0)}\n"
-            f"Successes: {result.get('success_count', 0)} | "
-            f"Failures: {result.get('failure_count', 0)}\n"
-            f"Success Rate: {result.get('success_rate', 0)}%\n"
-            f"Conflicts: {result.get('conflicts_detected', 0)}\n"
-            f"Memories decayed: {result.get('memories_decayed', 0)}\n\n"
-            f"[bold]Patterns[/bold]\n{pattern_text}\n\n"
-            f"[green]{result.get('message', '')}[/green]\n"
-            f"[dim]{result.get('recommendation', '')}[/dim]",
-            border_style="cyan",
-        )
-    )
-
+    result = dict(engine.reflect() or {})
+    result.setdefault("ok", True)
     if distill:
-        d = engine.distill_knowledge()
+        result["distillation"] = engine.distill_knowledge()
+
+    def _human(data: Dict[str, Any]) -> None:
+        patterns = data.get("patterns_identified") or data.get("insights") or []
+        pattern_text = (
+            "\n".join(f"• {p}" for p in patterns) if patterns else "• (none yet)"
+        )
         console.print(
             Panel.fit(
-                f"[bold]Distillation[/bold]\n{d.get('message')}",
-                border_style="blue",
+                f"[bold]Reflection Report[/bold]\n\n"
+                f"Total Learnings: {data.get('total_learnings', 0)}\n"
+                f"Successes: {data.get('success_count', 0)} | "
+                f"Failures: {data.get('failure_count', 0)}\n"
+                f"Success Rate: {data.get('success_rate', 0)}%\n"
+                f"Conflicts: {data.get('conflicts_detected', 0)}\n"
+                f"Memories decayed: {data.get('memories_decayed', 0)}\n\n"
+                f"[bold]Patterns[/bold]\n{pattern_text}\n\n"
+                f"[green]{data.get('message', '')}[/green]\n"
+                f"[dim]{data.get('recommendation', '')}[/dim]",
+                border_style="cyan",
             )
         )
+        dist = data.get("distillation")
+        if dist:
+            console.print(
+                Panel.fit(
+                    f"[bold]Distillation[/bold]\n{dist.get('message')}",
+                    border_style="blue",
+                )
+            )
+
+    render_public(result, human_fn=_human)
 
 
 @app.command()
@@ -3279,40 +3285,39 @@ def term_parallel(
             "dry_run": dry_run,
         },
     )
-    table = Table(title=f"Parallel terminals — {result.get('workflow_id')}")
-    table.add_column("Title")
-    table.add_column("Role")
-    table.add_column("Status")
-    table.add_column("Sec")
-    table.add_column("Command")
-    table.add_column("Output")
-    for s in result.get("sessions") or []:
-        cmd = s.get("command") or []
-        cmd_s = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
-        table.add_row(
-            str(s.get("title")),
-            str(s.get("role")),
-            str(s.get("status")),
-            str(s.get("duration_sec")),
-            cmd_s[:40],
-            str(s.get("stdout_tail") or s.get("error") or "")[:50].replace("\n", " "),
-        )
-    console.print(table)
-    if result.get("synthesis"):
-        console.print(
-            Panel(
-                str(
-                    (result.get("synthesis") or {}).get("text")
-                    or result.get("synthesis")
-                )[:2000],
-                title="Supervisor synthesis",
-                border_style="cyan",
+    def _human(data: Dict[str, Any]) -> None:
+        table = Table(title=f"Parallel terminals — {data.get('workflow_id')}")
+        for col in ("Title", "Role", "Status", "Sec", "Command", "Output"):
+            table.add_column(col)
+        for s in data.get("sessions") or []:
+            cmd = s.get("command") or []
+            cmd_s = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+            table.add_row(
+                str(s.get("title")),
+                str(s.get("role")),
+                str(s.get("status")),
+                str(s.get("duration_sec")),
+                cmd_s[:40],
+                str(s.get("stdout_tail") or s.get("error") or "")[:50].replace("\n", " "),
             )
+        console.print(table)
+        if data.get("synthesis"):
+            console.print(
+                Panel(
+                    str(
+                        (data.get("synthesis") or {}).get("text")
+                        or data.get("synthesis")
+                    )[:2000],
+                    title="Supervisor synthesis",
+                    border_style="cyan",
+                )
+            )
+        console.print(
+            f"[dim]Dashboard: superai dashboard · web /terminals · "
+            f"ok={data.get('succeeded')}/{data.get('total')}[/dim]"
         )
-    console.print(
-        f"[dim]Dashboard: superai dashboard · web /terminals · "
-        f"ok={result.get('succeeded')}/{result.get('total')}[/dim]"
-    )
+
+    render_public(result, human_fn=_human)
     if not result.get("ok") and not dry_run:
         raise _cli_exit(code=1)
 
@@ -3479,7 +3484,19 @@ def propose(
     args = _json.loads(payload)
     mgr = ToolProposalManager()
     p = mgr.propose(action=action, args=args, rationale=rationale)
-    console.print(f"[green]Proposed[/green] id={p.id} action={p.action} status={p.status}")
+    render_public(
+        {
+            "ok": True,
+            "product": "tool_proposal.create",
+            "id": p.id,
+            "action": p.action,
+            "status": p.status,
+        },
+        human_fn=lambda d: console.print(
+            f"[green]Proposed[/green] id={d.get('id')} "
+            f"action={d.get('action')} status={d.get('status')}"
+        ),
+    )
 
 
 @app.command("proposal")
@@ -4851,13 +4868,31 @@ def backup_key_cmd(
     if action == "export":
         dest = bm.export_key(path)
         AuditLog().record("backup_key_export", {"dest": str(dest)})
-        console.print(f"[green]Exported key to[/green] {dest}")
+        render_public(
+            {"ok": True, "product": "backup_key.export", "path": str(dest)},
+            human_fn=lambda d: console.print(
+                f"[green]Exported key to[/green] {d.get('path')}"
+            ),
+        )
         return
     if action == "import":
         dest = bm.import_key(path)
         AuditLog().record("backup_key_import", {"src": path})
-        console.print(f"[green]Imported key to[/green] {dest}")
+        render_public(
+            {"ok": True, "product": "backup_key.import", "path": str(dest), "source": path},
+            human_fn=lambda d: console.print(
+                f"[green]Imported key to[/green] {d.get('path')}"
+            ),
+        )
         return
+    render_public(
+        {
+            "ok": False,
+            "error": f"Unknown action: {action}",
+            "error_code": "invalid_input",
+        },
+        human_fn=lambda d: console.print(f"[red]{d.get('error')}[/red]"),
+    )
     raise _cli_exit(code=1)
 
 
@@ -5860,7 +5895,12 @@ def diagnose(
     from pathlib import Path as P
 
     path = build_diagnostics_bundle(P(output) if output else None)
-    console.print(f"[green]Diagnostics bundle:[/green] {path}")
+    render_public(
+        {"ok": True, "product": "diagnostics", "path": str(path)},
+        human_fn=lambda d: console.print(
+            f"[green]Diagnostics bundle:[/green] {d.get('path')}"
+        ),
+    )
 
 
 @app.command("rate-queue")
@@ -8359,20 +8399,44 @@ def check_upgrades_cmd(
     from core.dep_upgrade import check_upgradable_dependencies, write_upgrade_plan
 
     res = check_upgradable_dependencies(manifest)
-    console.print(
-        f"[bold green]Dependency Audit ({res.total_dependencies} packages):[/bold green]"
-    )
-    for r in res.recommendations:
-        pin = getattr(r, "pin_quality", "")
-        console.print(
-            f"  • [cyan]{r.package_name}[/cyan] ({r.current_constraint}) "
-            f"[{r.risk_level}/{pin}]: {r.recommendation}"
-        )
+    payload: Dict[str, Any] = {
+        "ok": True,
+        "product": "dependency_audit",
+        "manifest": manifest,
+        "total_dependencies": res.total_dependencies,
+        "recommendations": [
+            {
+                "package": r.package_name,
+                "current_constraint": r.current_constraint,
+                "risk_level": r.risk_level,
+                "pin_quality": getattr(r, "pin_quality", ""),
+                "recommendation": r.recommendation,
+            }
+            for r in res.recommendations
+        ],
+    }
     if plan_out:
-        out = write_upgrade_plan(res, plan_out, apply=apply)
-        console.print(f"[dim]Plan written: {out.get('path')}[/dim]")
-        if out.get("upgrade_txt"):
-            console.print(f"[dim]Upgrade txt: {out.get('upgrade_txt')} (review only)[/dim]")
+        payload["plan"] = write_upgrade_plan(res, plan_out, apply=apply)
+
+    def _human(data: Dict[str, Any]) -> None:
+        console.print(
+            f"[bold green]Dependency Audit ({data.get('total_dependencies')} "
+            "packages):[/bold green]"
+        )
+        for r in data.get("recommendations") or []:
+            console.print(
+                f"  • [cyan]{r['package']}[/cyan] ({r['current_constraint']}) "
+                f"[{r['risk_level']}/{r['pin_quality']}]: {r['recommendation']}"
+            )
+        plan = data.get("plan")
+        if plan:
+            console.print(f"[dim]Plan written: {plan.get('path')}[/dim]")
+            if plan.get("upgrade_txt"):
+                console.print(
+                    f"[dim]Upgrade txt: {plan.get('upgrade_txt')} (review only)[/dim]"
+                )
+
+    render_public(payload, human_fn=_human)
 
 
 sym_app = typer.Typer(name="symbol", help="Symbol-aware code navigation (V6 S108)")
@@ -8623,19 +8687,44 @@ def completion_install_cmd(
         existing = (
             target.read_text(encoding="utf-8", errors="ignore") if target.exists() else ""
         )
-        if marker not in existing:
+        already = marker in existing
+        if not already:
             with target.open("a", encoding="utf-8") as f:
                 f.write(block)
-        console.print(
-            f"[bold green]Installed {sh} completion to `{target}` successfully.[/bold green]"
+        render_public(
+            {
+                "ok": True,
+                "product": "completion.install",
+                "shell": sh,
+                "profile": str(target),
+                "already_present": already,
+            },
+            human_fn=lambda d: console.print(
+                f"[bold green]Installed {d.get('shell')} completion to "
+                f"`{d.get('profile')}` successfully.[/bold green]"
+            ),
         )
     except Exception as e:
-        console.print(
-            f"[bold red]Failed to install {sh} completion to `{target}`:[/bold red] {e}"
-        )
-        console.print(
-            f"[yellow]Manual step:[/yellow] append the output of "
-            f"`superai completion show --shell {sh}` to your profile."
+        def _human(data):
+            console.print(
+                f"[bold red]Failed to install {data.get('shell')} completion to "
+                f"`{data.get('profile')}`:[/bold red] {data.get('error')}"
+            )
+            console.print(
+                f"[yellow]Manual step:[/yellow] append the output of "
+                f"`superai completion show --shell {data.get('shell')}` to your profile."
+            )
+
+        render_public(
+            {
+                "ok": False,
+                "product": "completion.install",
+                "shell": sh,
+                "profile": str(target),
+                "error": str(e)[:200],
+                "error_code": "io_error",
+            },
+            human_fn=_human,
         )
         _exit_from_exc(e)
 

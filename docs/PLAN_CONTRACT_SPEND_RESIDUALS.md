@@ -458,6 +458,45 @@ the connection, so guarding only the query left the crash in place.
 | Probe: unproven | 95 | **20** |
 | Static-wrapped but probe-failed | — | **5** |
 
+### Zero uncovered surfaces — 2026-07-29
+
+**The Phase 0 end-state is now literally true:** every public surface is either
+wrapped or listed in `SURFACE_EXEMPTIONS.md` with a stated reason. The ratchets
+`MAX_UNCOVERED_SPEND` and `MAX_UNCOVERED_TOTAL` are both **0**, so they are
+invariants rather than bounds.
+
+Two things got there:
+
+**A 48-command false negative in the static scan.** `kg status` calls
+`_print_kg`, which calls `emit_public` — genuinely wrapped, but a one-hop scan
+saw only `_print_kg` and reported it uncovered. The whole `kg`, `capture`,
+`dataset` and `learning` families were mislabelled, every one of which the
+dynamic probe had been passing all along. `resolve_local_helpers` folds
+locally-defined callees into each function's signal set, bounded at 3 hops and
+iterated to a fixed point. Uncovered dropped 49 → 8 from that correction alone,
+which is the clearest argument yet for keeping the static and dynamic views
+side by side: the static view was wrong, and only the disagreement showed it.
+
+**The last 8 wrapped or exempted:** `backup-key`, `propose`,
+`completion install`, `diagnose`, `reflect`, `check upgrades`, `term-parallel`,
+plus `mcp-serve` exempted (stdout is the JSON-RPC channel — anything else
+printed there corrupts the protocol).
+
+| Metric | Phase 1 start | Final |
+|---|---:|---:|
+| Uncovered surfaces | 229 | **0** |
+| Uncovered **spend** surfaces | 26 | **0** |
+| Wrapped | 59 | **300** |
+| Exempt with a reason | 0 | 26 |
+| Probe: conforming envelope | 0 | **176** |
+| Probe: printed no JSON | 24 | **0** |
+
+**Three stale `UNINVOKABLE` entries removed** — `serve`, `goals-daemon` and
+`watch` named commands that do not exist, so they refused nothing while reading
+as deliberate safety. Same failure mode as the stale `SPEND_PATHS` module
+reference and the stale fixture override; `test_uninvokable_entries_name_live_commands`
+now asserts every entry resolves.
+
 ### Still open after the tail
 
 - **5 commands blocked by a regression, not by contract work** — `kg path`,
@@ -551,10 +590,10 @@ Phases 1–3 are parallelizable once Phase 0 lands. Phase 2 and Phase 3 touch
 
 ## Definition of done (Gate A only)
 
-- [x] `surface_inventory.py` enumerates CLI + MCP + HTTP surfaces (315). Zero silent
-      skips: every exemption carries a reason, and reason-less rows are ignored.
-      **Not yet** "every surface wrapped" — 93 remain uncovered, enumerated in
-      `PUBLIC_SURFACE_COVERAGE.md`.
+- [x] `surface_inventory.py` enumerates CLI + MCP + HTTP surfaces (315), and
+      **every one is wrapped or exempt with a reason** — 300 wrapped, 26 exempt,
+      0 uncovered. Zero silent skips: reason-less exemption rows are ignored.
+      This is the full end-state, not a partial one.
 - [x] `verify_top_commands_registered` fixed — and it was a tautology, not slack.
 - [x] Real-invocation contract coverage replaces synthetic samples
       (`invoke_cli_contracts_offline` + `scripts/probe_cli_contracts.py`).

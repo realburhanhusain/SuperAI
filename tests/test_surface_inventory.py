@@ -279,6 +279,52 @@ def test_renamed_shadowed_features_are_reachable():
             assert name in names, f"{name} is not registered"
 
 
+def test_local_helper_calls_are_resolved():
+    """
+    A command that wraps *via a shared helper* must count as wrapped.
+
+    Without this the scan reported 48 false negatives: ``kg status`` calls
+    ``_print_kg``, which calls ``emit_public``. One level of lookup sees only
+    ``_print_kg`` and calls the command uncovered, while the dynamic probe
+    proves it emits a perfectly good envelope. The static and dynamic views
+    disagreeing is precisely what this module exists to prevent.
+    """
+    raw = {
+        "cmd": frozenset({"helper"}),
+        "helper": frozenset({"deeper"}),
+        "deeper": frozenset({"emit_public"}),
+        "unrelated": frozenset({"print"}),
+    }
+    resolved = si.resolve_local_helpers(raw)
+    assert "emit_public" in resolved["cmd"]
+    assert "emit_public" not in resolved["unrelated"]
+
+
+def test_helper_resolution_terminates_on_mutual_recursion():
+    """Helpers that call each other must not spin the fixed-point loop."""
+    raw = {
+        "a": frozenset({"b"}),
+        "b": frozenset({"a", "emit_public"}),
+    }
+    resolved = si.resolve_local_helpers(raw)
+    assert "emit_public" in resolved["a"]
+
+
+def test_helper_resolution_respects_depth():
+    """Beyond the hop budget, nothing is claimed."""
+    chain = {f"f{i}": frozenset({f"f{i + 1}"}) for i in range(8)}
+    chain["f8"] = frozenset({"emit_public"})
+    shallow = si.resolve_local_helpers(chain, depth=1)
+    assert "emit_public" not in shallow["f0"]
+
+
+def test_helper_mediated_commands_are_wrapped_on_the_real_app():
+    """The families that exposed the false negative must read as wrapped."""
+    rows = {r["name"]: r for r in si.enumerate_cli_surfaces()}
+    for name in ("kg status", "learning status", "dataset list", "capture config"):
+        assert rows[name]["wrapped"] is True, f"{name} should resolve as wrapped"
+
+
 def test_spend_paths_modules_all_import():
     """
     Every ``SPEND_PATHS`` row must name a real, importable module.

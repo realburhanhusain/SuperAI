@@ -12,11 +12,11 @@ Scope: `read_only` surfaces only; per-command timeout 20s.
 | `json-array` | 1 | Printed a bare JSON array; needs an envelope around it |
 | `usage-error` | 0 | Needs a required argument (exit 2); not a contract failure |
 | `pass-with-fixture` | 69 | Passed once given arguments derived from its own metadata |
-| `fail-with-fixture` | 6 | Ran with derived arguments but emitted no valid envelope |
-| `no-safe-fixture` | 12 | No safe argument could be derived; reason recorded |
+| `fail-with-fixture` | 3 | Ran with derived arguments but emitted no valid envelope |
+| `no-safe-fixture` | 11 | No safe argument could be derived; reason recorded |
 | `hang` | 8 | Did not return before the timeout and was killed |
 | `crash` | 0 | Subprocess could not be run |
-| `skipped` | 5 | Listed as uninvokable, with a reason |
+| `skipped` | 3 | Listed as uninvokable, with a reason |
 
 ## Hangs
 
@@ -48,11 +48,8 @@ These never returned. Relevant beyond contract coverage: a command that hangs he
 | Command | Exit | Detail |
 |---|---:|---|
 | `capture stream` | 0 | [0] top-level JSON list, not an envelope |
-| `check upgrades` | 0 | [0] Dependency Audit (0 packages):  |
 | `data-ask` |  | [None] >20.0s, killed |
-| `delegate` |  | [None] >20.0s, killed |
 | `tdd` |  | [None] >20.0s, killed |
-| `term-parallel` | 0 | [0]                       Parallel terminals � twf-94fc4c98ff                       +------------------------- |
 
 ## no-safe-fixture
 
@@ -69,7 +66,6 @@ These never returned. Relevant beyond contract coverage: a command that hangs he
 | `propose` | 2 | derived arguments still rejected as invalid usage |
 | `search-web` |  | performs a live web search |
 | `shell` |  | executes an arbitrary shell command |
-| `tt-restore` |  | restores a time-travel snapshot over current state |
 
 ## Skipped, with reason
 
@@ -78,8 +74,6 @@ These never returned. Relevant beyond contract coverage: a command that hangs he
 | `dashboard` | renders a live terminal dashboard loop |
 | `doctor` | walks every host tool on PATH; tens of seconds on Windows |
 | `host-tools` | same host-tool walk as doctor |
-| `mcp-serve` | starts a blocking stdio server |
-| `web` | starts a blocking HTTP server |
 
 ## Passing
 

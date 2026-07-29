@@ -76,11 +76,13 @@ UNINVOKABLE: Dict[str, str] = {
     "host-tools": "same host-tool walk as doctor",
     "install": "guided installer; writes shell and config state",
     "mcp-serve": "starts a blocking stdio server",
-    "serve": "starts a blocking HTTP server",
     "web": "starts a blocking HTTP server",
     "dashboard": "renders a live terminal dashboard loop",
-    "goals-daemon": "starts a background daemon",
-    "watch": "blocks watching the filesystem",
+    "daemon": "starts a background daemon",
+    # Removed 2026-07-29: "serve", "goals-daemon" and "watch" named commands
+    # that do not exist. A refusal keyed on a non-existent command is a silent
+    # no-op — the same stale-registry rot this module was written to catch, so
+    # ``test_uninvokable_entries_name_live_commands`` now asserts they resolve.
 }
 
 

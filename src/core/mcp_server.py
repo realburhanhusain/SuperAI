@@ -775,7 +775,8 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         if action == "index":
             if engine == "advanced":
                 return build_advanced_code_graph(root)
-            return index_code_graph(root) if bool(args.get("incremental")) else build_code_graph(root)
+            return (index_code_graph(root, verify_content=bool(args.get("verify_content")))
+                    if bool(args.get("incremental")) else build_code_graph(root))
         if action == "status":
             return advanced_engine_status() if engine == "advanced" else code_index_status(root)
         if action == "architecture":

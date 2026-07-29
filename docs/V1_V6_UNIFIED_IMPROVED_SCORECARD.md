@@ -26,15 +26,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **271** |
-| **INCOMPLETE** | **244** |
+| **COMPLETE (production + docs + tests)** | **272** |
+| **INCOMPLETE** | **243** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **52.3%**
+- **Strict completion rate (complete / (total − refuse)):** **52.5%**
 - **Average percent (incomplete only):** **23.2%**
-- **Average percent (all non-refuse):** **63.8%**
+- **Average percent (all non-refuse):** **64.0%**
 
 ### Note for validators
 
@@ -4331,16 +4331,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### N258 — Incremental index updates
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Heuristic bucket:** `complete`
+- **Code production-ready?** YES — versioned, atomic native index cache with fast metadata reuse, optional content verification, rename/delete reporting, and persisted metrics
+- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md
+- **Fully tested?** YES — tests/test_code_intelligence.py + tests/test_mcp_server.py
+- **Fully implemented:** Incremental cache compatibility settings, integrity verification, cache hit/elapsed metrics, rename/delete detection, CLI and MCP support
 - **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
+- **Still incomplete:** —
 ### N259 — Semantic diff summaries
 
 - **Track:** V6

@@ -8,13 +8,15 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
 
 from .workspace_index import SKIP_DIRS
 
-_INDEX_VERSION = 1
+_INDEX_VERSION = 2
+_MAX_SOURCE_BYTES = 500_000
 
 
 def _call_name(node: ast.AST) -> str:
@@ -67,7 +69,7 @@ def _python_files(root: Path, max_files: int) -> Iterable[Path]:
     for path in root.rglob("*.py"):
         if any(part in SKIP_DIRS or part.startswith(".") for part in path.relative_to(root).parts):
             continue
-        if path.stat().st_size > 500_000:
+        if path.stat().st_size > _MAX_SOURCE_BYTES:
             continue
         yield path
         count += 1
@@ -75,11 +77,19 @@ def _python_files(root: Path, max_files: int) -> Iterable[Path]:
             return
 
 
-def _file_signature(path: Path) -> Dict[str, int]:
+def _content_digest(path: Path) -> str:
+    """Return a stable source digest for explicit cache verification."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _file_signature(path: Path) -> Dict[str, Any]:
     stat = path.stat()
     return {"mtime_ns": stat.st_mtime_ns, "size": stat.st_size}
 
 
+def _scan_config() -> Dict[str, Any]:
+    """Describe parser settings that make a persisted index compatible."""
+    return {"language": "python", "max_source_bytes": _MAX_SOURCE_BYTES, "skip_dirs": sorted(SKIP_DIRS)}
 def _parse_file(path: Path, rel: str) -> Tuple[List[Dict[str, Any]], Dict[str, List[str]]]:
     visitor = _PythonVisitor(rel)
     visitor.visit(ast.parse(path.read_text(encoding="utf-8-sig", errors="replace"), filename=str(path)))
@@ -144,7 +154,13 @@ def _load_index(path: Path, base: Path, max_files: int) -> Optional[Dict[str, An
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
         return None
-    if data.get("version") != _INDEX_VERSION or data.get("root") != str(base) or data.get("max_files") != max_files:
+    if (
+        data.get("version") != _INDEX_VERSION
+        or data.get("root") != str(base)
+        or data.get("max_files") != max_files
+        or data.get("scan_config") != _scan_config()
+        or not isinstance(data.get("entries"), dict)
+    ):
         return None
     return data
 
@@ -162,8 +178,10 @@ def _write_index(path: Path, data: Dict[str, Any]) -> None:
 
 
 def index_code_graph(root: Optional[Path] = None, *, max_files: int = 2000,
-                     cache_dir: Optional[Path] = None, force: bool = False) -> Dict[str, Any]:
-    """Incrementally refresh a local source graph cache using file fingerprints."""
+                     cache_dir: Optional[Path] = None, force: bool = False,
+                     verify_content: bool = False) -> Dict[str, Any]:
+    """Refresh a local graph cache, optionally verifying unchanged files by digest."""
+    started = time.perf_counter()
     base = Path(root or Path.cwd()).resolve()
     path = _index_path(base, cache_dir)
     prior = None if force else _load_index(path, base, max_files)
@@ -177,25 +195,48 @@ def index_code_graph(root: Optional[Path] = None, *, max_files: int = 2000,
         try:
             signature = _file_signature(source)
             old = prior_entries.get(rel)
-            if old and old.get("signature") == signature:
-                entries[rel] = old
-                reused += 1
-                continue
+            old_signature = (old or {}).get("signature") or {}
+            metadata_matches = all(old_signature.get(key) == signature[key] for key in signature)
+            if old and metadata_matches:
+                if not verify_content or old_signature.get("sha256") == _content_digest(source):
+                    entries[rel] = old
+                    reused += 1
+                    continue
             symbols, calls = _parse_file(source, rel)
+            signature["sha256"] = _content_digest(source)
             entries[rel] = {"signature": signature, "symbols": symbols, "calls": calls}
             refreshed += 1
         except (OSError, SyntaxError, ValueError):
             skipped.append(rel)
-    removed = sorted(set(prior_entries) - set(entries))
+    removed_paths = set(prior_entries) - set(entries)
+    added_paths = set(entries) - set(prior_entries)
+    removed_by_digest: DefaultDict[str, List[str]] = defaultdict(list)
+    for rel in removed_paths:
+        digest = str((prior_entries[rel].get("signature") or {}).get("sha256") or "")
+        if digest:
+            removed_by_digest[digest].append(rel)
+    renamed: List[Dict[str, str]] = []
+    for rel in sorted(added_paths):
+        digest = str((entries[rel].get("signature") or {}).get("sha256") or "")
+        matches = removed_by_digest.get(digest) or []
+        if matches:
+            old_rel = matches.pop(0)
+            removed_paths.discard(old_rel)
+            renamed.append({"from": old_rel, "to": rel})
+    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    total_checked = reused + refreshed
+    metadata = {
+        "mode": "full" if prior is None else ("incremental" if refreshed or removed_paths or renamed else "cached"),
+        "reused_files": reused, "refreshed_files": refreshed, "added_files": sorted(added_paths),
+        "removed_files": sorted(removed_paths), "renamed_files": renamed,
+        "verify_content": verify_content, "duration_ms": duration_ms,
+        "cache_hit_rate": round(reused / total_checked, 4) if total_checked else 0.0,
+        "updated_at_ns": time.time_ns(),
+    }
     _write_index(path, {"version": _INDEX_VERSION, "root": str(base), "max_files": max_files,
-                        "entries": entries, "skipped_files": skipped})
-    mode = "full" if prior is None else ("incremental" if refreshed or removed else "cached")
-    return _assemble_graph(base, entries, skipped, max_files, index={
-        "mode": mode, "cache_path": str(path), "reused_files": reused,
-        "refreshed_files": refreshed, "removed_files": removed,
-    })
-
-
+                        "scan_config": _scan_config(), "entries": entries, "skipped_files": skipped,
+                        "last_index": metadata})
+    return _assemble_graph(base, entries, skipped, max_files, index={**metadata, "cache_path": str(path)})
 def code_index_status(root: Optional[Path] = None, *, max_files: int = 2000,
                       cache_dir: Optional[Path] = None) -> Dict[str, Any]:
     """Describe the local incremental index without scanning or modifying source."""
@@ -204,7 +245,8 @@ def code_index_status(root: Optional[Path] = None, *, max_files: int = 2000,
     data = _load_index(path, base, max_files)
     return {"ok": True, "product": "superai.code_intelligence.v1", "root": str(base),
             "cache_path": str(path), "ready": data is not None,
-            "indexed_files": len((data or {}).get("entries") or {}), "version": _INDEX_VERSION}
+            "indexed_files": len((data or {}).get("entries") or {}), "version": _INDEX_VERSION,
+            "scan_config": _scan_config(), "last_index": (data or {}).get("last_index")}
 
 
 def search_code_graph(query: str, root: Optional[Path] = None, *, limit: int = 50) -> Dict[str, Any]:

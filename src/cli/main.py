@@ -6040,17 +6040,18 @@ def code_index_cmd(
 def code_report_cmd(
     report: str = typer.Argument(..., help="architecture | dead-code | status | engine-status"),
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
+    engine: str = typer.Option("native", "--engine", help="native (default) | advanced"),
 ):
     """Report local architecture, dead-code candidates, or engine capability."""
     from core.code_intelligence import architecture_report, code_index_status, dead_code_report
-    from core.code_intelligence_advanced import advanced_engine_status
+    from core.code_intelligence_advanced import advanced_dead_code_report, advanced_engine_status
 
     base = Path(root).resolve() if root else None
     selected = report.lower().replace("-", "_")
     if selected == "architecture":
         out = architecture_report(base)
     elif selected == "dead_code":
-        out = dead_code_report(base)
+        out = advanced_dead_code_report(base) if engine.lower() == "advanced" else dead_code_report(base)
     elif selected == "status":
         out = code_index_status(base)
     elif selected == "engine_status":

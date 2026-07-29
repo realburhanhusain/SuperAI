@@ -50,3 +50,12 @@ hit rate, and elapsed time. Normal incremental runs use a fast metadata check;
 `--verify-content` additionally hashes unchanged files when timestamps may be
 unreliable. `superai code-report status` exposes the latest index metrics. No source
 files are changed by indexing or reporting.
+## Dead-code review and suppressions
+
+`code-report dead-code` and `code-report dead-code --engine advanced` produce low-confidence review candidates only; they never remove files or symbols. For native Python reports, exclude a known indirect use with `.superai/dead-code.json`:
+
+```json
+{"exclude": ["_framework_callback", "src/plugin.py:_registered"]}
+```
+
+Use exact symbol names or `file:name` entries. Suppressions are reported in the JSON result so reviews remain auditable.

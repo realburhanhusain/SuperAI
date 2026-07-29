@@ -4033,15 +4033,14 @@ Sub-order: foundation-like → stub → absent (heuristic).
 
 - **Track:** V6
 - **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
+- **Percent:** **60%**
+- **Heuristic bucket:** `partial`
+- **Code production-ready?** PARTIAL — safe Python private-function candidates with indirect-use exclusions; no methods, classes, modules, or multi-language analysis
+- **Thorough documentation?** PARTIAL — generic Code Intelligence safety guidance; no dedicated N235 operating guide or suppression configuration
+- **Fully tested?** PARTIAL — dedicated Python and MCP regressions cover dynamic references, exports, imports, callbacks, and decorators
+- **Fully implemented:** Conservative candidate reporting with no source modification
+- **Partially implemented:** Python-only static detection; candidates remain low-confidence review evidence
+- **Still incomplete:** Method/class/module analysis, advanced-engine languages, stronger reference resolution, configurable suppressions, dedicated documentation
 ### N236 — Complexity hotspots map
 
 - **Track:** V6

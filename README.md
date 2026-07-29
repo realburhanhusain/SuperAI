@@ -88,6 +88,7 @@ superai web   # http://127.0.0.1:8787  and  /pwa/
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Commands |
 | [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | Security |
 | [docs/architecture.md](docs/architecture.md) | Architecture |
+| [docs/CODE_INTELLIGENCE.md](docs/CODE_INTELLIGENCE.md) | Native and advanced local code intelligence |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
 | [AGENTS.md](AGENTS.md) | Agent rules |
 

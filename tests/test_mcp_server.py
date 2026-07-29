@@ -179,3 +179,15 @@ def test_code_intelligence_phase3_reports_via_mcp(tmp_path: Path):
     assert architecture["report"] == "architecture"
     status = call_tool("superai_code_intelligence", {"action": "status", "root": str(tmp_path)})
     assert status["ready"] is True
+
+def test_code_intelligence_advanced_engine_via_mcp(tmp_path: Path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "sample.ts").write_text("export function bundled_advanced_feature() { return true; }\n", encoding="utf-8")
+    out = call_tool(
+        "superai_code_intelligence",
+        {"action": "search", "engine": "advanced", "root": str(tmp_path), "query": "bundled_advanced"},
+    )
+    assert out["ok"] is True
+    assert out["engine"] == "advanced-local-v1"
+    assert out["count"] == 1

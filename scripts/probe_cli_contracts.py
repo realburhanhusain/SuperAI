@@ -200,13 +200,39 @@ def main() -> int:
 
     results: List[Dict[str, Any]] = []
     skipped: List[Dict[str, str]] = []
+
+    # Sandbox HOME for the WHOLE sweep, not just the fixture retries.
+    #
+    # tests/conftest.py sandboxes pytest, but it does nothing for this script:
+    # every probe here is a raw subprocess, so plain probe() ran against the
+    # developer's real ~/.superai. That is why `bandit` and `pref` passed
+    # standalone and failed only inside the sweep — 200 commands reading and
+    # rewriting one shared state directory, with each other as the noise
+    # source. A measurement harness has to be hermetic or it measures itself.
+    with tempfile.TemporaryDirectory(
+        prefix="superai-sweep-", ignore_cleanup_errors=True
+    ) as sweep_home:
+        sandbox_home = sweep_home
+        (Path(sweep_home) / ".superai").mkdir(parents=True, exist_ok=True)
+        _run_probes(names, args, results, skipped, sandbox_home)
+
+    return _finish(results, skipped, rows, args)
+
+
+def _run_probes(
+    names: List[str],
+    args: argparse.Namespace,
+    results: List[Dict[str, Any]],
+    skipped: List[Dict[str, str]],
+    sandbox_home: str,
+) -> None:
     for i, name in enumerate(names, 1):
         reason = UNINVOKABLE.get(name)
         if reason:
             skipped.append({"command": name, "reason": reason})
             print(f"[{i}/{len(names)}] {name}: skip ({reason})", flush=True)
             continue
-        res = probe(name, args.timeout)
+        res = probe(name, args.timeout, home=sandbox_home)
         # A command that only failed for want of an argument has no contract
         # evidence either way. Retry it with derived arguments in a sandboxed
         # home so the gap resolves to a real verdict instead of "unknown".
@@ -215,6 +241,13 @@ def main() -> int:
         results.append(res)
         print(f"[{i}/{len(names)}] {name}: {res['status']}", flush=True)
 
+
+def _finish(
+    results: List[Dict[str, Any]],
+    skipped: List[Dict[str, str]],
+    rows: List[Dict[str, Any]],
+    args: argparse.Namespace,
+) -> int:
     write_doc(results, skipped, rows, args)
     tally: Dict[str, int] = {}
     for r in results:

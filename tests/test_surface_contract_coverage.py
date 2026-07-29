@@ -186,21 +186,25 @@ def test_json_value_scanner_distinguishes_arrays_from_objects():
 # ---------------------------------------------------------------------------
 
 
-#: Ratchet bounds. Phase 1 took these from 26/229 to 3/93 via the two seams.
+#: Ratchet bounds. Phase 1 took these from 26/229 to 0/75 — the two seams did
+#: the bulk, then the Rich-table-only commands were wrapped individually.
 #: Move them **down** as surfaces are wrapped; never up. A raise means a new
 #: unwrapped public surface landed, which is the regression these guard.
-MAX_UNCOVERED_SPEND = 3
-MAX_UNCOVERED_TOTAL = 93
+MAX_UNCOVERED_SPEND = 0
+MAX_UNCOVERED_TOTAL = 74
 
 #: Commands the static scan calls wrapped but the probe caught printing no
-#: conforming envelope. Latest sweep reported 6; re-running two of them
-#: (``pref``, ``bandit``) by hand showed them passing, so that sidecar reading
-#: is stale and the real figure is 4: ``constitution`` (prints markdown),
-#: ``history`` (prints a Rich table), ``ingest`` (prints a usage hint),
-#: ``memory-ttl`` (crashes — see the plan doc). Bounded at the sidecar's number
-#: so the check is honest about what the recorded evidence says; drop it to 4
-#: after the next sweep, and to 0 as each is fixed.
-MAX_STATIC_PROBE_CONTRADICTIONS = 6
+#: conforming envelope. Down from 6 to 2 now that the Rich-table-only commands
+#: are wrapped.
+#:
+#: The remaining two — ``bandit`` and ``pref`` — are **flaky, not broken**. Both
+#: emit a complete envelope when run standalone (verified repeatedly), and both
+#: read mutable JSON under ``~/.superai/``; they only fail inside the 211-command
+#: sweep. Most likely another command in the sweep rewrites that state, or the
+#: file is read mid-write. Bounded at 2 and named rather than silently excluded,
+#: because a flaky reading is a real finding about either the commands or the
+#: probe, and hiding it would be the same failure as a silent skip.
+MAX_STATIC_PROBE_CONTRADICTIONS = 2
 
 
 def test_spend_surfaces_coverage_ratchet():

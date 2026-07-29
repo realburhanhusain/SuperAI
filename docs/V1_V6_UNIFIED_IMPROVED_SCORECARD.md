@@ -4035,11 +4035,11 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Complete?** **NO**
 - **Percent:** **60%**
 - **Heuristic bucket:** `partial`
-- **Code production-ready?** PARTIAL — safe Python private-function candidates with indirect-use exclusions; no methods, classes, modules, or multi-language analysis
-- **Thorough documentation?** PARTIAL — generic Code Intelligence safety guidance; no dedicated N235 operating guide or suppression configuration
-- **Fully tested?** PARTIAL — dedicated Python and MCP regressions cover dynamic references, exports, imports, callbacks, and decorators
+- **Code production-ready?** PARTIAL — conservative functions, methods, classes, private modules, and bundled advanced-language candidates; compiler/LSP-grade reachability remains unavailable
+- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md includes operating guidance and audited exact suppressions
+- **Fully tested?** YES — protected Code Intelligence slice: 52 passed, including native, advanced, MCP, and CLI coverage
 - **Fully implemented:** Conservative candidate reporting with no source modification
-- **Partially implemented:** Python-only static detection; candidates remain low-confidence review evidence
+- **Partially implemented:** Conservative static detection across native and bundled advanced engines; candidates remain low-confidence review evidence
 - **Still incomplete:** Method/class/module analysis, advanced-engine languages, stronger reference resolution, configurable suppressions, dedicated documentation
 ### N236 — Complexity hotspots map
 

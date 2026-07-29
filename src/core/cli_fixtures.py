@@ -52,6 +52,24 @@ OVERRIDES: Dict[str, str] = {
     # ``test_overrides_target_live_parameters``, which exists precisely because
     # an override naming a non-existent parameter is a silent no-op.
     "validate-json text": "{}",
+    # ``propose`` parses this with json.loads; a plain string raises.
+    "propose payload": "{}",
+    # ``models-register`` needs an OpenAI-compatible base URL. The derivation
+    # refuses to invent URLs so a probe never makes a network call — but this
+    # command only *records* the endpoint, it does not contact it, so a loopback
+    # placeholder is safe and still exercises the real code path.
+    "models-register base_url": "http://127.0.0.1:1/v1",
+}
+
+#: Extra argv appended for commands whose required input is an *option* that
+#: introspection cannot see as required, keyed by command path.
+#:
+#: ``ci-why`` declares ``--file`` and ``--text`` optional but rejects being
+#: called with neither ("Provide --file or --text"). Click cannot express
+#: "exactly one of these", so no amount of parameter introspection finds it —
+#: this is the one case where a hand-written value is genuinely unavoidable.
+EXTRA_ARGS: Dict[str, List[str]] = {
+    "ci-why": ["--text", "Traceback (most recent call last): AssertionError: x"],
 }
 
 #: Commands that must not be invoked even with valid arguments, and why.
@@ -64,6 +82,14 @@ REFUSE: Dict[str, str] = {
     "restore": "overwrites files from a backup archive",
     "update": "self-update; mutates the installed package",
     "shell": "executes an arbitrary shell command",
+    # These two enforce the workspace jail (M006): a path outside the repo is
+    # rejected with "must be under workspace". The probe writes its fixtures to
+    # a sandboxed HOME precisely so it cannot touch real state, so satisfying
+    # the jail would mean writing into the working tree during a read-only
+    # sweep. The jail is a security control working correctly — the right
+    # answer is to refuse, not to weaken either side.
+    "diff-edit": "enforces the workspace jail; probe fixtures live outside the repo",
+    "notebook": "enforces the workspace jail; probe fixtures live outside the repo",
 }
 
 
@@ -162,6 +188,17 @@ def synthesize_args(
     if node is None:
         return {"ok": False, "command": command, "reason": "command not resolvable", "args": None}
 
+    # A Typer *group* has no result to contract — invoking it prints
+    # "Missing command." Its subcommands are the real surfaces.
+    if hasattr(node, "get_command"):
+        return {
+            "ok": False,
+            "command": command,
+            "reason": "command group, not an invokable command",
+            "args": None,
+            "is_group": True,
+        }
+
     args: List[str] = []
     how: Dict[str, str] = {}
     try:
@@ -186,6 +223,12 @@ def synthesize_args(
         else:
             args.append(value)
         how[str(param.name)] = provenance
+
+    # Options a command requires but does not declare required (see EXTRA_ARGS).
+    extra = EXTRA_ARGS.get(command)
+    if extra:
+        args.extend(extra)
+        how["<extra_args>"] = "extra-args"
 
     return {"ok": True, "command": command, "args": args, "how": how}
 

@@ -33,6 +33,7 @@ def review_diff(
     use_clis: bool = True,
     clis: Optional[list] = None,
     dry_run: bool = False,
+    code_impact: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Review a diff via multi-CLI advisory board (preferred) and/or model council.
@@ -56,10 +57,22 @@ def review_diff(
         block.setdefault("product", "pr_review")
         return block
 
+    impact_text = ""
+    if isinstance(code_impact, dict) and code_impact.get("ok"):
+        changed = [str(x.get("qualified_name") or x.get("name")) for x in (code_impact.get("changed_symbols") or [])[:12] if isinstance(x, dict)]
+        affected = [str(x.get("qualified_name") or x.get("name")) for x in (code_impact.get("impacted_symbols") or [])[:12] if isinstance(x, dict)]
+        tests = [str(x) for x in (code_impact.get("impacted_tests") or [])[:12]]
+        impact_text = (
+            "\n\nLocal static code-impact evidence (not model-generated):\n"
+            f"risk={code_impact.get('risk') or 'unknown'}\n"
+            f"changed_symbols={', '.join(changed) or 'none resolved'}\n"
+            f"affected_callers={', '.join(affected) or 'none resolved'}\n"
+            f"suggested_tests={', '.join(tests) or 'none'}"
+        )
     topic = (
         "Code review this diff. Vote on merge readiness "
         "(approve | request_changes | reject).\n\n"
-        f"```diff\n{diff[:12000]}\n```"
+        f"```diff\n{diff[:12000]}\n```{impact_text}"
     )
 
     cli_board = None
@@ -119,6 +132,7 @@ def review_diff(
         "protocol": "superai.pr_review.v2",
         "mock": bool(use_mock),
         "dry_run": bool(dry_run or use_mock),
+        "code_impact": code_impact,
     }
     try:
         from .result_contract import apply_contract
@@ -146,8 +160,15 @@ def review_local(
     diff = get_git_diff(ref)
     if not diff.strip():
         return {"ok": False, "error": "empty diff", "ref": ref}
+    impact = None
+    try:
+        from .code_intelligence import code_impact
+        impact = code_impact(root=workspace_root(), ref=ref)
+    except Exception as e:  # noqa: BLE001
+        impact = {"ok": False, "error": str(e)[:300]}
     out = review_diff(
-        diff, use_mock=use_mock, use_clis=use_clis, clis=clis, dry_run=dry_run
+        diff, use_mock=use_mock, use_clis=use_clis, clis=clis, dry_run=dry_run,
+        code_impact=impact,
     )
     out["ref"] = ref
     out["diff_chars"] = len(diff)

@@ -2306,7 +2306,11 @@ def config_show():
 def config_get(key: str = typer.Argument(..., help="Config key")):
     """Get a configuration value"""
     cfg = Config()
-    console.print(cfg.get(key))
+    value = cfg.get(key)
+    render_public(
+        {"ok": True, "key": key, "value": value, "found": value is not None},
+        human_fn=lambda d: console.print(d.get("value")),
+    )
 
 
 @config_app.command("set")
@@ -2329,7 +2333,12 @@ def config_set(
             except ValueError:
                 parsed = value
     cfg.set(key, parsed, persist=True)
-    console.print(f"[green]Set {key} = {parsed}[/green]")
+    render_public(
+        {"ok": True, "key": key, "value": parsed, "persisted": True},
+        human_fn=lambda d: console.print(
+            f"[green]Set {d.get('key')} = {d.get('value')}[/green]"
+        ),
+    )
 
 
 @app.command()
@@ -2705,10 +2714,22 @@ def skill_promote(name: str = typer.Argument(..., help="Skill name to promote fr
     from core.skills import SkillsManager
 
     sm = SkillsManager()
-    if sm.promote_skill(name):
-        console.print(f"[green]Promoted skill:[/green] {name}")
-    else:
-        console.print(f"[red]Skill not found:[/red] {name}")
+    promoted = bool(sm.promote_skill(name))
+    render_public(
+        {
+            "ok": promoted,
+            "product": "skill.promote",
+            "skill": name,
+            "promoted": promoted,
+            **({} if promoted else {"error": f"Skill not found: {name}", "error_code": "not_found"}),
+        },
+        human_fn=lambda d: console.print(
+            f"[green]Promoted skill:[/green] {d.get('skill')}"
+            if d.get("promoted")
+            else f"[red]Skill not found:[/red] {d.get('skill')}"
+        ),
+    )
+    if not promoted:
         raise _cli_exit(code=1)
 
 
@@ -2718,10 +2739,25 @@ def skill_rollback(name: str = typer.Argument(..., help="Skill name to rollback 
     from core.skills import SkillsManager
 
     sm = SkillsManager()
-    if sm.rollback_skill(name):
-        console.print(f"[green]Rolled back skill:[/green] {name}")
-    else:
-        console.print(f"[yellow]Nothing to rollback or skill missing:[/yellow] {name}")
+    rolled = bool(sm.rollback_skill(name))
+    render_public(
+        {
+            "ok": rolled,
+            "product": "skill.rollback",
+            "skill": name,
+            "rolled_back": rolled,
+            **({} if rolled else {
+                "error": f"Nothing to rollback or skill missing: {name}",
+                "error_code": "not_found",
+            }),
+        },
+        human_fn=lambda d: console.print(
+            f"[green]Rolled back skill:[/green] {d.get('skill')}"
+            if d.get("rolled_back")
+            else f"[yellow]Nothing to rollback or skill missing:[/yellow] {d.get('skill')}"
+        ),
+    )
+    if not rolled:
         raise _cli_exit(code=1)
 
 
@@ -3776,22 +3812,27 @@ def tt_list(path: str = typer.Argument(..., help="File path")):
     from core.time_travel import FileTimeTravel
 
     versions = FileTimeTravel().list_versions(path)
-    if not versions:
-        console.print("[yellow]No versions[/yellow]")
-        return
-    table = Table(title=f"Versions for {path}")
-    table.add_column("Ver")
-    table.add_column("When")
-    table.add_column("Size")
-    table.add_column("Note")
-    for v in versions:
-        table.add_row(
-            str(v.get("version")),
-            str(v.get("created_at")),
-            str(v.get("size")),
-            str(v.get("note") or ""),
-        )
-    console.print(table)
+
+    def _human(data):
+        rows = data.get("versions") or []
+        if not rows:
+            console.print("[yellow]No versions[/yellow]")
+            return
+        table = Table(title=f"Versions for {data.get('path')}")
+        for col in ("Ver", "When", "Size", "Note"):
+            table.add_column(col)
+        for v in rows:
+            table.add_row(
+                str(v.get("version")),
+                str(v.get("created_at")),
+                str(v.get("size")),
+                str(v.get("note") or ""),
+            )
+        console.print(table)
+
+    payload = _list_payload("versions", versions)
+    payload["path"] = path
+    render_public(payload, human_fn=_human)
 
 
 @app.command("tt-restore")
@@ -5568,7 +5609,12 @@ def set_supervisor(model: str = typer.Argument(..., help="Default supervisor mod
     """Persist default supervisor model"""
     cfg = Config()
     cfg.set("default_supervisor", model, persist=True)
-    console.print(f"[green]Default supervisor set to:[/green] {model}")
+    render_public(
+        {"ok": True, "product": "set_supervisor", "supervisor": model},
+        human_fn=lambda d: console.print(
+            f"[green]Default supervisor set to:[/green] {d.get('supervisor')}"
+        ),
+    )
 
 
 @app.command("set-strategy")
@@ -5579,7 +5625,10 @@ def set_strategy(strategy: str = typer.Argument(..., help="Load balancing strate
     parsed = parse_strategy(strategy)
     cfg = Config()
     cfg.set("load_balancing_strategy", parsed.value, persist=True)
-    console.print(f"[green]Strategy set to:[/green] {parsed.value}")
+    render_public(
+        {"ok": True, "product": "set_strategy", "strategy": parsed.value},
+        human_fn=lambda d: console.print(f"[green]Strategy set to:[/green] {d.get('strategy')}"),
+    )
 
 
 @app.command("routing-stats")
@@ -6041,7 +6090,11 @@ def memory_sync_cmd(
     from pathlib import Path as P
 
     if action == "export":
-        console.print(f"[green]{export_encrypted_memory(password, P(path))}[/green]")
+        out = export_encrypted_memory(password, P(path))
+        render_public(
+            {"ok": True, "product": "memory_sync.export", "path": str(out)},
+            human_fn=lambda d: console.print(f"[green]{d.get('path')}[/green]"),
+        )
         return
     if action == "import":
         console.print_json(
@@ -7993,16 +8046,40 @@ def triage_log_cmd(
     else:
         res = triage_stack_trace(log_path)
 
-    if not res.has_error:
-        console.print("[bold green]No stack trace / error detected in log.[/bold green]")
-        return
+    payload = {
+        "ok": True,
+        "product": "log_triage",
+        "has_error": bool(res.has_error),
+        "exception_type": res.exception_type,
+        "exception_message": res.exception_message,
+        "suggested_fix": res.suggested_fix,
+        "top_frame": (
+            {
+                "file": res.top_frame.filename,
+                "line": res.top_frame.line_number,
+                "function": res.top_frame.function_name,
+            }
+            if res.top_frame
+            else None
+        ),
+    }
 
-    console.print(f"[bold red]Exception:[/bold red] {res.exception_type}")
-    if res.exception_message:
-        console.print(f"[bold red]Details:[/bold red] {res.exception_message}")
-    if res.top_frame:
-        console.print(f"[bold yellow]Location:[/bold yellow] {res.top_frame.filename}:{res.top_frame.line_number} in `{res.top_frame.function_name}`")
-    console.print(f"[bold cyan]Suggested Fix:[/bold cyan] {res.suggested_fix}")
+    def _human(data):
+        if not data.get("has_error"):
+            console.print("[bold green]No stack trace / error detected in log.[/bold green]")
+            return
+        console.print(f"[bold red]Exception:[/bold red] {data.get('exception_type')}")
+        if data.get("exception_message"):
+            console.print(f"[bold red]Details:[/bold red] {data.get('exception_message')}")
+        frame = data.get("top_frame")
+        if frame:
+            console.print(
+                f"[bold yellow]Location:[/bold yellow] {frame['file']}:{frame['line']} "
+                f"in `{frame['function']}`"
+            )
+        console.print(f"[bold cyan]Suggested Fix:[/bold cyan] {data.get('suggested_fix')}")
+
+    render_public(payload, human_fn=_human)
 
 
 test_app = typer.Typer(name="test", help="Test discovery and execution tools (V6 S105)")
@@ -8037,15 +8114,22 @@ def check_lint_cmd(
     from core.lint_typecheck import run_post_edit_checks
 
     res = run_post_edit_checks(files)
-    if res["ok"]:
-        console.print(f"[bold green]CLEAN ({res['file_count']} file(s)):[/bold green] No lint or AST issues found.")
-    else:
-        console.print(f"[bold red]LINT ISSUES FOUND:[/bold red]")
-        for r in res["results"]:
+
+    def _human(data):
+        if data.get("ok"):
+            console.print(
+                f"[bold green]CLEAN ({data.get('file_count')} file(s)):[/bold green] "
+                "No lint or AST issues found."
+            )
+            return
+        console.print("[bold red]LINT ISSUES FOUND:[/bold red]")
+        for r in data.get("results") or []:
             if not r["clean"]:
                 console.print(f"  • [yellow]{r['file']}[/yellow]:")
                 for i in r["issues"]:
                     console.print(f"    - line {i['line']}: [{i['code']}] {i['message']}")
+
+    render_public(res, human_fn=_human)
 
 
 @check_app.command("license")
@@ -8142,13 +8226,31 @@ def symbol_search_cmd(
     from core.symbol_nav import search_symbols
 
     results = search_symbols(query)
-    if not results:
-        console.print(f"[yellow]No symbols found matching '{query}'.[/yellow]")
-        return
+    rows = [
+        {
+            "kind": sym.kind,
+            "name": sym.name,
+            "file": sym.file_path,
+            "line": sym.line_number,
+        }
+        for sym in results
+    ]
 
-    console.print(f"[bold green]Found {len(results)} symbol(s):[/bold green]")
-    for s in results:
-        console.print(f"  • [[cyan]{s.kind}[/cyan]] [bold]{s.name}[/bold] in `{s.file_path}:{s.line_number}`")
+    def _human(data):
+        found = data.get("symbols") or []
+        if not found:
+            console.print(f"[yellow]No symbols found matching '{data.get('query')}'.[/yellow]")
+            return
+        console.print(f"[bold green]Found {len(found)} symbol(s):[/bold green]")
+        for sym in found:
+            console.print(
+                f"  • [[cyan]{sym['kind']}[/cyan]] [bold]{sym['name']}[/bold] "
+                f"in `{sym['file']}:{sym['line']}`"
+            )
+
+    payload = _list_payload("symbols", rows)
+    payload["query"] = query
+    render_public(payload, human_fn=_human)
 
 
 budget_app = typer.Typer(name="budget", help="Spend budget guard commands (V6 S132)")
@@ -8166,8 +8268,15 @@ def budget_command_set_cmd(
     """Set per-command spend budget override (V6 S132)."""
     from core.command_budget import set_command_budget
 
-    res = set_command_budget(command_name, max_usd)
-    console.print(f"[bold green]Updated command budget:[/bold green] `{res['command']}` = ${res['max_usd']:.2f}")
+    res = dict(set_command_budget(command_name, max_usd) or {})
+    res.setdefault("ok", True)
+    render_public(
+        res,
+        human_fn=lambda d: console.print(
+            f"[bold green]Updated command budget:[/bold green] "
+            f"`{d.get('command')}` = ${d.get('max_usd', 0):.2f}"
+        ),
+    )
 
 
 @budget_cmd_app.command("get")
@@ -8178,10 +8287,22 @@ def budget_command_get_cmd(
     from core.command_budget import get_command_budget
 
     limit = get_command_budget(command_name)
-    if limit is None:
-        console.print(f"[yellow]No spend limit set for command '{command_name}'.[/yellow]")
-    else:
-        console.print(f"[bold green]Budget limit for '{command_name}':[/bold green] ${limit:.2f}")
+
+    def _human(data):
+        if data.get("max_usd") is None:
+            console.print(
+                f"[yellow]No spend limit set for command '{data.get('command')}'.[/yellow]"
+            )
+        else:
+            console.print(
+                f"[bold green]Budget limit for '{data.get('command')}':[/bold green] "
+                f"${data['max_usd']:.2f}"
+            )
+
+    render_public(
+        {"ok": True, "command": command_name, "max_usd": limit, "configured": limit is not None},
+        human_fn=_human,
+    )
 
 
 @budget_cmd_app.command("list")
@@ -8379,7 +8500,10 @@ def git_suggest_branch_cmd(
     """Suggest a conventional git branch name."""
     from core.git_helpers import suggest_branch_name
 
-    console.print(suggest_branch_name(description))
+    render_public(
+        {"ok": True, "product": "git.suggest_branch", "branch": suggest_branch_name(description)},
+        human_fn=lambda d: console.print(d.get("branch")),
+    )
 
 
 @git_app.command("suggest-commit")
@@ -8391,7 +8515,14 @@ def git_suggest_commit_cmd(
     """Suggest a conventional git commit message."""
     from core.git_helpers import suggest_commit_message
 
-    console.print(suggest_commit_message(description, scope=scope, type=type))
+    render_public(
+        {
+            "ok": True,
+            "product": "git.suggest_commit",
+            "message": suggest_commit_message(description, scope=scope, type=type),
+        },
+        human_fn=lambda d: console.print(d.get("message")),
+    )
 
 
 @git_app.command("explain-pr")
@@ -8414,10 +8545,26 @@ def git_resolve_conflicts_cmd(
     from core.merge_conflict_helper import analyze_file_conflicts
 
     res = analyze_file_conflicts(file_path)
-    if not res.has_conflicts:
-        console.print("[bold green]CLEAN:[/bold green] No merge conflict markers found.")
-    else:
-        console.print(f"[bold red]MERGE CONFLICTS ({res.conflict_count} block(s)):[/bold red] {res.recommendation}")
+
+    def _human(data):
+        if not data.get("has_conflicts"):
+            console.print("[bold green]CLEAN:[/bold green] No merge conflict markers found.")
+        else:
+            console.print(
+                f"[bold red]MERGE CONFLICTS ({data.get('conflict_count')} block(s)):"
+                f"[/bold red] {data.get('recommendation')}"
+            )
+
+    render_public(
+        {
+            "ok": True,
+            "file": file_path,
+            "has_conflicts": bool(res.has_conflicts),
+            "conflict_count": res.conflict_count,
+            "recommendation": res.recommendation,
+        },
+        human_fn=_human,
+    )
 
 
 pi_app = typer.Typer(
@@ -8440,10 +8587,28 @@ def pi_scan_cmd(
     from core.prompt_injection import scan_prompt_injection
 
     res = scan_prompt_injection(payload)
-    if res.is_safe:
-        console.print("[bold green]SAFE:[/bold green] No prompt injection threats detected.")
-    else:
-        console.print(f"[bold red]THREAT DETECTED ({res.risk_score:.2f}):[/bold red] {res.threat_summary}")
+
+    def _human(data):
+        if data.get("is_safe"):
+            console.print(
+                "[bold green]SAFE:[/bold green] No prompt injection threats detected."
+            )
+        else:
+            console.print(
+                f"[bold red]THREAT DETECTED ({data.get('risk_score', 0):.2f}):"
+                f"[/bold red] {data.get('threat_summary')}"
+            )
+
+    render_public(
+        {
+            "ok": True,
+            "product": "prompt_injection.scan",
+            "is_safe": bool(res.is_safe),
+            "risk_score": float(res.risk_score),
+            "threat_summary": res.threat_summary,
+        },
+        human_fn=_human,
+    )
 
 
 @pi_app.command("wrap")
@@ -8474,12 +8639,41 @@ def sec_scan_secrets_cmd(
     else:
         res = scan_text_for_secrets(target)
 
-    if not res.has_secrets:
-        console.print("[bold green]CLEAN:[/bold green] No secret leaks or exposed credentials detected.")
-    else:
-        console.print(f"[bold red]SECURITY ALERT ({len(res.findings)} secret finding(s)):[/bold red]")
-        for f in res.findings:
-            console.print(f"  • Line {f.line_number} [{f.secret_type}]: {f.description}")
+    findings = [
+        {
+            "line": f.line_number,
+            "secret_type": f.secret_type,
+            "description": f.description,
+        }
+        for f in res.findings
+    ]
+
+    def _human(data):
+        rows = data.get("findings") or []
+        if not rows:
+            console.print(
+                "[bold green]CLEAN:[/bold green] No secret leaks or exposed credentials detected."
+            )
+            return
+        console.print(
+            f"[bold red]SECURITY ALERT ({len(rows)} secret finding(s)):[/bold red]"
+        )
+        for f in rows:
+            console.print(
+                f"  • Line {f['line']} [{f['secret_type']}]: {f['description']}"
+            )
+
+    render_public(
+        {
+            "ok": True,
+            "product": "security.scan_secrets",
+            "target": target,
+            "has_secrets": bool(res.has_secrets),
+            "findings": findings,
+            "count": len(findings),
+        },
+        human_fn=_human,
+    )
 
 
 @app.command("ci-fix")

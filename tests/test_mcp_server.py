@@ -23,6 +23,7 @@ def test_tools_list_includes_memory_and_cli():
         "superai_cli_parallel",
         "superai_learn",
         "superai_central_memory_status",
+        "superai_code_intelligence",
     ):
         assert need in names
 
@@ -155,3 +156,15 @@ def test_tools_call_jsonrpc(tmp_path: Path, monkeypatch):
     assert resp["result"]["isError"] is False
     body = json.loads(resp["result"]["content"][0]["text"])
     assert body.get("store") == "MemoryPalace"
+
+
+def test_code_intelligence_via_mcp(tmp_path: Path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "sample.py").write_text("def native_graph_feature():\n    return True\n", encoding="utf-8")
+    out = call_tool(
+        "superai_code_intelligence",
+        {"action": "search", "root": str(tmp_path), "query": "native_graph"},
+    )
+    assert out["ok"] is True
+    assert out["count"] == 1

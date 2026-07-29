@@ -95,13 +95,17 @@ def _value_for(param: Any, command: str, tmp_path: Optional[str]) -> Tuple[Optio
     # The codebase documents most action arguments as "a | b | c" in help.
     from_help = _first_choice(str(getattr(param, "help", "") or ""))
     if from_help:
-        return from_help, "choice-in-help"
+        return from_help, "choice-in-help"    # Click's human-readable ``name`` varies by release (notably under the
+    # Python 3.14 toolchain), so use its stable parameter-type classes.
+    try:
+        import click
 
-    type_name = getattr(ptype, "name", "") or ""
-    if type_name == "float":
-        return "0.01", "type-default"
-    if type_name == "integer":
-        return "1", "type-default"
+        if isinstance(ptype, click.types.FloatParamType):
+            return "0.01", "type-default"
+        if isinstance(ptype, click.types.IntParamType):
+            return "1", "type-default"
+    except Exception:
+        pass
 
     lowered = name.lower()
     if any(h in lowered for h in _URL_HINTS):

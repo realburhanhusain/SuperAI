@@ -107,3 +107,10 @@ def test_dead_code_excludes_callback_exports_and_imports(tmp_path: Path):
     _write(tmp_path, "src/use.py", "from src.core import _callback\ncallbacks = [_callback]\n")
     out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
     assert [item["name"] for item in out["candidates"]] == ["_unused"]
+
+def test_dead_code_honors_exact_suppressions(tmp_path: Path):
+    _write(tmp_path, "src/core.py", "def _suppressed():\n    return 1\n\ndef _candidate():\n    return 2\n")
+    _write(tmp_path, ".superai/dead-code.json", '{"exclude": ["_suppressed"]}')
+    out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
+    assert [item["name"] for item in out["candidates"]] == ["_candidate"]
+    assert out["suppressions"] == ["_suppressed"]

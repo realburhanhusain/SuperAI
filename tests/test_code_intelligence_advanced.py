@@ -4,6 +4,7 @@ from pathlib import Path
 
 from core.code_intelligence_advanced import (
     advanced_code_impact,
+    advanced_dead_code_report,
     advanced_engine_status,
     build_advanced_code_graph,
     search_advanced_code_graph,
@@ -39,3 +40,10 @@ def test_advanced_search_impact_and_status_are_local(tmp_path: Path):
     status = advanced_engine_status()
     assert status["dependencies"] == []
     assert "typescript" in status["languages"]
+
+def test_advanced_dead_code_report_is_conservative(tmp_path: Path):
+    _write(tmp_path, "src/sample.ts", "function _unused() { return true; }\nfunction used() { return _unused(); }\n")
+    _write(tmp_path, "src/other.ts", "function _orphan() { return true; }\n")
+    out = advanced_dead_code_report(tmp_path)
+    assert out["engine"] == "advanced-local-v1"
+    assert [item["name"] for item in out["candidates"]] == ["_orphan"]

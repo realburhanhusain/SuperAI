@@ -12,7 +12,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
 
-from .code_intelligence import build_code_graph, changed_files
+from .code_intelligence import _dead_code_exclusions, _dead_code_suppressions, build_code_graph, changed_files
 from .workspace_index import SKIP_DIRS
 
 _ENGINE = "advanced-local-v1"
@@ -197,3 +197,22 @@ def advanced_code_impact(*, root: Optional[Path] = None, ref: str = "HEAD~1",
             "coverage": graph["coverage"], "limitations": graph["limitations"],
             "stats": {"changed_files": len(modified), "changed_symbols": len(seeds),
                       "impacted_symbols": len(impacted), "impacted_tests": len(tests)}}
+
+def advanced_dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000) -> Dict[str, Any]:
+    """Return low-confidence private symbol candidates across bundled languages."""
+    graph = build_advanced_code_graph(root, max_files=max_files)
+    incoming = {str(edge["to"]) for edge in graph["edges"]}
+    base = Path(graph["root"])
+    dynamic_refs, value_refs, decorated = _dead_code_exclusions(base, max_files)
+    suppressions = _dead_code_suppressions(base)
+    candidates = []
+    for item in graph["symbols"]:
+        name = str(item["name"])
+        if item["kind"] not in {"function", "async_function", "class"} or not name.startswith("_") or name.startswith("__") or item.get("is_test") or str(item["id"]) in incoming:
+            continue
+        if item.get("language") == "python" and (name in dynamic_refs or name in value_refs or (str(item["file"]), int(item["line"])) in decorated):
+            continue
+        if name in suppressions or f"{item['file']}:{name}" in suppressions:
+            continue
+        candidates.append({"id": item["id"], "file": item["file"], "name": name, "line": item["line"], "language": item.get("language", "python"), "kind": item["kind"], "confidence": "low", "reason": "private symbol has no uniquely resolved inbound call"})
+    return {"ok": True, "product": graph["product"], "engine": _ENGINE, "report": "dead_code_candidates", "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"], "suppressions": sorted(suppressions), "limitations": graph["limitations"] + ["Candidates are review evidence only; no source files are modified"]}

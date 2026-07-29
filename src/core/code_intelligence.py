@@ -315,12 +315,21 @@ def _dead_code_exclusions(root: Path, max_files: int) -> Tuple[Set[str], Set[str
                 if isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
                     dynamic_refs.update(item.value for item in node.value.elts if isinstance(item, ast.Constant) and isinstance(item.value, str))
     return dynamic_refs, value_refs, decorated
+def _dead_code_suppressions(root: Path) -> Set[str]:
+    """Load optional exact candidate suppressions from .superai/dead-code.json."""
+    try:
+        data = json.loads((root / ".superai" / "dead-code.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return set()
+    return {str(item) for item in (data.get("exclude") or []) if isinstance(item, str)}
 def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
                      cache_dir: Optional[Path] = None) -> Dict[str, Any]:
     """Return conservative private-function candidates, never deletion instructions."""
     graph = index_code_graph(root, max_files=max_files, cache_dir=cache_dir)
     incoming = {str(edge["to"]) for edge in graph["edges"]}
-    dynamic_refs, value_refs, decorated = _dead_code_exclusions(Path(graph["root"]), max_files)
+    base = Path(graph["root"])
+    dynamic_refs, value_refs, decorated = _dead_code_exclusions(base, max_files)
+    suppressions = _dead_code_suppressions(base)
     candidates = [
         {"id": item["id"], "file": item["file"], "name": item["name"], "line": item["line"],
          "reason": "private function has no uniquely resolved inbound call", "confidence": "low", "evidence": {"inbound_calls": 0, "dynamic_reference": False, "decorated": False}}
@@ -329,10 +338,11 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
         and not str(item["name"]).startswith("__") and not item.get("is_test") and str(item["id"]) not in incoming
         and str(item["name"]) not in dynamic_refs and str(item["name"]) not in value_refs
         and (str(item["file"]), int(item["line"])) not in decorated
+        and str(item["name"]) not in suppressions and f"{item["file"]}:{item["name"]}" not in suppressions
     ]
     return {"ok": True, "product": graph["product"], "report": "dead_code_candidates",
             "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"],
-            "index": graph["index"], "limitations": [
+            "index": graph["index"], "suppressions": sorted(suppressions), "limitations": [
                 "Candidates are not proof of dead code", "Dynamic lookups, exports, imports, callbacks, and decorated functions are excluded", "Dynamic imports, callbacks, reflection, and external callers are not resolved",
                 "No source files are modified"],}
 

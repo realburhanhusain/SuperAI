@@ -235,7 +235,11 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     # with a stated reason), 176 commands proven by real invocation, and a green
     # full suite (1010 passed) — the first since the strict bar was introduced.
     "V1-P1-1": T(True, True, True, 100, "result_contract + contract_console/middleware seams", "PLAN_CONTRACT_SPEND_RESIDUALS + PUBLIC_SURFACE_COVERAGE", "test_result_contract + test_surface_contract_coverage", ""),
-    "V1-P1-3": T(True, True, True, 85, "budget foundation", "P1 plan (archive)", "tests", "Universal ceiling incomplete"),
+    # Promoted 2026-07-29 (Phase 2): core/spend_gate.py gates all 32 gated
+    # spend commands at the CLI front door with command_name, so the S132
+    # per-command ceilings finally bind; audit_m001 proves ModelCaller via ast
+    # instead of inspect.getsource, which failed under packaged installs.
+    "V1-P1-3": T(True, True, True, 100, "spend_gate CLI ceiling + ast audit_m001", "PLAN_CONTRACT_SPEND_RESIDUALS", "test_spend_gate + test_foundation_safety_m001_m008_m018", ""),
     # Promoted 2026-07-29 (Phase 3): estimate_source is now one canonical field
     # (actual > registry > fallback) on every cost-bearing result, aggregates
     # take the weakest link, and budget_precheck prices from the registry

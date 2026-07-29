@@ -236,7 +236,11 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     # full suite (1010 passed) — the first since the strict bar was introduced.
     "V1-P1-1": T(True, True, True, 100, "result_contract + contract_console/middleware seams", "PLAN_CONTRACT_SPEND_RESIDUALS + PUBLIC_SURFACE_COVERAGE", "test_result_contract + test_surface_contract_coverage", ""),
     "V1-P1-3": T(True, True, True, 85, "budget foundation", "P1 plan (archive)", "tests", "Universal ceiling incomplete"),
-    "V1-P1-4": T(True, True, True, 85, "cost fields", "P1 plan (archive)", "tests", "Accuracy gaps"),
+    # Promoted 2026-07-29 (Phase 3): estimate_source is now one canonical field
+    # (actual > registry > fallback) on every cost-bearing result, aggregates
+    # take the weakest link, and budget_precheck prices from the registry
+    # instead of a flat 0.1 USD.
+    "V1-P1-4": T(True, True, True, 100, "cost fields + canonical estimate_source", "COST_ACCOUNTING.md", "test_estimate_source + test_cost_accounting_m002", ""),
     "V1-P5-2": T(True, True, True, 85, "progress + stream", "P5 plan (archive)", "tests", "True SSE all providers incomplete"),
     "V2-A4": T(True, True, True, 100, "contracts tool/agent via contract_console seam (264 call sites)", "PLAN_CONTRACT_SPEND_RESIDUALS", "test_surface_contract_coverage + test_surface_inventory", ""),
     "V2-B3": T(True, True, True, 90, "session_compact", "V2 plan (archive)", "tests", "Decision/todo edge cases"),

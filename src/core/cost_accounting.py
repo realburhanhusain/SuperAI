@@ -130,6 +130,40 @@ def rates_for_model(model: str, registry: Any = None) -> Dict[str, Any]:
     }
 
 
+#: Canonical provenance for any cost number, most trustworthy first.
+ESTIMATE_SOURCES = ("actual", "registry", "fallback")
+
+
+def resolve_estimate_source(cost_source: str, pricing_source: str) -> str:
+    """
+    Collapse the two provenance fields into one canonical answer.
+
+    Cost provenance was spread across three names meaning different things:
+    ``cost_source`` (usage / estimate / zero_local) says where the *tokens*
+    came from, ``pricing_source`` (registry / registry_io / heuristic) says
+    where the *rate* came from, and ``estimate_source`` existed on exactly one
+    public contract, in ``board_preflight``. A consumer could not tell a
+    metered figure from a guessed one without knowing all three.
+
+    One field, three values, ordered by how far a caller should trust it:
+
+    - ``actual``   — metered provider usage, or a genuine $0 for a local/CLI
+                     model where nothing was estimated
+    - ``registry`` — estimated tokens priced with real registry rates
+    - ``fallback`` — heuristic rates; the model is not in the registry
+
+    ``cost_source`` and ``pricing_source`` are still emitted unchanged, so
+    nothing reading them breaks.
+    """
+    if cost_source == "zero_local" or pricing_source == "zero_local":
+        return "actual"
+    if cost_source == "usage":
+        return "actual"
+    if pricing_source in {"registry", "registry_io"}:
+        return "registry"
+    return "fallback"
+
+
 def rate_per_1k(model: str, registry: Any = None) -> float:
     return float(rates_for_model(model, registry=registry)["rate_per_1k"])
 
@@ -233,6 +267,9 @@ def from_usage(
         "estimated_cost_usd": round(float(usd), 6),
         "cost_source": source,
         "pricing_source": pricing["source"],
+        # Canonical provenance; cost_source/pricing_source kept for callers
+        # that already read them.
+        "estimate_source": resolve_estimate_source(source, str(pricing["source"])),
     }
 
 
@@ -313,6 +350,7 @@ def aggregate_costs(
     total_usd = 0.0
     total_tok = 0
     sources: List[str] = []
+    agg_estimate_sources: List[str] = []
     models: List[str] = []
     for p in parts or []:
         if not isinstance(p, dict):
@@ -330,11 +368,17 @@ def aggregate_costs(
             except (TypeError, ValueError):
                 pass
             sources.append(str(p.get("cost_source") or "usage"))
+            agg_estimate_sources.append(
+                str(p.get("estimate_source") or "registry")
+            )
             continue
         priced = from_result(p, model=model, registry=registry)
         total_usd += float(priced.get("estimated_cost_usd") or 0)
         total_tok += int(priced.get("tokens") or 0)
         sources.append(str(priced.get("cost_source") or "estimate"))
+        agg_estimate_sources.append(
+            str(priced.get("estimate_source") or "fallback")
+        )
 
     # Honest aggregate source
     if not sources:
@@ -352,6 +396,12 @@ def aggregate_costs(
         "tokens": int(total_tok),
         "estimated_cost_usd": round(total_usd, 6),
         "cost_source": agg_source,
+        # Weakest link wins: one fallback row makes the whole total a fallback.
+        "estimate_source": (
+            "fallback"
+            if "fallback" in agg_estimate_sources
+            else ("registry" if "registry" in agg_estimate_sources else "actual")
+        ),
         "parts": len(parts or []),
         "models": models[:20],
     }

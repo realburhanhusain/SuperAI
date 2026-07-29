@@ -26,14 +26,14 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **269** |
-| **INCOMPLETE** | **246** |
+| **COMPLETE (production + docs + tests)** | **270** |
+| **INCOMPLETE** | **245** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **51.9%**
-- **Average percent (incomplete only):** **23.7%**
+- **Strict completion rate (complete / (total − refuse)):** **52.1%**
+- **Average percent (incomplete only):** **23.4%**
 - **Average percent (all non-refuse):** **63.7%**
 
 ### Note for validators
@@ -48,7 +48,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 269
+**Count:** 270
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1860,6 +1860,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V1-P1-4 — Phase 1 — Cost fields on results
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — cost fields + canonical estimate_source
+- **Documentation (thorough):** YES — COST_ACCOUNTING.md
+- **Tests (full):** YES — test_estimate_source + test_cost_accounting_m002
+- **Still incomplete:** 
+
 ### V1-P2-1 — Phase 2 — Default agent / front-door entry
 
 - **Track:** V1-V5
@@ -2744,7 +2754,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 246
+**Count:** 245
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2786,19 +2796,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** budget foundation
 - **Partially implemented:** —
 - **Still incomplete:** Universal ceiling incomplete
-
-### V1-P1-4 — Phase 1 — Cost fields on results
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — cost fields
-- **Thorough documentation?** YES — P1 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** cost fields
-- **Partially implemented:** —
-- **Still incomplete:** Accuracy gaps
 
 ### V1-P5-2 — Phase 5 — Streaming progress bus
 

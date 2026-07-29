@@ -7,6 +7,25 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 
+def _board_estimate_source(per: List[Dict[str, Any]]) -> str:
+    """
+    Canonical provenance for a whole board — weakest link wins.
+
+    This field used to report ``per[0]["pricing_source"]``: a different
+    vocabulary from the canonical one, read off a single member even when the
+    board had five. A board containing one unpriced model could therefore
+    advertise a registry-grade estimate.
+    """
+    if not per:
+        return "unknown"
+    sources = {str(p.get("estimate_source") or "fallback") for p in per}
+    if "fallback" in sources:
+        return "fallback"
+    if "registry" in sources:
+        return "registry"
+    return "actual"
+
+
 def estimate_board(
     subject: str,
     members: Sequence[str],
@@ -46,7 +65,7 @@ def estimate_board(
         "budget": block,
         "subject_preview": (subject or "")[:200],
         "preflight": True,
-        "estimate_source": per[0].get("pricing_source") if per else "unknown",
+        "estimate_source": _board_estimate_source(per),
         "cost_source": per[0].get("cost_source") if per else "unknown",
         "command_name": "board-preflight",
     }

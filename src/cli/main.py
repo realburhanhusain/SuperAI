@@ -3795,30 +3795,48 @@ def data_ask(
     except Exception:  # noqa: BLE001
         pass
 
-    console.print(
-        Panel.fit(
-            f"[bold]Data answer[/bold]\n"
-            f"Backend: {answer.backend} | thread: {answer.thread_id}\n"
-            f"{answer.text}",
-            border_style="cyan",
-        )
-    )
-    if show_sql and answer.sql:
-        console.print(f"[dim]SQL: {answer.sql}[/dim]")
-    if answer.columns:
-        table = RichTable(title=f"Results ({answer.row_count} rows)")
-        for c in answer.columns:
-            table.add_column(str(c))
-        for row in answer.rows[:30]:
-            table.add_row(*[str(x) for x in row])
-        console.print(table)
-    if show_chart and answer.chart:
-        console.print_json(data=answer.chart)
+    payload: Dict[str, Any] = {
+        "ok": answer.error is None,
+        "product": "data_ask",
+        "backend": answer.backend,
+        "thread_id": answer.thread_id,
+        "text": answer.text,
+        "sql": answer.sql,
+        "columns": list(answer.columns or []),
+        "rows": [list(r) for r in (answer.rows or [])[:30]],
+        "row_count": answer.row_count,
+        "chart": answer.chart if show_chart else None,
+        "error": answer.error,
+    }
     if chart_html and answer.chart:
         from core.vega_charts import write_chart_html
 
-        path = write_chart_html(answer.chart, title=question[:80])
-        console.print(f"[green]Interactive chart:[/green] {path}")
+        payload["chart_html"] = str(write_chart_html(answer.chart, title=question[:80]))
+
+    def _human(data: Dict[str, Any]) -> None:
+        console.print(
+            Panel.fit(
+                f"[bold]Data answer[/bold]\n"
+                f"Backend: {data.get('backend')} | thread: {data.get('thread_id')}\n"
+                f"{data.get('text')}",
+                border_style="cyan",
+            )
+        )
+        if show_sql and data.get("sql"):
+            console.print(f"[dim]SQL: {data.get('sql')}[/dim]")
+        if data.get("columns"):
+            table = RichTable(title=f"Results ({data.get('row_count')} rows)")
+            for c in data["columns"]:
+                table.add_column(str(c))
+            for row in data.get("rows") or []:
+                table.add_row(*[str(x) for x in row])
+            console.print(table)
+        if show_chart and data.get("chart"):
+            console.print_json(data=data["chart"])
+        if data.get("chart_html"):
+            console.print(f"[green]Interactive chart:[/green] {data['chart_html']}")
+
+    render_public(payload, human_fn=_human, ok=answer.error is None)
     if answer.error:
         raise _cli_exit(code=1)
 

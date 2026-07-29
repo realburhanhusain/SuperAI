@@ -6015,14 +6015,35 @@ def workspace_index_cmd(
 def code_index_cmd(
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
     query: Optional[str] = typer.Option(None, "--query", "-q"),
+    incremental: bool = typer.Option(False, "--incremental", help="Persist and incrementally refresh the local graph"),
 ):
     """Build or search SuperAI's native Python code graph (no external MCP)."""
-    from core.code_intelligence import build_code_graph, search_code_graph
+    from core.code_intelligence import build_code_graph, index_code_graph, search_code_graph
 
     base = Path(root).resolve() if root else None
-    out = search_code_graph(query, base) if query else build_code_graph(base)
+    out = search_code_graph(query, base) if query else (index_code_graph(base) if incremental else build_code_graph(base))
     console.print_json(data=out)
 
+
+@app.command("code-report")
+def code_report_cmd(
+    report: str = typer.Argument(..., help="architecture | dead-code | status"),
+    root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
+):
+    """Report local architecture or conservative dead-code candidates."""
+    from core.code_intelligence import architecture_report, code_index_status, dead_code_report
+
+    base = Path(root).resolve() if root else None
+    selected = report.lower().replace("-", "_")
+    if selected == "architecture":
+        out = architecture_report(base)
+    elif selected == "dead_code":
+        out = dead_code_report(base)
+    elif selected == "status":
+        out = code_index_status(base)
+    else:
+        raise typer.BadParameter("report must be architecture, dead-code, or status")
+    console.print_json(data=out)
 
 @app.command("code-impact")
 def code_impact_cmd(

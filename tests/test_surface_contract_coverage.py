@@ -191,7 +191,7 @@ def test_json_value_scanner_distinguishes_arrays_from_objects():
 #: Move them **down** as surfaces are wrapped; never up. A raise means a new
 #: unwrapped public surface landed, which is the regression these guard.
 MAX_UNCOVERED_SPEND = 0
-MAX_UNCOVERED_TOTAL = 57
+MAX_UNCOVERED_TOTAL = 49
 
 #: Commands the static scan calls wrapped but the probe caught printing no
 #: conforming envelope.
@@ -211,7 +211,7 @@ MAX_UNCOVERED_TOTAL = 57
 #: file is read mid-write. Bounded at 2 and named rather than silently excluded,
 #: because a flaky reading is a real finding about either the commands or the
 #: probe, and hiding it would be the same failure as a silent skip.
-MAX_STATIC_PROBE_CONTRADICTIONS = 7
+MAX_STATIC_PROBE_CONTRADICTIONS = 5
 
 
 def test_spend_surfaces_coverage_ratchet():

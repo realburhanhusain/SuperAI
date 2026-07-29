@@ -431,6 +431,33 @@ on their failure paths, which previously exited 1 with only red text.
 | Probe: unproven | 28 | **22** |
 | Static-wrapped but probe-failed | 8 | **7** |
 
+### Phase 1 complete — 2026-07-29
+
+The last 12 wrappable commands are done: `check critique`, `check license`,
+`ci-fix`, `evolve`, `feedback`, `git-helper`, `profile-bundle`,
+`prompt-injection wrap`, `proposal`, `skill`, `test impacted`, `capture stream`.
+
+`proposal` additionally stopped raising a bare `KeyError` at an unknown id —
+automation was getting a traceback where a `not_found` envelope belonged.
+
+**The `kg` / `ontology` Postgres blocker is resolved without touching PR #10's
+product decision.** `_kg_guarded` catches backend failures and emits
+`error_code: backend_unavailable` with a hint naming `SUPERAI_KG_DSN`. PostgreSQL
+is still the default and SQLite is still opt-in; what changed is that an
+unreachable backend is now reported as a contracted failure rather than a raw
+`psycopg.OperationalError` traceback. Six call sites are guarded, including
+`get_default_graph()` itself in `ontology induce` — constructing the graph opens
+the connection, so guarding only the query left the crash in place.
+
+| Metric | Phase 1 start | Now |
+|---|---:|---:|
+| Uncovered surfaces (static) | 229 | **49** |
+| Uncovered **spend** surfaces | 26 | **0** |
+| Probe: conforming envelope | 0 (no invocation evidence existed) | **176** |
+| Probe: printed no JSON | 24 | **0** |
+| Probe: unproven | 95 | **20** |
+| Static-wrapped but probe-failed | — | **5** |
+
 ### Still open after the tail
 
 - **5 commands blocked by a regression, not by contract work** — `kg path`,

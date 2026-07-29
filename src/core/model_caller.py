@@ -976,6 +976,9 @@ class ModelCaller:
         Priority: ModelInfo.base_url + api_key_env > provider catalog.
         """
         provider = resolve_compat_provider(provider)
+        # Streaming uses Ollama's OpenAI-compatible /v1 endpoint; non-stream calls continue to use the native path.
+        if provider == "ollama":
+            provider = "ollama_openai"
         base_url: Optional[str] = None
         env_name: Optional[str] = None
         allow_empty = False

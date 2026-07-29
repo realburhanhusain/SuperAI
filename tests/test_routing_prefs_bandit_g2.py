@@ -189,3 +189,10 @@ def test_profile_summary_path(pref_path: Path):
     assert s["cheap_mode"] is True
     assert "preferences.json" in s["path"] or s["path"].endswith("preferences.json")
     assert "pipeline" in s
+
+
+def test_bandit_ignores_replayed_outcome_event(tmp_path: Path):
+    bandit = EpsilonGreedyBandit(path=tmp_path / "bandit.json")
+    assert bandit.update("model-a", 1.0, event_id="run-42") is True
+    assert bandit.update("model-a", 1.0, event_id="run-42") is False
+    assert bandit.state["model-a"]["n"] == 1

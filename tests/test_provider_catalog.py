@@ -83,3 +83,11 @@ def test_mock_call_deepseek_still_works():
     caller = ModelCaller(use_mock=True, registry=reg)
     out = caller.call(model="deepseek-r1", prompt="hello")
     assert out.get("status") == "success"
+
+
+def test_ollama_stream_endpoint_uses_local_openai_compat():
+    caller = ModelCaller(use_mock=False, registry=ModelRegistry())
+    base, key, env = caller._resolve_openai_endpoint("ollama", "llama3.1:latest")
+    assert base == "http://localhost:11434/v1"
+    assert key == "ollama"
+    assert env == "OLLAMA_API_KEY"

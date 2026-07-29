@@ -357,13 +357,17 @@ body{font-family:system-ui;margin:1.5rem;background:#0b1020;color:#e8eefc}
 .edge{stroke:#6b7a99;stroke-width:2}
 label{fill:#e8eefc;font-size:11px}
 </style></head><body>
-<h1>Agent graph</h1>
+<h1>Agent graph</h1>`r`n<p id=status aria-live=polite>Loading graph…</p>
 <svg id=svg></svg>
 <pre id=out></pre>
 <script>
 async function load(){
-  const r=await fetch('/api/agent-graph');
+  const taskId=new URLSearchParams(window.location.search).get('task_id');
+  const endpoint='/api/agent-graph'+(taskId ? '?task_id='+encodeURIComponent(taskId) : '');
+  const r=await fetch(endpoint);
+  if(!r.ok) throw new Error('graph request failed: '+r.status);
   const j=await r.json();
+  document.getElementById('status').textContent=taskId ? 'Graph for '+taskId : 'Latest graph';
   document.getElementById('out').textContent=JSON.stringify(j,null,2);
   const svg=document.getElementById('svg');
   while(svg.firstChild) svg.removeChild(svg.firstChild);

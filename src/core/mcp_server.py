@@ -204,6 +204,7 @@ TOOLS: List[Dict[str, Any]] = [
             "ref": {"type": "string", "description": "Git base revision for impact (default HEAD~1)"},
             "files": {"type": "string", "description": "Optional comma-separated changed paths for impact"},
             "incremental": {"type": "boolean", "description": "Use or refresh the local file-fingerprint index for action=index"},
+            "engine": {"type": "string", "description": "native (default) | advanced; advanced is the bundled multi-language scanner"},
         },
     ),
     _tool(
@@ -761,13 +762,22 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         from .code_intelligence import (architecture_report, build_code_graph, code_impact,
                                         code_index_status, dead_code_report, index_code_graph,
                                         search_code_graph)
+        from .code_intelligence_advanced import (advanced_code_impact, advanced_engine_status,
+                                                 build_advanced_code_graph, search_advanced_code_graph)
 
         action = str(args.get("action") or "index").lower()
+        engine = str(args.get("engine") or "native").lower()
+        if engine not in {"native", "advanced"}:
+            raise ValueError("engine must be native|advanced")
         root = Path(str(args["root"])).resolve() if args.get("root") else None
+        if action in {"engine_status", "engine-status"}:
+            return advanced_engine_status()
         if action == "index":
+            if engine == "advanced":
+                return build_advanced_code_graph(root)
             return index_code_graph(root) if bool(args.get("incremental")) else build_code_graph(root)
         if action == "status":
-            return code_index_status(root)
+            return advanced_engine_status() if engine == "advanced" else code_index_status(root)
         if action == "architecture":
             return architecture_report(root)
         if action in {"dead_code", "dead-code"}:
@@ -776,12 +786,13 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
             query = str(args.get("query") or "").strip()
             if not query:
                 raise ValueError("query required for code intelligence search")
-            return search_code_graph(query, root)
+            return search_advanced_code_graph(query, root) if engine == "advanced" else search_code_graph(query, root)
         if action == "impact":
             raw_files = str(args.get("files") or "")
             files = [item.strip() for item in raw_files.split(",") if item.strip()] or None
-            return code_impact(root=root, ref=str(args.get("ref") or "HEAD~1"), files=files)
-        raise ValueError("action must be index|search|impact|architecture|dead_code|status")
+            return (advanced_code_impact(root=root, ref=str(args.get("ref") or "HEAD~1"), files=files)
+                    if engine == "advanced" else code_impact(root=root, ref=str(args.get("ref") or "HEAD~1"), files=files))
+        raise ValueError("action must be index|search|impact|architecture|dead_code|status|engine_status")
     if name == "superai_session":
         from .session_memory import get_default_session_memory
 

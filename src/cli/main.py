@@ -6015,23 +6015,34 @@ def workspace_index_cmd(
 def code_index_cmd(
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
     query: Optional[str] = typer.Option(None, "--query", "-q"),
-    incremental: bool = typer.Option(False, "--incremental", help="Persist and incrementally refresh the local graph"),
+    incremental: bool = typer.Option(False, "--incremental", help="Persist and incrementally refresh the native Python graph"),
+    engine: str = typer.Option("native", "--engine", help="native (default) | advanced multi-language scanner"),
 ):
-    """Build or search SuperAI's native Python code graph (no external MCP)."""
+    """Build or search SuperAI's native or bundled advanced source graph."""
     from core.code_intelligence import build_code_graph, index_code_graph, search_code_graph
+    from core.code_intelligence_advanced import build_advanced_code_graph, search_advanced_code_graph
 
     base = Path(root).resolve() if root else None
-    out = search_code_graph(query, base) if query else (index_code_graph(base) if incremental else build_code_graph(base))
+    selected = engine.lower()
+    if selected not in {"native", "advanced"}:
+        raise typer.BadParameter("engine must be native or advanced")
+    if query:
+        out = search_advanced_code_graph(query, base) if selected == "advanced" else search_code_graph(query, base)
+    elif selected == "advanced":
+        out = build_advanced_code_graph(base)
+    else:
+        out = index_code_graph(base) if incremental else build_code_graph(base)
     console.print_json(data=out)
 
 
 @app.command("code-report")
 def code_report_cmd(
-    report: str = typer.Argument(..., help="architecture | dead-code | status"),
+    report: str = typer.Argument(..., help="architecture | dead-code | status | engine-status"),
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
 ):
-    """Report local architecture or conservative dead-code candidates."""
+    """Report local architecture, dead-code candidates, or engine capability."""
     from core.code_intelligence import architecture_report, code_index_status, dead_code_report
+    from core.code_intelligence_advanced import advanced_engine_status
 
     base = Path(root).resolve() if root else None
     selected = report.lower().replace("-", "_")
@@ -6041,8 +6052,10 @@ def code_report_cmd(
         out = dead_code_report(base)
     elif selected == "status":
         out = code_index_status(base)
+    elif selected == "engine_status":
+        out = advanced_engine_status()
     else:
-        raise typer.BadParameter("report must be architecture, dead-code, or status")
+        raise typer.BadParameter("report must be architecture, dead-code, status, or engine-status")
     console.print_json(data=out)
 
 @app.command("code-impact")
@@ -6050,14 +6063,19 @@ def code_impact_cmd(
     ref: str = typer.Option("HEAD~1", "--ref", help="Git base revision"),
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
     files: Optional[str] = typer.Option(None, "--files", help="Comma-separated changed paths; skips git diff"),
+    engine: str = typer.Option("native", "--engine", help="native (default) | advanced multi-language scanner"),
 ):
     """Map a diff to changed symbols, callers, and suggested tests."""
     from core.code_intelligence import code_impact
+    from core.code_intelligence_advanced import advanced_code_impact
 
     selected = [x.strip() for x in files.split(",") if x.strip()] if files else None
     base = Path(root).resolve() if root else None
-    console.print_json(data=code_impact(root=base, ref=ref, files=selected))
-
+    mode = engine.lower()
+    if mode not in {"native", "advanced"}:
+        raise typer.BadParameter("engine must be native or advanced")
+    out = advanced_code_impact(root=base, ref=ref, files=selected) if mode == "advanced" else code_impact(root=base, ref=ref, files=selected)
+    console.print_json(data=out)
 
 @app.command("profile-bundle")
 def profile_bundle_cmd(

@@ -2,9 +2,11 @@
   "scope": "read_only",
   "timeout": 25.0,
   "tally": {
-    "pass": 117,
+    "pass": 115,
     "pass-with-fixture": 69,
-    "no-safe-fixture": 10
+    "refused-unsafe": 6,
+    "fail-with-fixture": 2,
+    "hang": 4
   },
   "results": [
     {
@@ -40,7 +42,7 @@
     },
     {
       "command": "backup-key",
-      "status": "no-safe-fixture",
+      "status": "refused-unsafe",
       "detail": "exports or imports the backup encryption key"
     },
     {
@@ -76,16 +78,8 @@
     },
     {
       "command": "browse",
-      "status": "no-safe-fixture",
+      "status": "refused-unsafe",
       "detail": "fetches a live URL; the sweep is offline by contract"
-    },
-    {
-      "command": "budget",
-      "status": "no-safe-fixture",
-      "exit_code": 2,
-      "detail": "derived arguments still rejected as invalid usage",
-      "fixture_args": [],
-      "fixture_how": {}
     },
     {
       "command": "budget command get",
@@ -173,7 +167,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-cs1s5b3r\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-iur63jik\\fixture.txt"
       ],
       "fixture_how": {
         "file_path": "temp-path"
@@ -195,7 +189,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-c4ppcxfe\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-yhm___r0\\fixture.txt"
       ],
       "fixture_how": {
         "files": "temp-path"
@@ -203,16 +197,20 @@
     },
     {
       "command": "ci-why",
-      "status": "no-safe-fixture",
-      "exit_code": 2,
-      "detail": "derived arguments still rejected as invalid usage",
-      "fixture_args": [],
-      "fixture_how": {}
+      "status": "fail-with-fixture",
+      "detail": "[None] >25.0s, killed",
+      "fixture_args": [
+        "--text",
+        "Traceback (most recent call last): AssertionError: x"
+      ],
+      "fixture_how": {
+        "<extra_args>": "extra-args"
+      }
     },
     {
       "command": "cloud configure",
-      "status": "pass",
-      "exit_code": 0
+      "status": "hang",
+      "detail": ">25.0s, killed"
     },
     {
       "command": "cloud dry-sync",
@@ -238,6 +236,17 @@
       "command": "code-index",
       "status": "pass",
       "exit_code": 0
+    },
+    {
+      "command": "code-report",
+      "status": "pass-with-fixture",
+      "exit_code": 0,
+      "fixture_args": [
+        "architecture"
+      ],
+      "fixture_how": {
+        "report": "choice-in-help"
+      }
     },
     {
       "command": "cognify",
@@ -393,17 +402,8 @@
     },
     {
       "command": "diff-edit",
-      "status": "no-safe-fixture",
-      "exit_code": 2,
-      "detail": "derived arguments still rejected as invalid usage",
-      "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-cnnuxsq0\\fixture.txt",
-        "superai-contract-probe"
-      ],
-      "fixture_how": {
-        "path": "temp-path",
-        "content": "placeholder"
-      }
+      "status": "refused-unsafe",
+      "detail": "enforces the workspace jail; probe fixtures live outside the repo"
     },
     {
       "command": "discover",
@@ -460,8 +460,8 @@
     },
     {
       "command": "feedback",
-      "status": "pass-with-fixture",
-      "exit_code": 0,
+      "status": "fail-with-fixture",
+      "detail": "[None] >25.0s, killed",
       "fixture_args": [
         "superai-contract-probe",
         "superai-contract-probe"
@@ -473,19 +473,13 @@
     },
     {
       "command": "forecast",
-      "status": "pass-with-fixture",
-      "exit_code": 0,
-      "fixture_args": [
-        "superai-contract-probe"
-      ],
-      "fixture_how": {
-        "task": "placeholder"
-      }
+      "status": "hang",
+      "detail": ">25.0s, killed"
     },
     {
       "command": "foundation-check",
-      "status": "pass",
-      "exit_code": 0
+      "status": "hang",
+      "detail": ">25.0s, killed"
     },
     {
       "command": "git explain-pr",
@@ -497,7 +491,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-mwt0xir5\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-hrh817uj\\fixture.txt"
       ],
       "fixture_how": {
         "file_path": "temp-path"
@@ -671,14 +665,8 @@
     },
     {
       "command": "learning undeprecate",
-      "status": "pass-with-fixture",
-      "exit_code": 1,
-      "fixture_args": [
-        "superai-contract-probe"
-      ],
-      "fixture_how": {
-        "memory_id": "placeholder"
-      }
+      "status": "hang",
+      "detail": ">25.0s, killed"
     },
     {
       "command": "learnings",
@@ -705,7 +693,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-mlch2uv1\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-ei1dn9jd\\fixture.txt"
       ],
       "fixture_how": {
         "path": "temp-path"
@@ -856,7 +844,7 @@
       "exit_code": 0,
       "fixture_args": [
         "export",
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-wpfp73c9\\fixture.txt",
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-hvtariac\\fixture.txt",
         "--password",
         "superai-contract-probe"
       ],
@@ -894,8 +882,21 @@
     },
     {
       "command": "models-register",
-      "status": "no-safe-fixture",
-      "detail": "no safe value for 'base_url' (needs-url)"
+      "status": "pass-with-fixture",
+      "exit_code": 0,
+      "fixture_args": [
+        "--name",
+        "superai-contract-probe",
+        "--model-id",
+        "superai-contract-probe",
+        "--base-url",
+        "http://127.0.0.1:1/v1"
+      ],
+      "fixture_how": {
+        "name": "placeholder",
+        "model_id": "placeholder",
+        "base_url": "override"
+      }
     },
     {
       "command": "models-sync-ollama",
@@ -954,17 +955,8 @@
     },
     {
       "command": "notebook",
-      "status": "no-safe-fixture",
-      "exit_code": 2,
-      "detail": "derived arguments still rejected as invalid usage",
-      "fixture_args": [
-        "list",
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-w6ag9asr\\fixture.txt"
-      ],
-      "fixture_how": {
-        "action": "choice-in-help",
-        "path": "temp-path"
-      }
+      "status": "refused-unsafe",
+      "detail": "enforces the workspace jail; probe fixtures live outside the repo"
     },
     {
       "command": "notion",
@@ -1069,7 +1061,7 @@
       "exit_code": 0,
       "fixture_args": [
         "export",
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-i5su5nu7\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-jec46msk\\fixture.txt"
       ],
       "fixture_how": {
         "action": "choice-in-help",
@@ -1136,16 +1128,15 @@
     },
     {
       "command": "propose",
-      "status": "no-safe-fixture",
-      "exit_code": 2,
-      "detail": "derived arguments still rejected as invalid usage",
+      "status": "pass-with-fixture",
+      "exit_code": 0,
       "fixture_args": [
         "edit_file",
-        "superai-contract-probe"
+        "{}"
       ],
       "fixture_how": {
         "action": "choice-in-help",
-        "payload": "placeholder"
+        "payload": "override"
       }
     },
     {
@@ -1196,7 +1187,7 @@
     },
     {
       "command": "search-web",
-      "status": "no-safe-fixture",
+      "status": "refused-unsafe",
       "detail": "performs a live web search"
     },
     {
@@ -1239,7 +1230,7 @@
     },
     {
       "command": "shell",
-      "status": "no-safe-fixture",
+      "status": "refused-unsafe",
       "detail": "executes an arbitrary shell command"
     },
     {
@@ -1366,7 +1357,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-14ei0qnf\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-0l1fncoq\\fixture.txt"
       ],
       "fixture_how": {
         "files": "temp-path"
@@ -1387,7 +1378,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-j5ij_xgv\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-34db41gx\\fixture.txt"
       ],
       "fixture_how": {
         "log_path": "temp-path"
@@ -1398,7 +1389,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-1pcvvftv\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-7dicznlc\\fixture.txt"
       ],
       "fixture_how": {
         "path": "temp-path"
@@ -1409,7 +1400,7 @@
       "status": "pass-with-fixture",
       "exit_code": 0,
       "fixture_args": [
-        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-qf0m4kks\\fixture.txt"
+        "C:\\Users\\BURHAN~1.HUS\\AppData\\Local\\Temp\\superai-probe-jokg5k41\\fixture.txt"
       ],
       "fixture_how": {
         "path": "temp-path"

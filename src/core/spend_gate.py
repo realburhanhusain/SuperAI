@@ -86,6 +86,24 @@ def command_path_from_argv(argv: Sequence[str]) -> Optional[str]:
     return None
 
 
+#: Heuristic token estimates for known expensive commands.
+#: The CLI gate lacks access to the real token requirements, so we boost the
+#: default 500 tokens for massive-context commands to catch a busted ceiling
+#: early instead of dying deep in the stack.
+HEURISTIC_TOKENS: Dict[str, int] = {
+    "pr-review": 20_000,
+    "agent": 10_000,
+    "agent-graph": 15_000,
+    "debate": 10_000,
+    "debate-models": 10_000,
+    "compare": 5_000,
+    "bakeoff": 5_000,
+    "council": 5_000,
+    "smoke-harness": 10_000,
+    "phase6-smoke": 10_000,
+}
+
+
 def gate_argv(
     argv: Sequence[str],
     *,
@@ -108,6 +126,9 @@ def gate_argv(
     command = command_path_from_argv(argv)
     if command is None:
         return None
+
+    if tokens == 500 and command in HEURISTIC_TOKENS:
+        tokens = HEURISTIC_TOKENS[command]
 
     # Mock mode cannot spend, and dry-run must not be blocked on cost.
     try:

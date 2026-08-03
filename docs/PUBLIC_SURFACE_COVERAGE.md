@@ -6,30 +6,43 @@ Scope: `read_only` surfaces only; per-command timeout 25s.
 
 | Outcome | Count | Meaning |
 |---|---:|---|
-| `pass` | 117 | Emitted a JSON object carrying every required contract field |
+| `pass` | 115 | Emitted a JSON object carrying every required contract field |
 | `missing-fields` | 0 | Emitted JSON, but the contract envelope is incomplete |
 | `no-json` | 0 | Printed no JSON at all despite `--json` — unwrapped |
 | `json-array` | 0 | Printed a bare JSON array; needs an envelope around it |
 | `usage-error` | 0 | Needs a required argument (exit 2); not a contract failure |
 | `pass-with-fixture` | 69 | Passed once given arguments derived from its own metadata |
-| `fail-with-fixture` | 0 | Ran with derived arguments but emitted no valid envelope |
-| `no-safe-fixture` | 10 | No safe argument could be derived; reason recorded |
-| `hang` | 0 | Did not return before the timeout and was killed |
+| `fail-with-fixture` | 2 | Ran with derived arguments but emitted no valid envelope |
+| `refused-unsafe` | 6 | Deliberately not invoked — unsafe at any argument; reason recorded |
+| `no-derivable-argument` | 0 | No argument could be derived; a closable gap, not a safety decision |
+| `hang` | 4 | Did not return before the timeout and was killed |
 | `crash` | 0 | Subprocess could not be run |
 | `skipped` | 9 | Listed as uninvokable, with a reason |
 
-## no-safe-fixture
+## Hangs
+
+These never returned. Relevant beyond contract coverage: a command that hangs here hangs in CI too.
+
+- `cloud configure` — >25.0s, killed
+- `forecast` — >25.0s, killed
+- `foundation-check` — >25.0s, killed
+- `learning undeprecate` — >25.0s, killed
+
+## fail-with-fixture
+
+| Command | Exit | Detail |
+|---|---:|---|
+| `ci-why` |  | [None] >25.0s, killed |
+| `feedback` |  | [None] >25.0s, killed |
+
+## refused-unsafe
 
 | Command | Exit | Detail |
 |---|---:|---|
 | `backup-key` |  | exports or imports the backup encryption key |
 | `browse` |  | fetches a live URL; the sweep is offline by contract |
-| `budget` | 2 | derived arguments still rejected as invalid usage |
-| `ci-why` | 2 | derived arguments still rejected as invalid usage |
-| `diff-edit` | 2 | derived arguments still rejected as invalid usage |
-| `models-register` |  | no safe value for 'base_url' (needs-url) |
-| `notebook` | 2 | derived arguments still rejected as invalid usage |
-| `propose` | 2 | derived arguments still rejected as invalid usage |
+| `diff-edit` |  | enforces the workspace jail; probe fixtures live outside the repo |
+| `notebook` |  | enforces the workspace jail; probe fixtures live outside the repo |
 | `search-web` |  | performs a live web search |
 | `shell` |  | executes an arbitrary shell command |
 
@@ -49,5 +62,5 @@ Scope: `read_only` surfaces only; per-command timeout 25s.
 
 ## Passing
 
-`a11y`, `ab-route`, `agent-graph`, `audit`, `backup-status`, `backup-verify`, `bandit`, `blacklist`, `budget command list`, `capabilities`, `capture config`, `capture start`, `cloud configure`, `cloud dry-sync`, `cloud push`, `cloud status`, `code-impact`, `code-index`, `compliance`, `config show`, `conflicts`, `constitution`, `contract-smoke`, `dataset list`, `dataset status`, `diagnose`, `discover`, `ecosystem`, `exit-codes`, `failover`, `foundation-check`, `git explain-pr`, `github`, `goals`, `history`, `history-search`, `hitl`, `host-hook checklist`, `host-hook install-snippet`, `ingest`, `install-postgres`, `json-surface`, `kg path`, `kg query`, `kg status`, `kg upsert-edge`, `lang`, `learning conflicts`, `learning distill`, `learning list`, `learning promote`, `learning status`, `learnings`, `list-models`, `list-skills`, `listen`, `macros`, `mcp-config`, `memory-clusters`, `memory-palace`, `memory-session list`, `memory-session purge-ttl`, `memory-session start`, `memory-session status`, `memory-ttl`, `metrics`, `models-refresh-openrouter`, `models-sync-ollama`, `msg-channels`, `mux`, `nl-eval`, `notion`, `ontology induce`, `ontology show`, `ontology validate`, `otel demo`, `otel list`, `otel status`, `parked`, `patterns`, `plugin-catalog`, `plugins`, `policy`, `pref`, `process-mux`, `profile`, `profile-config`, `profile-suggest`, `progress`, `project-budget`, `proposals`, `provider-health`, `providers`, `rate-queue`, `recipes`, `reflect`, `routing-stats`, `schedule`, `secrets`, `side-effects`, `skill-perms`, `spec`, `spend-report`, `status`, `telemetry`, `tenant-export`, `term-jobs`, `timeouts`, `todos`, `update`, `v6-status`, `version`, `vim-keys`, `voice`, `whats-new`, `wings`, `workspace-index`
+`a11y`, `ab-route`, `agent-graph`, `audit`, `backup-status`, `backup-verify`, `bandit`, `blacklist`, `budget command list`, `capabilities`, `capture config`, `capture start`, `cloud dry-sync`, `cloud push`, `cloud status`, `code-impact`, `code-index`, `compliance`, `config show`, `conflicts`, `constitution`, `contract-smoke`, `dataset list`, `dataset status`, `diagnose`, `discover`, `ecosystem`, `exit-codes`, `failover`, `git explain-pr`, `github`, `goals`, `history`, `history-search`, `hitl`, `host-hook checklist`, `host-hook install-snippet`, `ingest`, `install-postgres`, `json-surface`, `kg path`, `kg query`, `kg status`, `kg upsert-edge`, `lang`, `learning conflicts`, `learning distill`, `learning list`, `learning promote`, `learning status`, `learnings`, `list-models`, `list-skills`, `listen`, `macros`, `mcp-config`, `memory-clusters`, `memory-palace`, `memory-session list`, `memory-session purge-ttl`, `memory-session start`, `memory-session status`, `memory-ttl`, `metrics`, `models-refresh-openrouter`, `models-sync-ollama`, `msg-channels`, `mux`, `nl-eval`, `notion`, `ontology induce`, `ontology show`, `ontology validate`, `otel demo`, `otel list`, `otel status`, `parked`, `patterns`, `plugin-catalog`, `plugins`, `policy`, `pref`, `process-mux`, `profile`, `profile-config`, `profile-suggest`, `progress`, `project-budget`, `proposals`, `provider-health`, `providers`, `rate-queue`, `recipes`, `reflect`, `routing-stats`, `schedule`, `secrets`, `side-effects`, `skill-perms`, `spec`, `spend-report`, `status`, `telemetry`, `tenant-export`, `term-jobs`, `timeouts`, `todos`, `update`, `v6-status`, `version`, `vim-keys`, `voice`, `whats-new`, `wings`, `workspace-index`
 

@@ -38,14 +38,22 @@ def _force_utf8_stdout() -> None:
     It never reproduced under investigation because every manual run set
     PYTHONIOENCODING=utf-8; only the sweep, which does not, saw real behaviour.
     """
+    import io
+
     for stream in (sys.stdout, sys.stderr):
         try:
             if getattr(stream, "encoding", "").lower().replace("-", "") != "utf8":
                 stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
         except Exception:
-            # Not all streams are reconfigurable (pytest capture, pipes on some
-            # platforms). Failing to upgrade the encoding must not break the CLI.
-            pass
+            try:
+                if hasattr(stream, "buffer"):
+                    wrapped = io.TextIOWrapper(stream.buffer, encoding="utf-8", errors="replace")
+                    if stream is sys.stdout:
+                        sys.stdout = wrapped
+                    elif stream is sys.stderr:
+                        sys.stderr = wrapped
+            except Exception:
+                pass
 
 
 def json_mode() -> bool:

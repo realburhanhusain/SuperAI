@@ -94,6 +94,8 @@ def probe(
         env = dict(os.environ)
         env["HOME"] = home
         env["USERPROFILE"] = home
+        env["APPDATA"] = home
+        env["LOCALAPPDATA"] = home
     try:
         proc = subprocess.run(
             argv,

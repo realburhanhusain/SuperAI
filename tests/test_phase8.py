@@ -66,7 +66,7 @@ def test_tenant_and_plugins():
 
 
 def test_graph_page_accepts_task_id():
-    from cli.web_app import create_app
+    from scli.web_app import create_app
 
     route = next(r for r in create_app().routes if getattr(r, "path", None) == "/graph")
     html = route.endpoint()

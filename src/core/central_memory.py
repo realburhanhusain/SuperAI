@@ -53,10 +53,9 @@ def _sanitize_for_memory(text: str) -> str:
     escaping, and neutralization runs last so that redaction markers cannot
     reintroduce a delimiter.
 
-    Both steps degrade to the identity function rather than raising. A memory
-    write is never worth failing a run over, and a partially sanitized body is
-    still better than dropping the outcome on the floor. Delimiter escaping is
-    defence in depth; the read-side envelope remains the real boundary.
+    Redaction degrades to the identity function if unavailable, as it is a
+    best-effort privacy control. Neutralization fails closed, as it is a
+    security boundary.
     """
     body = str(text or "")
     try:
@@ -69,8 +68,8 @@ def _sanitize_for_memory(text: str) -> str:
         from .untrusted_data import neutralize_delimiters
 
         body = neutralize_delimiters(body)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as e:
+        raise RuntimeError(f"Security failure: unable to load sanitizer for untrusted memory: {e}") from e
     return body
 
 

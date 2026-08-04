@@ -24,7 +24,6 @@ backups/
 # writes it here and nothing cleans it up, so the file reappears after every
 # probe run. Ignored rather than deleted repeatedly; the harness leaking a file
 # into the repo root is the underlying bug.
-/probe.tmp
 
 # IDE / OS
 .idea/

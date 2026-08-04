@@ -248,13 +248,19 @@ def fixture_report(app: Any = None, commands: Optional[List[str]] = None) -> Dic
 
     derived: List[str] = []
     refused: List[Dict[str, str]] = []
-    for name in commands:
-        out = synthesize_args(name, app=app, tmp_path="probe.tmp")
-        if out["ok"]:
-            if out["args"]:
-                derived.append(name)
-        else:
-            refused.append({"command": name, "reason": out["reason"]})
+    import tempfile
+    from pathlib import Path
+    
+    with tempfile.TemporaryDirectory(prefix="superai-fixture-") as tempdir:
+        temp_probe = str(Path(tempdir) / "probe.tmp")
+        for name in commands:
+            out = synthesize_args(name, app=app, tmp_path=temp_probe)
+            if out["ok"]:
+                if out["args"]:
+                    derived.append(name)
+            else:
+                refused.append({"command": name, "reason": out["reason"]})
+
     return {
         "ok": True,
         "product": "cli_fixtures",

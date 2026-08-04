@@ -1,5 +1,6 @@
 """G2 M068/M050: preference bias + bandit continuous product pipeline."""
 
+import random
 from pathlib import Path
 
 import pytest
@@ -90,6 +91,15 @@ def test_bandit_reward_from_outcome():
 
 def test_model_caller_uses_bias_candidates(tmp_path: Path, monkeypatch):
     """Integration: ModelCaller.call reorders failover via route_candidates/prefs."""
+    # route_candidates runs the bandit with epsilon=0.1, and EpsilonGreedyBandit
+    # explores via an unseeded random.random() (bandit_router.py:54). This test
+    # asserts a deterministic first pick, so exploration has to be off: without
+    # this the test fails whenever exploration fires and picks something other
+    # than the preferred arm — measured at 2 failures in 40 runs.
+    # Forcing exploitation here rather than lowering the production epsilon: the
+    # randomness is the algorithm working as designed, the assertion is what
+    # needs pinning.
+    monkeypatch.setattr(random, "random", lambda: 1.0)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setenv("SUPERAI_MOCK_MODE", "1")
     (tmp_path / ".superai").mkdir(parents=True)

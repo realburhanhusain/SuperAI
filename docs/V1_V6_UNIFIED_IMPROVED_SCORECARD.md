@@ -26,14 +26,14 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **263** |
-| **INCOMPLETE** | **252** |
+| **COMPLETE (production + docs + tests)** | **264** |
+| **INCOMPLETE** | **251** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **50.8%**
-- **Average percent (incomplete only):** **25.7%**
+- **Strict completion rate (complete / (total − refuse)):** **51.0%**
+- **Average percent (incomplete only):** **25.5%**
 - **Average percent (all non-refuse):** **63.8%**
 
 ### Note for validators
@@ -48,7 +48,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 263
+**Count:** 264
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1338,6 +1338,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: Pre/post tool hooks
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### N235 — Dead code detection
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Conservative native and multi-language advisory reports plus Python/TypeScript/Rust/C# LSP reference filtering
+- **Documentation (thorough):** YES — docs/CODE_INTELLIGENCE.md
+- **Tests (full):** YES — tests/test_code_intelligence.py + tests/test_code_intelligence_advanced.py
 - **Still incomplete:** —
 
 ### N258 — Incremental index updates
@@ -2684,7 +2694,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 252
+**Count:** 251
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -2882,19 +2892,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Fully implemented:** bandit feedback
 - **Partially implemented:** —
 - **Still incomplete:** Continuous bandit incomplete
-
-### N235 — Dead code detection
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **75%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Conservative native and multi-language advisory reports plus optional Python/TypeScript LSP reference filtering
-- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md
-- **Fully tested?** YES — tests/test_code_intelligence.py + tests/test_code_intelligence_advanced.py
-- **Fully implemented:** Conservative native and multi-language advisory reports plus optional Python/TypeScript LSP reference filtering
-- **Partially implemented:** —
-- **Still incomplete:** Whole-program reachability, imports, inheritance, decorators, reflection, framework entry points, and additional language providers remain incomplete
 
 ### M091 — Performance budgets for cold start
 

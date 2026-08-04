@@ -1,6 +1,6 @@
 # SuperAI V1–V6 Unified IMPROVED Scorecard (strict bar)
 
-**Generated:** 2026-08-04  
+**Generated:** 2026-08-05  
 **Total unique improvement IDs:** 533  
 **Source inventory (read-only):** `docs/archive/2026-07-25-closed-docs/scorecards/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  
 **This file:** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`  
@@ -26,15 +26,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **262** |
-| **INCOMPLETE** | **253** |
+| **COMPLETE (production + docs + tests)** | **263** |
+| **INCOMPLETE** | **252** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **50.6%**
-- **Average percent (incomplete only):** **25.6%**
-- **Average percent (all non-refuse):** **63.6%**
+- **Strict completion rate (complete / (total − refuse)):** **50.8%**
+- **Average percent (incomplete only):** **25.7%**
+- **Average percent (all non-refuse):** **63.8%**
 
 ### Note for validators
 
@@ -48,7 +48,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 262
+**Count:** 263
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1338,6 +1338,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: Pre/post tool hooks
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### N258 — Incremental index updates
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Incremental index updates
+- **Documentation (thorough):** YES — docs/CODE_INTELLIGENCE.md (cache invalidation and --verify-content)
+- **Tests (full):** YES — tests/test_code_intelligence_n258.py (rename, deletion, content, schema, corrupt, max files)
 - **Still incomplete:** —
 
 ### N260 — One-command “why did CI fail”
@@ -2674,7 +2684,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 253
+**Count:** 252
 
 Sub-order: foundation-like → stub → absent (heuristic).
 
@@ -4343,19 +4353,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Still incomplete:** Production product + docs + tests
 
 ### N257 — Build system detect (make/nx/bazel)
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
-### N258 — Incremental index updates
 
 - **Track:** V6
 - **Complete?** **NO**

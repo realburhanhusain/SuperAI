@@ -185,6 +185,7 @@ V6_N_COMPLETE = {
     "N210",  # vim keys — tui_vim + docs + tests
     "N211",  # mouse — tui_mouse + docs + tests
     "N215",  # screen-reader a11y — tui_a11y + docs + tests
+    "N258",  # incremental index validation and scorecard reconciliation
 }
 
 COMPLETE_IDS = (
@@ -376,6 +377,9 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
                 "tests/test_tui_process_native_n208_n215.py + "
                 "tests/test_tui_polish_conpty_atspi_restore.py"
             )
+        elif iid == "N258":
+            docs_note = "docs/CODE_INTELLIGENCE.md (cache invalidation and --verify-content)"
+            tests_note = "tests/test_code_intelligence_n258.py (rename, deletion, content, schema, corrupt, max files)"
         elif iid == "M027":
             docs_note = "docs/STREAMING.md provider matrix"
             tests_note = "tests/test_stream_dashboard_g3_g4.py"

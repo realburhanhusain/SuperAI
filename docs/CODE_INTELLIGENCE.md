@@ -19,6 +19,12 @@ superai code-report architecture
 superai code-report dead-code
 ```
 
+## Cache Invalidation and `--verify-content`
+
+The code graph is cached locally (by default in `.superai/code-intelligence`) to speed up subsequent runs. The caching engine uses file signatures (size and `mtime_ns`) to rapidly verify if a file needs to be re-indexed.
+
+If a file's content is modified but its size and modified timestamp (`mtime`) remain identical to the cached entry (e.g., spoofed via `os.utime`), the cache will assume the file is unchanged. To prevent this, use the `--verify-content` flag, which forces a SHA-256 digest comparison of the file content against the cached digest. This provides perfect cache invalidation accuracy at the cost of additional disk I/O and CPU overhead (as every file's entire content must be read and hashed).
+
 ## Advanced engine (optional)
 
 The bundled advanced engine layers a dependency-free local scanner over the native

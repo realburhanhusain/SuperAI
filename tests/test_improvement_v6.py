@@ -153,3 +153,12 @@ def test_whats_new():
     from core.changelog_cli import whats_new
 
     assert whats_new()["entries"]
+
+
+def test_python_lsp_status_is_an_honest_non_failure(monkeypatch):
+    from core.lsp_bridge import python_provider_status
+
+    monkeypatch.setenv("SUPERAI_PYTHON_LSP", str(Path("missing-language-server.exe")))
+    status = python_provider_status()
+    assert status["available"] is False
+    assert "configured provider not found" in status["reason"]

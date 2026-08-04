@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import os
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 def available() -> bool:
@@ -12,6 +16,23 @@ def available() -> bool:
         return True
     except Exception:
         return False
+
+
+
+
+def python_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
+    """Probe an optional Python LSP with a bounded, non-failing check."""
+    configured = os.environ.get("SUPERAI_PYTHON_LSP", "").strip()
+    command: Optional[str] = configured or shutil.which("basedpyright-langserver") or shutil.which("pyright-langserver")
+    if not command:
+        return {"available": False, "language": "python", "reason": "no Python LSP provider found; install pyright/basedpyright or set SUPERAI_PYTHON_LSP", "capabilities": []}
+    if configured and not Path(command).is_file():
+        return {"available": False, "language": "python", "reason": f"configured provider not found: {command}", "capabilities": []}
+    try:
+        probe = subprocess.run([command, "--stdio"], input=b"", stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout_seconds, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"available": False, "language": "python", "reason": f"provider probe failed: {exc}", "capabilities": []}
+    return {"available": True, "language": "python", "provider": Path(command).name, "capabilities": ["diagnostics", "references (provider-advertised; advisory only)"], "probe_exit_code": probe.returncode}
 
 
 def diagnostics_stub(path: str) -> Dict[str, Any]:

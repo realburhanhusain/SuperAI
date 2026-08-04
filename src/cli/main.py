@@ -6038,13 +6038,14 @@ def code_index_cmd(
 
 @app.command("code-report")
 def code_report_cmd(
-    report: str = typer.Argument(..., help="architecture | dead-code | status | engine-status"),
+    report: str = typer.Argument(..., help="architecture | dead-code | status | engine-status | lsp-status"),
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
     engine: str = typer.Option("native", "--engine", help="native (default) | advanced"),
 ):
     """Report local architecture, dead-code candidates, or engine capability."""
     from core.code_intelligence import architecture_report, code_index_status, dead_code_report
     from core.code_intelligence_advanced import advanced_dead_code_report, advanced_engine_status
+    from core.lsp_bridge import python_provider_status
 
     base = Path(root).resolve() if root else None
     selected = report.lower().replace("-", "_")
@@ -6056,8 +6057,10 @@ def code_report_cmd(
         out = code_index_status(base)
     elif selected == "engine_status":
         out = advanced_engine_status()
+    elif selected == "lsp_status":
+        out = python_provider_status()
     else:
-        raise typer.BadParameter("report must be architecture, dead-code, status, or engine-status")
+        raise typer.BadParameter("report must be architecture, dead-code, status, engine-status, or lsp-status")
     console.print_json(data=out)
 
 @app.command("code-impact")

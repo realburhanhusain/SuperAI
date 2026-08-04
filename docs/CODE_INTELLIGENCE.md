@@ -59,3 +59,17 @@ files are changed by indexing or reporting.
 ```
 
 Use exact symbol names or `file:name` entries. Suppressions are reported in the JSON result so reviews remain auditable.
+## Optional Python LSP provider
+
+N235's scanners remain conservative and do not claim whole-program reachability.
+Expose an isolated `basedpyright` or `pyright` language server via `PATH`, or
+set `SUPERAI_PYTHON_LSP` to its executable, then run:
+
+```powershell
+superai code-report lsp-status
+```
+
+No server is installed automatically. A missing, invalid, or timed-out provider
+is a non-failure with a precise reason. Dynamic imports, reflection, framework
+entry points, and external callers remain outside the proof boundary, so all
+findings stay advisory and source is never deleted.

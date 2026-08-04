@@ -136,3 +136,8 @@ def test_dead_code_lsp_filters_only_proven_references(tmp_path: Path, monkeypatc
     assert [item["name"] for item in report["candidates"]] == ["_unused"]
     assert report["lsp"]["available"] is True
     assert report["lsp"]["checked_candidates"] == 2
+def test_dead_code_excludes_project_local_override_chain(tmp_path: Path):
+    _write(tmp_path, "src/hooks.py", "class Base:\n    def _hook(self):\n        return 1\n\nclass Child(Base):\n    def _hook(self):\n        return 2\n\ndef _unused():\n    return 3\n")
+    out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
+    assert [item["name"] for item in out["candidates"]] == ["_unused"]
+    assert "project-local overrides are excluded" in out["limitations"][1]

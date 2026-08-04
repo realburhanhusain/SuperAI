@@ -315,6 +315,39 @@ def _dead_code_exclusions(root: Path, max_files: int) -> Tuple[Set[str], Set[str
                 if isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
                     dynamic_refs.update(item.value for item in node.value.elts if isinstance(item, ast.Constant) and isinstance(item.value, str))
     return dynamic_refs, value_refs, decorated
+def _inheritance_override_locations(root: Path, max_files: int) -> Set[Tuple[str, int]]:
+    """Identify Python methods that override a project-local base method.
+
+    Overrides may be invoked by a framework or through a base-typed value, so they
+    are excluded from low-confidence dead-code candidates. Ambiguous base names
+    are intentionally treated as a possible override rather than a candidate.
+    """
+    class_methods: DefaultDict[str, Set[str]] = defaultdict(set)
+    classes: List[Tuple[str, str, List[str], List[Tuple[str, int]]]] = []
+    for source in _python_files(root, max_files):
+        rel = source.relative_to(root).as_posix()
+        try:
+            tree = ast.parse(source.read_text(encoding="utf-8-sig", errors="replace"), filename=str(source))
+        except (OSError, SyntaxError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            methods = [(item.name, int(item.lineno)) for item in node.body
+                       if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            class_methods[node.name].update(name for name, _ in methods)
+            bases = [_call_name(base) for base in node.bases if _call_name(base)]
+            classes.append((rel, node.name, bases, methods))
+    overridden: Set[Tuple[str, int]] = set()
+    for rel, _name, bases, methods in classes:
+        inherited_names = set().union(*(class_methods.get(base, set()) for base in bases)) if bases else set()
+        overridden.update((rel, line) for method, line in methods if method in inherited_names)
+        for base in bases:
+            for base_rel, base_name, _base_bases, base_methods in classes:
+                if base_name == base:
+                    overridden.update((base_rel, line) for method, line in base_methods if method in inherited_names)
+    return overridden
+
 def _dead_code_suppressions(root: Path) -> Set[str]:
     """Load optional exact candidate suppressions from .superai/dead-code.json."""
     try:
@@ -344,6 +377,7 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
     incoming = {str(edge["to"]) for edge in graph["edges"]}
     base = Path(graph["root"])
     dynamic_refs, value_refs, decorated = _dead_code_exclusions(base, max_files)
+    overrides = _inheritance_override_locations(base, max_files)
     suppressions = _dead_code_suppressions(base)
     candidates = [
         {"id": item["id"], "file": item["file"], "name": item["name"], "line": item["line"],
@@ -353,6 +387,7 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
         and not str(item["name"]).startswith("__") and not item.get("is_test") and str(item["id"]) not in incoming
         and str(item["name"]) not in dynamic_refs and str(item["name"]) not in value_refs
         and (str(item["file"]), int(item["line"])) not in decorated
+        and (str(item["file"]), int(item["line"])) not in overrides
         and str(item["name"]) not in suppressions
         and f'{item["file"]}:{item["name"]}' not in suppressions
     ]
@@ -367,7 +402,7 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
     return {"ok": True, "product": graph["product"], "report": "dead_code_candidates", "scope": ["functions", "methods", "classes", "private_modules"], "module_candidates": _private_module_candidates(base, max_files),
             "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"],
             "index": graph["index"], "lsp": lsp_result, "suppressions": sorted(suppressions), "limitations": [
-                "Candidates are not proof of dead code", "Dynamic lookups, exports, imports, callbacks, and decorated functions are excluded", "Dynamic imports, callbacks, reflection, and external callers are not resolved",
+                "Candidates are not proof of dead code", "Dynamic lookups, exports, imports, callbacks, decorators, and project-local overrides are excluded", "Dynamic imports, reflection, and external callers are not resolved",
                 "No source files are modified"],}
 
 

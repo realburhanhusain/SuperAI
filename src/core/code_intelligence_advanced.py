@@ -12,7 +12,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
 
-from .code_intelligence import _dead_code_exclusions, _dead_code_suppressions, build_code_graph, changed_files
+from .code_intelligence import (_dead_code_exclusions, _dead_code_suppressions, _inheritance_override_locations, build_code_graph, changed_files)
 from .workspace_index import SKIP_DIRS
 
 _ENGINE = "advanced-local-v1"
@@ -204,13 +204,14 @@ def advanced_dead_code_report(root: Optional[Path] = None, *, max_files: int = 2
     incoming = {str(edge["to"]) for edge in graph["edges"]}
     base = Path(graph["root"])
     dynamic_refs, value_refs, decorated = _dead_code_exclusions(base, max_files)
+    overrides = _inheritance_override_locations(base, max_files)
     suppressions = _dead_code_suppressions(base)
     candidates = []
     for item in graph["symbols"]:
         name = str(item["name"])
         if item["kind"] not in {"function", "async_function", "class"} or not name.startswith("_") or name.startswith("__") or item.get("is_test") or str(item["id"]) in incoming:
             continue
-        if item.get("language") == "python" and (name in dynamic_refs or name in value_refs or (str(item["file"]), int(item["line"])) in decorated):
+        if item.get("language") == "python" and (name in dynamic_refs or name in value_refs or (str(item["file"]), int(item["line"])) in decorated or (str(item["file"]), int(item["line"])) in overrides):
             continue
         if name in suppressions or f"{item['file']}:{name}" in suppressions:
             continue

@@ -79,3 +79,7 @@ def test_advanced_dead_code_lsp_routes_each_language_to_its_provider(tmp_path: P
     report = advanced_dead_code_report(tmp_path, lsp=True)
     assert seen == ["go", "rust", "java", "csharp"]
     assert {item["name"] for item in report["candidates"]} == {"_unused"}
+def test_advanced_dead_code_excludes_python_override_chain(tmp_path: Path):
+    _write(tmp_path, "src/hooks.py", "class Base:\n    def _hook(self):\n        return 1\n\nclass Child(Base):\n    def _hook(self):\n        return 2\n\ndef _unused():\n    return 3\n")
+    out = advanced_dead_code_report(tmp_path)
+    assert [item["name"] for item in out["candidates"]] == ["_unused"]

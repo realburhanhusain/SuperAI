@@ -39,7 +39,7 @@ The MCP tool `superai_code_intelligence` accepts `engine: "advanced"` for `index
 
 The advanced engine is a conservative source scanner, not a compiler or language
 server. It creates a `CALLS` edge only where a short function name resolves uniquely.
-Dynamic dispatch, reflection, generated code, imports/aliases, and overloaded names
+Project-local Python override chains, dynamic dispatch, reflection, generated code, imports/aliases, and overloaded names
 can therefore be omitted. Treat impact and dead-code output as review evidence—not
 proof—and verify before changing production code.
 

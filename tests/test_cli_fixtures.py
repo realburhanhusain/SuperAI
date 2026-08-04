@@ -152,8 +152,13 @@ def test_unknown_command_is_reported_not_guessed():
 
 def test_every_read_only_command_lands_in_exactly_one_bucket():
     """Derived, refused-with-a-reason, or needs-no-arguments. No fourth state."""
+    import os
+    probe_tmp = "probe.tmp"
+    if os.path.exists(probe_tmp):
+        os.remove(probe_tmp)
     report = cf.fixture_report()
     assert report["considered"] > 100
+    assert not os.path.exists(probe_tmp), "fixture_report leaked probe.tmp into the working directory"
     overlap = set(report["derived"]) & {r["command"] for r in report["refused"]}
     assert not overlap, f"commands in two buckets: {sorted(overlap)}"
     for row in report["refused"]:

@@ -721,13 +721,20 @@ class ModelCaller:
         )
         start = time.time()
         total_chars = 0
+        reported_tokens = 0
         for chunk in stream:
+            # Some OpenAI-compatible servers volunteer a usage block on the final
+            # chunk. Take it when offered; never *request* it, since local servers
+            # (LM Studio, vLLM, Ollama) share this path and reject unknown params.
+            usage = getattr(chunk, "usage", None)
+            if usage is not None:
+                reported_tokens = int(getattr(usage, "total_tokens", 0) or 0) or reported_tokens
             delta = chunk.choices[0].delta.content if chunk.choices else None
             if delta:
                 total_chars += len(delta)
                 yield delta
-        # Approximate token usage from chars
-        tokens = max(1, total_chars // 4)
+        # Prefer usage the server reported; otherwise approximate from chars.
+        tokens = reported_tokens or max(1, total_chars // 4)
         self.health_store.record_success(
             provider, latency=time.time() - start, tokens=tokens
         )

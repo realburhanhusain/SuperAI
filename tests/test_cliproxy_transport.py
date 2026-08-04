@@ -103,6 +103,93 @@ def test_cliproxy_cost_is_actual_not_a_guess():
     assert priced["estimate_source"] == "actual"
 
 
+# ---------------------------------------------------------------------------
+# Streamed token counts: exact when the server offers them, estimated otherwise
+# ---------------------------------------------------------------------------
+
+
+class _Delta:
+    def __init__(self, content):
+        self.content = content
+
+
+class _Choice:
+    def __init__(self, content):
+        self.delta = _Delta(content)
+
+
+class _Chunk:
+    """A chunk carries text, or a usage block, or neither."""
+
+    def __init__(self, content=None, total_tokens=None):
+        self.choices = [_Choice(content)] if content is not None else []
+        self.usage = (
+            type("U", (), {"total_tokens": total_tokens})() if total_tokens else None
+        )
+
+
+def _fake_openai_client(chunks):
+    class _Completions:
+        def create(self, **_kwargs):
+            return iter(chunks)
+
+    class _Chat:
+        def __init__(self):
+            self.completions = _Completions()
+
+    class _Client:
+        def __init__(self, **_kwargs):
+            self.chat = _Chat()
+
+    return _Client
+
+
+def _tokens_recorded_for(monkeypatch, chunks):
+    """Drain _stream_openai_compatible over `chunks`; return tokens recorded."""
+    import openai
+
+    from core.model_caller import ModelCaller
+
+    monkeypatch.setattr(openai, "OpenAI", _fake_openai_client(chunks))
+    caller = ModelCaller(use_mock=False)
+    monkeypatch.setattr(
+        caller,
+        "_resolve_openai_endpoint",
+        lambda *_a: ("http://127.0.0.1:8317/v1", "k", None),
+    )
+    monkeypatch.setattr(caller, "_model_id", lambda m: m)
+    recorded = {}
+    monkeypatch.setattr(
+        caller.health_store,
+        "record_success",
+        lambda provider, latency, tokens: recorded.update(tokens=tokens),
+    )
+    list(
+        caller._stream_openai_compatible(
+            "cliproxy", "cliproxy:claude-opus", "hi", None
+        )
+    )
+    return recorded["tokens"]
+
+
+def test_streamed_usage_is_taken_from_the_server_when_offered(monkeypatch):
+    """
+    Some OpenAI-compatible servers volunteer a usage block on the final chunk.
+    When they do, that count beats the chars//4 estimate.
+    """
+    chunks = [_Chunk("hello "), _Chunk("world"), _Chunk(total_tokens=1234)]
+    assert _tokens_recorded_for(monkeypatch, chunks) == 1234
+
+
+def test_streamed_usage_falls_back_to_an_estimate(monkeypatch):
+    """
+    No usage block — the count is a `chars // 4` approximation, and the docs say
+    so. SuperAI never *requests* usage, because LM Studio/vLLM/Ollama share this
+    code path and reject unknown request params.
+    """
+    assert _tokens_recorded_for(monkeypatch, [_Chunk("a" * 40)]) == 10
+
+
 def test_metered_models_are_unaffected():
     """The prefix change must not make real API models look free."""
     priced = from_usage("gpt-4o", total_tokens=1000, cost_source="estimate")

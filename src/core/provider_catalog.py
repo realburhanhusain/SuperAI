@@ -153,8 +153,9 @@ OPENAI_COMPAT_PROVIDERS: Dict[str, Dict[str, Any]] = {
     #                 an HTTP chat endpoint cannot run aider's edit loop or
     #                 Claude Code's tool execution.
     #   cliproxy      serves chat completions over HTTP. No subprocess, no PATH
-    #                 resolution, real streaming, and real token usage from the
-    #                 API rather than an estimate.
+    #                 resolution, real streaming, and exact token usage on the
+    #                 non-streaming path (streams report usage only when the
+    #                 server volunteers it; otherwise it is estimated).
     #
     # Use cliproxy when you want a *model*; use cli:* when you want an *agent*.
     # Nothing routes here unless the user adds cliproxy models to the registry.

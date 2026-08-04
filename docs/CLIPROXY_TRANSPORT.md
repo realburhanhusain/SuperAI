@@ -16,14 +16,46 @@ supported, and you choose per model.
 | Runs agent tool loops | **Yes** (aider's edit loop, Claude Code's tools) | No |
 | Needs the CLI on PATH | Yes | No |
 | Streaming | Line-buffered stdout | Real SSE |
-| Token usage | Estimated | Reported by the API |
+| Token usage | Estimated | Reported by the API (see below) |
 | Startup cost | Full process spawn | HTTP round trip |
+
+### Where token usage is exact, and where it is not
+
+| Path | Source of the token count |
+|---|---|
+| `call()` — non-streaming | `response.usage`, exact |
+| `call_stream()` / `_stream_openai_compatible()` | the server's usage block if it volunteers one on the final chunk, otherwise a `chars // 4` estimate |
+
+SuperAI does not *request* usage on streams
+(`stream_options={"include_usage": true}`), because the same code path serves LM
+Studio, vLLM and Ollama, which reject unknown request params. There is no spend
+consequence either way — a subscription-backed call is `$0` however many tokens
+it used — but a streamed `total_tokens` should not be read as authoritative.
 
 **Use `cliproxy:` when you want a model. Use `cli:` when you want an agent.**
 
 A chat endpoint cannot run aider's edit loop or Claude Code's tool execution —
 those are agent products that happen to share a brand with a model. That is why
 `external_cli.py` and `cli_pool.py` stay exactly as they are.
+
+## `supports_tools` is a claim about the model, not about SuperAI
+
+The example rows carry `"supports_tools": true`, and CLIProxyAPI does expose
+function calling. **SuperAI does not currently send tool definitions on any
+transport** — no `tools=` or `tool_choice=` argument appears anywhere in `src/`,
+for this provider or any other. `supports_tools` is a `ModelSpec` field
+(`model_registry.py:28`, default `True`) that is stored and serialised but never
+read by the router.
+
+So the flag is accurate about the upstream model and inert about what SuperAI
+will do with it. It is left `true` because setting it `false` only here would
+falsely imply the other registry rows *do* exercise tools.
+
+This is worth naming because function calling is exactly the boundary case in
+the model/agent split above. `cli:*` gets agent behaviour from the vendor CLI's
+own tool loop; `cliproxy:*` could in principle get it from the API, and today
+does not. Wiring tools through the OpenAI-compatible path is a change to
+`model_caller`, not to this provider entry.
 
 ## Enabling it
 

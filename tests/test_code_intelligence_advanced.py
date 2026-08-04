@@ -89,3 +89,57 @@ def test_advanced_graph_resolves_typescript_named_import_alias(tmp_path: Path):
     _write(tmp_path, "src/service.ts", "import { original as local } from './core';\nexport function caller() { return local(); }\n")
     graph = build_advanced_code_graph(tmp_path)
     assert ("src/service.ts:caller", "src/core.ts:original") in {(edge["from"], edge["to"]) for edge in graph["edges"]}
+
+def test_csharp_offline_regression(tmp_path, monkeypatch):
+    from core import lsp_bridge
+    from core.code_intelligence_advanced import advanced_dead_code_report
+    path = tmp_path / "Sample.cs"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("class Sample {\nprivate int _used() => 1;\nprivate int _unused() => 2;\n}\n", encoding="utf-8")
+    
+    def fake_references(_root, candidates, timeout_seconds=45.0, language="python"):
+        if language == "csharp":
+            return {"available": True, "reference_counts": {item["id"]: (2 if item["name"] == "_used" else 1) for item in candidates}}
+        return {"available": False, "reference_counts": {}}
+        
+    monkeypatch.setattr(lsp_bridge, "python_reference_counts", fake_references)
+    report = advanced_dead_code_report(tmp_path, lsp=True)
+    assert [item["name"] for item in report["candidates"]] == ["_unused"]
+
+def test_csharp_real_lsp_probe(tmp_path):
+    from core import lsp_bridge
+    import subprocess
+    import pytest
+    
+    status = lsp_bridge.provider_status("csharp")
+    if not status.get("available"):
+        pytest.skip("No C# LSP available")
+        
+    subprocess.run(["dotnet", "new", "console"], cwd=str(tmp_path), check=True)
+    code = """using System;
+
+public class UsedClass {
+    public void DoSomething() {}
+}
+
+public class UnusedClass {
+}
+
+class Program {
+    static void Main() {
+        var c1 = new UsedClass();
+        var c2 = new UsedClass();
+    }
+}
+"""
+    (tmp_path / "Program.cs").write_text(code, encoding="utf-8")
+    
+    candidates = [
+        {"id": "used", "file": "Program.cs", "name": "UsedClass", "line": 3},
+        {"id": "unused", "file": "Program.cs", "name": "UnusedClass", "line": 7}
+    ]
+    
+    res = lsp_bridge.python_reference_counts(tmp_path, candidates, timeout_seconds=30.0, language="csharp")
+    assert res["available"] is True
+    assert res["reference_counts"].get("used", 0) > 1
+    assert res["reference_counts"].get("unused", 0) == 1

@@ -1,7 +1,17 @@
 """
 Interactive Vega-Lite chart HTML rendering for Databao / data-ask.
 
-Exports self-contained HTML using CDN Vega embeds (no build step).
+Exports genuinely self-contained HTML: the Vega runtime is vendored in this
+repo (``vendor/vega/``, pinned by version and sha256) and inlined into the
+document, so a chart renders with no network at all.
+
+This replaced ``<script src="https://cdn.jsdelivr.net/npm/vega@5">`` — a
+floating major, meaning any jsdelivr publish could change every chart SuperAI
+had ever produced, with no commit on our side. Charts written months apart now
+render identically because they carry their own runtime.
+
+Falling back to the CDN is still possible (``assets="cdn"``), and even then the
+URLs carry exact versions rather than a major.
 """
 
 from __future__ import annotations
@@ -11,22 +21,137 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-
-VEGA_CDN = {
-    "vega": "https://cdn.jsdelivr.net/npm/vega@5",
-    "vegalite": "https://cdn.jsdelivr.net/npm/vega-lite@5",
-    "vegaembed": "https://cdn.jsdelivr.net/npm/vega-embed@6",
+#: Last-resort pins used when ``vendor/`` is unavailable (e.g. an odd install
+#: layout). Deliberately exact: a floating major is the thing being fixed.
+VEGA_FALLBACK_VERSIONS = {
+    "vega": "5.33.1",
+    "vega-lite": "5.23.0",
+    "vega-embed": "6.29.0",
 }
+
+VENDOR_SOURCE = "vega"
+
+
+def _vendored_files() -> list:
+    """The manifest's file specs for the vega entry, or [] if unavailable."""
+    try:
+        from .vendored import pin_info
+
+        return list(pin_info(VENDOR_SOURCE).get("files") or [])
+    except Exception:
+        return []
+
+
+def pinned_versions() -> Dict[str, str]:
+    """Exact versions in use, from the manifest when present."""
+    versions = {
+        str(spec.get("package")): str(spec.get("version"))
+        for spec in _vendored_files()
+        if spec.get("package") and spec.get("version")
+    }
+    return versions or dict(VEGA_FALLBACK_VERSIONS)
+
+
+def _cdn_urls() -> Dict[str, str]:
+    versions = pinned_versions()
+    builds = {
+        "vega": "build/vega.min.js",
+        "vega-lite": "build/vega-lite.min.js",
+        "vega-embed": "build/vega-embed.min.js",
+    }
+    return {
+        pkg: f"https://cdn.jsdelivr.net/npm/{pkg}@{versions[pkg]}/{builds[pkg]}"
+        for pkg in builds
+        if pkg in versions
+    }
+
+
+#: Kept for callers that referenced the old constant; now exact, not floating.
+VEGA_CDN = _cdn_urls()
+
+
+def _inline_scripts() -> Optional[str]:
+    """
+    Inline `<script>` blocks for the vendored runtime, or None if unavailable.
+
+    Each file is hash-verified on read (``vendored.load_json`` does the same for
+    JSON): silently serving a modified runtime would be a worse failure than
+    not rendering.
+    """
+    from .vendored import VendorError, sha256_of, vendor_root
+
+    specs = _vendored_files()
+    if not specs:
+        return None
+    try:
+        root = vendor_root()
+    except VendorError:
+        return None
+
+    blocks = []
+    for spec in specs:
+        path = root / str(spec["path"])
+        if not path.is_file():
+            return None
+        if sha256_of(path) != spec.get("sha256"):
+            raise VendorError(
+                f"{spec['path']} does not match its pin; refusing to inline a "
+                "runtime that was modified in place. Re-run "
+                "scripts/vendor_sync.py --update vega to re-pin deliberately."
+            )
+        source = path.read_text(encoding="utf-8")
+        # A closing tag inside the payload would end the script element early.
+        # None of the pinned builds contain one today; a future one might.
+        source = source.replace("</script", "<\\/script")
+        blocks.append(
+            f"  <!-- {spec['package']}@{spec['version']} "
+            f"(vendored, sha256 {str(spec['sha256'])[:12]}) -->\n"
+            f"  <script>{source}</script>"
+        )
+    return "\n".join(blocks)
+
+
+def _asset_scripts(assets: str) -> str:
+    """Resolve `assets` to the `<script>` block that belongs in the document."""
+    if assets not in {"auto", "inline", "cdn"}:
+        raise ValueError(f"assets must be 'auto', 'inline' or 'cdn'; got {assets!r}")
+
+    if assets in {"auto", "inline"}:
+        inlined = _inline_scripts()
+        if inlined is not None:
+            return inlined
+        if assets == "inline":
+            raise RuntimeError(
+                "vendored Vega runtime not found under vendor/vega/. Run "
+                "scripts/vendor_sync.py --update vega, or pass assets='cdn'."
+            )
+
+    return "\n".join(
+        f'  <script src="{url}"></script>' for url in _cdn_urls().values()
+    )
 
 
 def render_vega_html(
     spec: Dict[str, Any],
     title: str = "SuperAI Chart",
     theme: str = "quartz",
+    assets: str = "auto",
 ) -> str:
-    """Return a complete HTML document that embeds the Vega-Lite spec."""
+    """
+    Return a complete HTML document that embeds the Vega-Lite spec.
+
+    assets:
+      ``auto``   inline the vendored runtime; fall back to pinned CDN URLs if
+                 ``vendor/`` is missing (the default)
+      ``inline`` inline, or raise — for when offline rendering is required
+      ``cdn``    exact-version CDN script tags; ~828KB smaller per document
+
+    Inlining costs about 828KB per file. That buys a document that renders
+    offline, in an air-gapped review, and identically in a year's time.
+    """
     if not isinstance(spec, dict):
         raise TypeError("spec must be a dict (Vega-Lite JSON)")
+    asset_scripts = _asset_scripts(assets)
     # Ensure schema present
     out_spec = dict(spec)
     out_spec.setdefault(
@@ -49,9 +174,7 @@ def render_vega_html(
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>{safe_title}</title>
-  <script src="{VEGA_CDN['vega']}"></script>
-  <script src="{VEGA_CDN['vegalite']}"></script>
-  <script src="{VEGA_CDN['vegaembed']}"></script>
+{asset_scripts}
   <style>
     :root {{ color-scheme: light dark; }}
     body {{

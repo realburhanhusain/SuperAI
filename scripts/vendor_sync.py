@@ -66,14 +66,82 @@ def _remote_commit(repo: str, ref: str) -> Optional[str]:
     return None
 
 
+def _version_key(version: str) -> List[int]:
+    parts: List[int] = []
+    for chunk in version.split("."):
+        try:
+            parts.append(int(chunk))
+        except ValueError:
+            return []
+    return parts
+
+
+def _latest_npm_version(package: str, major: Optional[int]) -> Optional[str]:
+    """
+    Newest release of ``package``; constrained to ``major`` when given.
+
+    Constrained on purpose. npm's ``latest`` tag for vega is 6.x, but SuperAI
+    emits Vega-Lite v5 specs — following ``latest`` would silently change how
+    every existing chart renders. Crossing a major is a deliberate change with
+    re-testing, not something a refresh command should do behind your back.
+    """
+    data = _api(f"https://registry.npmjs.org/{package}")
+    if not isinstance(data, dict):
+        return None
+    versions = list((data.get("versions") or {}).keys())
+    usable = []
+    for version in versions:
+        key = _version_key(version)
+        if not key:
+            continue  # skip prereleases / non-numeric
+        if major is not None and key[0] != major:
+            continue
+        usable.append((key, version))
+    if not usable:
+        return None
+    return max(usable)[1]
+
+
+def _npm_drift(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Per-package drift for an npm-sourced entry, respecting the pinned major."""
+    pinned: Dict[str, str] = dict(entry.get("packages") or {})
+    hold_major = str(entry.get("pin_policy") or "major") == "major"
+    packages: List[Dict[str, Any]] = []
+    unreachable = False
+    for package, version in sorted(pinned.items()):
+        major = _version_key(version)[0] if hold_major and _version_key(version) else None
+        newest = _latest_npm_version(package, major)
+        if newest is None:
+            unreachable = True
+            packages.append({"package": package, "pinned": version, "status": DRIFT_UNKNOWN})
+        elif newest == version:
+            packages.append({"package": package, "pinned": version, "status": "current"})
+        else:
+            packages.append(
+                {"package": package, "pinned": version, "latest": newest, "status": "behind"}
+            )
+    if any(p["status"] == "behind" for p in packages):
+        status = "behind"
+    elif unreachable:
+        status = DRIFT_UNKNOWN
+    else:
+        status = "current"
+    return {"status": status, "packages": packages}
+
+
 def cmd_list() -> int:
     manifest = load_manifest()
     for name, entry in sorted(manifest["sources"].items()):
         files = entry.get("files") or []
         print(f"{name}")
         print(f"  kind    : {entry.get('kind')}")
-        print(f"  repo    : {entry.get('repo')} @ {entry.get('ref')}")
-        print(f"  commit  : {str(entry.get('commit'))[:12]}  (fetched {entry.get('fetched_at')})")
+        if entry.get("source") == "npm":
+            pinned = ", ".join(f"{p}@{v}" for p, v in sorted((entry.get("packages") or {}).items()))
+            print(f"  npm     : {pinned}")
+            print(f"  policy  : hold major line  (fetched {entry.get('fetched_at')})")
+        else:
+            print(f"  repo    : {entry.get('repo')} @ {entry.get('ref')}")
+            print(f"  commit  : {str(entry.get('commit'))[:12]}  (fetched {entry.get('fetched_at')})")
         print(f"  files   : {len(files)}" + ("" if files else "  (reference only — stores no bytes)"))
         for spec in files:
             print(f"            {spec['path']}  {spec.get('bytes', '?')} bytes")
@@ -89,9 +157,14 @@ def cmd_check(as_json: bool = False) -> int:
 
     drift: List[Dict[str, Any]] = []
     for name, entry in sorted(manifest["sources"].items()):
+        if entry.get("source") == "npm":
+            row = {"source": name, "origin": "npm"}
+            row.update(_npm_drift(entry))
+            drift.append(row)
+            continue
         repo, ref = entry.get("repo"), entry.get("ref")
         pinned = entry.get("commit")
-        row: Dict[str, Any] = {"source": name, "repo": repo, "ref": ref, "pinned": pinned}
+        row = {"source": name, "origin": "github", "repo": repo, "ref": ref, "pinned": pinned}
         remote = _remote_commit(str(repo), str(ref)) if repo and ref else None
         if remote is None:
             row.update(status=DRIFT_UNKNOWN, detail="remote unreachable; drift not determined")
@@ -125,6 +198,20 @@ def cmd_check(as_json: bool = False) -> int:
             print(f"  TAMPERED  {row['path']} — {row['reason']}")
         print("Upstream drift:")
         for row in drift:
+            if row.get("origin") == "npm":
+                label = {"current": "current  ", "behind": "BEHIND   "}.get(
+                    row["status"], "unknown  "
+                )
+                print(f"  {label} {row['source']}  (npm)")
+                for pkg in row.get("packages") or []:
+                    if pkg["status"] == "behind":
+                        print(
+                            f"             {pkg['package']} {pkg['pinned']}"
+                            f" -> {pkg['latest']} (same major)"
+                        )
+                    elif pkg["status"] == DRIFT_UNKNOWN:
+                        print(f"             {pkg['package']} {pkg['pinned']} — registry unreachable")
+                continue
             if row["status"] == "current":
                 print(f"  current   {row['source']}  ({row['repo']} @ {row['ref']})")
             elif row["status"] == "behind":
@@ -148,6 +235,9 @@ def cmd_update(name: str) -> int:
     if entry is None:
         print(f"unknown source: {name!r}", file=sys.stderr)
         return 2
+
+    if entry.get("source") == "npm":
+        return _update_npm(name, entry, manifest, manifest_path, root)
 
     repo, ref = str(entry.get("repo")), str(entry.get("ref"))
     remote = _remote_commit(repo, ref)
@@ -188,6 +278,62 @@ def cmd_update(name: str) -> int:
     entry["fetched_at"] = _today()
     _write_manifest(manifest_path, manifest)
     print(f"{name}: pinned to {remote[:12]} ({repo} @ {ref})")
+    return 0
+
+
+def _update_npm(
+    name: str,
+    entry: Dict[str, Any],
+    manifest: Dict[str, Any],
+    manifest_path: Path,
+    root: Path,
+) -> int:
+    """
+    Re-pin an npm-sourced entry, staying inside the pinned major.
+
+    Each file's URL carries its exact version, so the download is immutable —
+    which is the whole point compared with the floating ``vega@5`` this
+    replaced.
+    """
+    hold_major = str(entry.get("pin_policy") or "major") == "major"
+    packages: Dict[str, str] = dict(entry.get("packages") or {})
+    resolved: Dict[str, str] = {}
+
+    for package, current in sorted(packages.items()):
+        major = _version_key(current)[0] if hold_major and _version_key(current) else None
+        newest = _latest_npm_version(package, major)
+        if newest is None:
+            print(f"could not reach the npm registry for {package}; nothing updated", file=sys.stderr)
+            return 2
+        resolved[package] = newest
+
+    for spec in entry.get("files") or []:
+        package = str(spec.get("package"))
+        version = resolved.get(package)
+        if version is None:
+            print(f"{name}: file {spec['path']} names unknown package {package!r}", file=sys.stderr)
+            return 2
+        url = str(spec["url"]).replace(f"{package}@{spec['version']}", f"{package}@{version}")
+        req = urllib.request.Request(url, headers={"User-Agent": "SuperAI-vendor-sync"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                blob = resp.read()
+        except Exception as exc:  # noqa: BLE001
+            print(f"failed to download {url}: {exc}", file=sys.stderr)
+            return 2
+        dest = root / spec["path"]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(blob)
+        was = spec["version"]
+        spec.update(version=version, url=url, bytes=len(blob), sha256=sha256_of(dest))
+        arrow = "unchanged" if was == version else f"{was} -> {version}"
+        print(f"{name}: {spec['path']}  {arrow}  ({len(blob)} bytes)")
+
+    entry["packages"] = resolved
+    entry["fetched_at"] = _today()
+    _write_manifest(manifest_path, manifest)
+    if hold_major:
+        print(f"{name}: re-pinned within the existing major line; majors are not crossed here.")
     return 0
 
 

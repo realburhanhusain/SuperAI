@@ -54,15 +54,32 @@ def list_sources() -> List[Dict[str, Any]]:
             {
                 "name": name,
                 "kind": entry.get("kind"),
+                # github sources pin a commit; npm sources pin package versions.
+                "origin": entry.get("source") or "github",
                 "repo": entry.get("repo"),
                 "ref": entry.get("ref"),
                 "commit": entry.get("commit"),
+                "packages": dict(entry.get("packages") or {}),
                 "fetched_at": entry.get("fetched_at"),
                 "file_count": len(entry.get("files") or []),
                 "description": entry.get("description") or "",
             }
         )
     return rows
+
+
+def pin_of(row: Dict[str, Any]) -> str:
+    """
+    The pin for a source row, whatever form it takes.
+
+    Empty string when a source records no pin at all — which is the condition
+    worth failing on, rather than "has no commit SHA", since an npm source
+    legitimately never has one.
+    """
+    if row.get("origin") == "npm":
+        packages = row.get("packages") or {}
+        return ", ".join(f"{p}@{v}" for p, v in sorted(packages.items()))
+    return str(row.get("commit") or "")
 
 
 def pin_info(name: str) -> Dict[str, Any]:

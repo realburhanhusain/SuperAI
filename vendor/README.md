@@ -46,7 +46,19 @@ Exit code is non-zero only for problems we can actually prove.
 | Name | Kind | Pin | What reads it |
 |---|---|---|---|
 | `cliproxy-models` | `vendored_files` | `router-for-me/models` @ `fb13a81` | `core.cliproxy_models` — validates `cliproxy:*` registry rows |
+| `vega` | `vendored_files` (npm) | `vega@5.33.1`, `vega-lite@5.23.0`, `vega-embed@6.29.0` | `core.vega_charts` — inlined into every generated chart |
 | `cliproxy` | `pinned_reference` | `router-for-me/CLIProxyAPI` @ `v7.2.116` | docs and comments only |
+
+## npm sources hold their major line
+
+`vega` is pinned by package version rather than by commit, and `--update`
+resolves the newest release **within the pinned major** — not npm's `latest`.
+
+That is not caution for its own sake. SuperAI emits specs declaring
+`$schema: vega-lite/v5.json`; npm `latest` is now vega 6.x, vega-lite 6.x and
+vega-embed 7.x. A refresh that crossed the major would silently change how every
+existing chart renders. Crossing it is a deliberate change with chart
+re-testing, not something a sync command does on your behalf.
 
 ## Scope — what belongs here, and what does not
 
@@ -58,12 +70,16 @@ bytes come from.
 **Vendorable — external data SuperAI reads:**
 
 - `router-for-me/models` — done, above.
-- `vega_charts.py:16-18` — Vega/Vega-Lite/Vega-Embed `<script>` tags from
-  `cdn.jsdelivr.net`, plus the `vega-lite/v5.json` schema URL. These are the
-  strongest remaining candidates: a CDN version bump changes rendered charts
-  with no commit on our side. **Not migrated**, because inlining ~1.5MB of JS
-  into every generated chart file changes what that file *is* — a product
-  decision, not a dependency-policy one.
+- Vega / Vega-Lite / Vega-Embed — done. Previously `<script>` tags pointing at
+  `cdn.jsdelivr.net/npm/vega@5`, a floating major, so a CDN publish could change
+  every chart ever generated. Now vendored (828KB) and inlined, which costs
+  ~828KB per chart file and buys a document that renders offline and renders
+  identically in a year. `assets="cdn"` remains available for size-sensitive
+  callers, and even that path uses exact versions.
+- The `$schema` URL in emitted specs (`https://vega.github.io/schema/vega-lite/v5.json`)
+  is deliberately left alone. It is an identifier, not a fetch: the vendored
+  runtime keys off the string and never requests it. Rewriting it to a local
+  path would break every consumer that validates specs by schema id.
 
 **Must stay live — request-time APIs, not sources:**
 

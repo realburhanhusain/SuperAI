@@ -9,6 +9,7 @@ a decision on our side. See vendor/README.md.
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -18,6 +19,7 @@ from core.vendored import (
     load_json,
     load_manifest,
     pin_info,
+    pin_of,
     vendor_root,
     verify_integrity,
 )
@@ -29,15 +31,23 @@ def test_manifest_is_present_and_shaped():
     assert manifest["sources"], "manifest must pin at least one source"
 
 
-def test_every_source_records_a_commit():
+def test_every_source_records_a_pin():
     """
-    A pin without a commit is not a pin. Both entry kinds carry one — a
-    reference-only entry still fixes the tree that docs cite.
+    An unpinned source is the thing this directory exists to prevent. The pin
+    takes different forms — a git commit, or exact npm versions — so the check
+    is "is it pinned", not "does it have a SHA".
     """
     for row in list_sources():
-        assert row["commit"], f"{row['name']} has no pinned commit"
-        assert len(row["commit"]) == 40, f"{row['name']} pin is not a full SHA"
         assert row["kind"] in {"vendored_files", "pinned_reference"}
+        assert row["origin"] in {"github", "npm"}
+        assert pin_of(row), f"{row['name']} records no pin"
+        if row["origin"] == "github":
+            assert len(row["commit"]) == 40, f"{row['name']} pin is not a full SHA"
+        else:
+            for package, version in row["packages"].items():
+                assert re.fullmatch(
+                    r"\d+\.\d+\.\d+", version
+                ), f"{row['name']}:{package} is pinned to {version!r}, not an exact version"
 
 
 def test_vendored_files_match_their_recorded_hashes():

@@ -1,0 +1,4 @@
+# Vendored bytes are pinned by sha256 in manifest.json. Git must not rewrite
+# line endings on checkout — a CRLF conversion changes the hash and every
+# integrity check fails on a fresh clone, on Windows only, for no real reason.
+* -text

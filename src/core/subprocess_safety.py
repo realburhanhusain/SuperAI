@@ -34,6 +34,7 @@ LONG_LIVED_ALLOWLIST = (
     "tui_process_mux.py:Popen",  # interactive process panes
     "tui_conpty.py",  # ConPTY session lifetime
     "windows_task_scheduler.py",  # schtasks install only (uses run with timeout)
+    "lsp_bridge.py:Popen",  # LSP background server
 )
 
 

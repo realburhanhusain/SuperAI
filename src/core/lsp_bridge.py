@@ -91,7 +91,12 @@ def python_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
 
 def _java_server_command(root: Path) -> Optional[List[str]]:
     """Build the JDT LS command when the official archive is installed locally."""
-    home = Path(os.environ.get("SUPERAI_JDTLS_HOME", "") or Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "jdtls")
+    configured = os.environ.get("SUPERAI_JDTLS_HOME", "").strip()
+    if configured:
+        home = Path(configured)
+    else:
+        local_appdata = os.environ.get("LOCALAPPDATA", "")
+        home = Path(local_appdata) / "Programs" / "jdtls" if local_appdata else Path.home() / "AppData" / "Local" / "Programs" / "jdtls"
     launchers = sorted((home / "plugins").glob("org.eclipse.equinox.launcher_*.jar"))
     config = home / "config_win"
     java = _provider_command("SUPERAI_JAVA_EXECUTABLE", ["java"])
@@ -117,7 +122,7 @@ def _server_environment(language: str) -> Dict[str, str]:
     elif language == "csharp":
         extra_paths.extend([str(Path.home() / ".dotnet" / "tools"), str(Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "dotnet")])
     existing = environment.get("PATH", "")
-    environment["PATH"] = os.pathsep.join([*extra_paths, existing])
+    environment["PATH"] = os.pathsep.join([p for p in [*extra_paths, existing] if p])
     return environment
 
 def provider_status(language: str) -> Dict[str, Any]:

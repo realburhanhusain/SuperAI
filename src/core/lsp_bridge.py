@@ -21,7 +21,7 @@ _LANGUAGE_PROVIDERS = {
     "typescript_javascript": ("SUPERAI_TYPESCRIPT_LSP", ["typescript-language-server"], {".ts", ".tsx", ".js", ".jsx"}, "typescript"),
     "go": ("SUPERAI_GO_LSP", ["gopls"], {".go"}, "go"),
     "rust": ("SUPERAI_RUST_LSP", ["rust-analyzer"], {".rs"}, "rust"),
-    "csharp": ("SUPERAI_CSHARP_LSP", ["csharp-ls"], {".cs"}, "csharp"),
+    "csharp": ("SUPERAI_CSHARP_LSP", ["roslyn-language-server", "csharp-ls"], {".cs"}, "csharp"),
 }
 
 def available() -> bool:
@@ -140,6 +140,54 @@ def provider_status(language: str) -> Dict[str, Any]:
 def all_provider_statuses() -> Dict[str, Dict[str, Any]]:
     return {language: provider_status(language) for language in ["python", "typescript_javascript", "go", "rust", "java", "csharp"]}
 
+def _omnisharp_reference_counts(command: str, root: Path, candidates: List[Dict[str, Any]], timeout_seconds: float) -> Dict[str, Any]:
+    """Use OmniSharp's native stdio /findusages protocol as a C# adapter."""
+    try:
+        proc = subprocess.Popen([command, "-s", str(root)], cwd=str(root), env=_server_environment("csharp"), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
+    except OSError as exc:
+        return {"available": False, "reason": f"OmniSharp start failed: {exc}", "reference_counts": {}}
+    responses: "queue.Queue[Dict[str, Any]]" = queue.Queue()
+    def reader() -> None:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            try:
+                value = json.loads(line)
+                if isinstance(value, dict): responses.put(value)
+            except json.JSONDecodeError:
+                continue
+    threading.Thread(target=reader, daemon=True).start()
+    counts: Dict[str, int] = {}
+    try:
+        assert proc.stdin is not None
+        deadline = time.monotonic() + timeout_seconds
+        proc.stdin.write(json.dumps({"Seq": 0, "Type": "request", "Command": "/projects", "Arguments": {}}) + "\n"); proc.stdin.flush()
+        while True:
+            ready = responses.get(timeout=max(0.1, deadline - time.monotonic()))
+            if ready.get("Type") == "response" and ready.get("Request_seq") == 0:
+                if not ready.get("Success", False): raise RuntimeError(str(ready.get("Message", "OmniSharp project load failed")))
+                break
+        for sequence, item in enumerate(candidates, 1):
+            source = root / str(item["file"])
+            if not source.is_file() or source.suffix.lower() != ".cs": continue
+            lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
+            line = int(item["line"]) - 1; name = str(item["name"])
+            if line < 0 or line >= len(lines) or name not in lines[line]: continue
+            request = {"Seq": sequence, "Type": "request", "Command": "/findusages", "Arguments": {"FileName": str(source.resolve()), "Line": line, "Column": lines[line].index(name), "OnlyThisFile": False, "ExcludeDefinition": False}}
+            proc.stdin.write(json.dumps(request) + "\n"); proc.stdin.flush()
+            while True:
+                message = responses.get(timeout=max(0.1, deadline - time.monotonic()))
+                if message.get("Type") == "response" and message.get("Request_seq") == sequence:
+                    if not message.get("Success", False): raise RuntimeError(str(message.get("Message", "OmniSharp request failed")))
+                    body = message.get("Body") or {}
+                    locations = body.get("QuickFixes") or body.get("Locations") or []
+                    counts[str(item["id"])] = len(locations) if isinstance(locations, list) else 0
+                    break
+        return {"available": True, "provider": "omnisharp-native", "reference_counts": counts, "timed_out": time.monotonic() >= deadline}
+    except (OSError, RuntimeError, TimeoutError, queue.Empty) as exc:
+        return {"available": False, "reason": f"OmniSharp reference probe failed: {str(exc) or type(exc).__name__}", "reference_counts": {}}
+    finally:
+        proc.terminate()
+
 def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeout_seconds: float = 45.0, language: str = "python") -> Dict[str, Any]:
     """Ask an optional pyright-compatible server for Python symbol references.
 
@@ -161,7 +209,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         command = _provider_command(environment_name, commands)
         if not command or (configured and not Path(command).is_file()):
             return {"available": False, "reason": f"{language} LSP provider unavailable", "reference_counts": {}}
-        argv = [command, "-mode=stdio"] if language == "go" else ([command, "--stdio"] if language in {"python", "typescript_javascript"} else [command])
+        argv = [command, "-mode=stdio"] if language == "go" else ([command, "--stdio"] if language in {"python", "typescript_javascript", "csharp"} else [command])
     try:
         proc = subprocess.Popen(argv, cwd=str(root), env=_server_environment(language), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     except OSError as exc:
@@ -199,17 +247,30 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         deadline = time.monotonic() + budget
         while True:
             item = messages.get(timeout=max(0.05, deadline - time.monotonic()))
+            if "method" in item and "id" in item:
+                method = str(item["method"])
+                request_params = item.get("params") or {}
+                result = [{} for _ in request_params.get("items", [])] if method == "workspace/configuration" else None
+                response = json.dumps({"jsonrpc":"2.0", "id": item["id"], "result": result}).encode("utf-8")
+                assert proc.stdin is not None
+                proc.stdin.write(f"Content-Length: {len(response)}\r\n\r\n".encode("ascii") + response); proc.stdin.flush()
+                continue
             if item.get("id") == request_id:
                 if "error" in item:
                     raise RuntimeError(str(item["error"]))
                 return item.get("result")
     try:
-        init_params: Dict[str, Any] = {"processId": None, "rootPath": str(root.resolve()), "rootUri": root.resolve().as_uri(), "workspaceFolders": [{"uri": root.resolve().as_uri(), "name": root.name}], "capabilities": {}}
+        init_params: Dict[str, Any] = {"processId": None, "rootPath": str(root.resolve()), "rootUri": root.resolve().as_uri(), "workspaceFolders": [{"uri": root.resolve().as_uri(), "name": root.name}], "capabilities": {"workspace": {"configuration": True, "workspaceFolders": True}, "textDocument": {"references": {"dynamicRegistration": False}}}}
         if language == "typescript_javascript":
             tsserver = Path(command).parent / "node_modules" / "typescript" / "lib" / "tsserver.js"
             if tsserver.is_file():
                 init_params["initializationOptions"] = {"tsserver": {"path": str(tsserver)}}
-        initialized = request("initialize", init_params, min(20.0 if language == "java" else 10.0, timeout_seconds)) or {}
+        elif language == "rust":
+            init_params["initializationOptions"] = {
+                "cargo": {"features": "all"},
+                "linkedProjects": [str(root.resolve() / "Cargo.toml")]
+            }
+        initialized = request("initialize", init_params, min(45.0 if language == "csharp" else (20.0 if language == "java" else 10.0), timeout_seconds)) or {}
         if not (initialized.get("capabilities") or {}).get("referencesProvider"):
             return {"available": False, "reason": "provider has no references capability", "reference_counts": {}}
         assert proc.stdin is not None

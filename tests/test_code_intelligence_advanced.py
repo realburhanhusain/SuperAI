@@ -83,3 +83,9 @@ def test_advanced_dead_code_excludes_python_override_chain(tmp_path: Path):
     _write(tmp_path, "src/hooks.py", "class Base:\n    def _hook(self):\n        return 1\n\nclass Child(Base):\n    def _hook(self):\n        return 2\n\ndef _unused():\n    return 3\n")
     out = advanced_dead_code_report(tmp_path)
     assert [item["name"] for item in out["candidates"]] == ["_unused"]
+
+def test_advanced_graph_resolves_typescript_named_import_alias(tmp_path: Path):
+    _write(tmp_path, "src/core.ts", "export function original(): boolean { return true; }\n")
+    _write(tmp_path, "src/service.ts", "import { original as local } from './core';\nexport function caller() { return local(); }\n")
+    graph = build_advanced_code_graph(tmp_path)
+    assert ("src/service.ts:caller", "src/core.ts:original") in {(edge["from"], edge["to"]) for edge in graph["edges"]}

@@ -66,6 +66,16 @@ def _source_files(root: Path, max_files: int) -> Iterable[Path]:
             return
 
 
+def _typescript_import_aliases(text: str) -> Dict[str, str]:
+    """Resolve local aliases in ``import { original as alias }`` declarations."""
+    aliases: Dict[str, str] = {}
+    for match in re.finditer(r"\bimport\s*\{([^}]+)\}\s*from\s*['\"]", text):
+        for part in match.group(1).split(","):
+            imported = re.fullmatch(r"\s*([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)\s*", part)
+            if imported:
+                aliases[imported.group(2)] = imported.group(1)
+    return aliases
+
 def _calls_in_body(text: str, definition_end: int, definition_offsets: Set[int]) -> List[str]:
     """Extract calls from a simple brace-delimited body, excluding declarations."""
     opening = text.find("{", definition_end)
@@ -100,6 +110,7 @@ def _parse_source(path: Path, rel: str, language: str) -> Tuple[List[Dict[str, A
     definition_offsets = {match.start(1) for _, _, pattern in _PATTERNS for match in pattern.finditer(text)}
     symbols: List[Dict[str, Any]] = []
     calls: Dict[str, List[str]] = {}
+    aliases = _typescript_import_aliases(text) if language == "typescript" else {}
     for kind, name, line, definition_end in raw:
         symbol_id = f"{rel}:{name}"
         symbols.append({
@@ -107,7 +118,7 @@ def _parse_source(path: Path, rel: str, language: str) -> Tuple[List[Dict[str, A
             "kind": kind, "line": line, "language": language,
             "is_test": rel.startswith("tests/") or "/test/" in rel or name.startswith("test"),
         })
-        calls[symbol_id] = _calls_in_body(text, definition_end, definition_offsets)
+        calls[symbol_id] = [aliases.get(target, target) for target in _calls_in_body(text, definition_end, definition_offsets)]
     return symbols, calls
 
 def build_advanced_code_graph(root: Optional[Path] = None, *, max_files: int = 2000) -> Dict[str, Any]:

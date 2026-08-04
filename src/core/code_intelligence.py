@@ -353,7 +353,8 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
         and not str(item["name"]).startswith("__") and not item.get("is_test") and str(item["id"]) not in incoming
         and str(item["name"]) not in dynamic_refs and str(item["name"]) not in value_refs
         and (str(item["file"]), int(item["line"])) not in decorated
-        and str(item["name"]) not in suppressions and f"{item["file"]}:{item["name"]}" not in suppressions
+        and str(item["name"]) not in suppressions
+        and f'{item["file"]}:{item["name"]}' not in suppressions
     ]
     return {"ok": True, "product": graph["product"], "report": "dead_code_candidates", "scope": ["functions", "methods", "classes", "private_modules"], "module_candidates": _private_module_candidates(base, max_files),
             "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"],

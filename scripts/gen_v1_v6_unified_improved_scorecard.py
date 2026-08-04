@@ -80,16 +80,15 @@ V4_COMPLETE = {
     "V4-M3", "V4-M5", "V4-M6", "V4-M7", "V4-M8",
     "V4-S1", "V4-S4", "V4-S5", "V4-S6", "V4-S7", "V4-S8", "V4-S9", "V4-S10",
     "V4-DOD-2", "V4-DOD-3",
-    # Stage I1 AGY offline closeout (2026-07-24): spend + contracts + stream API
-    "V4-M1", "V4-M2", "V4-M4", "V4-DOD-1",
+    # Stage I1 AGY offline closeout (2026-07-24): stream API (Grok)
+    "V4-M4",
     # V4-S3 still incomplete (continuous bandit product)
 }
 V5_COMPLETE = {
     "V5-M3",  # CancelToken — closed with M017 exhaustive wire-up
     "V5-M5", "V5-M6", "V5-M7", "V5-M8",
     "V5-S1", "V5-S2", "V5-S3", "V5-S4", "V5-S5", "V5-S6", "V5-S7", "V5-S10",
-    # Stage I1 AGY offline: middleware, MCP matrix, cost honesty
-    "V5-M1", "V5-M2", "V5-M4",
+    # Stage I1 AGY offline: middleware, MCP matrix, cost honesty (demoted)
 }
 W_COMPLETE = {
     "W1",
@@ -157,9 +156,6 @@ V6_MUST_COMPLETE = {
     "M062",  # conflict resolution product + tests
     "M063",  # distill/deprecate + undeprecate safety
     "M068",  # preferences bias wired ModelCaller/Router
-    "M079",  # global --json automation surface
-    "M090",  # TOP_30 offline invoke_top30_offline (help + contracts)
-    "M093",  # MCP SPEND/MUTATE/FREE + ghost/unclassified matrix
     "M100",  # dashboard MOCK|LIVE honesty
     # M089 remains HOST — not complete without live keys
 }
@@ -215,6 +211,15 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
         "test_grok_i1_residuals (never false live pass)",
         "HOST: run allow_live matrix with real keys",
     ),
+    "V4-M1": T(True, True, True, 85, "spend_guard on major paths", "V4 plan", "tests", "Budget not on all spend paths (A1.1)"),
+    "V4-DOD-1": T(True, True, True, 85, "spend_guard on council", "V4 plan", "tests", "Residual thin wrappers (A1.2)"),
+    "V5-M1": T(True, True, True, 85, "CLI public spend middleware", "V5 plan", "tests", "Not all CLI cmds wrapped (A1.3)"),
+    "V5-M2": T(True, True, True, 85, "MCP spend parity", "V5 plan", "tests", "Full MCP parity matrix incomplete (A1.4)"),
+    "V4-M2": T(True, True, True, 85, "Result contract everywhere", "V4 plan", "tests", "Not everywhere public (A2.1)"),
+    "M079": T(True, True, True, 85, "JSON output mode", "CLI_MIDDLEWARE_INVENTORY.md", "tests", "Not all commands emit JSON (A3.1)"),
+    "M093": T(True, True, True, 85, "MCP safety rules", "FOUNDATION_SAFETY.md", "tests", "Full MCP tool matrix not exhaustive (A3.2)"),
+    "V5-M4": T(True, True, True, 90, "Cost accuracy", "COST_ACCOUNTING.md", "tests", "Estimate fallbacks remain (A4.1)"),
+    "M090": T(True, True, True, 80, "TOP_30 contract tests", "PUBLIC_CONTRACTS_INVENTORY.md", "tests", "Not live invocation of all 30 CLIs (A5.1)"),
     "MOS-N8": T(
         True, True, True, 90,
         "smoke harness",

@@ -106,6 +106,20 @@ def _java_server_command(root: Path) -> Optional[List[str]]:
     return [java, "-Declipse.application=org.eclipse.jdt.ls.core.id1", "-Dosgi.bundles.defaultStartLevel=4", "-Declipse.product=org.eclipse.jdt.ls.core.product", "-Xmx1G", "-jar", str(launchers[-1]), "-configuration", str(config), "-data", str(workspace)]
 
 
+def _server_environment(language: str) -> Dict[str, str]:
+    """Provide discovered toolchains to language-server child processes."""
+    environment = dict(os.environ)
+    extra_paths = []
+    if language == "go":
+        extra_paths.append(str(Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "Go" / "bin"))
+    elif language == "rust":
+        extra_paths.append(str(Path.home() / ".cargo" / "bin"))
+    elif language == "csharp":
+        extra_paths.extend([str(Path.home() / ".dotnet" / "tools"), str(Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "dotnet")])
+    existing = environment.get("PATH", "")
+    environment["PATH"] = os.pathsep.join([*extra_paths, existing])
+    return environment
+
 def provider_status(language: str) -> Dict[str, Any]:
     """Return provider discovery state without starting or installing a server."""
     if language == "java":
@@ -149,7 +163,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
             return {"available": False, "reason": f"{language} LSP provider unavailable", "reference_counts": {}}
         argv = [command, "-mode=stdio"] if language == "go" else ([command, "--stdio"] if language in {"python", "typescript_javascript"} else [command])
     try:
-        proc = subprocess.Popen(argv, cwd=str(root), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(argv, cwd=str(root), env=_server_environment(language), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     except OSError as exc:
         return {"available": False, "reason": f"provider start failed: {exc}", "reference_counts": {}}
     messages: "queue.Queue[Dict[str, Any]]" = queue.Queue()
@@ -214,7 +228,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
             open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":language_id,"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
             proc.stdin.write(f"Content-Length: {len(open_payload)}\r\n\r\n".encode("ascii") + open_payload); proc.stdin.flush()
             # Servers build workspace indexes asynchronously; wait briefly within the existing bounded budget.
-            time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
+            time.sleep(min(5.0 if language in {"rust", "csharp"} else 1.0, max(0.0, deadline - time.monotonic())))
             locations = request("textDocument/references", {"textDocument":{"uri":uri},"position":{"line":line,"character":column},"context":{"includeDeclaration":True}}, min(15.0, max(0.5, deadline-time.monotonic()))) or []
             counts[str(item["id"])] = len(locations) if isinstance(locations, list) else 0
         return {"available": True, "reference_counts": counts, "timed_out": time.monotonic() >= deadline}

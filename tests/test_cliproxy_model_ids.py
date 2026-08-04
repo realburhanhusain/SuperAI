@@ -135,6 +135,17 @@ def test_suggest_returns_real_catalog_ids():
     assert all(s in everything for s in suggest("gpt-5.6-codex"))
 
 
-def test_catalog_load_is_offline():
-    """No network in the read path — the bytes are vendored and pinned."""
+def test_catalog_load_is_offline(monkeypatch):
+    """
+    The docs tell users to run the validator as the offline check, so prove it:
+    with sockets blocked, reading the catalog and validating rows both work.
+    """
+    import socket
+
+    def blocked(*_a, **_k):
+        raise AssertionError("validation must not touch the network")
+
+    monkeypatch.setattr(socket, "socket", blocked)
     assert isinstance(catalog(), dict)
+    results = validate_rows(_example_rows())
+    assert results and all(r["status"] != "missing" for r in results)

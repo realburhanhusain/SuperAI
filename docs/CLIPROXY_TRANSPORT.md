@@ -1,8 +1,15 @@
 # CLIProxyAPI transport (optional)
 
-[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) fronts vendor CLI
-subscriptions — Claude Code, ChatGPT Codex, Gemini, Grok, Kimi — behind a single
-OpenAI-compatible HTTP endpoint. SuperAI can route model calls through it.
+[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI/tree/v7.2.116) fronts
+vendor CLI subscriptions — Claude Code, ChatGPT Codex, Gemini, Grok, Kimi —
+behind a single OpenAI-compatible HTTP endpoint. SuperAI can route model calls
+through it.
+
+The link points at tag `v7.2.116`, the version this integration was written
+against, rather than at `main`, which moves daily. The pin is recorded in
+[`vendor/manifest.json`](../vendor/manifest.json); nothing of that repo is
+mirrored here, because SuperAI speaks its HTTP protocol and reads none of its
+source.
 
 **This is additive. Nothing was removed.** Both transports ship, both stay
 supported, and you choose per model.

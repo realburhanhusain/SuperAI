@@ -141,9 +141,9 @@ OPENAI_COMPAT_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "allow_empty_key": True,
         "default_key": "ollama",
     },
-    # CLIProxyAPI (github.com/router-for-me/CLIProxyAPI) fronts vendor CLI
-    # subscriptions — Claude Code, Codex, Gemini, Grok, Kimi — behind one
-    # OpenAI-compatible endpoint.
+    # CLIProxyAPI (github.com/router-for-me/CLIProxyAPI, pinned to tag v7.2.116
+    # in vendor/manifest.json) fronts vendor CLI subscriptions — Claude Code,
+    # Codex, Gemini, Grok, Kimi — behind one OpenAI-compatible endpoint.
     #
     # This is an ADDITIONAL transport, not a replacement for ``external_cli``.
     # The two do different jobs and both stay:

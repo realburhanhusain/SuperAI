@@ -198,7 +198,7 @@ def advanced_code_impact(*, root: Optional[Path] = None, ref: str = "HEAD~1",
             "stats": {"changed_files": len(modified), "changed_symbols": len(seeds),
                       "impacted_symbols": len(impacted), "impacted_tests": len(tests)}}
 
-def advanced_dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000) -> Dict[str, Any]:
+def advanced_dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000, lsp: bool = False) -> Dict[str, Any]:
     """Return low-confidence private symbol candidates across bundled languages."""
     graph = build_advanced_code_graph(root, max_files=max_files)
     incoming = {str(edge["to"]) for edge in graph["edges"]}
@@ -215,4 +215,12 @@ def advanced_dead_code_report(root: Optional[Path] = None, *, max_files: int = 2
         if name in suppressions or f"{item['file']}:{name}" in suppressions:
             continue
         candidates.append({"id": item["id"], "file": item["file"], "name": name, "line": item["line"], "language": item.get("language", "python"), "kind": item["kind"], "confidence": "low", "reason": "private symbol has no uniquely resolved inbound call"})
-    return {"ok": True, "product": graph["product"], "engine": _ENGINE, "report": "dead_code_candidates", "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"], "suppressions": sorted(suppressions), "limitations": graph["limitations"] + ["Candidates are review evidence only; no source files are modified"]}
+    lsp_result: Dict[str, Any] = {"enabled": False}
+    if lsp:
+        from .lsp_bridge import python_reference_counts
+        ts_candidates = [item for item in candidates if item.get("language") in {"typescript", "javascript"}]
+        reference_result = python_reference_counts(base, ts_candidates, language="typescript_javascript")
+        counts = reference_result.get("reference_counts") or {}
+        candidates = [item for item in candidates if int(counts.get(str(item["id"]), 1)) <= 1]
+        lsp_result = {"enabled": True, **reference_result, "checked_candidates": len(counts)}
+    return {"ok": True, "product": graph["product"], "engine": _ENGINE, "report": "dead_code_candidates", "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"], "suppressions": sorted(suppressions), "lsp": lsp_result, "limitations": graph["limitations"] + ["Candidates are review evidence only; no source files are modified"]}

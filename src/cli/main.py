@@ -6053,7 +6053,7 @@ def code_report_cmd(
     if selected == "architecture":
         out = architecture_report(base)
     elif selected == "dead_code":
-        out = advanced_dead_code_report(base) if engine.lower() == "advanced" else dead_code_report(base, lsp=lsp)
+        out = advanced_dead_code_report(base, lsp=lsp) if engine.lower() == "advanced" else dead_code_report(base, lsp=lsp)
     elif selected == "status":
         out = code_index_status(base)
     elif selected == "engine_status":

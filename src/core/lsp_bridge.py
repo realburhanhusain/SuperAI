@@ -59,7 +59,8 @@ def python_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
     configured = os.environ.get("SUPERAI_PYTHON_LSP", "").strip()
     command: Optional[str] = _provider_command("SUPERAI_PYTHON_LSP", ["basedpyright-langserver", "pyright-langserver"])
     if not command:
-        return {"available": False, "language": "python", "reason": "no Python LSP provider found; install pyright/basedpyright or set SUPERAI_PYTHON_LSP", "capabilities": []}
+        reason = f"configured provider not found: {configured}" if configured else "no Python LSP provider found; install pyright/basedpyright or set SUPERAI_PYTHON_LSP"
+        return {"available": False, "language": "python", "reason": reason, "capabilities": []}
     if configured and not Path(command).is_file():
         return {"available": False, "language": "python", "reason": f"configured provider not found: {command}", "capabilities": []}
     try:
@@ -71,14 +72,14 @@ def python_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
 
 
 
-def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeout_seconds: float = 45.0) -> Dict[str, Any]:
+def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeout_seconds: float = 45.0, language: str = "python") -> Dict[str, Any]:
     """Ask an optional pyright-compatible server for Python symbol references.
 
     The bounded result is only used to *remove* candidates that the server can
     prove referenced. A failed or incomplete probe never changes candidates.
     """
     configured = os.environ.get("SUPERAI_PYTHON_LSP", "").strip()
-    command = _provider_command("SUPERAI_PYTHON_LSP", ["basedpyright-langserver", "pyright-langserver"])
+    command = _provider_command("SUPERAI_TYPESCRIPT_LSP", ["typescript-language-server"]) if language == "typescript_javascript" else _provider_command("SUPERAI_PYTHON_LSP", ["basedpyright-langserver", "pyright-langserver"])
     if not command or (configured and not Path(command).is_file()):
         return {"available": False, "reason": "Python LSP provider unavailable", "reference_counts": {}}
     try:
@@ -123,7 +124,12 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
                     raise RuntimeError(str(item["error"]))
                 return item.get("result")
     try:
-        initialized = request("initialize", {"processId":None,"rootUri":root.resolve().as_uri(),"workspaceFolders":[{"uri":root.resolve().as_uri(),"name":root.name}],"capabilities":{}}, min(5.0, timeout_seconds)) or {}
+        init_params: Dict[str, Any] = {"processId": None, "rootUri": root.resolve().as_uri(), "workspaceFolders": [{"uri": root.resolve().as_uri(), "name": root.name}], "capabilities": {}}
+        if language == "typescript_javascript":
+            tsserver = Path(command).parent / "node_modules" / "typescript" / "lib" / "tsserver.js"
+            if tsserver.is_file():
+                init_params["initializationOptions"] = {"tsserver": {"path": str(tsserver)}}
+        initialized = request("initialize", init_params, min(5.0, timeout_seconds)) or {}
         if not (initialized.get("capabilities") or {}).get("referencesProvider"):
             return {"available": False, "reason": "provider has no references capability", "reference_counts": {}}
         assert proc.stdin is not None
@@ -133,13 +139,13 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         deadline = time.monotonic() + timeout_seconds
         for item in candidates:
             source = root / str(item["file"]); name = str(item["name"]); line = int(item["line"]) - 1
-            if source.suffix != ".py" or not source.is_file() or time.monotonic() >= deadline:
+            if source.suffix not in ({".ts", ".tsx", ".js", ".jsx"} if language == "typescript_javascript" else {".py"}) or not source.is_file() or time.monotonic() >= deadline:
                 continue
             lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
             if line < 0 or line >= len(lines) or name not in lines[line]:
                 continue
             uri = source.resolve().as_uri(); column = lines[line].index(name)
-            open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":"python","version":1,"text":"\n".join(lines)}}}).encode("utf-8")
+            open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":("typescript" if language == "typescript_javascript" else "python"),"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
             proc.stdin.write(f"Content-Length: {len(open_payload)}\r\n\r\n".encode("ascii") + open_payload); proc.stdin.flush()
             locations = request("textDocument/references", {"textDocument":{"uri":uri},"position":{"line":line,"character":column},"context":{"includeDeclaration":True}}, min(15.0, max(0.5, deadline-time.monotonic()))) or []
             counts[str(item["id"])] = len(locations) if isinstance(locations, list) else 0

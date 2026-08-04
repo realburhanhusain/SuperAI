@@ -23,6 +23,10 @@ PREFLIGHT_CHECKS = [
     {"id": "nvidia", "env": "NVIDIA_API_KEY", "model": "nvidia-llama-3.1-70b-instruct"},
     {"id": "ollama", "env": None, "model": "llama3.2", "local": True},
     {"id": "lmstudio", "env": None, "model": "lmstudio-local", "local": True},
+    # CLIProxyAPI: local like Ollama/LM Studio, but subscription-backed upstream.
+    # Nothing routes here unless the user merges config/models.cliproxy.example.json,
+    # so a down proxy is the normal state, not a failure.
+    {"id": "cliproxy", "env": None, "model": None, "local": True},
 ]
 
 
@@ -39,6 +43,7 @@ def _local_up(kind: str) -> bool:
         urls = {
             "ollama": "http://localhost:11434/api/tags",
             "lmstudio": "http://localhost:1234/v1/models",
+            "cliproxy": "http://127.0.0.1:8317/v1/models",
         }
         url = urls.get(kind)
         if not url:

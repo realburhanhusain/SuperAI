@@ -79,11 +79,58 @@ the provider entry is inert.
    $env:CLIPROXY_API_KEY = "..."   # usually unnecessary for a loopback endpoint
    ```
 
-4. **Verify:**
+4. **Verify the ids before spending a call on them:**
+
+   ```powershell
+   python scripts/validate_cliproxy_models.py --registry        # offline
+   python scripts/validate_cliproxy_models.py --registry --live  # also ask the proxy
+   ```
+
+5. **Then verify end to end:**
 
    ```powershell
    superai --json ask "hello" --model cliproxy:claude-opus
    ```
+
+## Checking model ids
+
+A wrong `model_id` costs nothing until the first real call, which then 404s.
+`scripts/validate_cliproxy_models.py` checks every `cliproxy:*` row against
+CLIProxyAPI's published model list, vendored at
+`vendor/cliproxy-models/models.json` and pinned to a commit — no network, no
+running proxy. See [`vendor/README.md`](../vendor/README.md).
+
+This is not a formality. The example file originally shipped `gpt-5.6-codex`,
+an id **no backend serves**; the check found it immediately.
+
+The catalog is keyed by *backend*, not by vendor — `claude`, `gemini`, `vertex`,
+`gemini-cli`, `aistudio`, `codex-free|team|plus|pro`, `kimi`, `antigravity`,
+`xai` — and the same model is spelled differently across them. So "does this id
+exist" is the wrong question; **which backends serve it** is the right one:
+
+| Status | Meaning |
+|---|---|
+| `ok` | most backends serving that model family serve this exact id |
+| `backend_conditional` | only a minority do — works solely if your proxy authenticates against one of the listed backends |
+| `missing` | nothing serves it; the call will 404 |
+
+Two consequences visible in the shipped example:
+
+- The codex row uses `gpt-5.5` because the `codex-*` keys are **subscription
+  tiers**. `gpt-5.6-sol` is absent from `codex-free`, so it would 404 for anyone
+  on a free-tier-backed proxy; `gpt-5.5` is in all four.
+- The Gemini row uses `gemini-3.1-pro-preview`, served by `gemini`,
+  `gemini-cli`, `aistudio` and `vertex`. Plain `gemini-3.1-pro` is **Vertex
+  only** — a row that looks valid and still 404s on an OAuth-backed proxy.
+
+`--live` adds a second, separate answer: `GET /v1/models` on a running proxy
+says what *your* install is actually authenticated for. The two are reported
+apart on purpose — a static check standing in for a dynamic one is how coverage
+gets claimed without being proven.
+
+`superai smoke-preflight` also now reports whether a proxy is up at
+`127.0.0.1:8317`. A down proxy is the normal state, not a failure: nothing
+routes to cliproxy until you merge the example file.
 
 ## What changed in SuperAI
 

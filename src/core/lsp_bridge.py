@@ -21,7 +21,7 @@ _LANGUAGE_PROVIDERS = {
     "typescript_javascript": ("SUPERAI_TYPESCRIPT_LSP", ["typescript-language-server"], {".ts", ".tsx", ".js", ".jsx"}, "typescript"),
     "go": ("SUPERAI_GO_LSP", ["gopls"], {".go"}, "go"),
     "rust": ("SUPERAI_RUST_LSP", ["rust-analyzer"], {".rs"}, "rust"),
-    "csharp": ("SUPERAI_CSHARP_LSP", ["roslyn-language-server", "csharp-ls"], {".cs"}, "csharp"),
+    "csharp": ("SUPERAI_CSHARP_LSP", ["omnisharp", "roslyn-language-server", "csharp-ls"], {".cs"}, "csharp"),
 }
 
 def available() -> bool:
@@ -209,6 +209,8 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         command = _provider_command(environment_name, commands)
         if not command or (configured and not Path(command).is_file()):
             return {"available": False, "reason": f"{language} LSP provider unavailable", "reference_counts": {}}
+        if language == "csharp" and "omnisharp" in command.lower():
+            return _omnisharp_reference_counts(command, root, candidates, timeout_seconds)
         argv = [command, "-mode=stdio"] if language == "go" else ([command, "--stdio"] if language in {"python", "typescript_javascript", "csharp"} else [command])
     try:
         proc = subprocess.Popen(argv, cwd=str(root), env=_server_environment(language), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)

@@ -73,3 +73,12 @@ No server is installed automatically. A missing, invalid, or timed-out provider
 is a non-failure with a precise reason. Dynamic imports, reflection, framework
 entry points, and external callers remain outside the proof boundary, so all
 findings stay advisory and source is never deleted.
+Use LSP references only for native Python dead-code review:
+
+```powershell
+superai code-report dead-code --lsp
+```
+
+The check has a bounded startup and request budget. It only removes a candidate
+when the provider returns a reference beyond that symbol's declaration; an
+unavailable or timed-out provider leaves the conservative candidate list intact.

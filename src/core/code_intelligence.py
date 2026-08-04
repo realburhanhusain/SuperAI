@@ -238,7 +238,7 @@ def index_code_graph(root: Optional[Path] = None, *, max_files: int = 2000,
                         "last_index": metadata})
     return _assemble_graph(base, entries, skipped, max_files, index={**metadata, "cache_path": str(path)})
 def code_index_status(root: Optional[Path] = None, *, max_files: int = 2000,
-                      cache_dir: Optional[Path] = None) -> Dict[str, Any]:
+                      cache_dir: Optional[Path] = None, lsp: bool = False) -> Dict[str, Any]:
     """Describe the local incremental index without scanning or modifying source."""
     base = Path(root or Path.cwd()).resolve()
     path = _index_path(base, cache_dir)
@@ -257,7 +257,7 @@ def search_code_graph(query: str, root: Optional[Path] = None, *, limit: int = 5
 
 
 def architecture_report(root: Optional[Path] = None, *, max_files: int = 2000,
-                        cache_dir: Optional[Path] = None) -> Dict[str, Any]:
+                        cache_dir: Optional[Path] = None, lsp: bool = False) -> Dict[str, Any]:
     """Summarise local Python modules and their conservative call relationships."""
     graph = index_code_graph(root, max_files=max_files, cache_dir=cache_dir)
     symbol_by_id = {str(item["id"]): item for item in graph["symbols"]}
@@ -338,7 +338,7 @@ def _private_module_candidates(root: Path, max_files: int) -> List[Dict[str, Any
                 imported.add(node.module.rsplit(".", 1)[-1])
     return [{"file": source.relative_to(root).as_posix(), "name": source.stem, "confidence": "low", "reason": "private module has no simple project import"} for source in files if source.stem.startswith("_") and source.stem not in imported]
 def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
-                     cache_dir: Optional[Path] = None) -> Dict[str, Any]:
+                     cache_dir: Optional[Path] = None, lsp: bool = False) -> Dict[str, Any]:
     """Return conservative private-function candidates, never deletion instructions."""
     graph = index_code_graph(root, max_files=max_files, cache_dir=cache_dir)
     incoming = {str(edge["to"]) for edge in graph["edges"]}
@@ -356,9 +356,17 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
         and str(item["name"]) not in suppressions
         and f'{item["file"]}:{item["name"]}' not in suppressions
     ]
+    lsp_result: Dict[str, Any] = {"enabled": False}
+    if lsp:
+        from .lsp_bridge import python_reference_counts
+        reference_result = python_reference_counts(base, candidates)
+        counts = reference_result.get("reference_counts") or {}
+        # A reference count above the declaration proves this candidate is used.
+        candidates = [item for item in candidates if int(counts.get(str(item["id"]), 1)) <= 1]
+        lsp_result = {"enabled": True, **reference_result, "checked_candidates": len(counts)}
     return {"ok": True, "product": graph["product"], "report": "dead_code_candidates", "scope": ["functions", "methods", "classes", "private_modules"], "module_candidates": _private_module_candidates(base, max_files),
             "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"],
-            "index": graph["index"], "suppressions": sorted(suppressions), "limitations": [
+            "index": graph["index"], "lsp": lsp_result, "suppressions": sorted(suppressions), "limitations": [
                 "Candidates are not proof of dead code", "Dynamic lookups, exports, imports, callbacks, and decorated functions are excluded", "Dynamic imports, callbacks, reflection, and external callers are not resolved",
                 "No source files are modified"],}
 

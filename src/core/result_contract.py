@@ -20,6 +20,7 @@ REQUIRED_KEYS = (
     "model_chain",
     "tokens",
     "estimated_cost_usd",
+    "estimate_source",
     "members",
     "memory_ids",
     "contract",
@@ -35,6 +36,7 @@ def empty_contract(**overrides: Any) -> Dict[str, Any]:
         "model_chain": [],
         "tokens": 0,
         "estimated_cost_usd": 0.0,
+        "estimate_source": "fallback",
         "members": [],
         "memory_ids": [],
         "contract": CONTRACT_VERSION,
@@ -88,6 +90,19 @@ def extract_cost(obj: Any) -> float:
             for it in items:
                 total += extract_cost(it)
     return round(total, 6)
+
+
+def extract_estimate_source(obj: Any) -> str:
+    if not isinstance(obj, dict):
+        return "fallback"
+    for key in ("estimate_source", "cost_source", "src"):
+        try:
+            if obj.get(key) is not None:
+                return str(obj[key])
+        except (TypeError, ValueError):
+            continue
+    # sum nested opinions/steps precedence could be implemented here, but fallback is safe
+    return "fallback"
 
 
 def extract_model_chain(obj: Any) -> List[str]:
@@ -201,6 +216,10 @@ def apply_contract(
         except (TypeError, ValueError):
             cost = extract_cost(result)
 
+    estimate_source = result.get("estimate_source")
+    if estimate_source is None:
+        estimate_source = extract_estimate_source(result)
+
     member_list: List[str] = []
     if members is not None:
         member_list = [str(m) for m in members if str(m).strip()]
@@ -216,6 +235,7 @@ def apply_contract(
     result["model_chain"] = model_chain
     result["tokens"] = max(0, int(tokens or 0))
     result["estimated_cost_usd"] = round(float(cost or 0.0), 6)
+    result["estimate_source"] = str(estimate_source)
     result["members"] = member_list
     result["memory_ids"] = mem_ids
     result["contract"] = CONTRACT_VERSION

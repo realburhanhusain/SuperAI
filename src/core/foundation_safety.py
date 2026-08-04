@@ -19,103 +19,9 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 # M001 — spend path registry (exhaustive known entrypoints)
 # ---------------------------------------------------------------------------
 
-# Each row: id, module path, budget mechanism, notes
-SPEND_PATHS: List[Dict[str, str]] = [
-    {
-        "id": "model_caller.call",
-        "module": "core.model_caller.ModelCaller.call",
-        "budget": "call_lifecycle.pre_call → spend_guard.budget_precheck",
-        "notes": "Universal model spend; skip_budget only for mock/explicit",
-    },
-    {
-        "id": "model_caller.call_stream",
-        "module": "core.model_caller.ModelCaller.call_stream",
-        "budget": "call_lifecycle.pre_call (same as call)",
-        "notes": "Streaming spend path",
-    },
-    {
-        "id": "council.run",
-        "module": "core.council",
-        "budget": "budget_precheck before members + ModelCaller",
-        "notes": "Board-level ceiling then per-call",
-    },
-    {
-        "id": "multi_cli_advisory",
-        "module": "core.multi_cli_advisory",
-        "budget": "ModelCaller / board preflight",
-        "notes": "CLI board opinions",
-    },
-    {
-        "id": "orchestrator",
-        "module": "core.orchestrator",
-        "budget": "ModelCaller + BudgetGuard",
-        "notes": "Agent run path",
-    },
-    {
-        "id": "board_preflight",
-        "module": "core.board_preflight",
-        "budget": "budget_precheck on estimate_board",
-        "notes": "Pre-run board cost gate",
-    },
-    {
-        "id": "mcp_superai_run",
-        "module": "core.mcp_server",
-        "budget": "budget_precheck on spend tools",
-        "notes": "MCP parity with CLI",
-    },
-    {
-        "id": "mcp_safety",
-        "module": "core.mcp_safety",
-        "budget": "budget_precheck",
-        "notes": "MCP safety matrix",
-    },
-    {
-        "id": "web_api_run",
-        # The package installs as ``scli`` (src/cli -> scli). "cli.web_app"
-        # is not importable, so this row proved nothing about the path it claimed.
-        "module": "scli.web_app",
-        "budget": "budget_precheck + ensure_public_result",
-        "notes": "HTTP /api/superai/run",
-    },
-    {
-        "id": "public_surface.budget_gate",
-        "module": "core.public_surface.budget_gate",
-        "budget": "budget_precheck",
-        "notes": "CLI helper for non-ModelCaller estimates",
-    },
-    {
-        "id": "live_smoke",
-        "module": "core.live_smoke_complete",
-        "budget": "budget_precheck",
-        "notes": "Live smoke harness",
-    },
-    {
-        "id": "bakeoff_compare",
-        "module": "core.model_bakeoff",
-        "also": "core.model_compare",
-        "budget": "ModelCaller + spend_guard on public paths",
-        "notes": "Eval spend",
-    },
-    {
-        "id": "nl_ask_run",
-        "module": "core.nl_intent",
-        "also": "core.nl_preview",
-        "budget": "ask_superai → ModelCaller / orchestrator",
-        "notes": "NL front door",
-    },
-    {
-        "id": "assistant_goals_execute",
-        "module": "core.assistant_goals",
-        "budget": "ask_superai + execute caps (no yolo)",
-        "notes": "Goals execution opt-in",
-    },
-    {
-        "id": "pr_review",
-        "module": "core.pr_review",
-        "budget": "Council / multi-CLI → ModelCaller",
-        "notes": "Diff review spend",
-    },
-]
+# Deprecated: Replaced by dynamic surface_inventory (Phase 0 enumerator).
+# Kept only for legacy references; new audits use surface_inventory.
+SPEND_PATHS: List[Dict[str, str]] = []
 
 # TUI slash handlers that must return contract envelopes (M008)
 TUI_SLASH_HANDLERS: List[str] = [
@@ -251,11 +157,22 @@ def audit_m001() -> Dict[str, Any]:
     except Exception as e:
         issues.append(f"budget_runtime:{e}")
 
-    # 3) Registry completeness — every row has budget mechanism
-    bare = [p["id"] for p in SPEND_PATHS if not p.get("budget")]
-    if bare:
-        issues.append(f"registry_missing_budget:{bare}")
-    evidence["registry_ids"] = [p["id"] for p in SPEND_PATHS]
+    # 3) Registry completeness — consume the Phase 0 enumerator instead of SPEND_PATHS
+    try:
+        from .surface_inventory import enumerate_all_surfaces
+        surfaces = enumerate_all_surfaces()
+        spend_surfaces = [s for s in surfaces if s.get("classification") == "spend"]
+        
+        # Verify no spend surfaces are missed by wrappers/gates
+        uncovered_spend = [s for s in spend_surfaces if s.get("wrapped") is not True and not s.get("exempt")]
+        if uncovered_spend:
+            issues.append(f"uncovered_spend_surfaces:{[s['id'] for s in uncovered_spend]}")
+        evidence["spend_surface_count"] = len(spend_surfaces)
+        evidence["registry_ids"] = [s["id"] for s in spend_surfaces]
+    except Exception as e:
+        issues.append(f"surface_inventory_fail:{e}")
+        evidence["spend_surface_count"] = 0
+        evidence["registry_ids"] = []
 
     # 4) public_surface.budget_gate exists
     try:
@@ -265,14 +182,14 @@ def audit_m001() -> Dict[str, Any]:
     except Exception as e:
         issues.append(f"budget_gate:{e}")
 
-    ok = len(issues) == 0 and len(SPEND_PATHS) >= 12
+    ok = len(issues) == 0 and evidence.get("spend_surface_count", 0) >= 12
     return ensure_public_result(
         {
             "ok": ok,
             "item": "M001",
             "issues": issues,
             "evidence": evidence,
-            "spend_path_count": len(SPEND_PATHS),
+            "spend_path_count": evidence.get("spend_surface_count", 0),
             "message": "Hard budget on every registered spend path" if ok else "gaps remain",
         },
         ok=ok,

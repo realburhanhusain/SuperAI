@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -9,10 +10,19 @@ import subprocess
 import threading
 import queue
 import time
+import tempfile
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+
+_LANGUAGE_PROVIDERS = {
+    "python": ("SUPERAI_PYTHON_LSP", ["basedpyright-langserver", "pyright-langserver"], {".py"}, "python"),
+    "typescript_javascript": ("SUPERAI_TYPESCRIPT_LSP", ["typescript-language-server"], {".ts", ".tsx", ".js", ".jsx"}, "typescript"),
+    "go": ("SUPERAI_GO_LSP", ["gopls"], {".go"}, "go"),
+    "rust": ("SUPERAI_RUST_LSP", ["rust-analyzer"], {".rs"}, "rust"),
+    "csharp": ("SUPERAI_CSHARP_LSP", ["csharp-ls"], {".cs"}, "csharp"),
+}
 
 def available() -> bool:
     try:
@@ -35,11 +45,18 @@ def _provider_command(environment_name: str, commands: List[str]) -> Optional[st
         found = shutil.which(command)
         if found:
             return found
-    scripts = Path(sys.executable).parent / "Scripts"
-    for command in commands:
-        candidate = scripts / f"{command}.exe"
-        if candidate.is_file():
-            return str(candidate)
+    user_bins = [
+        Path.home() / "go" / "bin",
+        Path.home() / ".cargo" / "bin",
+        Path.home() / ".dotnet" / "tools",
+        Path(os.environ.get("APPDATA", "")) / "npm",
+        Path(sys.executable).parent / "Scripts",
+    ]
+    for scripts in user_bins:
+        for command in commands:
+            candidate = scripts / f"{command}.exe"
+            if candidate.is_file():
+                return str(candidate)
     return None
 
 
@@ -72,18 +89,81 @@ def python_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
 
 
 
+def _java_server_command(root: Path) -> Optional[List[str]]:
+    """Build the JDT LS command when the official archive is installed locally."""
+    home = Path(os.environ.get("SUPERAI_JDTLS_HOME", "") or Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "jdtls")
+    launchers = sorted((home / "plugins").glob("org.eclipse.equinox.launcher_*.jar"))
+    config = home / "config_win"
+    java = _provider_command("SUPERAI_JAVA_EXECUTABLE", ["java"])
+    if not java:
+        redhat = Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "RedHat"
+        matches = sorted(redhat.glob("java-*\\bin\\java.exe"))
+        java = str(matches[-1]) if matches else None
+    if not java or not launchers or not config.is_dir():
+        return None
+    workspace = Path(tempfile.gettempdir()) / "superai-jdtls" / hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:16]
+    workspace.mkdir(parents=True, exist_ok=True)
+    return [java, "-Declipse.application=org.eclipse.jdt.ls.core.id1", "-Dosgi.bundles.defaultStartLevel=4", "-Declipse.product=org.eclipse.jdt.ls.core.product", "-Xmx1G", "-jar", str(launchers[-1]), "-configuration", str(config), "-data", str(workspace)]
+
+
+def _server_environment(language: str) -> Dict[str, str]:
+    """Provide discovered toolchains to language-server child processes."""
+    environment = dict(os.environ)
+    extra_paths = []
+    if language == "go":
+        extra_paths.append(str(Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "Go" / "bin"))
+    elif language == "rust":
+        extra_paths.append(str(Path.home() / ".cargo" / "bin"))
+    elif language == "csharp":
+        extra_paths.extend([str(Path.home() / ".dotnet" / "tools"), str(Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "dotnet")])
+    existing = environment.get("PATH", "")
+    environment["PATH"] = os.pathsep.join([*extra_paths, existing])
+    return environment
+
+def provider_status(language: str) -> Dict[str, Any]:
+    """Return provider discovery state without starting or installing a server."""
+    if language == "java":
+        command = _java_server_command(Path.cwd())
+        if command:
+            return {"available": True, "language": language, "provider": "jdtls", "capabilities": ["diagnostics", "references (advisory only)"]}
+        return {"available": False, "language": language, "reason": "Eclipse JDT LS or Java runtime not found", "capabilities": []}
+    provider = _LANGUAGE_PROVIDERS.get(language)
+    if not provider:
+        return {"available": False, "language": language, "reason": f"unsupported LSP language: {language}", "capabilities": []}
+    environment_name, commands, _, _ = provider
+    command = _provider_command(environment_name, commands)
+    if not command:
+        return {"available": False, "language": language, "reason": f"{commands[0]} not found", "capabilities": []}
+    return {"available": True, "language": language, "provider": Path(command).name, "capabilities": ["diagnostics", "references (advisory only)"]}
+
+
+def all_provider_statuses() -> Dict[str, Dict[str, Any]]:
+    return {language: provider_status(language) for language in ["python", "typescript_javascript", "go", "rust", "java", "csharp"]}
+
 def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeout_seconds: float = 45.0, language: str = "python") -> Dict[str, Any]:
     """Ask an optional pyright-compatible server for Python symbol references.
 
     The bounded result is only used to *remove* candidates that the server can
     prove referenced. A failed or incomplete probe never changes candidates.
     """
-    configured = os.environ.get("SUPERAI_PYTHON_LSP", "").strip()
-    command = _provider_command("SUPERAI_TYPESCRIPT_LSP", ["typescript-language-server"]) if language == "typescript_javascript" else _provider_command("SUPERAI_PYTHON_LSP", ["basedpyright-langserver", "pyright-langserver"])
-    if not command or (configured and not Path(command).is_file()):
-        return {"available": False, "reason": "Python LSP provider unavailable", "reference_counts": {}}
+    if language == "java":
+        argv = _java_server_command(root)
+        extensions, language_id = {".java"}, "java"
+        if not argv:
+            return {"available": False, "reason": "java LSP provider unavailable", "reference_counts": {}}
+        command = argv[0]
+    else:
+        provider = _LANGUAGE_PROVIDERS.get(language)
+        if not provider:
+            return {"available": False, "reason": f"unsupported LSP language: {language}", "reference_counts": {}}
+        environment_name, commands, extensions, language_id = provider
+        configured = os.environ.get(environment_name, "").strip()
+        command = _provider_command(environment_name, commands)
+        if not command or (configured and not Path(command).is_file()):
+            return {"available": False, "reason": f"{language} LSP provider unavailable", "reference_counts": {}}
+        argv = [command, "-mode=stdio"] if language == "go" else ([command, "--stdio"] if language in {"python", "typescript_javascript"} else [command])
     try:
-        proc = subprocess.Popen([command, "--stdio"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(argv, cwd=str(root), env=_server_environment(language), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     except OSError as exc:
         return {"available": False, "reason": f"provider start failed: {exc}", "reference_counts": {}}
     messages: "queue.Queue[Dict[str, Any]]" = queue.Queue()
@@ -124,12 +204,12 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
                     raise RuntimeError(str(item["error"]))
                 return item.get("result")
     try:
-        init_params: Dict[str, Any] = {"processId": None, "rootUri": root.resolve().as_uri(), "workspaceFolders": [{"uri": root.resolve().as_uri(), "name": root.name}], "capabilities": {}}
+        init_params: Dict[str, Any] = {"processId": None, "rootPath": str(root.resolve()), "rootUri": root.resolve().as_uri(), "workspaceFolders": [{"uri": root.resolve().as_uri(), "name": root.name}], "capabilities": {}}
         if language == "typescript_javascript":
             tsserver = Path(command).parent / "node_modules" / "typescript" / "lib" / "tsserver.js"
             if tsserver.is_file():
                 init_params["initializationOptions"] = {"tsserver": {"path": str(tsserver)}}
-        initialized = request("initialize", init_params, min(5.0, timeout_seconds)) or {}
+        initialized = request("initialize", init_params, min(20.0 if language == "java" else 10.0, timeout_seconds)) or {}
         if not (initialized.get("capabilities") or {}).get("referencesProvider"):
             return {"available": False, "reason": "provider has no references capability", "reference_counts": {}}
         assert proc.stdin is not None
@@ -139,14 +219,16 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         deadline = time.monotonic() + timeout_seconds
         for item in candidates:
             source = root / str(item["file"]); name = str(item["name"]); line = int(item["line"]) - 1
-            if source.suffix not in ({".ts", ".tsx", ".js", ".jsx"} if language == "typescript_javascript" else {".py"}) or not source.is_file() or time.monotonic() >= deadline:
+            if source.suffix not in extensions or not source.is_file() or time.monotonic() >= deadline:
                 continue
             lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
             if line < 0 or line >= len(lines) or name not in lines[line]:
                 continue
             uri = source.resolve().as_uri(); column = lines[line].index(name)
-            open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":("typescript" if language == "typescript_javascript" else "python"),"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
+            open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":language_id,"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
             proc.stdin.write(f"Content-Length: {len(open_payload)}\r\n\r\n".encode("ascii") + open_payload); proc.stdin.flush()
+            # Servers build workspace indexes asynchronously; wait briefly within the existing bounded budget.
+            time.sleep(min(5.0 if language in {"rust", "csharp"} else 1.0, max(0.0, deadline - time.monotonic())))
             locations = request("textDocument/references", {"textDocument":{"uri":uri},"position":{"line":line,"character":column},"context":{"includeDeclaration":True}}, min(15.0, max(0.5, deadline-time.monotonic()))) or []
             counts[str(item["id"])] = len(locations) if isinstance(locations, list) else 0
         return {"available": True, "reference_counts": counts, "timed_out": time.monotonic() >= deadline}

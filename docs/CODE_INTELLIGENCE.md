@@ -59,11 +59,10 @@ files are changed by indexing or reporting.
 ```
 
 Use exact symbol names or `file:name` entries. Suppressions are reported in the JSON result so reviews remain auditable.
-## Optional Python LSP provider
+## Optional language-server providers
 
 N235's scanners remain conservative and do not claim whole-program reachability.
-Expose an isolated `basedpyright` or `pyright` language server via `PATH`, or
-set `SUPERAI_PYTHON_LSP` to its executable, then run:
+Expose a provider through `PATH`, a supported user-global tool directory, or its executable override: `SUPERAI_PYTHON_LSP`, `SUPERAI_TYPESCRIPT_LSP`, `SUPERAI_GO_LSP`, `SUPERAI_RUST_LSP`, or `SUPERAI_CSHARP_LSP`. Java uses `SUPERAI_JDTLS_HOME` and optionally `SUPERAI_JAVA_EXECUTABLE`. Supported providers are basedpyright/pyright, typescript-language-server, gopls, rust-analyzer, Eclipse JDT LS, and csharp-ls.`r`n`r`nThen run:
 
 ```powershell
 superai code-report lsp-status
@@ -73,10 +72,10 @@ No server is installed automatically. A missing, invalid, or timed-out provider
 is a non-failure with a precise reason. Dynamic imports, reflection, framework
 entry points, and external callers remain outside the proof boundary, so all
 findings stay advisory and source is never deleted.
-Use LSP references only for native Python dead-code review:
+Use LSP references for Python, TypeScript/JavaScript, Go, Rust, Java, and C# candidates during advanced dead-code review:
 
 ```powershell
-superai code-report dead-code --lsp
+superai code-report dead-code --engine advanced --lsp
 ```
 
 The check has a bounded startup and request budget. It only removes a candidate

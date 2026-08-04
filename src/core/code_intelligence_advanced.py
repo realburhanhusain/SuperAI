@@ -218,9 +218,25 @@ def advanced_dead_code_report(root: Optional[Path] = None, *, max_files: int = 2
     lsp_result: Dict[str, Any] = {"enabled": False}
     if lsp:
         from .lsp_bridge import python_reference_counts
-        ts_candidates = [item for item in candidates if item.get("language") in {"typescript", "javascript"}]
-        reference_result = python_reference_counts(base, ts_candidates, language="typescript_javascript")
-        counts = reference_result.get("reference_counts") or {}
-        candidates = [item for item in candidates if int(counts.get(str(item["id"]), 1)) <= 1]
-        lsp_result = {"enabled": True, **reference_result, "checked_candidates": len(counts)}
+
+        lsp_languages = {
+            "python": "python",
+            "typescript": "typescript_javascript",
+            "javascript": "typescript_javascript",
+            "go": "go",
+            "rust": "rust",
+            "java": "java",
+            "csharp": "csharp",
+        }
+        providers: Dict[str, Any] = {}
+        referenced: Set[str] = set()
+        for candidate_language, provider_language in lsp_languages.items():
+            language_candidates = [item for item in candidates if item.get("language") == candidate_language]
+            if not language_candidates or provider_language in providers:
+                continue
+            result = python_reference_counts(base, language_candidates, language=provider_language)
+            providers[provider_language] = result
+            referenced.update(str(symbol_id) for symbol_id, count in (result.get("reference_counts") or {}).items() if int(count) > 1)
+        candidates = [item for item in candidates if str(item["id"]) not in referenced]
+        lsp_result = {"enabled": True, "providers": providers, "checked_candidates": sum(len((item.get("reference_counts") or {})) for item in providers.values())}
     return {"ok": True, "product": graph["product"], "engine": _ENGINE, "report": "dead_code_candidates", "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"], "suppressions": sorted(suppressions), "lsp": lsp_result, "limitations": graph["limitations"] + ["Candidates are review evidence only; no source files are modified"]}

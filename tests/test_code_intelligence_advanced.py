@@ -61,3 +61,21 @@ def test_advanced_dead_code_lsp_filters_only_referenced_typescript(tmp_path: Pat
     monkeypatch.setattr(lsp_bridge, "python_reference_counts", fake_references)
     report = advanced_dead_code_report(tmp_path, lsp=True)
     assert [item["name"] for item in report["candidates"]] == ["_unused"]
+
+def test_advanced_dead_code_lsp_routes_each_language_to_its_provider(tmp_path: Path, monkeypatch):
+    from core import lsp_bridge
+
+    _write(tmp_path, "sample.go", "package sample\nfunc _used() int { return 1 }\nfunc _unused() int { return 2 }\n")
+    _write(tmp_path, "sample.rs", "fn _used() -> i32 { 1 }\nfn _unused() -> i32 { 2 }\n")
+    _write(tmp_path, "Sample.java", "class Sample {\nprivate int _used() { return 1; }\nprivate int _unused() { return 2; }\n}\n")
+    _write(tmp_path, "Sample.cs", "class Sample {\nprivate int _used() => 1;\nprivate int _unused() => 2;\n}\n")
+    seen = []
+
+    def fake_references(_root, candidates, timeout_seconds=45.0, language="python"):
+        seen.append(language)
+        return {"available": True, "reference_counts": {item["id"]: (2 if item["name"] == "_used" else 1) for item in candidates}}
+
+    monkeypatch.setattr(lsp_bridge, "python_reference_counts", fake_references)
+    report = advanced_dead_code_report(tmp_path, lsp=True)
+    assert seen == ["go", "rust", "java", "csharp"]
+    assert {item["name"] for item in report["candidates"]} == {"_unused"}

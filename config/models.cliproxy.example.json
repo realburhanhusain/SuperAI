@@ -1,0 +1,82 @@
+[
+  {
+    "name": "cliproxy:claude-opus",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-4-6",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 3,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.95,
+      "reasoning": 0.95,
+      "research": 0.85,
+      "general": 0.9,
+      "creative": 0.85
+    },
+    "strengths": "Deep reasoning and code review via Claude Code subscription",
+    "extra": { "transport": "cliproxy", "subscription_backed": true }
+  },
+  {
+    "name": "cliproxy:codex",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-codex",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.93,
+      "reasoning": 0.88,
+      "research": 0.8,
+      "general": 0.85,
+      "creative": 0.8
+    },
+    "strengths": "Code generation via ChatGPT Codex subscription",
+    "extra": { "transport": "cliproxy", "subscription_backed": true }
+  },
+  {
+    "name": "cliproxy:gemini-pro",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-pro",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.9,
+      "research": 0.95,
+      "general": 0.9,
+      "creative": 0.85
+    },
+    "strengths": "Very large context; research and whole-repo reading",
+    "extra": { "transport": "cliproxy", "subscription_backed": true }
+  },
+  {
+    "name": "cliproxy:grok",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-4.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 256000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.8,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.88,
+      "creative": 0.92
+    },
+    "strengths": "Critique and adversarial review via Grok subscription",
+    "extra": { "transport": "cliproxy", "subscription_backed": true }
+  }
+]

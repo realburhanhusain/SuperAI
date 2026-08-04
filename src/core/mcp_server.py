@@ -763,7 +763,7 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
                                         code_index_status, dead_code_report, index_code_graph,
                                         search_code_graph)
         from .code_intelligence_advanced import (advanced_code_impact, advanced_engine_status,
-                                                 build_advanced_code_graph, search_advanced_code_graph)
+                                                 advanced_dead_code_report, build_advanced_code_graph, search_advanced_code_graph)
 
         action = str(args.get("action") or "index").lower()
         engine = str(args.get("engine") or "native").lower()
@@ -775,13 +775,14 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         if action == "index":
             if engine == "advanced":
                 return build_advanced_code_graph(root)
-            return index_code_graph(root) if bool(args.get("incremental")) else build_code_graph(root)
+            return (index_code_graph(root, verify_content=bool(args.get("verify_content")))
+                    if bool(args.get("incremental")) else build_code_graph(root))
         if action == "status":
             return advanced_engine_status() if engine == "advanced" else code_index_status(root)
         if action == "architecture":
             return architecture_report(root)
         if action in {"dead_code", "dead-code"}:
-            return dead_code_report(root)
+            return advanced_dead_code_report(root) if engine == "advanced" else dead_code_report(root)
         if action == "search":
             query = str(args.get("query") or "").strip()
             if not query:

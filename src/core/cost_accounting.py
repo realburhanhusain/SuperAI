@@ -37,9 +37,20 @@ def _model_info(model: str, registry: Any = None) -> Any:
 
 
 def is_local_or_cli(model: str) -> bool:
+    """
+    True when a call costs nothing per token.
+
+    ``cliproxy:`` counts. CLIProxyAPI fronts vendor CLI *subscriptions*, so the
+    marginal cost of a call is genuinely zero — the same footing as ``cli:``,
+    which shells out to those same subscriptions. Without this the model falls
+    through to heuristic rates and reports ``estimate_source: fallback``,
+    inventing a price where none exists. With it the figure is $0 labelled
+    ``actual``, which is the honest answer: nothing was estimated.
+    """
     s = str(model or "").lower()
     return bool(
         s.startswith("cli:")
+        or s.startswith("cliproxy:")
         or "ollama" in s
         or "lmstudio" in s
         or "vllm-local" in s

@@ -141,6 +141,34 @@ OPENAI_COMPAT_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "allow_empty_key": True,
         "default_key": "ollama",
     },
+    # CLIProxyAPI (github.com/router-for-me/CLIProxyAPI) fronts vendor CLI
+    # subscriptions — Claude Code, Codex, Gemini, Grok, Kimi — behind one
+    # OpenAI-compatible endpoint.
+    #
+    # This is an ADDITIONAL transport, not a replacement for ``external_cli``.
+    # The two do different jobs and both stay:
+    #
+    #   external_cli  drives a vendor CLI as a subprocess. Every spec carries
+    #                 modifies_files=True — these are file-editing agents, and
+    #                 an HTTP chat endpoint cannot run aider's edit loop or
+    #                 Claude Code's tool execution.
+    #   cliproxy      serves chat completions over HTTP. No subprocess, no PATH
+    #                 resolution, real streaming, and real token usage from the
+    #                 API rather than an estimate.
+    #
+    # Use cliproxy when you want a *model*; use cli:* when you want an *agent*.
+    # Nothing routes here unless the user adds cliproxy models to the registry.
+    "cliproxy": {
+        "label": "CLIProxyAPI (vendor CLI subscriptions over HTTP)",
+        "base_url": "http://127.0.0.1:8317/v1",
+        "env": "CLIPROXY_API_KEY",
+        "kind": "local",
+        "open_weight_available": False,
+        # The proxy authenticates upstream via each vendor's OAuth; the local
+        # endpoint usually needs no key of its own.
+        "allow_empty_key": True,
+        "default_key": "cliproxy",
+    },
 }
 
 # Native (non OpenAI-compat) providers handled specially in ModelCaller

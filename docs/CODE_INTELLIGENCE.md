@@ -12,6 +12,7 @@ conservative dead-code candidates.
 
 ```powershell
 superai code-index --incremental
+superai code-index --incremental --verify-content
 superai code-index --query code_impact
 superai code-impact --ref HEAD~1
 superai code-report architecture
@@ -43,5 +44,18 @@ can therefore be omitted. Treat impact and dead-code output as review evidenceâ€
 proofâ€”and verify before changing production code.
 
 The incremental cache used by the native engine is stored under
-`~/.superai/code-intelligence/`, outside the source repository. No source files are
-changed by indexing or reporting.
+`~/.superai/code-intelligence/`, outside the source repository. It records parser
+settings, per-file metadata and content digests, additions, removals, renames, cache
+hit rate, and elapsed time. Normal incremental runs use a fast metadata check;
+`--verify-content` additionally hashes unchanged files when timestamps may be
+unreliable. `superai code-report status` exposes the latest index metrics. No source
+files are changed by indexing or reporting.
+## Dead-code review and suppressions
+
+`code-report dead-code` and `code-report dead-code --engine advanced` produce low-confidence review candidates only; they never remove files or symbols. For native Python reports, exclude a known indirect use with `.superai/dead-code.json`:
+
+```json
+{"exclude": ["_framework_callback", "src/plugin.py:_registered"]}
+```
+
+Use exact symbol names or `file:name` entries. Suppressions are reported in the JSON result so reviews remain auditable.

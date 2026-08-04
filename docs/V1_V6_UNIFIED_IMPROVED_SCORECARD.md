@@ -4060,15 +4060,14 @@ Sub-order: foundation-like → stub → absent (heuristic).
 
 - **Track:** V6
 - **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
-- **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
+- **Percent:** **60%**
+- **Heuristic bucket:** `partial`
+- **Code production-ready?** PARTIAL — conservative functions, methods, classes, private modules, and bundled advanced-language candidates; compiler/LSP-grade reachability remains unavailable
+- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md includes operating guidance and audited exact suppressions
+- **Fully tested?** YES — protected Code Intelligence slice: 52 passed, including native, advanced, MCP, and CLI coverage
+- **Fully implemented:** Conservative candidate reporting with no source modification
+- **Partially implemented:** Conservative static detection across native and bundled advanced engines; candidates remain low-confidence review evidence
+- **Still incomplete:** Method/class/module analysis, advanced-engine languages, stronger reference resolution, configurable suppressions, dedicated documentation
 ### N236 — Complexity hotspots map
 
 - **Track:** V6
@@ -4358,16 +4357,15 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### N258 — Incremental index updates
 
 - **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **15%**
-- **Heuristic bucket:** `stub`
-- **Code production-ready?** NO — Nice item — stub or thin module only
-- **Thorough documentation?** YES — V6 backlog Nice section
-- **Fully tested?** NO — No thorough dedicated tests
-- **Fully implemented:** —
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Heuristic bucket:** `complete`
+- **Code production-ready?** YES — versioned, atomic native index cache with fast metadata reuse, optional content verification, rename/delete reporting, and persisted metrics
+- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md
+- **Fully tested?** YES — tests/test_code_intelligence.py + tests/test_mcp_server.py
+- **Fully implemented:** Incremental cache compatibility settings, integrity verification, cache hit/elapsed metrics, rename/delete detection, CLI and MCP support
 - **Partially implemented:** —
-- **Still incomplete:** Production product + docs + tests
-
+- **Still incomplete:** —
 ### N259 — Semantic diff summaries
 
 - **Track:** V6

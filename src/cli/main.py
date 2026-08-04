@@ -6016,6 +6016,7 @@ def code_index_cmd(
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
     query: Optional[str] = typer.Option(None, "--query", "-q"),
     incremental: bool = typer.Option(False, "--incremental", help="Persist and incrementally refresh the native Python graph"),
+    verify_content: bool = typer.Option(False, "--verify-content", help="Digest-check unchanged files before reuse"),
     engine: str = typer.Option("native", "--engine", help="native (default) | advanced multi-language scanner"),
 ):
     """Build or search SuperAI's native or bundled advanced source graph."""
@@ -6031,7 +6032,7 @@ def code_index_cmd(
     elif selected == "advanced":
         out = build_advanced_code_graph(base)
     else:
-        out = index_code_graph(base) if incremental else build_code_graph(base)
+        out = index_code_graph(base, verify_content=verify_content) if incremental else build_code_graph(base)
     console.print_json(data=out)
 
 
@@ -6039,17 +6040,18 @@ def code_index_cmd(
 def code_report_cmd(
     report: str = typer.Argument(..., help="architecture | dead-code | status | engine-status"),
     root: Optional[str] = typer.Option(None, "--root", help="Repository root (default current directory)"),
+    engine: str = typer.Option("native", "--engine", help="native (default) | advanced"),
 ):
     """Report local architecture, dead-code candidates, or engine capability."""
     from core.code_intelligence import architecture_report, code_index_status, dead_code_report
-    from core.code_intelligence_advanced import advanced_engine_status
+    from core.code_intelligence_advanced import advanced_dead_code_report, advanced_engine_status
 
     base = Path(root).resolve() if root else None
     selected = report.lower().replace("-", "_")
     if selected == "architecture":
         out = architecture_report(base)
     elif selected == "dead_code":
-        out = dead_code_report(base)
+        out = advanced_dead_code_report(base) if engine.lower() == "advanced" else dead_code_report(base)
     elif selected == "status":
         out = code_index_status(base)
     elif selected == "engine_status":

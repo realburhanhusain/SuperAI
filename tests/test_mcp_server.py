@@ -1,5 +1,6 @@
 """SuperAI local MCP server — central memory + tools for external AIs."""
 
+import os
 import json
 from pathlib import Path
 
@@ -191,3 +192,24 @@ def test_code_intelligence_advanced_engine_via_mcp(tmp_path: Path):
     assert out["ok"] is True
     assert out["engine"] == "advanced-local-v1"
     assert out["count"] == 1
+
+def test_code_intelligence_mcp_can_verify_incremental_content(tmp_path: Path):
+    src = tmp_path / "src"
+    src.mkdir()
+    sample = src / "sample.py"
+    sample.write_text("def alpha():\n    return 1\n", encoding="utf-8")
+    first = call_tool("superai_code_intelligence", {"action": "index", "incremental": True, "root": str(tmp_path)})
+    before = sample.stat()
+    sample.write_text("def bravo():\n    return 1\n", encoding="utf-8")
+    os.utime(sample, ns=(before.st_atime_ns, before.st_mtime_ns))
+    checked = call_tool("superai_code_intelligence", {"action": "index", "incremental": True, "verify_content": True, "root": str(tmp_path)})
+    assert first["index"]["mode"] == "full"
+    assert checked["index"]["refreshed_files"] == 1
+
+def test_code_intelligence_dead_code_safety_via_mcp(tmp_path: Path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "sample.py").write_text("def _unused():\n    return 1\n\ndef _dynamic():\n    return 2\n", encoding="utf-8")
+    (src / "use.py").write_text("value = getattr(module, '_dynamic')\n", encoding="utf-8")
+    out = call_tool("superai_code_intelligence", {"action": "dead_code", "root": str(tmp_path)})
+    assert [item["name"] for item in out["candidates"]] == ["_unused"]

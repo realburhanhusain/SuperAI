@@ -2850,5 +2850,28 @@
       "transport": "cliproxy",
       "subscription_backed": true
     }
+  },
+  {
+    "name": "cliproxy:codex",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.9,
+      "reasoning": 0.85,
+      "research": 0.8,
+      "general": 0.85,
+      "creative": 0.8
+    },
+    "strengths": "Code generation via ChatGPT Codex subscription (gpt-5.5 is served by every codex tier: free, team, plus and pro)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
   }
 ]

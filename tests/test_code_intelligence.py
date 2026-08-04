@@ -120,3 +120,19 @@ def test_dead_code_includes_private_class_candidate(tmp_path: Path):
     out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
     assert [(item["name"], item["reason"]) for item in out["candidates"]] == [("_Unused", "private symbol has no uniquely resolved inbound call")]
     assert "classes" in out["scope"]
+
+def test_dead_code_lsp_filters_only_proven_references(tmp_path: Path, monkeypatch):
+    from core import lsp_bridge
+    from core.code_intelligence import dead_code_report
+
+    _write(tmp_path, "src/sample.py", "def _used():\n    return 1\n\ndef _unused():\n    return 2\n")
+
+    def fake_references(_root, candidates, timeout_seconds=45.0):
+        counts = {item["id"]: (2 if item["name"] == "_used" else 1) for item in candidates}
+        return {"available": True, "reference_counts": counts, "timed_out": False}
+
+    monkeypatch.setattr(lsp_bridge, "python_reference_counts", fake_references)
+    report = dead_code_report(tmp_path, lsp=True)
+    assert [item["name"] for item in report["candidates"]] == ["_unused"]
+    assert report["lsp"]["available"] is True
+    assert report["lsp"]["checked_candidates"] == 2

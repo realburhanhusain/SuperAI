@@ -115,7 +115,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
             counts[str(item["id"])] = len(locations) if isinstance(locations, list) else 0
         return {"available": True, "reference_counts": counts, "timed_out": time.monotonic() >= deadline}
     except (OSError, RuntimeError, TimeoutError, queue.Empty) as exc:
-        return {"available": False, "reason": f"reference probe failed: {exc}", "reference_counts": {}}
+        return {"available": False, "reason": f"reference probe failed: {str(exc) or type(exc).__name__}", "reference_counts": {}}
     finally:
         proc.terminate()
 

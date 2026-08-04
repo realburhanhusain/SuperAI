@@ -9,6 +9,7 @@ import subprocess
 import threading
 import queue
 import time
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -24,10 +25,39 @@ def available() -> bool:
 
 
 
+
+
+def _provider_command(environment_name: str, commands: List[str]) -> Optional[str]:
+    configured = os.environ.get(environment_name, "").strip()
+    if configured:
+        return configured if Path(configured).is_file() else None
+    for command in commands:
+        found = shutil.which(command)
+        if found:
+            return found
+    scripts = Path(sys.executable).parent / "Scripts"
+    for command in commands:
+        candidate = scripts / f"{command}.exe"
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def typescript_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
+    """Report the optional TypeScript/JavaScript LSP without installing it."""
+    command = _provider_command("SUPERAI_TYPESCRIPT_LSP", ["typescript-language-server"])
+    if not command:
+        return {"available": False, "language": "typescript_javascript", "reason": "typescript-language-server not found", "capabilities": []}
+    try:
+        probe = subprocess.run([command, "--stdio"], input=b"", stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout_seconds, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"available": False, "language": "typescript_javascript", "reason": f"provider probe failed: {exc}", "capabilities": []}
+    return {"available": True, "language": "typescript_javascript", "provider": Path(command).name, "capabilities": ["diagnostics", "references (advisory only)"], "probe_exit_code": probe.returncode}
+
 def python_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
     """Probe an optional Python LSP with a bounded, non-failing check."""
     configured = os.environ.get("SUPERAI_PYTHON_LSP", "").strip()
-    command: Optional[str] = configured or shutil.which("basedpyright-langserver") or shutil.which("pyright-langserver")
+    command: Optional[str] = _provider_command("SUPERAI_PYTHON_LSP", ["basedpyright-langserver", "pyright-langserver"])
     if not command:
         return {"available": False, "language": "python", "reason": "no Python LSP provider found; install pyright/basedpyright or set SUPERAI_PYTHON_LSP", "capabilities": []}
     if configured and not Path(command).is_file():
@@ -48,7 +78,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
     prove referenced. A failed or incomplete probe never changes candidates.
     """
     configured = os.environ.get("SUPERAI_PYTHON_LSP", "").strip()
-    command = configured or shutil.which("basedpyright-langserver") or shutil.which("pyright-langserver")
+    command = _provider_command("SUPERAI_PYTHON_LSP", ["basedpyright-langserver", "pyright-langserver"])
     if not command or (configured and not Path(command).is_file()):
         return {"available": False, "reason": "Python LSP provider unavailable", "reference_counts": {}}
     try:

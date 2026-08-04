@@ -18,6 +18,14 @@ venv/
 .superai/
 backups/
 
+# Contract-probe leftovers
+# scripts/probe_cli_contracts.py drives commands with the cli_fixtures
+# PLACEHOLDER_TEXT ("superai-contract-probe"). A command taking a path argument
+# writes it here and nothing cleans it up, so the file reappears after every
+# probe run. Ignored rather than deleted repeatedly; the harness leaking a file
+# into the repo root is the underlying bug.
+/probe.tmp
+
 # IDE / OS
 .idea/
 .vscode/

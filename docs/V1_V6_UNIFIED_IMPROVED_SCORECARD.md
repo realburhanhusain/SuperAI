@@ -1,6 +1,6 @@
 # SuperAI V1–V6 Unified IMPROVED Scorecard (strict bar)
 
-**Generated:** 2026-07-30  
+**Generated:** 2026-08-04  
 **Total unique improvement IDs:** 533  
 **Source inventory (read-only):** `docs/archive/2026-07-25-closed-docs/scorecards/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  
 **This file:** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`  
@@ -33,8 +33,8 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 | **Total** | **533** |
 
 - **Strict completion rate (complete / (total − refuse)):** **50.6%**
-- **Average percent (incomplete only):** **25.4%**
-- **Average percent (all non-refuse):** **63.5%**
+- **Average percent (incomplete only):** **25.6%**
+- **Average percent (all non-refuse):** **63.6%**
 
 ### Note for validators
 
@@ -2873,6 +2873,19 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** —
 - **Still incomplete:** Continuous bandit incomplete
 
+### N235 — Dead code detection
+
+- **Track:** V6
+- **Complete?** **NO**
+- **Percent:** **75%**
+- **Heuristic bucket:** `foundation`
+- **Code production-ready?** YES — Conservative native and multi-language advisory reports plus optional Python/TypeScript LSP reference filtering
+- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md
+- **Fully tested?** YES — tests/test_code_intelligence.py + tests/test_code_intelligence_advanced.py
+- **Fully implemented:** Conservative native and multi-language advisory reports plus optional Python/TypeScript LSP reference filtering
+- **Partially implemented:** —
+- **Still incomplete:** Whole-program reachability, imports, inheritance, decorators, reflection, framework entry points, and additional language providers remain incomplete
+
 ### M091 — Performance budgets for cold start
 
 - **Track:** V6
@@ -4056,18 +4069,6 @@ Sub-order: foundation-like → stub → absent (heuristic).
 - **Partially implemented:** —
 - **Still incomplete:** Production product + docs + tests
 
-### N235 — Dead code detection
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **60%**
-- **Heuristic bucket:** `partial`
-- **Code production-ready?** PARTIAL — conservative functions, methods, classes, private modules, and bundled advanced-language candidates; compiler/LSP-grade reachability remains unavailable
-- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md includes operating guidance and audited exact suppressions
-- **Fully tested?** YES — protected Code Intelligence slice: 52 passed, including native, advanced, MCP, and CLI coverage
-- **Fully implemented:** Conservative candidate reporting with no source modification
-- **Partially implemented:** Conservative static detection across native and bundled advanced engines; candidates remain low-confidence review evidence
-- **Still incomplete:** Method/class/module analysis, advanced-engine languages, stronger reference resolution, configurable suppressions, dedicated documentation
 ### N236 — Complexity hotspots map
 
 - **Track:** V6
@@ -4357,15 +4358,16 @@ Sub-order: foundation-like → stub → absent (heuristic).
 ### N258 — Incremental index updates
 
 - **Track:** V6
-- **Complete?** **YES**
-- **Percent:** **100%**
-- **Heuristic bucket:** `complete`
-- **Code production-ready?** YES — versioned, atomic native index cache with fast metadata reuse, optional content verification, rename/delete reporting, and persisted metrics
-- **Thorough documentation?** YES — docs/CODE_INTELLIGENCE.md
-- **Fully tested?** YES — tests/test_code_intelligence.py + tests/test_mcp_server.py
-- **Fully implemented:** Incremental cache compatibility settings, integrity verification, cache hit/elapsed metrics, rename/delete detection, CLI and MCP support
+- **Complete?** **NO**
+- **Percent:** **15%**
+- **Heuristic bucket:** `stub`
+- **Code production-ready?** NO — Nice item — stub or thin module only
+- **Thorough documentation?** YES — V6 backlog Nice section
+- **Fully tested?** NO — No thorough dedicated tests
+- **Fully implemented:** —
 - **Partially implemented:** —
-- **Still incomplete:** —
+- **Still incomplete:** Production product + docs + tests
+
 ### N259 — Semantic diff summaries
 
 - **Track:** V6

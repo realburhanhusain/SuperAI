@@ -203,6 +203,7 @@ COMPLETE_IDS = (
 # Explicit incomplete notes for borderline items that were previously over-claimed as full
 STRICT_INCOMPLETE: dict[str, Triple] = {
     # Pillars may be True but pct<100 ⇒ incomplete (intent not fully production-met)
+    "N235": T(True, True, True, 75, "Conservative native and multi-language advisory reports plus optional Python/TypeScript LSP reference filtering", "docs/CODE_INTELLIGENCE.md", "tests/test_code_intelligence.py + tests/test_code_intelligence_advanced.py", "Whole-program reachability, imports, inheritance, decorators, reflection, framework entry points, and additional language providers remain incomplete"),
     # Stage I1 promoted items removed from this map — see V6_MUST_COMPLETE / V4_COMPLETE / V5_COMPLETE
     "M089": T(
         True, True, True, 92,

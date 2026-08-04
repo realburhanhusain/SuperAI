@@ -33,6 +33,7 @@ class _PythonVisitor(ast.NodeVisitor):
         self.scope: List[str] = []
         self.symbols: List[Dict[str, Any]] = []
         self.calls: DefaultDict[str, List[str]] = defaultdict(list)
+        self.import_aliases: Dict[str, str] = {}
 
     def _visit_definition(self, node: ast.AST, kind: str) -> None:
         name = str(getattr(node, "name", ""))
@@ -56,11 +57,17 @@ class _PythonVisitor(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._visit_definition(node, "class")
 
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """Map direct imported names to their original symbol for local calls."""
+        for alias in node.names:
+            if alias.name != "*":
+                self.import_aliases[alias.asname or alias.name] = alias.name
+        self.generic_visit(node)
     def visit_Call(self, node: ast.Call) -> None:
         if self.scope:
             target = _call_name(node.func)
             if target:
-                self.calls[f"{self.rel}:{'.'.join(self.scope)}"].append(target)
+                self.calls[f"{self.rel}:{'.'.join(self.scope)}"].append(self.import_aliases.get(target, target))
         self.generic_visit(node)
 
 
@@ -311,6 +318,11 @@ def _dead_code_exclusions(root: Path, max_files: int) -> Tuple[Set[str], Set[str
             if isinstance(node, ast.Call) and _call_name(node.func) in {"getattr", "setattr", "hasattr"}:
                 if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) and isinstance(node.args[1].value, str):
                     dynamic_refs.add(node.args[1].value)
+            if isinstance(node, ast.Call) and _call_name(node.func) == "import_module":
+                if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                    dynamic_refs.add(node.args[0].value.rsplit(".", 1)[-1])
+            if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                dynamic_refs.add(node.slice.value)
             if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets):
                 if isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
                     dynamic_refs.update(item.value for item in node.value.elts if isinstance(item, ast.Constant) and isinstance(item.value, str))
@@ -358,6 +370,7 @@ def _dead_code_suppressions(root: Path) -> Set[str]:
 def _private_module_candidates(root: Path, max_files: int) -> List[Dict[str, Any]]:
     """Return private Python modules with no simple project import reference."""
     files = list(_python_files(root, max_files))
+    dynamic_refs, _value_refs, _decorated = _dead_code_exclusions(root, max_files)
     imported: Set[str] = set()
     for source in files:
         try:
@@ -369,7 +382,7 @@ def _private_module_candidates(root: Path, max_files: int) -> List[Dict[str, Any
                 imported.update(alias.name.rsplit(".", 1)[-1] for alias in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported.add(node.module.rsplit(".", 1)[-1])
-    return [{"file": source.relative_to(root).as_posix(), "name": source.stem, "confidence": "low", "reason": "private module has no simple project import"} for source in files if source.stem.startswith("_") and source.stem not in imported]
+    return [{"file": source.relative_to(root).as_posix(), "name": source.stem, "confidence": "low", "reason": "private module has no simple project import"} for source in files if source.stem.startswith("_") and source.stem not in imported and source.stem not in dynamic_refs]
 def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
                      cache_dir: Optional[Path] = None, lsp: bool = False) -> Dict[str, Any]:
     """Return conservative private-function candidates, never deletion instructions."""
@@ -402,7 +415,7 @@ def dead_code_report(root: Optional[Path] = None, *, max_files: int = 2000,
     return {"ok": True, "product": graph["product"], "report": "dead_code_candidates", "scope": ["functions", "methods", "classes", "private_modules"], "module_candidates": _private_module_candidates(base, max_files),
             "candidates": candidates, "count": len(candidates), "coverage": graph["coverage"],
             "index": graph["index"], "lsp": lsp_result, "suppressions": sorted(suppressions), "limitations": [
-                "Candidates are not proof of dead code", "Dynamic lookups, exports, imports, callbacks, decorators, and project-local overrides are excluded", "Dynamic imports, reflection, and external callers are not resolved",
+                "Candidates are not proof of dead code", "Static reflection, dynamic imports, exports, imports, callbacks, decorators, and project-local overrides are excluded", "Computed reflection, arbitrary dynamic imports, and external callers are not resolved",
                 "No source files are modified"],}
 
 

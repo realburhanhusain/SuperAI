@@ -39,8 +39,9 @@ The MCP tool `superai_code_intelligence` accepts `engine: "advanced"` for `index
 
 The advanced engine is a conservative source scanner, not a compiler or language
 server. It creates a `CALLS` edge only where a short function name resolves uniquely.
-Project-local Python override chains and TypeScript named-import aliases are resolved; dynamic dispatch, reflection, generated code, broad import/package resolution, and overloaded names
-can therefore be omitted. Treat impact and dead-code output as review evidence—not
+Project-local Python override chains, direct Python and TypeScript import aliases, static reflection strings, and static dynamic-module imports are resolved conservatively; computed dispatch, reflection, generated code, broad
+import/package resolution, and overloaded names
+can still be omitted. Treat impact and dead-code output as review evidence—not
 proof—and verify before changing production code.
 
 The incremental cache used by the native engine is stored under
@@ -62,7 +63,9 @@ Use exact symbol names or `file:name` entries. Suppressions are reported in the 
 ## Optional language-server providers
 
 N235's scanners remain conservative and do not claim whole-program reachability.
-Expose a provider through `PATH`, a supported user-global tool directory, or its executable override: `SUPERAI_PYTHON_LSP`, `SUPERAI_TYPESCRIPT_LSP`, `SUPERAI_GO_LSP`, `SUPERAI_RUST_LSP`, or `SUPERAI_CSHARP_LSP`. Java uses `SUPERAI_JDTLS_HOME` and optionally `SUPERAI_JAVA_EXECUTABLE`. Supported providers are basedpyright/pyright, typescript-language-server, gopls, rust-analyzer, Eclipse JDT LS, and csharp-ls.`r`n`r`nThen run:
+Expose a provider through `PATH`, a supported user-global tool directory, or its executable override: `SUPERAI_PYTHON_LSP`, `SUPERAI_TYPESCRIPT_LSP`, `SUPERAI_GO_LSP`, `SUPERAI_RUST_LSP`, or `SUPERAI_CSHARP_LSP`. Java uses `SUPERAI_JDTLS_HOME` and optionally `SUPERAI_JAVA_EXECUTABLE`. Supported providers are basedpyright/pyright, typescript-language-server, gopls, rust-analyzer, Eclipse JDT LS, and csharp-ls.
+
+Then run:
 
 ```powershell
 superai code-report lsp-status

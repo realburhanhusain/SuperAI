@@ -141,3 +141,17 @@ def test_dead_code_excludes_project_local_override_chain(tmp_path: Path):
     out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
     assert [item["name"] for item in out["candidates"]] == ["_unused"]
     assert "project-local overrides are excluded" in out["limitations"][1]
+
+def test_build_graph_resolves_python_import_alias(tmp_path: Path):
+    _write(tmp_path, "src/core.py", "def _target():\n    return 1\n")
+    _write(tmp_path, "src/service.py", "from src.core import _target as local_target\n\ndef caller():\n    return local_target()\n")
+    graph = build_code_graph(tmp_path)
+    assert ("src/service.py:caller", "src/core.py:_target") in {(edge["from"], edge["to"]) for edge in graph["edges"]}
+
+
+def test_dead_code_excludes_static_reflection_and_dynamic_module_import(tmp_path: Path):
+    _write(tmp_path, "src/_plugin.py", "VALUE = 1\n")
+    _write(tmp_path, "src/runtime.py", "import importlib\nregistry = {}\nregistry['_registered'] = object()\nplugin = importlib.import_module('src._plugin')\n\ndef _registered():\n    return 1\n\ndef _unused():\n    return 2\n")
+    out = dead_code_report(tmp_path, cache_dir=tmp_path / "cache")
+    assert [item["name"] for item in out["candidates"]] == ["_unused"]
+    assert out["module_candidates"] == []

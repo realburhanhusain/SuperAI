@@ -1,49 +1,78 @@
 [
   {
-    "name": "cliproxy:claude-opus",
+    "name": "cliproxy:claude-haiku-4-5-20251001",
     "provider": "cliproxy",
     "base_url": "http://127.0.0.1:8317/v1",
-    "model_id": "claude-opus-4-6",
-    "api_key_env": "CLIPROXY_API_KEY",
-    "context_window": 200000,
-    "cost_per_1k_tokens": 0.0,
-    "latency_tier": 3,
-    "supports_tools": true,
-    "task_strengths": {
-      "coding": 0.95,
-      "reasoning": 0.95,
-      "research": 0.85,
-      "general": 0.9,
-      "creative": 0.85
-    },
-    "strengths": "Deep reasoning and code review via Claude Code subscription",
-    "extra": { "transport": "cliproxy", "subscription_backed": true }
-  },
-  {
-    "name": "cliproxy:codex",
-    "provider": "cliproxy",
-    "base_url": "http://127.0.0.1:8317/v1",
-    "model_id": "gpt-5.5",
+    "model_id": "claude-haiku-4-5-20251001",
     "api_key_env": "CLIPROXY_API_KEY",
     "context_window": 200000,
     "cost_per_1k_tokens": 0.0,
     "latency_tier": 2,
     "supports_tools": true,
     "task_strengths": {
-      "coding": 0.93,
-      "reasoning": 0.88,
-      "research": 0.8,
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
       "general": 0.85,
-      "creative": 0.8
+      "creative": 0.85
     },
-    "strengths": "Code generation via ChatGPT Codex subscription (gpt-5.5 is served by every codex tier: free, team, plus and pro)",
-    "extra": { "transport": "cliproxy", "subscription_backed": true }
+    "strengths": "Imported claude model: claude-haiku-4-5-20251001",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
   },
   {
-    "name": "cliproxy:gemini-pro",
+    "name": "cliproxy:claude-sonnet-4-5-20250929",
     "provider": "cliproxy",
     "base_url": "http://127.0.0.1:8317/v1",
-    "model_id": "gemini-3.1-pro-preview",
+    "model_id": "claude-sonnet-4-5-20250929",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imported claude model: claude-sonnet-4-5-20250929",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-sonnet-4-6",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-sonnet-4-6",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imported claude model: claude-sonnet-4-6",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-opus-4-6",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-4-6",
     "api_key_env": "CLIPROXY_API_KEY",
     "context_window": 1000000,
     "cost_per_1k_tokens": 0.0,
@@ -51,32 +80,2775 @@
     "supports_tools": true,
     "task_strengths": {
       "coding": 0.85,
-      "reasoning": 0.9,
-      "research": 0.95,
-      "general": 0.9,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
       "creative": 0.85
     },
-    "strengths": "Very large context; research and whole-repo reading (Vertex-backed proxies spell this gemini-3.1-pro)",
-    "extra": { "transport": "cliproxy", "subscription_backed": true }
+    "strengths": "Premium model combining maximum intelligence with practical performance",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
   },
   {
-    "name": "cliproxy:grok",
+    "name": "cliproxy:claude-opus-4-7",
     "provider": "cliproxy",
     "base_url": "http://127.0.0.1:8317/v1",
-    "model_id": "grok-4.5",
+    "model_id": "claude-opus-4-7",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Premium model combining maximum intelligence with practical performance",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-opus-4-8",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-4-8",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Premium model combining maximum intelligence with practical performance",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-opus-5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Latest premium model combining maximum intelligence with practical performance",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-sonnet-5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-sonnet-5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Anthropic's agentic Sonnet model for coding, tool use, and enterprise workflows",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-fable-5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-fable-5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Anthropic's most capable widely released model, for the most demanding reasoning and long-horizon agentic work",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-opus-4-5-20251101",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-4-5-20251101",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Premium model combining maximum intelligence with practical performance",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-opus-4-1-20250805",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-4-1-20250805",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imported claude model: claude-opus-4-1-20250805",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-opus-4-20250514",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-4-20250514",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imported claude model: claude-opus-4-20250514",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-sonnet-4-20250514",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-sonnet-4-20250514",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imported claude model: claude-sonnet-4-20250514",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-3-7-sonnet-20250219",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-3-7-sonnet-20250219",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imported claude model: claude-3-7-sonnet-20250219",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-3-5-haiku-20241022",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-3-5-haiku-20241022",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imported claude model: claude-3-5-haiku-20241022",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-pro",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-pro",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable release (June 17th, 2025) of Gemini 2.5 Pro",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable version of Gemini 2.5 Flash, our mid-size multimodal model that supports up to 1 million tokens, released in June of 2025.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-pro-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-pro-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3 Pro Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-pro-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-pro-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Pro Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-image-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-image-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Flash Image Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-flash-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-flash-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-lite-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-lite-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-pro-image-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-pro-image-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3 Pro Image Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.5 Flash Lite",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.6-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.6-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.6 Flash",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-pro",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-pro",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable release (June 17th, 2025) of Gemini 2.5 Pro",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable version of Gemini 2.5 Flash, our mid-size multimodal model that supports up to 1 million tokens, released in June of 2025.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash-image",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash-image",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our state-of-the-art image generation and editing model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-pro",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-pro",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3 Pro",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-pro",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-pro",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Pro",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-pro-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-pro-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Pro Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-image",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-image",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Flash Image",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-pro-image",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-pro-image",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3 Pro Image",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:imagen-4.0-generate-001",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "imagen-4.0-generate-001",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imagen 4.0 image generation model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:imagen-4.0-ultra-generate-001",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "imagen-4.0-ultra-generate-001",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imagen 4.0 Ultra high-quality image generation model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:imagen-3.0-generate-002",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "imagen-3.0-generate-002",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imagen 3.0 image generation model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:imagen-3.0-fast-generate-001",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "imagen-3.0-fast-generate-001",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imagen 3.0 fast image generation model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:imagen-4.0-fast-generate-001",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "imagen-4.0-fast-generate-001",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Imagen 4.0 fast image generation model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.5 Flash Lite",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.6-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.6-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.6 Flash",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-pro",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-pro",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable release (June 17th, 2025) of Gemini 2.5 Pro",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable version of Gemini 2.5 Flash, our mid-size multimodal model that supports up to 1 million tokens, released in June of 2025.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-pro-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-pro-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model with SOTA reasoning and multimodal understanding, and powerful agentic and vibe coding capabilities",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-pro-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-pro-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Pro Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-flash-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-flash-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-lite-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-lite-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-pro",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-pro",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable release (June 17th, 2025) of Gemini 2.5 Pro",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable version of Gemini 2.5 Flash, our mid-size multimodal model that supports up to 1 million tokens, released in June of 2025.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-pro-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-pro-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3 Pro Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-pro-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-pro-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Pro Preview",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-flash-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-flash-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-lite-preview",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-lite-preview",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our smallest and most cost effective model, built for at scale usage.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-pro-latest",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-pro-latest",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Latest release of Gemini Pro",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-flash-latest",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-flash-latest",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Latest release of Gemini Flash",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-flash-lite-latest",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-flash-lite-latest",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Latest release of Gemini Flash-Lite",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-2.5-flash-image",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-2.5-flash-image",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "State-of-the-art image generation and editing model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.5 Flash Lite",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.6-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.6-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.6 Flash",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.4-mini",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.4-mini",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 400000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "GPT-5.4 mini brings the strengths of GPT-5.4 to a faster, more efficient model designed for high-volume workloads.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Frontier model for complex coding, research, and real-world work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-terra",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-terra",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Balanced agentic coding model for everyday work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-luna",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-luna",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Fast and affordable agentic coding model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:codex-auto-review",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "codex-auto-review",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Automatic approval review model for Codex.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.4",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.4",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1050000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable version of GPT 5.4",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.4-mini",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.4-mini",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 400000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "GPT-5.4 mini brings the strengths of GPT-5.4 to a faster, more efficient model designed for high-volume workloads.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Frontier model for complex coding, research, and real-world work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-sol",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-sol",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most capable model yet. GPT-5.6 Sol can tackle complex code changes, dig into research, produce polished documents, and take on your most ambitious work. Sol is highly capable at lower reasoning efforts\u2014try starting lower, then turn it up for harder jobs.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-terra",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-terra",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Balanced agentic coding model for everyday work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-luna",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-luna",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Fast and affordable agentic coding model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:codex-auto-review",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "codex-auto-review",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Automatic approval review model for Codex.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.3-codex-spark",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.3-codex-spark",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Ultra-fast coding model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.4",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.4",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1050000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable version of GPT 5.4",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.4-mini",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.4-mini",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 400000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "GPT-5.4 mini brings the strengths of GPT-5.4 to a faster, more efficient model designed for high-volume workloads.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Frontier model for complex coding, research, and real-world work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-sol",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-sol",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most capable model yet. GPT-5.6 Sol can tackle complex code changes, dig into research, produce polished documents, and take on your most ambitious work. Sol is highly capable at lower reasoning efforts\u2014try starting lower, then turn it up for harder jobs.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-terra",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-terra",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Balanced agentic coding model for everyday work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-luna",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-luna",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Fast and affordable agentic coding model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:codex-auto-review",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "codex-auto-review",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Automatic approval review model for Codex.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.3-codex-spark",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.3-codex-spark",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Ultra-fast coding model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.4",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.4",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1050000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Stable version of GPT 5.4",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.4-mini",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.4-mini",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 400000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "GPT-5.4 mini brings the strengths of GPT-5.4 to a faster, more efficient model designed for high-volume workloads.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Frontier model for complex coding, research, and real-world work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-sol",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-sol",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Our most capable model yet. GPT-5.6 Sol can tackle complex code changes, dig into research, produce polished documents, and take on your most ambitious work. Sol is highly capable at lower reasoning efforts\u2014try starting lower, then turn it up for harder jobs.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-terra",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-terra",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Balanced agentic coding model for everyday work.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-5.6-luna",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-5.6-luna",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 372000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Fast and affordable agentic coding model.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:codex-auto-review",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "codex-auto-review",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 272000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Automatic approval review model for Codex.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k2",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k2",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 131072,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K2 - Moonshot AI's flagship coding model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k2-thinking",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k2-thinking",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 131072,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K2 Thinking - Extended reasoning model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k2.5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k2.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 262144,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K2.5 - Native multimodal agentic model with text, image, and video input; supports thinking and non-thinking modes",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k2.6",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k2.6",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 262144,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K2.6 - Native multimodal agentic model with stronger long-horizon agentic coding, long-context reasoning, and preserved thinking support",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k2.7-code",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k2.7-code",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 262144,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K2.7 Code - Moonshot AI's latest coding-focused model",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k2.7-code-highspeed",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k2.7-code-highspeed",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 262144,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K2.7 Code HighSpeed - Same capabilities as Kimi K2.7 Code with higher output speed (~180 tokens/s)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k3",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k3",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K3 - Moonshot AI's next-generation flagship model (~2.8T MoE) with multimodal input",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:kimi-k3-256k",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "kimi-k3-256k",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 262144,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Kimi K3 256K - 256K context version of Kimi K3 delivering the same results within 256K context at reduced quota consumption; supports image input only (no video)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-opus-4-6-thinking",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-opus-4-6-thinking",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Claude Opus 4.6 (Thinking)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:claude-sonnet-4-6",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "claude-sonnet-4-6",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Claude Sonnet 4.6 (Thinking)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.6-flash-high",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.6-flash-high",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.6 Flash (High)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-flash",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-flash",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3 Flash",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3-flash-agent",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3-flash-agent",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.5 Flash (High)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-image",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-image",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 128000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Flash Image",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-pro-agent",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-pro-agent",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Pro (High)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-pro-low",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-pro-low",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Pro (Low)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gpt-oss-120b-medium",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gpt-oss-120b-medium",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 114000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "GPT-OSS 120B (Medium)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.1-flash-lite",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.1-flash-lite",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.1 Flash Lite",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash-low",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash-low",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.5 Flash (Medium)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:gemini-3.5-flash-extra-low",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "gemini-3.5-flash-extra-low",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1048576,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "Gemini 3.5 Flash (Low)",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-build-0.1",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-build-0.1",
     "api_key_env": "CLIPROXY_API_KEY",
     "context_window": 256000,
     "cost_per_1k_tokens": 0.0,
     "latency_tier": 2,
     "supports_tools": true,
     "task_strengths": {
-      "coding": 0.8,
+      "coding": 0.85,
       "reasoning": 0.85,
       "research": 0.85,
-      "general": 0.88,
-      "creative": 0.92
+      "general": 0.85,
+      "creative": 0.85
     },
-    "strengths": "Critique and adversarial review via Grok subscription",
-    "extra": { "transport": "cliproxy", "subscription_backed": true }
+    "strengths": "Grok Build 0.1 is xAI\u2019s fast coding model trained specifically for agentic software engineering workflows.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-4.5",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-4.5",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 500000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "SpaceXAI's intelligent coding model for agentic software, engineering, and workflow tasks.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-4.3",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-4.3",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 1000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "xAI Grok 4.3 model for the Responses API.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-4.20-0309-reasoning",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-4.20-0309-reasoning",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 2000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "xAI Grok 4.20 0309 reasoning model for the Responses API.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-4.20-0309-non-reasoning",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-4.20-0309-non-reasoning",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 2000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "xAI Grok 4.20 0309 non-reasoning model for the Responses API.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-4.20-multi-agent-0309",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-4.20-multi-agent-0309",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 2000000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "xAI Grok 4.20 multi-agent model for the Responses API.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-3-mini",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-3-mini",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 131072,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "xAI Grok 3 Mini model for the Responses API.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-3-mini-fast",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-3-mini-fast",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 131072,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "xAI Grok 3 Mini Fast model for the Responses API.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
+  },
+  {
+    "name": "cliproxy:grok-composer-2.5-fast",
+    "provider": "cliproxy",
+    "base_url": "http://127.0.0.1:8317/v1",
+    "model_id": "grok-composer-2.5-fast",
+    "api_key_env": "CLIPROXY_API_KEY",
+    "context_window": 200000,
+    "cost_per_1k_tokens": 0.0,
+    "latency_tier": 2,
+    "supports_tools": true,
+    "task_strengths": {
+      "coding": 0.85,
+      "reasoning": 0.85,
+      "research": 0.85,
+      "general": 0.85,
+      "creative": 0.85
+    },
+    "strengths": "xAI Composer 2.5 Fast model for the Responses API.",
+    "extra": {
+      "transport": "cliproxy",
+      "subscription_backed": true
+    }
   }
 ]

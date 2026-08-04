@@ -1,0 +1,41 @@
+{
+  "$comment": "Pinned external sources. See vendor/README.md. Edit only via scripts/vendor_sync.py --update <name>.",
+  "version": 1,
+  "sources": {
+    "cliproxy-models": {
+      "kind": "vendored_files",
+      "repo": "router-for-me/models",
+      "description": "CLIProxyAPI's published model list. SuperAI validates cliproxy:* registry rows against this instead of querying a live proxy or a live URL.",
+      "ref": "main",
+      "commit": "fb13a81071567e9d772e8abc5541a6558075e5f2",
+      "committed_at": "2026-08-02T13:42:36Z",
+      "fetched_at": "2026-08-04",
+      "files": [
+        {
+          "path": "cliproxy-models/models.json",
+          "url": "https://raw.githubusercontent.com/router-for-me/models/fb13a81071567e9d772e8abc5541a6558075e5f2/models.json",
+          "bytes": 93262,
+          "sha256": "fe669a98d89d13216822cc15d5590acc7923a18d52cfff1da02c9c966837449b"
+        }
+      ],
+      "skipped": [
+        {
+          "path": "codex_client_models.json",
+          "bytes": 321229,
+          "reason": "3.4x the size of models.json and redundant for our purpose: the codex ids SuperAI needs are already in models.json under the codex-free / codex-team / codex-plus / codex-pro keys."
+        }
+      ]
+    },
+    "cliproxy": {
+      "kind": "pinned_reference",
+      "repo": "router-for-me/CLIProxyAPI",
+      "description": "The proxy itself. SuperAI speaks its OpenAI-compatible protocol over HTTP and reads none of its source, so nothing is vendored — only the reference is pinned so docs cite a fixed tag rather than a branch that moves daily.",
+      "ref": "v7.2.116",
+      "commit": "a88197f845c979132c8978ea223c6af05cc81536",
+      "committed_at": "2026-08-03T14:16:00Z",
+      "fetched_at": "2026-08-04",
+      "reference_url": "https://github.com/router-for-me/CLIProxyAPI/tree/v7.2.116",
+      "files": []
+    }
+  }
+}

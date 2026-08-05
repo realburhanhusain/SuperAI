@@ -46,7 +46,7 @@ at any wave boundary without leaving the repo in a half-state.
 | [T03](tasks/T03-api-goals.md) | `GET /api/goals` — goals daemon status | W1 | T01 | 30m | `[ ]` | — |
 | [T04](tasks/T04-api-cliproxy-status.md) | `GET /api/cliproxy/status` — proxy reachability | W1 | T01 | 45m | `[ ]` | — |
 | [T05](tasks/T05-console-page.md) | `GET /console` — aggregated status page | W1 | T02, T03, T04 | 1.5h | `[ ]` | — |
-| [T06](tasks/T06-config-atomic-write.md) | `Config.save()` atomic write + backup | W2 | T01 | 1.5h | `[ ]` | — |
+| [T06](tasks/T06-config-atomic-write.md) | `Config.save()` atomic write + backup | W2 | T01 | 1.5h | `[x]` | self |
 | [T07](tasks/T07-config-validation-diff.md) | Config validation + diff helper | W2 | T06 | 1.5h | `[ ]` | — |
 | [T08](tasks/T08-management-auth-gate.md) | `SUPERAI_WEB_MANAGEMENT_TOKEN` + feature flag | W2 | T01 | 1h | `[ ]` | — |
 | [T09](tasks/T09-api-config-read-write.md) | `GET`/`POST /api/config` + redaction + audit | W2 | T06, T07, T08 | 2h | `[ ]` | — |

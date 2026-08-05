@@ -7,8 +7,10 @@ Guided by implementation_plan_v2 / detailed plan; reuses codes.md patterns.
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -238,8 +240,42 @@ class Config:
 
     def save(self, quiet: bool = False) -> None:
         self._ensure_home()
-        with open(self.config_path, "w", encoding="utf-8") as f:
-            json.dump(self.config, f, indent=2)
+        
+        if self.config_path.exists():
+            backups_dir = self.home_dir / "backups"
+            backups_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            backup_path = backups_dir / f"config-{ts}.json"
+            try:
+                shutil.copy2(self.config_path, backup_path)
+            except OSError:
+                pass
+                
+            try:
+                backups = sorted(backups_dir.glob("config-*.json"))
+                while len(backups) > 20:
+                    oldest = backups.pop(0)
+                    try:
+                        oldest.unlink()
+                    except OSError:
+                        pass
+            except OSError:
+                pass
+
+        tmp_path = self.config_path.with_suffix(".json.tmp")
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, self.config_path)
+        finally:
+            if tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
+
         if not quiet:
             print(f"Configuration saved to {self.config_path}")
 

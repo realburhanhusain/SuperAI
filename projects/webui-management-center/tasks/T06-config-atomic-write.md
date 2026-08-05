@@ -85,4 +85,22 @@ python -m pytest tests/ -k config -q
 
 ## Log
 
-_(record the crash-test result and the singleton importer list before marking `[x]`)_
+| Date | Agent | Change |
+|------|-------|--------|
+| 2026-08-05 | self | Completed T06. Added atomic write and backups for `Config.save()`. |
+
+**Singleton importer list:** None found (no direct `config` module-level imports, only `Config` class).
+
+**Crash test result:** The monkeypatched crash test passes correctly.
+
+**Verification output:**
+```
+...................                                                      [100%]
+============================== warnings summary ===============================
+..\..\Python314\Lib\site-packages\langgraph\cache\base\__init__.py:8
+  C:\Python314\Lib\site-packages\langgraph\cache\base\__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+20 passed, 1117 deselected, 1 warning in 34.78s
+```

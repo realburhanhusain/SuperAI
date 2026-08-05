@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Wave** | W2 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | T06 |
 | **Estimate** | 1.5 h |
-| **Owner** | — |
+| **Owner** | self |
 
 ## Goal
 
@@ -54,11 +54,11 @@ Returns a unified diff of the current config versus the config-as-it-would-be.
 
 ## Acceptance criteria
 
-- [ ] `validate_changes` rejects unknown keys, wrong types, and out-of-range values, with a per-key message naming the key.
-- [ ] `bool` vs `int` is handled correctly (explicit test).
-- [ ] `diff_changes` returns a correct unified diff and **provably writes nothing** (assert file mtime and content unchanged after calling it).
-- [ ] Diff output is redacted.
-- [ ] Both functions are pure and independently unit-tested — no HTTP involved.
+- [x] `validate_changes` rejects unknown keys, wrong types, and out-of-range values, with a per-key message naming the key.
+- [x] `bool` vs `int` is handled correctly (explicit test).
+- [x] `diff_changes` returns a correct unified diff and **provably writes nothing** (assert file mtime and content unchanged after calling it).
+- [x] Diff output is redacted.
+- [x] Both functions are pure and independently unit-tested — no HTTP involved.
 
 ## Verification command
 
@@ -69,4 +69,16 @@ python -m pytest tests/ -k "config and (validate or diff)" -q
 
 ## Log
 
-_(record the real result, and the actual bounds you derived and from where, before marking `[x]`)_
+- Derived bounds from `DEFAULT_CONFIG` numeric fields:
+  - Percentages (`bandit_epsilon`, `bandit_blend`): `0.0 <= v <= 1.0`
+  - Budgets and positive counts (`budget_daily_usd`, `budget_run_usd`, `budget_daily_tokens`, `max_step_retries`, `max_replans`, `step_retry_backoff_sec`, `council_max_per_run`, `max_delegation_depth`): `v >= 0`
+  - Minimum active pool counts (`worker_max`): `v >= 1`
+
+Test verification:
+```
+$env:PYTHONPATH = "C:\tmp\superai-webui-t07\src"
+python -m pytest tests/ -k "config and (validate or diff)" -q
+
+.....                                                                    [100%]
+5 passed, 1138 deselected, 1 warning in 33.52s
+```

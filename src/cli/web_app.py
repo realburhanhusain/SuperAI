@@ -584,6 +584,12 @@ async function render(){
         b = EpsilonGreedyBandit()
         return {"epsilon": b.epsilon, "arms": b.state, "path": str(b.path)}
 
+    @app.get("/api/goals")
+    def api_goals() -> Dict[str, Any]:
+        from core.goals_daemon import status
+
+        return status()
+
     @app.get("/api/dashboard")
     def api_dashboard() -> Dict[str, Any]:
         from core.observability import (

@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Wave** | W1 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | T01 |
 | **Estimate** | 30 min |
-| **Owner** | — |
+| **Owner** | self |
 
 ## Goal
 
@@ -39,10 +39,10 @@ page.
 
 ## Acceptance criteria
 
-- [ ] `GET /api/goals` returns HTTP 200 with the contract envelope.
-- [ ] Daemon stopped → 200 with `running: false`. No exception, no 404.
-- [ ] The handler calls no mutating function from `goals_daemon`.
-- [ ] Test covers both the running and not-running cases (fake the state file; do not actually spawn a daemon in tests).
+- [x] `GET /api/goals` returns HTTP 200 with the contract envelope.
+- [x] Daemon stopped → 200 with `running: false`. No exception, no 404.
+- [x] The handler calls no mutating function from `goals_daemon`.
+- [x] Test covers both the running and not-running cases (fake the state file; do not actually spawn a daemon in tests).
 
 ## Verification command
 
@@ -53,4 +53,7 @@ python -m pytest tests/test_web_management_center.py -k goals -q
 
 ## Log
 
-_(record the real result here before marking `[x]`)_
+```
+..                                                                       [100%]
+2 passed in 1.41s
+```

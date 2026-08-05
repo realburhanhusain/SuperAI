@@ -1,4 +1,10 @@
 from __future__ import annotations
+
+
+
+
+
+
 """Tests for web management center API endpoints."""
 
 import os
@@ -55,6 +61,10 @@ def test_api_goals_running(tmp_path: Path, monkeypatch):
     assert body["pid"] == pid
     assert body["config"]["interval_sec"] == 30.0
     assert body["ticks_total"] == 42
+
+
+
+
 
 
 from fastapi.testclient import TestClient

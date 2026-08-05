@@ -162,10 +162,56 @@ def create_app() -> Any:
                 if not hmac.compare_digest(got.encode('utf-8'), management_token.encode('utf-8')):
                     raise HTTPException(status_code=401, detail="Unauthorized management token")
 
+            @app.get("/api/config")
+            async def get_config(request: Request) -> Dict[str, Any]:
+                _check_management_auth(request)
+                from core.config import Config
+                from core.secrets import redact_obj
+                cfg = Config().show()
+                return {"ok": True, "config": redact_obj(cfg)}
+
             @app.post("/api/config")
             async def update_config(request: Request) -> Dict[str, Any]:
                 _check_management_auth(request)
-                return {"ok": True, "status": "updated"}
+                payload = await request.json()
+                changes = payload.get("changes", {})
+                
+                from core.config import validate_changes, Config, diff_changes
+                from core.audit_log import AuditLog
+                from core.secrets import redact_obj
+                import urllib.parse
+                
+                errors = validate_changes(changes)
+                if errors:
+                    AuditLog().record("config.write", detail={"changes": redact_obj(changes), "errors": errors}, actor="web", outcome="failure")
+                    raise HTTPException(status_code=400, detail={"errors": errors})
+                
+                cfg = Config()
+                
+                # Apply changes and save
+                for k, v in changes.items():
+                    cfg.set(k, v, persist=False)
+                
+                cfg.save()
+                
+                # Check latest backup
+                backup_id = None
+                backups_dir = cfg.home_dir / "backups"
+                if backups_dir.exists():
+                    backups = sorted(backups_dir.glob("config-*.json"))
+                    if backups:
+                        backup_id = backups[-1].name
+                
+                AuditLog().record("config.write", detail={"changes": redact_obj(changes), "backup": backup_id}, actor="web", outcome="success")
+                
+                return {
+                    "ok": True,
+                    "status": "updated",
+                    "backup_id": backup_id,
+                    "changes": changes,
+                    "hot_reload": "Some settings may require a restart to take effect (e.g. settings imported at module load time)."
+                }
+
 
     class MemoryQuery(BaseModel):
         query: str = Field(..., min_length=1)

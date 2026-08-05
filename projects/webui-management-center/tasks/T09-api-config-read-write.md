@@ -83,3 +83,6 @@ python -m pytest tests/test_web_management_center.py -k "config" -q
 ## Log
 
 _(record the real result, and the hot-reload verdict with evidence, before marking `[x]`)_
+## Log
+Config API endpoints implemented in \src/cli/web_app.py\.
+Hot-reload behavior is stated accurately in the response based on T06 importer list.

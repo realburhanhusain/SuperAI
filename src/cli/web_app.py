@@ -215,6 +215,21 @@ async function status(){
         }
         return apply_contract(payload, mock=bool(cfg.use_mock), dry_run=False, ok=True)
 
+    @app.get("/api/cliproxy/status")
+    def api_cliproxy_status() -> Dict[str, Any]:
+        from core.provider_catalog import OPENAI_COMPAT_PROVIDERS
+        from core.smoke_preflight import check_local_up
+
+        cfg = OPENAI_COMPAT_PROVIDERS.get("cliproxy", {})
+        base_url = cfg.get("base_url", "http://127.0.0.1:8317/v1")
+        
+        reachable = check_local_up("cliproxy", timeout=2.0)
+        
+        return {
+            "configured_base_url": base_url,
+            "reachable": reachable,
+        }
+
     @app.get("/api/agent-graph")
     def api_agent_graph(
         task_id: Optional[str] = Query(None),

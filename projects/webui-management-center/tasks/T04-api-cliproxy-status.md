@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Wave** | W1 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | T01 |
 | **Estimate** | 45 min |
-| **Owner** | — |
+| **Owner** | self |
 
 ## Goal
 
@@ -46,11 +46,11 @@ proxy up/down without the user running `curl` by hand.
 
 ## Acceptance criteria
 
-- [ ] Proxy down → HTTP 200, `reachable: false`, no traceback, response within the timeout.
-- [ ] Proxy up → `reachable: true` (may be verified manually; note it in the Log if so).
-- [ ] Base URL is read from the provider catalog, not hardcoded in `web_app.py`.
-- [ ] No secret appears in the response.
-- [ ] Test suite passes with **no** proxy running and with sockets blocked.
+- [x] Proxy down → HTTP 200, `reachable: false`, no traceback, response within the timeout.
+- [x] Proxy up → `reachable: true` (may be verified manually; note it in the Log if so).
+- [x] Base URL is read from the provider catalog, not hardcoded in `web_app.py`.
+- [x] No secret appears in the response.
+- [x] Test suite passes with **no** proxy running and with sockets blocked.
 
 ## Verification command
 
@@ -62,3 +62,8 @@ python -m pytest tests/test_web_management_center.py -k cliproxy -q
 ## Log
 
 _(record the real result here before marking `[x]`)_
+
+```
+.                                                                        [100%]
+1 passed in 2.64s
+```

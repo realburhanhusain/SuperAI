@@ -13,8 +13,11 @@ Your job is to execute them, not to redesign them.
 ## Repo and branch
 
 - Repo: `C:\Users\burhan.husain\Documents\Personal\github\SuperAI`
-- Branch: `feat/webui-management-center` (already on `origin`)
+- The project is **merged into `master`** — start from `master`, which is the
+  current tip. (The original branch `feat/webui-management-center` still exists
+  on `origin` but is now behind `master`; do not start from it.)
 - Project folder: `projects/webui-management-center/`
+- Create your own working branch off `master`, e.g. `feat/webui-mc-<yourtool>`.
 
 **Work in your own git worktree. Do not work in the main working copy.** This
 repo has ~10 branches checked out by other AI sessions; one of them running
@@ -24,7 +27,7 @@ destroyed another session's uncommitted work.
 ```powershell
 cd C:\Users\burhan.husain\Documents\Personal\github\SuperAI
 git fetch origin
-git worktree add C:\tmp\superai-webui-<yourtool> feat/webui-management-center
+git worktree add C:\tmp\superai-webui-<yourtool> -b feat/webui-mc-<yourtool> master
 cd C:\tmp\superai-webui-<yourtool>
 ```
 
@@ -85,9 +88,10 @@ management key.
 - One commit per task minimum. Conventional-commit style matching repo history:
   `feat(web): ...`, `test(web): ...`, `docs(web): ...`, `chore(vendor): ...`.
   Commit every increment — uncommitted work in this repo is genuinely at risk.
-- Push to `origin feat/webui-management-center`. **Do not push to `master`** and
-  do not open a PR unless asked. Verify a push with `git ls-remote`, not with the
-  push command's own output.
+- Push your own branch to `origin`. **Do not push to `master`** and do not open a
+  PR unless asked — `master` carries unpushed commits from several other sessions,
+  so pushing it would publish work that is not yours. Verify a push with
+  `git ls-remote`, not with the push command's own output.
 
 ## Hard rules (from README.md — do not violate)
 

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Wave** | W2 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | T01 |
 | **Estimate** | 1 h |
 | **Owner** | — |
@@ -74,13 +74,13 @@ the code comment, so a future session adding cookie sessions sees why it matters
 
 ## Acceptance criteria
 
-- [ ] Flag off (default) → `/api/config` is absent from `app.routes` entirely. Assert on the route table, not on a 404.
-- [ ] Flag on, token unset → write routes not enabled; clear startup log line.
-- [ ] Flag on, token set, request without token **on loopback** → refused.
-- [ ] Wrong token → refused; comparison uses `hmac.compare_digest`.
-- [ ] `SUPERAI_WEB_TOKEN` alone does **not** grant write access.
-- [ ] Non-loopback bind + write enabled + no management token → `superai web` refuses to start.
-- [ ] Default `superai web` behaviour is byte-identical to before this task.
+- [x] Flag off (default) → `/api/config` is absent from `app.routes` entirely. Assert on the route table, not on a 404.
+- [x] Flag on, token unset → write routes not enabled; clear startup log line.
+- [x] Flag on, token set, request without token **on loopback** → refused.
+- [x] Wrong token → refused; comparison uses `hmac.compare_digest`.
+- [x] `SUPERAI_WEB_TOKEN` alone does **not** grant write access.
+- [x] Non-loopback bind + write enabled + no management token → `superai web` refuses to start.
+- [x] Default `superai web` behaviour is byte-identical to before this task.
 
 ## Verification command
 
@@ -91,4 +91,9 @@ python -m pytest tests/test_web_management_center.py -k "auth or flag or token" 
 
 ## Log
 
-_(record the real result before marking `[x]`)_
+```
+$env:PYTHONPATH = "C:\tmp\superai-webui-t08\src"
+python -m pytest tests/test_web_management_center.py -k "auth or flag or token" -q
+......                                                                   [100%]
+6 passed in 1.61s
+```

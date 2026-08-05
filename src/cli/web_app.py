@@ -216,6 +216,68 @@ def create_app() -> Any:
                     "hot_reload": "Some settings may require a restart to take effect (e.g. settings imported at module load time)."
                 }
 
+            @app.api_route("/api/config/diff", methods=["GET", "POST"])
+            async def config_diff(request: Request) -> Dict[str, Any]:
+                _check_management_auth(request)
+                try:
+                    payload = await request.json()
+                except Exception:
+                    payload = {}
+                changes = payload.get("changes", {})
+                from core.config import diff_changes
+                diff_text = diff_changes(changes)
+                return {"ok": True, "diff": diff_text}
+
+            @app.get("/api/config/backups")
+            async def get_config_backups(request: Request) -> Dict[str, Any]:
+                _check_management_auth(request)
+                from core.config import Config
+                cfg = Config()
+                backups_dir = cfg.home_dir / "backups"
+                backups_list = []
+                if backups_dir.exists():
+                    for f in sorted(backups_dir.glob("config-*.json"), reverse=True):
+                        st = f.stat()
+                        backups_list.append({
+                            "id": f.name,
+                            "timestamp": st.st_mtime,
+                            "size": st.st_size
+                        })
+                return {"ok": True, "backups": backups_list}
+
+            @app.post("/api/config/rollback")
+            async def rollback_config(request: Request) -> Dict[str, Any]:
+                _check_management_auth(request)
+                payload = await request.json()
+                backup_id = payload.get("backup_id")
+                if not backup_id or not isinstance(backup_id, str):
+                    raise HTTPException(status_code=400, detail="backup_id required")
+                if ".." in backup_id or "/" in backup_id or "\\" in backup_id:
+                    raise HTTPException(status_code=400, detail="invalid backup_id")
+                
+                from core.config import Config
+                from core.audit_log import AuditLog
+                import shutil
+                cfg = Config()
+                backups_dir = cfg.home_dir / "backups"
+                backup_path = backups_dir / backup_id
+                
+                if not backup_path.is_file() or backup_path.parent != backups_dir:
+                    raise HTTPException(status_code=400, detail="backup not found")
+                
+                # Backup current before rollback
+                cfg.save() 
+                
+                # Rollback atomically
+                tmp_path = cfg.config_path.with_suffix(".json.tmp")
+                shutil.copy2(backup_path, tmp_path)
+                import os
+                os.replace(tmp_path, cfg.config_path)
+                
+                AuditLog().record("config.rollback", detail={"source_backup_id": backup_id}, actor="web", outcome="success")
+                
+                return {"ok": True, "status": "rolled_back", "backup_id": backup_id}
+
 
     @app.get("/api/audit")
     async def api_audit(request: Request, limit: int = Query(50, ge=1, le=500)) -> List[Dict[str, Any]]:

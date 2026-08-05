@@ -59,4 +59,7 @@ python -m pytest tests/test_web_management_center.py -k "backup or rollback or d
 
 ## Log
 
-_(record the real result, including the path-traversal test, before marking `[x]`)_
+2026-08-05: Tests passed successfully.
+```
+6 passed in 0.15s
+```

@@ -269,3 +269,91 @@ def test_api_audit_returns_entries_newest_first_and_respects_limit(tmp_path: Pat
         assert data2[1]["action"] == "action2"
 
 
+def test_config_diff_writes_nothing(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        from core.config import Config
+        cfg = Config()
+        cfg.set("mock_mode", False)
+        
+        mtime = cfg.config_path.stat().st_mtime
+        content = cfg.config_path.read_text()
+        
+        r = client.post("/api/config/diff", headers={"Authorization": "Bearer secret"}, json={"changes": {"mock_mode": True}})
+        assert r.status_code == 200
+        assert "diff" in r.json()
+        
+        assert cfg.config_path.stat().st_mtime == mtime
+        assert cfg.config_path.read_text() == content
+
+
+def test_config_backups_empty(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        r = client.get("/api/config/backups", headers={"Authorization": "Bearer secret"})
+        assert r.status_code == 200
+        assert r.json()["backups"] == []
+
+def test_config_rollback(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        from core.config import Config
+        cfg = Config()
+        cfg.set("mock_mode", False)
+        
+        initial_content = cfg.config_path.read_bytes()
+        
+        r = client.post("/api/config", headers={"Authorization": "Bearer secret"}, json={"changes": {"mock_mode": True}})
+        assert r.status_code == 200
+        backup_id = r.json()["backup_id"]
+        
+        assert cfg.config_path.read_bytes() != initial_content
+        
+        # Rollback
+        r = client.post("/api/config/rollback", headers={"Authorization": "Bearer secret"}, json={"backup_id": backup_id})
+        assert r.status_code == 200
+        
+        assert cfg.config_path.read_bytes() == initial_content
+
+def test_config_rollback_path_traversal(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        
+        r = client.post("/api/config/rollback", headers={"Authorization": "Bearer secret"}, json={"backup_id": "../../../etc/passwd"})
+        assert r.status_code == 400
+        assert "invalid backup_id" in r.json()["detail"]
+
+def test_config_rollback_creates_own_backup(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        from core.config import Config
+        cfg = Config()
+        
+        r1 = client.post("/api/config", headers={"Authorization": "Bearer secret"}, json={"changes": {"mock_mode": True}})
+        backup_id = r1.json()["backup_id"]
+        
+        # Now rollback
+        r = client.post("/api/config/rollback", headers={"Authorization": "Bearer secret"}, json={"backup_id": backup_id})
+        assert r.status_code == 200
+        
+        r_list = client.get("/api/config/backups", headers={"Authorization": "Bearer secret"})
+        backups = r_list.json()["backups"]
+        assert len(backups) == 2
+
+def test_config_routes_auth_and_flags():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "0"}):
+        app = create_app()
+        routes = [r.path for r in app.routes if hasattr(r, "path")]
+        assert "/api/config/diff" not in routes
+        assert "/api/config/backups" not in routes
+        assert "/api/config/rollback" not in routes

@@ -66,6 +66,7 @@ Browser-facing pages returning `HTMLResponse`. Their JSON counterparts under
 | Surface | Classification | Reason |
 |---|---|---|
 | `http:GET /` | read_only | HTML home page |
+| `http:GET /console` | read_only | HTML management console |
 | `http:GET /dashboard` | read_only | HTML dashboard page; data comes from `/api/dashboard` |
 | `http:GET /graph` | read_only | HTML graph visualizer; data comes from `/api/agent-graph` |
 | `http:GET /palace` | read_only | HTML memory-palace browser; data comes from `/api/palace` |

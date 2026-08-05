@@ -251,12 +251,42 @@ class Config:
             print(f"Configuration saved to {self.config_path}")
 
 
+    def show(self) -> Dict[str, Any]:
+        return dict(self.config)
+
+    @property
+    def use_mock(self) -> bool:
+        # Support both historical and plan key names
+        if "mock_mode" in self.config:
+            return bool(self.config.get("mock_mode", True))
+        return bool(self.config.get("use_mock", True))
+
+    @property
+    def mock_mode(self) -> bool:
+        return self.use_mock
+
+    @property
+    def default_supervisor(self) -> Optional[str]:
+        return self.get("default_supervisor") or self.get("default_model")
+
+    @property
+    def require_human_approval(self) -> bool:
+        return bool(self.get("require_human_approval", True))
+
+    @property
+    def council_voting_mode(self) -> str:
+        mode = str(self.get("council_voting_mode") or "majority").lower()
+        if mode not in {"majority", "supervisor", "weighted"}:
+            return "majority"
+        return mode
+
+
 def atomic_write_with_backup(target_path: Path, data: Any, backups_dir: Path) -> None:
     """Atomic JSON write with automatic backup rotation (T06)."""
     if target_path.exists():
         backups_dir.mkdir(parents=True, exist_ok=True)
         import datetime
-        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
         prefix = target_path.stem
         backup_path = backups_dir / f"{prefix}-{ts}.json"
         import shutil
@@ -293,34 +323,6 @@ def atomic_write_with_backup(target_path: Path, data: Any, backups_dir: Path) ->
                 pass
 
 
-    def show(self) -> Dict[str, Any]:
-        return dict(self.config)
-
-    @property
-    def use_mock(self) -> bool:
-        # Support both historical and plan key names
-        if "mock_mode" in self.config:
-            return bool(self.config.get("mock_mode", True))
-        return bool(self.config.get("use_mock", True))
-
-    @property
-    def mock_mode(self) -> bool:
-        return self.use_mock
-
-    @property
-    def default_supervisor(self) -> Optional[str]:
-        return self.get("default_supervisor") or self.get("default_model")
-
-    @property
-    def require_human_approval(self) -> bool:
-        return bool(self.get("require_human_approval", True))
-
-    @property
-    def council_voting_mode(self) -> str:
-        mode = str(self.get("council_voting_mode") or "majority").lower()
-        if mode not in {"majority", "supervisor", "weighted"}:
-            return "majority"
-        return mode
 
 
 def validate_changes(changes: dict) -> list[str]:

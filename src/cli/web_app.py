@@ -279,6 +279,9 @@ def create_app() -> Any:
                 tmp_path = cfg.config_path.with_suffix(".json.tmp")
                 shutil.copy2(backup_path, tmp_path)
                 import os
+                with open(tmp_path, "r+b") as _f:
+                    _f.flush()
+                    os.fsync(_f.fileno())
                 os.replace(tmp_path, cfg.config_path)
                 
                 AuditLog().record("config.rollback", detail={"source_backup_id": backup_id}, actor="web", outcome="success")

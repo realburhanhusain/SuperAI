@@ -25,7 +25,7 @@ def test_api_goals_not_running(tmp_path: Path, monkeypatch):
     import core.goals_daemon as gd
     importlib.reload(gd)
 
-    from cli.web_app import create_app
+    from scli.web_app import create_app
     from fastapi.testclient import TestClient
 
     client = TestClient(create_app())
@@ -51,7 +51,7 @@ def test_api_goals_running(tmp_path: Path, monkeypatch):
     gd.write_pid(pid)
     gd.save_state({"interval_sec": 30.0, "ticks_total": 42})
 
-    from cli.web_app import create_app
+    from scli.web_app import create_app
     from fastapi.testclient import TestClient
 
     client = TestClient(create_app())
@@ -74,7 +74,7 @@ def test_api_goals_running(tmp_path: Path, monkeypatch):
 
 
 from fastapi.testclient import TestClient
-from cli.web_app import create_app
+from scli.web_app import create_app
 
 def test_api_cliproxy_status_offline(monkeypatch):
     import socket
@@ -103,7 +103,7 @@ def test_api_cliproxy_status_offline(monkeypatch):
 from typing import Any, Dict
 from fastapi.testclient import TestClient
 import pytest
-from cli.web_app import create_app
+from scli.web_app import create_app
 from core.history import TaskHistory
 
 @pytest.fixture
@@ -161,7 +161,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest import mock
 
-from cli.web_app import create_app
+from scli.web_app import create_app
 
 def test_flag_off_route_absent():
     with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "0"}):
@@ -209,7 +209,7 @@ def test_superai_web_token_does_not_grant_write_access():
 
 
 def test_console_page():
-    from cli.web_app import create_app
+    from scli.web_app import create_app
     from fastapi.testclient import TestClient
     app = create_app()
     client = TestClient(app)
@@ -404,7 +404,7 @@ def test_superai_web_token_does_not_grant_write_access():
 
 
 def test_console_page():
-    from cli.web_app import create_app
+    from scli.web_app import create_app
     from fastapi.testclient import TestClient
     app = create_app()
     client = TestClient(app)
@@ -533,6 +533,7 @@ def test_config_rollback_creates_own_backup(tmp_path: Path, monkeypatch):
         client = TestClient(app)
         from core.config import Config
         cfg = Config()
+        cfg.save()
         
         r1 = client.post("/api/config", headers={"Authorization": "Bearer secret"}, json={"changes": {"mock_mode": True}})
         backup_id = r1.json()["backup_id"]

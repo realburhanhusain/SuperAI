@@ -1,6 +1,4 @@
-
-
-
+from __future__ import annotations
 """Tests for web management center API endpoints."""
 
 import os
@@ -58,7 +56,6 @@ def test_api_goals_running(tmp_path: Path, monkeypatch):
     assert body["config"]["interval_sec"] == 30.0
     assert body["ticks_total"] == 42
 
-from __future__ import annotations
 
 from fastapi.testclient import TestClient
 from cli.web_app import create_app
@@ -192,4 +189,14 @@ def test_superai_web_token_does_not_grant_write_access():
         client = TestClient(app)
         response = client.post("/api/config", headers={"Authorization": "Bearer regular"}, json={"some": "data"})
         assert response.status_code == 401
+
+
+def test_console_page():
+    from cli.web_app import create_app
+    from fastapi.testclient import TestClient
+    app = create_app()
+    client = TestClient(app)
+    r = client.get("/console")
+    assert r.status_code == 200
+    assert "SuperAI Console" in r.text
 

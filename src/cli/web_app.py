@@ -934,6 +934,94 @@ setInterval(load, 2000);
 </script>
 </body></html>"""
 
+    @app.get("/console", response_class=HTMLResponse)
+    def console_page() -> str:
+        return """<!doctype html>
+<html><head><meta charset="utf-8"><title>SuperAI Console</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:1200px;margin:1.5rem auto;padding:0 1rem}
+ .grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(350px, 1fr));gap:1rem}
+ .card{border:1px solid #ddd;border-radius:10px;padding:.75rem;background:#fafbfc}
+ pre{white-space:pre-wrap;font-size:.85rem;max-height:280px;overflow:auto}
+ h1,h2{margin-top:0}
+ .signals{background:#e8f4fc;padding:1rem;border-radius:10px;margin-bottom:1rem;display:flex;gap:1.5rem;align-items:center}
+ .signal-pill{background:#fff;padding:.25rem .75rem;border-radius:20px;border:1px solid #ccc;font-weight:600}
+ .mock{color:#d32f2f;border-color:#d32f2f;background:#ffebee}
+ .live{color:#2e7d32;border-color:#2e7d32;background:#e8f5e9}
+ #cliproxy-link{margin-left:auto;text-decoration:none;background:#2196f3;color:#fff;padding:.5rem 1rem;border-radius:4px;font-weight:bold}
+ .error{color:#d32f2f}
+</style></head>
+<body>
+<h1>SuperAI Console</h1>
+<div class="signals">
+  <div><strong>Signals:</strong></div>
+  <div id="sig-mode" class="signal-pill">Loading mode...</div>
+  <div id="sig-cost" class="signal-pill">Loading cost basis...</div>
+  <a id="cliproxy-link" href="/cliproxy-admin">Manage Proxy (CLIProxyAPI)</a>
+</div>
+<div class="grid">
+  <div class="card"><h2>Dashboard</h2><pre id="p-dashboard">Loading...</pre></div>
+  <div class="card"><h2>Bandit Router</h2><pre id="p-bandit">Loading...</pre></div>
+  <div class="card"><h2>CLI Pool</h2><pre id="p-clipool">Loading...</pre></div>
+  <div class="card"><h2>Learnings</h2><pre id="p-learnings">Loading...</pre></div>
+  <div class="card"><h2>Spend (Cost)</h2><pre id="p-spend">Loading...</pre></div>
+  <div class="card"><h2>Goals Daemon</h2><pre id="p-goals">Loading...</pre></div>
+  <div class="card"><h2>CLIProxy Status</h2><pre id="p-cliproxy">Loading...</pre></div>
+</div>
+<script>
+const token = sessionStorage.getItem('SUPERAI_WEB_TOKEN') || sessionStorage.getItem('SUPERAI_WEB_MANAGEMENT_TOKEN');
+const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+async function fetchPanel(url, id, onData) {
+  try {
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+    if (onData) onData(data);
+  } catch(e) {
+    document.getElementById(id).textContent = 'Failed: ' + e.message;
+    document.getElementById(id).className = 'error';
+  }
+}
+
+function loadAll() {
+  fetchPanel('/api/dashboard', 'p-dashboard', (d) => {
+    const sigMode = document.getElementById('sig-mode');
+    if (d.mock_mode) {
+      sigMode.textContent = 'MOCK MODE';
+      sigMode.className = 'signal-pill mock';
+    } else if (d.live) {
+      sigMode.textContent = 'LIVE';
+      sigMode.className = 'signal-pill live';
+    } else {
+      sigMode.textContent = 'UNKNOWN MODE';
+    }
+  });
+  fetchPanel('/api/bandit', 'p-bandit');
+  fetchPanel('/api/cli-pool', 'p-clipool');
+  fetchPanel('/api/learnings/summary', 'p-learnings');
+  fetchPanel('/api/spend', 'p-spend', (d) => {
+    const sigCost = document.getElementById('sig-cost');
+    let source = "unknown";
+    if (d && typeof d === 'object') {
+        if (d.estimate_source_breakdown) {
+            const keys = Object.keys(d.estimate_source_breakdown);
+            if(keys.length > 0) source = keys.join(', ');
+        }
+        if (d.estimate_source) {
+            source = d.estimate_source;
+        }
+    }
+    sigCost.textContent = 'Cost source: ' + source;
+  });
+  fetchPanel('/api/goals', 'p-goals');
+  fetchPanel('/api/cliproxy/status', 'p-cliproxy');
+}
+loadAll();
+</script>
+</body></html>"""
+
     # S22: WebSocket live dashboard events (broadcast simple snapshots)
     try:
         from fastapi import WebSocket, WebSocketDisconnect

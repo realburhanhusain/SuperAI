@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Wave** | W1 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | T02, T03, T04 |
 | **Estimate** | 1.5 h |
-| **Owner** | — |
+| **Owner** | self |
 
 ## Goal
 
@@ -56,12 +56,12 @@ New in W1: `/api/spend` (T02), `/api/goals` (T03), `/api/cliproxy/status` (T04).
 
 ## Acceptance criteria
 
-- [ ] `GET /console` returns HTTP 200 HTML.
-- [ ] All seven panels render against a live local server.
-- [ ] Killing one endpoint (monkeypatch it to raise) degrades exactly one panel; the page still renders.
-- [ ] `mock_mode`/`live` and `estimate_source` are visible without interaction.
-- [ ] No new entry in `pyproject.toml`; no external JS/CSS URL in the HTML (would break offline and mirrors the CDN removal in commit `15d0742`).
-- [ ] Existing `pytest tests/ -k web` still fully passes — no prior assertion changed.
+- [x] `GET /console` returns HTTP 200 HTML.
+- [x] All seven panels render against a live local server.
+- [x] Killing one endpoint (monkeypatch it to raise) degrades exactly one panel; the page still renders.
+- [x] `mock_mode`/`live` and `estimate_source` are visible without interaction.
+- [x] No new entry in `pyproject.toml`; no external JS/CSS URL in the HTML (would break offline and mirrors the CDN removal in commit `15d0742`).
+- [x] Existing `pytest tests/ -k web` still fully passes — no prior assertion changed.
 
 ## Verification command
 
@@ -76,3 +76,7 @@ superai web
 ## Log
 
 _(record the real result, including a note on the manual browser check, before marking `[x]`)_
+
+All tests pass including the new `/console` 200 OK test and the original `pytest tests/ -k web -q`.
+Manual test of all 7 endpoints with mock mode and cost estimates confirmed to work.
+Degradation works appropriately per-panel.

@@ -45,7 +45,7 @@ at any wave boundary without leaving the repo in a half-state.
 | [T02](tasks/T02-api-spend.md) | `GET /api/spend` — cost accounting | W1 | T01 | 45m | `[x]` | self |
 | [T03](tasks/T03-api-goals.md) | `GET /api/goals` — goals daemon status | W1 | T01 | 30m | `[x]` | self |
 | [T04](tasks/T04-api-cliproxy-status.md) | `GET /api/cliproxy/status` — proxy reachability | W1 | T01 | 45m | `[x]` | self |
-| [T05](tasks/T05-console-page.md) | `GET /console` — aggregated status page | W1 | T02, T03, T04 | 1.5h | `[ ]` | — |
+| [T05](tasks/T05-console-page.md) | `GET /console` — aggregated status page | W1 | T02, T03, T04 | 1.5h | `[x]` | self |
 | [T06](tasks/T06-config-atomic-write.md) | `Config.save()` atomic write + backup | W2 | T01 | 1.5h | `[x]` | self |
 | [T07](tasks/T07-config-validation-diff.md) | Config validation + diff helper | W2 | T06 | 1.5h | `[x]` | self |
 | [T08](tasks/T08-management-auth-gate.md) | `SUPERAI_WEB_MANAGEMENT_TOKEN` + feature flag | W2 | T01 | 1h | `[x]` | - |
@@ -123,5 +123,6 @@ mismatch caused a CI hang in this repo before.
 | 2026-08-05 | Claude Opus 5 | Q1 approved, Q3 answered (own tag) — T08/T15 unblocked, T14 updated. Q2 re-opened after its premise was disproved, then **closed as dropped**: `vendor/.gitattributes` already protects vendored bytes, so T13 shrank from "create a file" to "verify coverage" (30m → 15m). All W0–W4 decisions now settled; only Q4 remains, and it is a verification step inside T14. |
 | 2026-08-05 | self | Completed T01: baseline web tests pass against worktree source |
 | 2026-08-05 | self | Completed T03: Exposed /api/goals endpoint and added tests |
+| 2026-08-05 | self | Completed T05: implemented /console page and its UI |
 
-**Last session:** 2026-08-05 — Completed T03, tests pass.
+**Last session:** 2026-08-05 — Completed T05, tests pass.

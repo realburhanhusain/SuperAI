@@ -36,19 +36,25 @@ def _env_set(name: Optional[str]) -> bool:
     return bool((os.getenv(name) or "").strip())
 
 
-def _local_up(kind: str) -> bool:
+def check_local_up(kind: str, timeout: float = 1.5) -> bool:
     try:
         import urllib.request
+        from core.provider_catalog import OPENAI_COMPAT_PROVIDERS
 
         urls = {
             "ollama": "http://localhost:11434/api/tags",
             "lmstudio": "http://localhost:1234/v1/models",
-            "cliproxy": "http://127.0.0.1:8317/v1/models",
         }
         url = urls.get(kind)
+        
+        if kind == "cliproxy":
+            cfg = OPENAI_COMPAT_PROVIDERS.get("cliproxy", {})
+            base_url = cfg.get("base_url", "http://127.0.0.1:8317/v1").rstrip("/")
+            url = f"{base_url}/models"
+            
         if not url:
             return False
-        with urllib.request.urlopen(url, timeout=1.5) as r:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
             return int(getattr(r, "status", 200) or 200) < 500
     except Exception:
         return False
@@ -76,7 +82,7 @@ def smoke_preflight(
             "ready_for_live_smoke": False,
         }
         if item.get("local"):
-            row["local_up"] = _local_up(item["id"])
+            row["local_up"] = check_local_up(item["id"])
             row["credentialed"] = row["local_up"]
         else:
             row["credentialed"] = _env_set(item.get("env"))

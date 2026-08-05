@@ -5,7 +5,8 @@
 [CLI Proxy API Management Center](https://github.com/router-for-me/Cli-Proxy-API-Management-Center)
 where it genuinely fits — and *not* where it doesn't.
 
-**Status:** planned, not started. See [`TASKBOARD.md`](TASKBOARD.md).
+**Status:** planned, not started. All owner decisions settled. See [`TASKBOARD.md`](TASKBOARD.md).
+**Handing this to another AI tool?** Use [`HANDOFF_PROMPT.md`](HANDOFF_PROMPT.md).
 
 ---
 
@@ -37,8 +38,8 @@ forked. No Node/Bun toolchain enters this repo.
 | C1 | **Additive and opt-in.** Default `superai web` behaviour must not change. Config-write routes are registered only when `SUPERAI_WEB_ENABLE_CONFIG_WRITE=1`; the admin embed only when `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN=1`. Tests assert both. |
 | C2 | **Writes never touch repo-tracked config.** Target `~/.superai/config.json` and `~/.superai/config/models.json` only — never `config/models.json` in the repo. |
 | C3 | **Separate management token.** `SUPERAI_WEB_MANAGEMENT_TOKEN` gates every write route plus `/api/audit`, required unconditionally *including on loopback*. Distinct from the existing `SUPERAI_WEB_TOKEN`. |
-| C4 | **`.gitattributes` lands in its own commit BEFORE any vendored bytes.** Same-commit is too late — CRLF corrupts on replay and it is invisible on a fresh clone. |
-| C5 | **Own worktree, fork from `origin/master`.** ~10 other sessions have branches checked out here. Local `master` is not trustworthy. Commit every increment. |
+| C4 | **Verify CRLF protection before committing vendored bytes; add no new `.gitattributes`.** `vendor/.gitattributes` already carries `* -text` recursively, so `vendor/mgmt-ui/` is covered — confirm with `git check-attr` (T13). Adding a root `.gitattributes` was considered and **explicitly dropped**. |
+| C5 | **Own worktree, off `origin/feat/webui-management-center`.** ~10 other sessions have branches checked out here; another session's rebase has previously destroyed uncommitted work in the main copy. Never trust local `master`. Commit every increment. |
 | C6 | **Set `PYTHONPATH` when testing from a worktree**, or you test the main working copy's source instead of your own. |
 | C7 | **No new runtime dependency.** The `[web]` extra stays `fastapi` + `uvicorn`. `/console` is server-rendered vanilla JS, matching the existing `/dashboard` page. |
 
@@ -55,8 +56,9 @@ forked. No Node/Bun toolchain enters this repo.
 - **If a task turns out to be wrong or unimplementable as written, say so in the
   task file and mark it `[?]`** — do not silently redesign it. Per `AGENTS.md`,
   accurate status is always in scope.
-- **Blocked on a decision?** The open questions are listed in `TASKBOARD.md`
-  under "Decisions needed from owner". Do not guess flag names or pin versions.
+- **Blocked on a decision?** See `TASKBOARD.md` → "Decisions". Q1, Q2 and Q3 are
+  settled — use the recorded answers, do not revisit them. Do not guess flag
+  names or pin versions.
 
 ## Layout
 

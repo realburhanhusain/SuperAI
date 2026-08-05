@@ -273,11 +273,26 @@ All in a dedicated `git worktree` forked from `origin/master` (not local `master
 - `config/rules.md` / `strengths.md` out of scope for v1 web editing.
 - Commit the built artifact rather than building in CI.
 
+**Decided 2026-08-05 — `TASKBOARD.md` "Decisions" is authoritative; this list is a summary:**
+
+1. **Feature-flag names — approved as proposed.** `SUPERAI_WEB_MANAGEMENT_TOKEN`, `SUPERAI_WEB_ENABLE_CONFIG_WRITE`, `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN`. T08 and T15 unblocked.
+2. **Which ref to pin `management.html` to — its own separate tag**, independent of the proxy's `v7.2.116`. Never `main`.
+
+**Correction — `.gitattributes` was NOT absent repo-wide.** This plan originally
+stated it was, and treated the vendored `vega/*.min.js` bytes as unprotected.
+Both claims were wrong. `vendor/.gitattributes` exists and contains `* -text`,
+which applies recursively to everything under `vendor/` — including a future
+`vendor/mgmt-ui/`. Verified: `git check-attr -a vendor/mgmt-ui/management.html`
+→ `text: unset`, and `scripts/vendor_sync.py --check` → `4/4 files match their
+pin`. What is absent is a **root** `.gitattributes`, which is a different thing
+and does not affect vendored bytes. Consequence: T13 shrank from "create a
+file, in its own commit, before the bytes" to a two-command verification, and
+repo-wide source-line-ending normalization is deferred as a separate change
+(see Q2 on the board).
+
 **Still open — need Burhan's decision:**
-1. **Feature-flag names.** `SUPERAI_WEB_ENABLE_CONFIG_WRITE` / `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN` are proposals, not conventions found in the repo.
-2. **`.gitattributes` scope.** It is absent repo-wide, meaning the already-vendored `vega/*.min.js` bytes have no CRLF protection either. Fix narrowly for the new entry, or repo-wide at the same time? (Repo-wide touches other sessions' files — arguably its own change.)
+
 3. **Does `scripts/vendor_sync.py` generalize to HTML entries**, or need a small extension? Not read during this investigation.
-4. **Which upstream commit/tag to pin `management.html` to.** The proxy is pinned at `v7.2.116`; the UI is a separate repo with its own release cadence. Pin a tagged release, never `main`.
 5. **The `config = Config()` singleton (`config.py:281`)** — which long-running processes import it, and does a web-issued write need an explicit reload hook? Determines whether "hot reload" can be claimed at all.
 6. **Does a read-only status function exist in `code_intelligence.py` / `lsp_bridge.py`** for the `/api/code-intel` row, or must one be added there (a `core/` change, not a web-app change)?
 

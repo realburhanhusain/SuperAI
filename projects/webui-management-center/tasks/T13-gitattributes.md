@@ -1,89 +1,95 @@
-# T13 — Create `.gitattributes` — **own commit, before any vendored bytes**
+# T13 — Verify CRLF protection covers the new vendored bytes
 
 | | |
 |---|---|
 | **Wave** | W4 |
 | **Status** | `[ ]` |
-| **Depends on** | — (can be done any time; **must** precede T14) |
-| **Estimate** | 30 min |
+| **Depends on** | — (**must** still precede T14) |
+| **Estimate** | 15 min (was 30 min) |
 | **Owner** | — |
-| **Blocked by** | **Q2** — narrow vs repo-wide is an owner decision |
+| **Blocked by** | **Q2 re-opened** — see "Correction" below |
 
-## Goal
+## Correction (2026-08-05) — this task shrank
 
-Protect vendored bytes from CRLF mangling **before** those bytes ever enter a
-commit.
+The original version of this task was written on a **false premise**: that
+`.gitattributes` was absent repo-wide and the already-vendored
+`vendor/vega/*.min.js` therefore had no CRLF protection.
 
-## Why the ordering is non-negotiable
-
-Putting the `.gitattributes` rule and the vendored file in the **same** commit
-is too late. At the moment the file is staged, the rule is not yet in effect for
-that operation. The corruption then:
-
-- reproduces on replay (rebase, cherry-pick, `filter-repo`),
-- **is invisible in your own working copy**, because your local checkout already
-  has the bytes you wrote,
-- and only appears on a fresh clone — i.e. for the next person, not for you.
-
-That combination is why this gets its own commit and its own task rather than
-being folded into T14.
-
-## This is not hypothetical here
-
-`.gitattributes` is **absent repo-wide** (verified 2026-08-05). Git in this repo
-is actively performing LF→CRLF conversion — committing the plan files for this
-very project emitted:
+That was wrong. It is absent at the **repo root**, but not in `vendor/`:
 
 ```
-warning: in the working copy of 'projects/webui-management-center/PLAN.md',
-LF will be replaced by CRLF the next time Git touches it
+$ cat vendor/.gitattributes
+# Vendored bytes are pinned by sha256 in manifest.json. Git must not rewrite
+# line endings on checkout — a CRLF conversion changes the hash and every
+# integrity check fails on a fresh clone, on Windows only, for no real reason.
+* -text
 ```
 
-So `core.autocrlf` is on and unrestrained. Markdown tolerates it. A hashed,
-sha256-pinned vendored artifact does not — the manifest check in T14 will fail,
-or worse, pass locally and fail on a clean clone.
+`* -text` applies to **everything under `vendor/`, recursively**, so a future
+`vendor/mgmt-ui/management.html` is **already covered**. Verified:
 
-## The pre-existing exposure (Q2)
+```
+$ git check-attr -a vendor/mgmt-ui/management.html
+vendor/mgmt-ui/management.html: text: unset
 
-`vendor/vega/*.min.js` was vendored with no `.gitattributes` rule either. It has
-survived so far, but by luck or by a local git setting, not by design.
+$ python scripts/vendor_sync.py --check
+Local integrity: 4/4 files match their pin
+```
 
-**Ask the owner (Q2):**
-- **Narrow** — add rules only for `vendor/mgmt-ui/*.html`. Minimal, no
-  interference with the ~10 concurrent worktrees.
-- **Repo-wide** — cover `vendor/**` including the existing vega bytes. Fixes a
-  real latent issue but rewrites line endings under other sessions' feet.
+Whoever vendored vega had already thought this through, and the comment in that
+file states the exact reasoning this task was invented to enforce.
 
-`PLAN.md` recommends **narrow now**, repo-wide as its own separate change.
+**Consequence: there is nothing to add for correctness.** T14 can proceed
+safely as things stand. What survives is a verification step, below.
 
-## Steps
+## What survives — verify, don't assume
 
-1. Get the Q2 decision. Do not guess.
-2. Create `.gitattributes` at repo root with, at minimum:
+Confirm coverage is real **before** T14 commits any bytes. Protection that is
+assumed rather than checked is how the original error happened.
+
+1. Confirm the rule resolves for the exact target path:
+   ```powershell
+   git check-attr -a vendor/mgmt-ui/management.html
    ```
-   vendor/mgmt-ui/*.html -text
+   Must report `text: unset`. Anything else → stop, and do not proceed to T14.
+
+2. Confirm the baseline integrity check passes before you add to it:
+   ```powershell
+   python scripts/vendor_sync.py --check
    ```
-   (`-text` disables all conversion. Confirm this is the right marker for a
-   sha256-pinned text-ish artifact — the goal is byte-exactness, so treat it as
-   opaque.)
-3. Commit **this file alone**. No other change in the commit.
-4. Verify the rule is live *before* T14 begins.
+   Must report all existing files matching their pin.
+
+## Still open: repo-wide normalization (Q2)
+
+The owner approved "repo-wide" — but that approval was given against the false
+premise above. With vendored bytes already protected, a root `.gitattributes`
+would no longer be fixing a vendoring bug. It would be a **separate hygiene
+change**: normalizing line endings for *source* files (`* text=auto` plus
+per-type rules).
+
+That change is real but unrelated to this project, and it is disruptive:
+`git add --renormalize .` touches essentially every tracked file while ~10 other
+worktrees have branches checked out, producing conflicts for sessions that are
+not expecting them.
+
+**Do not do it inside this project.** If the owner still wants it, it belongs in
+its own branch and its own task, sequenced when the repo is quiet. Awaiting
+re-decision — see `TASKBOARD.md` → Q2.
 
 ## Acceptance criteria
 
-- [ ] Q2 answered by the owner and the answer recorded in the Log.
-- [ ] `.gitattributes` exists at repo root with a rule covering `vendor/mgmt-ui/`.
-- [ ] The commit contains **only** `.gitattributes` — verify with `git show --stat`.
-- [ ] `git check-attr -a vendor/mgmt-ui/management.html` reports the expected attribute.
-- [ ] This commit is an ancestor of T14's commit.
+- [ ] `git check-attr -a vendor/mgmt-ui/management.html` reports `text: unset`, output pasted in the Log.
+- [ ] `python scripts/vendor_sync.py --check` passes at baseline, output pasted in the Log.
+- [ ] Q2's re-decision recorded on the board (repo-wide normalization deferred, or split into its own branch).
+- [ ] **No new `.gitattributes` file added by this project** unless the checks above fail.
 
 ## Verification command
 
 ```powershell
-git show --stat HEAD                 # must list exactly one file
 git check-attr -a vendor/mgmt-ui/management.html
+python scripts/vendor_sync.py --check
 ```
 
 ## Log
 
-_(record the Q2 decision and the real command output before marking `[x]`)_
+_(paste both command outputs before marking `[x]`)_

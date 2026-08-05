@@ -7,7 +7,7 @@
 | **Depends on** | T14, T05 |
 | **Estimate** | 1 h |
 | **Owner** | — |
-| **Blocked by** | **Q1** (flag name) |
+| **Blocked by** | nothing — **Q1 approved 2026-08-05**; flag name is `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN` |
 
 ## Goal
 
@@ -32,8 +32,7 @@ Static bytes plus a link. That is the entire integration.
 
 ## Steps
 
-1. Mount behind the flag `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN=1` (**confirm name,
-   Q1**), checked at `create_app()` registration time — same discipline as T08.
+1. Mount behind the flag `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN=1` (approved, Q1), checked at `create_app()` registration time — same discipline as T08.
    Default `superai web` must not serve these bytes at all.
 2. `StaticFiles` mount at `/cliproxy-admin`, serving `vendor/mgmt-ui/`. The PWA
    mount at `web_app.py:44-47` is the pattern to copy.

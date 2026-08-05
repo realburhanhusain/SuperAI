@@ -4,10 +4,24 @@
 |---|---|
 | **Wave** | W4 |
 | **Status** | `[ ]` |
-| **Depends on** | **T13 (must already be committed)** |
+| **Depends on** | **T13 (verification must have passed)** |
 | **Estimate** | 1.5 h |
 | **Owner** | — |
-| **Blocked by** | **Q3** (which commit/tag to pin), **Q4** (does `vendor_sync.py` handle HTML) |
+| **Blocked by** | **Q4** (does `vendor_sync.py` handle HTML). Q3 answered — see below. |
+
+## Q3 — answered (2026-08-05)
+
+**Pin the Management Center to its own separate tag.** It is a distinct repo
+with a release cadence independent of CLIProxyAPI's, so its version does **not**
+correspond to the proxy's `v7.2.116`. Record it as its own manifest entry with
+its own ref; do not derive, infer, or align it with the proxy's pin. Never
+`main`.
+
+## T13 note
+
+T13 shrank to a verification step — `vendor/.gitattributes` already carries
+`* -text` recursively, so `vendor/mgmt-ui/` is covered with no new file needed.
+Run T13's two checks and confirm they pass **before** committing bytes here.
 
 ## Goal
 
@@ -32,10 +46,8 @@ writing the entry.
 
 ## Steps
 
-1. **Resolve Q3.** Pin to a **tagged release** of
-   `router-for-me/Cli-Proxy-API-Management-Center`, never `main`. Note that the
-   UI's release cadence is independent of the proxy's (`v7.2.116`) — they are
-   separate repos and the versions do not correspond.
+1. Pick the **tagged release** of `router-for-me/Cli-Proxy-API-Management-Center`
+   to pin (Q3: its own separate tag — see above). Never `main`.
 2. Obtain `dist/index.html` for that exact tag. Options, in order of preference:
    - a release asset for the tag;
    - the `management.html` shipped inside a pinned CLIProxyAPI release ≥ 6.0.19;
@@ -59,7 +71,7 @@ writing the entry.
 
 ## Acceptance criteria
 
-- [ ] T13's `.gitattributes` commit is already an ancestor (`git merge-base --is-ancestor`).
+- [ ] T13's two verification checks ran and passed **before** these bytes were committed (`git check-attr` → `text: unset`; `vendor_sync --check` → all pinned files match).
 - [ ] `vendor/mgmt-ui/management.html` present, byte-identical to upstream, sha256 recorded in the manifest.
 - [ ] `LICENSE` + `NOTICE` present with the pinned ref and source URL.
 - [ ] Manifest entry is `vendored_files`, pinned to a **tag or commit**, never a branch.

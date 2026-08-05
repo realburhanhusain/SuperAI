@@ -53,25 +53,37 @@ at any wave boundary without leaving the repo in a half-state.
 | [T10](tasks/T10-api-config-backups-rollback.md) | `/api/config/backups` + `/api/config/rollback` | W2 | T09 | 1h | `[ ]` | — |
 | [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[ ]` | — |
 | [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[ ]` | — |
-| [T13](tasks/T13-gitattributes.md) | Create `.gitattributes` — **own commit, first** | W4 | — | 30m | `[ ]` | — |
+| [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |
 | [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[ ]` | — |
 | [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[ ]` | — |
 | [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[ ]` | — |
 
-**Total estimate:** ~16 hours.
+**Total estimate:** ~15.5 hours.
 
 ---
 
-## Decisions needed from owner
+## Decisions
 
-These block specific tasks. **Do not guess.** Ask, or leave the task `[!]`.
+**Do not guess an open one.** Ask, or leave the task `[!]`.
+
+### Answered
+
+| # | Question | Decision (2026-08-05) | Affects |
+|---|----------|----------------------|---------|
+| Q1 | Feature-flag / token env var names | **Approved as proposed.** `SUPERAI_WEB_MANAGEMENT_TOKEN`, `SUPERAI_WEB_ENABLE_CONFIG_WRITE`, `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN`. `SUPERAI_WEB_TOKEN` keeps its current meaning and is **not** extended to writes. | T08, T15 — **unblocked** |
+| Q3 | Which ref to pin the Management Center UI to | **Its own separate tag.** Independent of the proxy's `v7.2.116`; do not derive or align the two. Never `main`. | T14 |
+
+### Re-opened
+
+| # | Question | Status |
+|---|----------|--------|
+| Q2 | Repo-wide `.gitattributes` | **Approved, then re-opened — the premise was wrong.** `vendor/.gitattributes` **exists** with `* -text` and already covers `vendor/mgmt-ui/` recursively (`git check-attr` → `text: unset`; `vendor_sync --check` → 4/4 match). The original claim of "absent repo-wide" was true only of the repo *root*. Vendored bytes were never unprotected, so nothing needs fixing for this project. What remains is a **separate hygiene change** — normalizing *source* line endings via a root `.gitattributes` + `git add --renormalize .` — which touches nearly every tracked file while ~10 worktrees are checked out. **Deferred out of this project pending re-decision.** T13 shrank to a verification step. |
+
+### Still open
 
 | # | Question | Blocks | Recommendation in PLAN.md |
 |---|----------|--------|---------------------------|
-| Q1 | Confirm feature-flag env var names: `SUPERAI_WEB_ENABLE_CONFIG_WRITE`, `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN`, `SUPERAI_WEB_MANAGEMENT_TOKEN`. These are proposals, not existing repo conventions. | T08, T15 | use as proposed |
-| Q2 | `.gitattributes` is absent **repo-wide** — the already-vendored `vega/*.min.js` has no CRLF protection either. Fix narrowly for the new entry, or repo-wide in the same commit? | T13 | narrow now; repo-wide is its own change |
-| Q3 | Which upstream commit/tag of the Management Center to pin `management.html` to? Its release cadence is independent of the proxy's `v7.2.116`. | T14 | a tagged release, never `main` |
-| Q4 | Does `scripts/vendor_sync.py` already generalize to HTML entries, or need extending? | T14 | verify during T14, extend if needed |
+| Q4 | Does `scripts/vendor_sync.py` generalize to HTML entries, or need extending? | T14 | verify during T14, extend if needed |
 | Q5 | Should `config/rules.md` and `config/strengths.md` be web-editable? They are prose, not settings. | — (out of scope for v1) | leave out of v1 |
 | Q6 | Is a `/api/code-intel` status endpoint wanted? Modules exist (`code_intelligence.py`, `lsp_bridge.py`) but a read-only status function may need adding to `core/`. | — (not yet a task) | defer until W1 ships |
 
@@ -98,7 +110,7 @@ Established 2026-08-05 by direct file reads. Cited so tasks don't repeat the wor
 - `src/core/observability.py:16-39` — `build_dashboard_snapshot()`, already served at `/api/dashboard` (`web_app.py:587-596`).
 - Already-exposed status endpoints, **do not rebuild**: `/api/bandit` (`:580-585`), `/api/cli-pool` (`:721-733`), `/api/terminals` (`:787-801`), `/api/mcp/tools` (`:675-684`), `/api/learnings/summary` (`:512-517`), `/api/dashboard` (`:587-596`).
 - `vendor/manifest.json:68-78` — `cliproxy` is currently a `pinned_reference` (no bytes). T14 adds a **new kind** of dependency; that is a deliberate policy change.
-- `.gitattributes` — **absent repo-wide** (verified).
+- **`vendor/.gitattributes` exists** and contains `* -text`, covering everything under `vendor/` recursively — including a future `vendor/mgmt-ui/`. Confirmed by `git check-attr -a vendor/mgmt-ui/management.html` → `text: unset`, and `python scripts/vendor_sync.py --check` → `Local integrity: 4/4 files match their pin`. **A root `.gitattributes` is absent; that is a different thing and does not affect vendored bytes.** (An earlier revision of this board asserted "absent repo-wide" — wrong, and it briefly drove a decision. Corrected 2026-08-05.)
 - `tests/test_pref_tt_web.py:48-60` — the `TestClient` + `monkeypatch.setattr(Path, "home", ...)` test pattern to copy.
 
 **Testing trap:** `monkeypatch.setattr(Path, "home", ...)` does **not** isolate code
@@ -113,5 +125,6 @@ mismatch caused a CI hang in this repo before.
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-05 | Claude Opus 5 | Project created: plan, board, 16 task files. No code written. |
+| 2026-08-05 | Claude Opus 5 | Q1 approved, Q3 answered (own tag) — T08/T15 unblocked, T14 updated. Q2 re-opened: `vendor/.gitattributes` already protects vendored bytes, so T13 shrank from "create a file" to "verify coverage" (30m → 15m). |
 
-**Last session:** 2026-08-05 — project scaffolded on branch `feat/webui-management-center`. Next: T01.
+**Last session:** 2026-08-05 — decisions Q1/Q3 recorded, Q2 re-opened after a premise was disproved. Board and tasks updated. Next: T01 (unblocked; W0+W1 need no further decisions).

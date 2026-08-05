@@ -7,7 +7,20 @@
 | **Depends on** | T01 |
 | **Estimate** | 1 h |
 | **Owner** | — |
-| **Blocked by** | **Q1** — confirm env var names with the owner before implementing |
+| **Blocked by** | nothing — **Q1 approved 2026-08-05** |
+
+## Q1 — approved (2026-08-05)
+
+The owner approved the proposed names. Use exactly these; do not rename:
+
+| Variable | Purpose |
+|---|---|
+| `SUPERAI_WEB_MANAGEMENT_TOKEN` | gates every write route and `/api/audit`; required **unconditionally, including loopback** |
+| `SUPERAI_WEB_ENABLE_CONFIG_WRITE` | master switch for config-write route registration (`=1` to enable) |
+| `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN` | master switch for the `/cliproxy-admin` mount (T15) |
+
+`SUPERAI_WEB_TOKEN` keeps its existing meaning and its existing loopback rule —
+it is **not** extended to cover writes.
 
 ## Goal
 
@@ -23,7 +36,7 @@ so no write endpoint can ever ship ungated.
 
 ## Part 1 — Feature flag (registration-time)
 
-- Master switch: `SUPERAI_WEB_ENABLE_CONFIG_WRITE=1` (**confirm name, Q1**).
+- Master switch: `SUPERAI_WEB_ENABLE_CONFIG_WRITE=1` (approved, Q1).
 - Check it **inside `create_app()`, at route-registration time**, so that when
   the flag is off the routes are *never registered at all*.
 - This is deliberately stronger than registering-then-403ing. A route that does
@@ -33,7 +46,7 @@ so no write endpoint can ever ship ungated.
 
 ## Part 2 — Management token
 
-- `SUPERAI_WEB_MANAGEMENT_TOKEN` (**confirm name, Q1**), distinct from
+- `SUPERAI_WEB_MANAGEMENT_TOKEN` (approved, Q1), distinct from
   `SUPERAI_WEB_TOKEN`.
 - Required **unconditionally, including on loopback**. There is no bypass. This
   mirrors the Management Center's own split between a management key and the

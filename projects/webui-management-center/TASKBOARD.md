@@ -54,7 +54,7 @@ at any wave boundary without leaving the repo in a half-state.
 | [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[ ]` | — |
 | [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[ ]` | — |
 | [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |
-| [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[ ]` | — |
+| [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[x]` | self |
 | [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[ ]` | — |
 | [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[ ]` | — |
 
@@ -123,5 +123,6 @@ mismatch caused a CI hang in this repo before.
 | 2026-08-05 | Claude Opus 5 | Q1 approved, Q3 answered (own tag) — T08/T15 unblocked, T14 updated. Q2 re-opened after its premise was disproved, then **closed as dropped**: `vendor/.gitattributes` already protects vendored bytes, so T13 shrank from "create a file" to "verify coverage" (30m → 15m). All W0–W4 decisions now settled; only Q4 remains, and it is a verification step inside T14. |
 | 2026-08-05 | self | Completed T01: baseline web tests pass against worktree source |
 | 2026-08-05 | self | Completed T03: Exposed /api/goals endpoint and added tests |
+| 2026-08-05 | self | Completed T14: Vendored management.html, added manifest entry and MIT LICENSE. |
 
-**Last session:** 2026-08-05 — Completed T03, tests pass.
+**Last session:** 2026-08-05 — Completed T14, vendored Management Center UI.

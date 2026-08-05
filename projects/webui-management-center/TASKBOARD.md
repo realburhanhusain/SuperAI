@@ -1,7 +1,7 @@
 # TASKBOARD — Web UI Management Center
 
 **Owner:** unassigned (open to any agent)
-**Project:** [`README.md`](README.md) · **Design:** [`PLAN.md`](PLAN.md)
+**Project:** [`README.md`](README.md) · **Design:** [`PLAN.md`](PLAN.md) · **Handoff:** [`HANDOFF_PROMPT.md`](HANDOFF_PROMPT.md)
 **Repo index:** [`../../TASKBOARD.md`](../../TASKBOARD.md) · **Conventions:** [`../../AGENTS.md`](../../AGENTS.md)
 **Created:** 2026-08-05 · **Branch:** `feat/webui-management-center` (forked from `origin/master` @ `be28603`)
 

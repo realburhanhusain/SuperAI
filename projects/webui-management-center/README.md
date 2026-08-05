@@ -62,9 +62,10 @@ forked. No Node/Bun toolchain enters this repo.
 
 ```
 projects/webui-management-center/
-├── README.md      ← you are here
-├── PLAN.md        ← full design, options analysis, security, architecture
-├── TASKBOARD.md   ← status board; update this
+├── README.md          ← you are here
+├── HANDOFF_PROMPT.md  ← copy-paste prompt to hand this project to any AI tool
+├── PLAN.md            ← full design, options analysis, security, architecture
+├── TASKBOARD.md       ← status board; update this
 └── tasks/
     ├── T01-worktree-baseline.md
     ├── ...

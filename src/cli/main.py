@@ -5304,6 +5304,16 @@ def web(
             "Set SUPERAI_WEB_TOKEN or use --host 127.0.0.1"
         )
         raise _cli_exit(code=1)
+    
+    enable_config_write = os.getenv("SUPERAI_WEB_ENABLE_CONFIG_WRITE") == "1"
+    management_token = (os.getenv("SUPERAI_WEB_MANAGEMENT_TOKEN") or "").strip()
+    if not loopback and enable_config_write and not management_token:
+        console.print(
+            "[red]Refusing to bind non-loopback with SUPERAI_WEB_ENABLE_CONFIG_WRITE enabled without SUPERAI_WEB_MANAGEMENT_TOKEN.[/red]\n"
+            "Set SUPERAI_WEB_MANAGEMENT_TOKEN or disable write routes."
+        )
+        raise _cli_exit(code=1)
+
     if (os.getenv("SUPERAI_WEB_TOKEN") or "").strip():
         console.print("[dim]API auth enabled (SUPERAI_WEB_TOKEN)[/dim]")
     console.print(f"[green]Starting SuperAI web on http://{host}:{port}[/green]")

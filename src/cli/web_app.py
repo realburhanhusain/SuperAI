@@ -36,6 +36,9 @@ def create_app() -> Any:
             "or pip install fastapi uvicorn"
         )
 
+    enable_config_write = os.getenv("SUPERAI_WEB_ENABLE_CONFIG_WRITE") == "1"
+    management_token = (os.getenv("SUPERAI_WEB_MANAGEMENT_TOKEN") or "").strip()
+
     app = FastAPI(
         title="SuperAI Web",
         version="0.1.0",
@@ -133,6 +136,36 @@ def create_app() -> Any:
             headers=headers,
             media_type="application/json",
         )
+
+    if enable_config_write:
+        if not management_token:
+            import logging
+            logging.getLogger("superai.web_app").error("SUPERAI_WEB_ENABLE_CONFIG_WRITE is on but SUPERAI_WEB_MANAGEMENT_TOKEN is unset. Write routes will NOT be enabled.")
+        else:
+            def _check_management_auth(req: Request) -> None:
+                """
+                Management token required unconditionally (including loopback).
+                Header-bearer auth is CSRF-safe by construction: a foreign page cannot attach
+                the Authorization header without already holding the token. This holds only
+                while the token is never stored in a cookie.
+                """
+                auth = req.headers.get("authorization") or ""
+                if auth.lower().startswith("bearer "):
+                    got = auth[7:].strip()
+                else:
+                    got = req.headers.get("x-superai-management-token") or ""
+                
+                if not got:
+                    raise HTTPException(status_code=401, detail="Management token required")
+                
+                import hmac
+                if not hmac.compare_digest(got.encode('utf-8'), management_token.encode('utf-8')):
+                    raise HTTPException(status_code=401, detail="Unauthorized management token")
+
+            @app.post("/api/config")
+            async def update_config(request: Request) -> Dict[str, Any]:
+                _check_management_auth(request)
+                return {"ok": True, "status": "updated"}
 
     class MemoryQuery(BaseModel):
         query: str = Field(..., min_length=1)

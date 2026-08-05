@@ -104,40 +104,44 @@ def turn_text(turn: Any) -> str:
         return str(turn)
 
     chunks: List[str] = []
+    seen = set()
+
+    def _add_chunk(t: str):
+        s = (t or "").strip()
+        if s and s not in seen:
+            seen.add(s)
+            chunks.append(s)
+
     for key in ("user", "assistant", "content", "text", "input", "output", "prompt", "response"):
         val = turn.get(key)
-        if isinstance(val, str) and val.strip():
-            chunks.append(val)
+        if isinstance(val, str):
+            _add_chunk(val)
         elif isinstance(val, list):
-            t = _text_from_parts(val)
-            if t:
-                chunks.append(t)
+            _add_chunk(_text_from_parts(val))
 
     # Chat-style role/content
     role = turn.get("role")
     content = turn.get("content")
     if role is not None and content is not None:
-        if isinstance(content, str) and content.strip():
-            chunks.append(content)
+        if isinstance(content, str):
+            _add_chunk(content)
         elif isinstance(content, list):
-            t = _text_from_parts(content)
-            if t:
-                chunks.append(t)
+            _add_chunk(_text_from_parts(content))
 
     nested = turn.get("message")
     if isinstance(nested, dict):
-        chunks.append(turn_text(nested))
-    elif isinstance(nested, str) and nested.strip():
-        chunks.append(nested)
+        _add_chunk(turn_text(nested))
+    elif isinstance(nested, str):
+        _add_chunk(nested)
 
     for key in ("tool_result", "tool_results", "result"):
         val = turn.get(key)
-        if isinstance(val, str) and val.strip():
-            chunks.append(val)
+        if isinstance(val, str):
+            _add_chunk(val)
         elif isinstance(val, list):
-            chunks.append(_text_from_parts(val))
+            _add_chunk(_text_from_parts(val))
         elif isinstance(val, dict):
-            chunks.append(turn_text(val))
+            _add_chunk(turn_text(val))
 
     return "\n".join(chunks)
 
@@ -206,11 +210,21 @@ def _scan_text_for_decisions(text: str) -> List[str]:
         s = line.strip()
         if not s:
             continue
-        if _DECISION_RE.search(s):
-            found.append(s[:240])
+        m = _DECISION_RE.search(s)
+        if m:
+            if len(s) > 240:
+                start = max(0, m.start() - 40)
+                snip = s[start : start + 240].strip()
+                found.append(("..." if start > 0 else "") + snip)
+            else:
+                found.append(s)
     # whole-turn fallback if multi-sentence without newlines
-    if not found and _DECISION_RE.search(text or ""):
-        found.append((text or "").strip()[:240])
+    if not found:
+        m = _DECISION_RE.search(text or "")
+        if m:
+            start = max(0, m.start() - 40)
+            snip = (text or "")[start : start + 240].strip()
+            found.append(("..." if start > 0 else "") + snip)
     return found
 
 

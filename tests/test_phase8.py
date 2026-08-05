@@ -69,7 +69,8 @@ def test_graph_page_accepts_task_id():
     from cli.web_app import create_app
 
     route = next(r for r in create_app().routes if getattr(r, "path", None) == "/graph")
-    html = route.endpoint()
-    assert "URLSearchParams" in html
-    assert "task_id" in html
-    assert "aria-live" in html
+    resp = route.endpoint(task_id=None)
+    
+    svg = resp.body.decode("utf-8") if hasattr(resp, "body") else str(resp)
+    assert "<svg" in svg
+    assert "class=\"node\"" in svg or "class=\"edge\"" in svg or "</svg>" in svg

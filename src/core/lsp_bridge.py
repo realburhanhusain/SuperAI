@@ -21,7 +21,7 @@ _LANGUAGE_PROVIDERS = {
     "typescript_javascript": ("SUPERAI_TYPESCRIPT_LSP", ["typescript-language-server"], {".ts", ".tsx", ".js", ".jsx"}, "typescript"),
     "go": ("SUPERAI_GO_LSP", ["gopls"], {".go"}, "go"),
     "rust": ("SUPERAI_RUST_LSP", ["rust-analyzer"], {".rs"}, "rust"),
-    "csharp": ("SUPERAI_CSHARP_LSP", ["roslyn-language-server", "csharp-ls"], {".cs"}, "csharp"),
+    "csharp": ("SUPERAI_CSHARP_LSP", ["omnisharp", "roslyn-language-server", "csharp-ls"], {".cs"}, "csharp"),
 }
 
 def available() -> bool:
@@ -91,12 +91,7 @@ def python_provider_status(timeout_seconds: float = 5.0) -> Dict[str, Any]:
 
 def _java_server_command(root: Path) -> Optional[List[str]]:
     """Build the JDT LS command when the official archive is installed locally."""
-    configured = os.environ.get("SUPERAI_JDTLS_HOME", "").strip()
-    if configured:
-        home = Path(configured)
-    else:
-        local_appdata = os.environ.get("LOCALAPPDATA", "")
-        home = Path(local_appdata) / "Programs" / "jdtls" if local_appdata else Path.home() / "AppData" / "Local" / "Programs" / "jdtls"
+    home = Path(os.environ.get("SUPERAI_JDTLS_HOME", "") or Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "jdtls")
     launchers = sorted((home / "plugins").glob("org.eclipse.equinox.launcher_*.jar"))
     config = home / "config_win"
     java = _provider_command("SUPERAI_JAVA_EXECUTABLE", ["java"])
@@ -122,7 +117,7 @@ def _server_environment(language: str) -> Dict[str, str]:
     elif language == "csharp":
         extra_paths.extend([str(Path.home() / ".dotnet" / "tools"), str(Path(os.environ.get("ProgramFiles", r"C:\\Program Files")) / "dotnet")])
     existing = environment.get("PATH", "")
-    environment["PATH"] = os.pathsep.join([p for p in [*extra_paths, existing] if p])
+    environment["PATH"] = os.pathsep.join([*extra_paths, existing])
     return environment
 
 def provider_status(language: str) -> Dict[str, Any]:
@@ -214,6 +209,8 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         command = _provider_command(environment_name, commands)
         if not command or (configured and not Path(command).is_file()):
             return {"available": False, "reason": f"{language} LSP provider unavailable", "reference_counts": {}}
+        if language == "csharp" and "omnisharp" in command.lower():
+            return _omnisharp_reference_counts(command, root, candidates, timeout_seconds)
         argv = [command, "-mode=stdio"] if language == "go" else ([command, "--stdio"] if language in {"python", "typescript_javascript", "csharp"} else [command])
     try:
         proc = subprocess.Popen(argv, cwd=str(root), env=_server_environment(language), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -283,7 +280,6 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         proc.stdin.write(f"Content-Length: {len(init)}\r\n\r\n".encode("ascii") + init); proc.stdin.flush()
         counts: Dict[str, int] = {}
         deadline = time.monotonic() + timeout_seconds
-        opened_uris = set()
         for item in candidates:
             source = root / str(item["file"]); name = str(item["name"]); line = int(item["line"]) - 1
             if source.suffix not in extensions or not source.is_file() or time.monotonic() >= deadline:
@@ -292,12 +288,10 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
             if line < 0 or line >= len(lines) or name not in lines[line]:
                 continue
             uri = source.resolve().as_uri(); column = lines[line].index(name)
-            if uri not in opened_uris:
-                open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":language_id,"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
-                proc.stdin.write(f"Content-Length: {len(open_payload)}\r\n\r\n".encode("ascii") + open_payload); proc.stdin.flush()
-                opened_uris.add(uri)
-                # Servers build workspace indexes asynchronously; wait briefly within the existing bounded budget.
-                time.sleep(min(5.0 if language in {"rust", "csharp"} else 1.0, max(0.0, deadline - time.monotonic())))
+            open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":language_id,"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
+            proc.stdin.write(f"Content-Length: {len(open_payload)}\r\n\r\n".encode("ascii") + open_payload); proc.stdin.flush()
+            # Servers build workspace indexes asynchronously; wait briefly within the existing bounded budget.
+            time.sleep(min(5.0 if language in {"rust", "csharp"} else 1.0, max(0.0, deadline - time.monotonic())))
             locations = request("textDocument/references", {"textDocument":{"uri":uri},"position":{"line":line,"character":column},"context":{"includeDeclaration":True}}, min(15.0, max(0.5, deadline-time.monotonic()))) or []
             counts[str(item["id"])] = len(locations) if isinstance(locations, list) else 0
         return {"available": True, "reference_counts": counts, "timed_out": time.monotonic() >= deadline}

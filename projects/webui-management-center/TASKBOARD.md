@@ -42,7 +42,7 @@ at any wave boundary without leaving the repo in a half-state.
 | ID | Task | Wave | Depends on | Est | Status | Owner |
 |----|------|------|-----------|-----|--------|-------|
 | [T01](tasks/T01-worktree-baseline.md) | Worktree + `PYTHONPATH` test baseline | W0 | — | 30m | `[x]` | self |
-| [T02](tasks/T02-api-spend.md) | `GET /api/spend` — cost accounting | W1 | T01 | 45m | `[ ]` | — |
+| [T02](tasks/T02-api-spend.md) | `GET /api/spend` — cost accounting | W1 | T01 | 45m | `[x]` | self |
 | [T03](tasks/T03-api-goals.md) | `GET /api/goals` — goals daemon status | W1 | T01 | 30m | `[ ]` | — |
 | [T04](tasks/T04-api-cliproxy-status.md) | `GET /api/cliproxy/status` — proxy reachability | W1 | T01 | 45m | `[ ]` | — |
 | [T05](tasks/T05-console-page.md) | `GET /console` — aggregated status page | W1 | T02, T03, T04 | 1.5h | `[ ]` | — |

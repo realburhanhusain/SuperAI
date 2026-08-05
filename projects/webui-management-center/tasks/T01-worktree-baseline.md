@@ -55,9 +55,9 @@ modes have already bitten work here:
 
 ## Acceptance criteria
 
-- [ ] `git log --oneline -1` in the worktree shows the same commit as `origin/master` at fork time.
-- [ ] `python -c "import core.config as c; print(c.__file__)"` prints a path inside the worktree.
-- [ ] The baseline web test run passes with **zero** failures, recorded verbatim in the Log below.
+- [x] `git log --oneline -1` in the worktree shows the same commit as `origin/master` at fork time.
+- [x] `python -c "import core.config as c; print(c.__file__)"` prints a path inside the worktree.
+- [x] The baseline web test run passes with **zero** failures, recorded verbatim in the Log below.
 
 ## Verification command
 
@@ -70,3 +70,19 @@ python -m pytest tests/ -k web -q
 ## Log
 
 _(paste the real output of the verification command here before marking `[x]`)_
+
+```
+$env:PYTHONPATH = "C:\tmp\superai-webui-self\src"
+python -c "import core.config as c; print(c.__file__)"
+python -m pytest tests/ -k web -q
+
+C:\tmp\superai-webui-self\src\core\config.py
+.........                                                                [100%]
+============================== warnings summary ===============================
+..\..\Python314\Lib\site-packages\langgraph\cache\base\__init__.py:8
+  C:\Python314\Lib\site-packages\langgraph\cache\base\__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+9 passed, 1127 deselected, 1 warning in 136.70s (0:02:16)
+```

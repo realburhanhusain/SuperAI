@@ -41,7 +41,7 @@ at any wave boundary without leaving the repo in a half-state.
 
 | ID | Task | Wave | Depends on | Est | Status | Owner |
 |----|------|------|-----------|-----|--------|-------|
-| [T01](tasks/T01-worktree-baseline.md) | Worktree + `PYTHONPATH` test baseline | W0 | — | 30m | `[ ]` | — |
+| [T01](tasks/T01-worktree-baseline.md) | Worktree + `PYTHONPATH` test baseline | W0 | — | 30m | `[x]` | self |
 | [T02](tasks/T02-api-spend.md) | `GET /api/spend` — cost accounting | W1 | T01 | 45m | `[ ]` | — |
 | [T03](tasks/T03-api-goals.md) | `GET /api/goals` — goals daemon status | W1 | T01 | 30m | `[ ]` | — |
 | [T04](tasks/T04-api-cliproxy-status.md) | `GET /api/cliproxy/status` — proxy reachability | W1 | T01 | 45m | `[ ]` | — |
@@ -121,5 +121,6 @@ mismatch caused a CI hang in this repo before.
 |------|-------|--------|
 | 2026-08-05 | Claude Opus 5 | Project created: plan, board, 16 task files. No code written. |
 | 2026-08-05 | Claude Opus 5 | Q1 approved, Q3 answered (own tag) — T08/T15 unblocked, T14 updated. Q2 re-opened after its premise was disproved, then **closed as dropped**: `vendor/.gitattributes` already protects vendored bytes, so T13 shrank from "create a file" to "verify coverage" (30m → 15m). All W0–W4 decisions now settled; only Q4 remains, and it is a verification step inside T14. |
+| 2026-08-05 | self | Completed T01: baseline web tests pass against worktree source |
 
-**Last session:** 2026-08-05 — Q1, Q2 and Q3 all settled; board and tasks updated. **No decision now blocks any task.** Next: T01.
+**Last session:** 2026-08-05 — Completed T01, ready for parallel subagents to execute Wave 1 and Wave 2.

@@ -55,7 +55,7 @@ at any wave boundary without leaving the repo in a half-state.
 | [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[x]` | self |
 | [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |
 | [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[ ]` | — |
-| [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[ ]` | — |
+| [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[x]` | self |
 | [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[x]` | self |
 
 **Total estimate:** ~15.5 hours.

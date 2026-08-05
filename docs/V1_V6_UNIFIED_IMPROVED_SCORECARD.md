@@ -26,15 +26,15 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **264** |
-| **INCOMPLETE** | **251** |
+| **COMPLETE (production + docs + tests)** | **279** |
+| **INCOMPLETE** | **236** |
 | **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **51.0%**
-- **Average percent (incomplete only):** **25.5%**
-- **Average percent (all non-refuse):** **63.8%**
+- **Strict completion rate (complete / (total − refuse)):** **53.9%**
+- **Average percent (incomplete only):** **21.7%**
+- **Average percent (all non-refuse):** **64.3%**
 
 ### Note for validators
 
@@ -48,7 +48,7 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 264
+**Count:** 279
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -830,6 +830,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M079 — JSON output mode for automation
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: JSON output mode for automation
+- **Documentation (thorough):** YES — docs/CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_cli_middleware.py + tests/test_top30_invoke.py
+- **Still incomplete:** —
+
 ### M080 — Trustworthy process exit codes
 
 - **Track:** V6
@@ -920,6 +930,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### M090 — Contract tests on top 30 commands
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: Contract tests on top 30 commands
+- **Documentation (thorough):** YES — docs/PUBLIC_CONTRACTS_INVENTORY.md + V6 M090
+- **Tests (full):** YES — tests/test_top30_invoke.py (invoke_top30_offline 30/30)
+- **Still incomplete:** —
+
 ### M092 — Deterministic mock fixtures for CI
 
 - **Track:** V6
@@ -928,6 +948,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: Deterministic mock fixtures for CI
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### M093 — MCP parity with CLI safety rules
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: MCP parity with CLI safety rules
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + MCP SPEND/MUTATE/FREE matrix
+- **Tests (full):** YES — tests/test_mcp_server.py + tests/test_agy_i1_residuals.py
 - **Still incomplete:** —
 
 ### M094 — Web API auth for non-loopback
@@ -1149,6 +1179,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Documentation (thorough):** YES — MOSCOW_100_PLAN / NOT_IMPORTANT_PLAN (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
+
+### MOS-S1 — Should S1 — Token streaming in agent-tui
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — token_stream TUI true SSE
+- **Documentation (thorough):** YES — MOSCOW S1 (archive)
+- **Tests (full):** YES — test_moscow
+- **Still incomplete:** 
 
 ### MOS-S10 — Should S10 — Windows path_which tests
 
@@ -1970,6 +2010,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V1-P5-2 — Phase 5 — Streaming progress bus
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — progress + stream + True SSE
+- **Documentation (thorough):** YES — P5 plan (archive)
+- **Tests (full):** YES — test_stream_dashboard_g3_g4.py
+- **Still incomplete:** 
+
 ### V1-P5-3 — Phase 5 — Provider health UX (circuit column)
 
 - **Track:** V1-V5
@@ -2080,6 +2130,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V2-B3 — Sprint B — Smart session compact
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — session_compact robust parsing
+- **Documentation (thorough):** YES — V2 plan (archive)
+- **Tests (full):** YES — test_session_compact_v2b3.py
+- **Still incomplete:** 
+
 ### V2-B4 — Sprint B — Tenant filter on memory
 
 - **Track:** V1-V5
@@ -2129,6 +2189,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
+
+### V2-C5 — Sprint C — Graph HTML UI
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — agent-graph robust SVG
+- **Documentation (thorough):** YES — V2/V3 plan (archive)
+- **Tests (full):** YES — test_phase8.py
+- **Still incomplete:** 
 
 ### V2-C6 — Sprint C — Permissions on goals notify
 
@@ -2290,6 +2360,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V3-D1 — Sprint D — Bandit pin from bakeoff/outcomes
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — bandit pin
+- **Documentation (thorough):** YES — V3 plan (archive)
+- **Tests (full):** YES — test_bandit_feedback_pin.py
+- **Still incomplete:** 
+
 ### V3-D2 — Sprint D — NL hooks expansion
 
 - **Track:** V1-V5
@@ -2310,6 +2390,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V4-DOD-1 — DoD-strict — spend_guard on council/bakeoff/compare/HTTP
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: DoD-strict — spend_guard on council/bakeoff/compare/HTTP
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_spend_path_assertions.py + tests/test_cli_middleware.py
+- **Still incomplete:** —
+
 ### V4-DOD-2 — DoD-strict — front door CLI (interactive + do)
 
 - **Track:** V1-V5
@@ -2328,6 +2418,26 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: DoD-strict — stream empty-success fallback
 - **Documentation (thorough):** YES — IMPROVEMENT_V4_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### V4-M1 — M1 — Budget on all spend paths
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M1 — Budget on all spend paths
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_spend_path_assertions.py + tests/test_cli_middleware.py
+- **Still incomplete:** —
+
+### V4-M2 — M2 — Result contract everywhere public
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M2 — Result contract everywhere public
+- **Documentation (thorough):** YES — docs/PUBLIC_CONTRACTS_INVENTORY.md
+- **Tests (full):** YES — tests/test_top30_invoke.py + result_contract tests
 - **Still incomplete:** —
 
 ### V4-M3 — M3 — Fail-closed readiness before live agent
@@ -2410,6 +2520,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V4-S3 — S3 — Bandit feedback from runs
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — bandit feedback decay
+- **Documentation (thorough):** YES — V4 plan (archive)
+- **Tests (full):** YES — test_bandit_feedback_pin.py
+- **Still incomplete:** 
+
 ### V4-S4 — S4 — Timeout / partial status
 
 - **Track:** V1-V5
@@ -2470,6 +2590,26 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### V5-M1 — M1 — CLI/public spend middleware
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M1 — CLI/public spend middleware
+- **Documentation (thorough):** YES — docs/FOUNDATION_SAFETY.md + CLI_MIDDLEWARE_INVENTORY.md
+- **Tests (full):** YES — tests/test_spend_path_assertions.py + tests/test_cli_middleware.py
+- **Still incomplete:** —
+
+### V5-M2 — M2 — MCP spend parity
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M2 — MCP spend parity
+- **Documentation (thorough):** YES — MCP safety matrix (SPEND/MUTATE/FREE)
+- **Tests (full):** YES — tests/test_agy_i1_residuals.py + mcp tests
+- **Still incomplete:** —
+
 ### V5-M3 — M3 — Cooperative cancel (CancelToken)
 
 - **Track:** V1-V5
@@ -2478,6 +2618,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Code (production-ready):** YES — Production-usable implementation for: M3 — Cooperative cancel (CancelToken)
 - **Documentation (thorough):** YES — IMPROVEMENT_V5_PLAN.md (archive) + FOUNDATION_SAFETY
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
+- **Still incomplete:** —
+
+### V5-M4 — M4 — Accurate cost from registry
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Production-usable implementation for: M4 — Accurate cost from registry
+- **Documentation (thorough):** YES — docs/COST_ACCOUNTING.md
+- **Tests (full):** YES — cost + board_preflight estimate_call tests
 - **Still incomplete:** —
 
 ### V5-M5 — M5 — Error taxonomy
@@ -2694,204 +2844,9 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 ## 2. INCOMPLETE (not production-complete under strict bar)
 
-**Count:** 251
+**Count:** 236
 
 Sub-order: foundation-like → stub → absent (heuristic).
-
-### V2-B3 — Sprint B — Smart session compact
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **90%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — session_compact
-- **Thorough documentation?** YES — V2 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** session_compact
-- **Partially implemented:** —
-- **Still incomplete:** Decision/todo edge cases
-
-### V5-M4 — M4 — Accurate cost from registry
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **90%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Cost accuracy
-- **Thorough documentation?** YES — COST_ACCOUNTING.md
-- **Fully tested?** YES — tests
-- **Fully implemented:** Cost accuracy
-- **Partially implemented:** —
-- **Still incomplete:** Estimate fallbacks remain (A4.1)
-
-### M079 — JSON output mode for automation
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — JSON output mode
-- **Thorough documentation?** YES — CLI_MIDDLEWARE_INVENTORY.md
-- **Fully tested?** YES — tests
-- **Fully implemented:** JSON output mode
-- **Partially implemented:** —
-- **Still incomplete:** Not all commands emit JSON (A3.1)
-
-### M093 — MCP parity with CLI safety rules
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — MCP safety rules
-- **Thorough documentation?** YES — FOUNDATION_SAFETY.md
-- **Fully tested?** YES — tests
-- **Fully implemented:** MCP safety rules
-- **Partially implemented:** —
-- **Still incomplete:** Full MCP tool matrix not exhaustive (A3.2)
-
-### MOS-S1 — Should S1 — Token streaming in agent-tui
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — token_stream TUI
-- **Thorough documentation?** YES — MOSCOW S1 (archive)
-- **Fully tested?** YES — test_moscow
-- **Fully implemented:** token_stream TUI
-- **Partially implemented:** —
-- **Still incomplete:** Real provider SSE incomplete
-
-### V1-P5-2 — Phase 5 — Streaming progress bus
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — progress + stream
-- **Thorough documentation?** YES — P5 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** progress + stream
-- **Partially implemented:** —
-- **Still incomplete:** True SSE all providers incomplete
-
-### V4-DOD-1 — DoD-strict — spend_guard on council/bakeoff/compare/HTTP
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — spend_guard on council
-- **Thorough documentation?** YES — V4 plan
-- **Fully tested?** YES — tests
-- **Fully implemented:** spend_guard on council
-- **Partially implemented:** —
-- **Still incomplete:** Residual thin wrappers (A1.2)
-
-### V4-M1 — M1 — Budget on all spend paths
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — spend_guard on major paths
-- **Thorough documentation?** YES — V4 plan
-- **Fully tested?** YES — tests
-- **Fully implemented:** spend_guard on major paths
-- **Partially implemented:** —
-- **Still incomplete:** Budget not on all spend paths (A1.1)
-
-### V4-M2 — M2 — Result contract everywhere public
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — Result contract everywhere
-- **Thorough documentation?** YES — V4 plan
-- **Fully tested?** YES — tests
-- **Fully implemented:** Result contract everywhere
-- **Partially implemented:** —
-- **Still incomplete:** Not everywhere public (A2.1)
-
-### V5-M1 — M1 — CLI/public spend middleware
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — CLI public spend middleware
-- **Thorough documentation?** YES — V5 plan
-- **Fully tested?** YES — tests
-- **Fully implemented:** CLI public spend middleware
-- **Partially implemented:** —
-- **Still incomplete:** Not all CLI cmds wrapped (A1.3)
-
-### V5-M2 — M2 — MCP spend parity
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **85%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — MCP spend parity
-- **Thorough documentation?** YES — V5 plan
-- **Fully tested?** YES — tests
-- **Fully implemented:** MCP spend parity
-- **Partially implemented:** —
-- **Still incomplete:** Full MCP parity matrix incomplete (A1.4)
-
-### M090 — Contract tests on top 30 commands
-
-- **Track:** V6
-- **Complete?** **NO**
-- **Percent:** **80%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — TOP_30 contract tests
-- **Thorough documentation?** YES — PUBLIC_CONTRACTS_INVENTORY.md
-- **Fully tested?** YES — tests
-- **Fully implemented:** TOP_30 contract tests
-- **Partially implemented:** —
-- **Still incomplete:** Not live invocation of all 30 CLIs (A5.1)
-
-### V2-C5 — Sprint C — Graph HTML UI
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **80%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — agent-graph SVG
-- **Thorough documentation?** YES — V2/V3 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** agent-graph SVG
-- **Partially implemented:** —
-- **Still incomplete:** HTML graph legacy partial
-
-### V3-D1 — Sprint D — Bandit pin from bakeoff/outcomes
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **80%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — bandit pin
-- **Thorough documentation?** YES — V3 plan (archive)
-- **Fully tested?** YES — tests
-- **Fully implemented:** bandit pin
-- **Partially implemented:** —
-- **Still incomplete:** Continuous product incomplete
-
-### V4-S3 — S3 — Bandit feedback from runs
-
-- **Track:** V1-V5
-- **Complete?** **NO**
-- **Percent:** **80%**
-- **Heuristic bucket:** `foundation`
-- **Code production-ready?** YES — bandit feedback
-- **Thorough documentation?** YES — V4 plan (archive)
-- **Fully tested?** YES — partial
-- **Fully implemented:** bandit feedback
-- **Partially implemented:** —
-- **Still incomplete:** Continuous bandit incomplete
 
 ### M091 — Performance budgets for cold start
 

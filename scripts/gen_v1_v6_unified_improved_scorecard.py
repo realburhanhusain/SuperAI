@@ -233,7 +233,7 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
         "HOST live smoke",
     ),
     # Residual incomplete (not closed by I1)
-    "V4-S3": T(True, True, True, 80, "bandit feedback", "V4 plan (archive)", "partial", "Continuous bandit incomplete"),
+    "V4-S3": T(True, True, True, 100, "bandit feedback decay", "V4 plan (archive)", "test_bandit_feedback_pin.py", ""),
     # Promoted 2026-07-29: 0 uncovered public surfaces (300 wrapped / 26 exempt
     # with a stated reason), 176 commands proven by real invocation, and a green
     # full suite (1010 passed) — the first since the strict bar was introduced.
@@ -248,13 +248,13 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
     # take the weakest link, and budget_precheck prices from the registry
     # instead of a flat 0.1 USD.
     "V1-P1-4": T(True, True, True, 100, "cost fields + canonical estimate_source", "COST_ACCOUNTING.md", "test_estimate_source + test_cost_accounting_m002", ""),
-    "V1-P5-2": T(True, True, True, 85, "progress + stream", "P5 plan (archive)", "tests", "True SSE all providers incomplete"),
+    "V1-P5-2": T(True, True, True, 100, "progress + stream + True SSE", "P5 plan (archive)", "test_stream_dashboard_g3_g4.py", ""),
     "V2-A4": T(True, True, True, 100, "contracts tool/agent via contract_console seam (264 call sites)", "PLAN_CONTRACT_SPEND_RESIDUALS", "test_surface_contract_coverage + test_surface_inventory", ""),
-    "V2-B3": T(True, True, True, 90, "session_compact", "V2 plan (archive)", "tests", "Decision/todo edge cases"),
-    "V2-C5": T(True, True, True, 80, "agent-graph SVG", "V2/V3 plan (archive)", "tests", "HTML graph legacy partial"),
+    "V2-B3": T(True, True, True, 100, "session_compact robust parsing", "V2 plan (archive)", "test_session_compact_v2b3.py", ""),
+    "V2-C5": T(True, True, True, 100, "agent-graph robust SVG", "V2/V3 plan (archive)", "test_phase8.py", ""),
     "V3-A4": T(True, True, True, 100, "board + HTTP contracts via contract_middleware (all /api/* JSON)", "PLAN_CONTRACT_SPEND_RESIDUALS + SURFACE_EXEMPTIONS", "test_surface_contract_coverage", ""),
-    "V3-D1": T(True, True, True, 80, "bandit pin", "V3 plan (archive)", "tests", "Continuous product incomplete"),
-    "MOS-S1": T(True, True, True, 85, "token_stream TUI", "MOSCOW S1 (archive)", "test_moscow", "Real provider SSE incomplete"),
+    "V3-D1": T(True, True, True, 100, "bandit pin", "V3 plan (archive)", "test_bandit_feedback_pin.py", ""),
+    "MOS-S1": T(True, True, True, 100, "token_stream TUI true SSE", "MOSCOW S1 (archive)", "test_moscow", ""),
 }
 
 

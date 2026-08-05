@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import datetime
 import json
+import difflib
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+
+from core.secrets import redact_obj
 
 
 class Config:
@@ -307,6 +310,76 @@ class Config:
         if mode not in {"majority", "supervisor", "weighted"}:
             return "majority"
         return mode
+
+
+def validate_changes(changes: dict) -> list[str]:
+    """Validate a set of config changes. Returns a list of errors."""
+    errors = []
+    for k, v in changes.items():
+        if k not in Config.DEFAULT_CONFIG:
+            errors.append(f"'{k}': unknown key")
+            continue
+
+        default_val = Config.DEFAULT_CONFIG[k]
+        expected_type = type(default_val)
+        
+        # Check type
+        if default_val is not None:
+            if expected_type is bool:
+                if not isinstance(v, bool):
+                    errors.append(f"'{k}': must be a boolean")
+                    continue
+            elif expected_type is int:
+                if isinstance(v, bool) or not isinstance(v, int):
+                    errors.append(f"'{k}': must be an integer")
+                    continue
+            elif expected_type is float:
+                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    errors.append(f"'{k}': must be a float")
+                    continue
+            elif expected_type is str:
+                if not isinstance(v, str):
+                    errors.append(f"'{k}': must be a string")
+                    continue
+            elif expected_type is list:
+                if not isinstance(v, list):
+                    errors.append(f"'{k}': must be a list")
+                    continue
+
+        # Check bounds
+        if k in ("bandit_epsilon", "bandit_blend"):
+            if not (0.0 <= v <= 1.0):
+                errors.append(f"'{k}': must be between 0.0 and 1.0")
+        elif k in ("budget_daily_usd", "budget_run_usd", "budget_daily_tokens", "max_step_retries", "max_replans", "step_retry_backoff_sec", "council_max_per_run", "max_delegation_depth"):
+            if v < 0:
+                errors.append(f"'{k}': must be >= 0")
+        elif k == "worker_max":
+            if v < 1:
+                errors.append(f"'{k}': must be >= 1")
+
+    return errors
+
+
+def diff_changes(changes: dict) -> str:
+    """Return a unified diff of the config with proposed changes. Pure function, no writes."""
+    old_state = config.show()
+    
+    new_state = dict(old_state)
+    new_state.update(changes)
+    
+    redacted_old = redact_obj(old_state)
+    redacted_new = redact_obj(new_state)
+    
+    old_json = json.dumps(redacted_old, indent=2, sort_keys=True).splitlines()
+    new_json = json.dumps(redacted_new, indent=2, sort_keys=True).splitlines()
+    
+    diff = list(difflib.unified_diff(
+        old_json, new_json,
+        fromfile="current_config",
+        tofile="proposed_config",
+        lineterm=""
+    ))
+    return "\n".join(diff)
 
 
 def _as_bool(value: str) -> bool:

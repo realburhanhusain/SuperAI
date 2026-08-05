@@ -50,7 +50,7 @@ at any wave boundary without leaving the repo in a half-state.
 | [T07](tasks/T07-config-validation-diff.md) | Config validation + diff helper | W2 | T06 | 1.5h | `[x]` | self |
 | [T08](tasks/T08-management-auth-gate.md) | `SUPERAI_WEB_MANAGEMENT_TOKEN` + feature flag | W2 | T01 | 1h | `[x]` | - |
 | [T09](tasks/T09-api-config-read-write.md) | `GET`/`POST /api/config` + redaction + audit | W2 | T06, T07, T08 | 2h | `[ ]` | — |
-| [T10](tasks/T10-api-config-backups-rollback.md) | `/api/config/backups` + `/api/config/rollback` | W2 | T09 | 1h | `[ ]` | — |
+| [T10](tasks/T10-api-config-backups-rollback.md) | `/api/config/backups` + `/api/config/rollback` | W2 | T09 | 1h | `[x]` | self |
 | [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[ ]` | — |
 | [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[ ]` | — |
 | [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |

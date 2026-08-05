@@ -44,11 +44,11 @@ page (T05) can show what has been spent without shelling out to the CLI.
 
 ## Acceptance criteria
 
-- [ ] `GET /api/spend` returns HTTP 200 with the contract envelope `{ok: true, ...}`.
-- [ ] Response includes per-model breakdown and the `estimate_source` distinction.
-- [ ] With no spend history present, returns 200 with zeroed/empty values — not an error.
-- [ ] No module-level import added to `web_app.py` (lazy-import pattern preserved).
-- [ ] New test in `tests/test_web_management_center.py` covering both the populated and empty cases.
+- [x] `GET /api/spend` returns HTTP 200 with the contract envelope `{ok: true, ...}`.
+- [x] Response includes per-model breakdown and the `estimate_source` distinction.
+- [x] With no spend history present, returns 200 with zeroed/empty values — not an error.
+- [x] No module-level import added to `web_app.py` (lazy-import pattern preserved).
+- [x] New test in `tests/test_web_management_center.py` covering both the populated and empty cases.
 
 ## Verification command
 
@@ -60,3 +60,8 @@ python -m pytest tests/test_web_management_center.py -k spend -q
 ## Log
 
 _(record the real result here before marking `[x]`)_
+
+```
+..                                                                       [100%]
+2 passed in 2.91s
+```

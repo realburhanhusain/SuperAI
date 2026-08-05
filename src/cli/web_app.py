@@ -599,11 +599,36 @@ async function render(){
         b = EpsilonGreedyBandit()
         return {"epsilon": b.epsilon, "arms": b.state, "path": str(b.path)}
 
+
     @app.get("/api/goals")
     def api_goals() -> Dict[str, Any]:
         from core.goals_daemon import status
 
         return status()
+
+    @app.get("/api/spend")
+    def api_spend() -> Dict[str, Any]:
+        from core.cost_accounting import aggregate_costs
+        from core.history import TaskHistory
+
+        parts = TaskHistory().list(limit=5000)
+        total = aggregate_costs(parts)
+
+        breakdown = {}
+        for p in parts:
+            if not isinstance(p, dict):
+                continue
+            model = str(p.get("model") or p.get("member") or "unknown")
+            if model not in breakdown:
+                breakdown[model] = []
+            breakdown[model].append(p)
+            
+        total["by_model"] = {
+            m: aggregate_costs(m_parts)
+            for m, m_parts in breakdown.items()
+        }
+        return total
+
 
     @app.get("/api/dashboard")
     def api_dashboard() -> Dict[str, Any]:

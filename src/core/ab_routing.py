@@ -48,12 +48,30 @@ class ABRouter:
         self.save()
         return exp
 
+    def pin_winner(self, name: str, winner: str) -> bool:
+        exp = (self.data.get("experiments") or {}).get(name)
+        if exp and winner in (exp.get("model_a"), exp.get("model_b")):
+            exp["pinned_winner"] = winner
+            self.save()
+            return True
+        return False
+
+    def unpin(self, name: str) -> bool:
+        exp = (self.data.get("experiments") or {}).get(name)
+        if exp and "pinned_winner" in exp:
+            del exp["pinned_winner"]
+            self.save()
+            return True
+        return False
+
     def pick(self, task_type: str = "general") -> Optional[str]:
         for exp in (self.data.get("experiments") or {}).values():
             if not exp.get("enabled"):
                 continue
             if exp.get("task_type") not in {task_type, "general", "*"}:
                 continue
+            if exp.get("pinned_winner"):
+                return exp.get("pinned_winner")
             if random.random() * 100 < float(exp.get("traffic_b_pct") or 0):
                 return exp.get("model_b")
             return exp.get("model_a")

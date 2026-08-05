@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Wave** | W2 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | T08 |
 | **Estimate** | 30 min |
 | **Owner** | — |
@@ -45,11 +45,11 @@ rather than an error. Most users will run the console read-only.
 
 ## Acceptance criteria
 
-- [ ] `GET /api/audit` returns recent entries, newest first, respecting `limit`.
-- [ ] `limit` is capped; an absurd value does not read the whole file into memory.
-- [ ] Requires the **management** token; the read token alone is refused.
-- [ ] Missing audit file → 200 with `[]`.
-- [ ] `/console` shows a clear "requires management token" state rather than a broken panel.
+- [x] `GET /api/audit` returns recent entries, newest first, respecting `limit`.
+- [x] `limit` is capped; an absurd value does not read the whole file into memory.
+- [x] Requires the **management** token; the read token alone is refused.
+- [x] Missing audit file → 200 with `[]`.
+- [ ] `/console` shows a clear "requires management token" state rather than a broken panel. (Deferred to T05)
 
 ## Verification command
 
@@ -60,4 +60,11 @@ python -m pytest tests/test_web_management_center.py -k audit -q
 
 ## Log
 
-_(record the real result before marking `[x]`)_
+```
+$env:PYTHONPATH = "C:\tmp\superai-webui-t11\src"
+python -m pytest tests/test_web_management_center.py -k audit -q
+
+....                                                                     [100%]
+4 passed, 11 deselected in 1.74s
+```
+*Note: Step 4 (adding the panel to `/console`) was skipped because T05 (GET /console) is not yet implemented (T11 does not depend on T05, only on T08).*

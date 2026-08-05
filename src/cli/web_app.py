@@ -137,35 +137,45 @@ def create_app() -> Any:
             media_type="application/json",
         )
 
+    def _check_management_auth(req: Request) -> None:
+        """
+        Management token required unconditionally (including loopback).
+        Header-bearer auth is CSRF-safe by construction: a foreign page cannot attach
+        the Authorization header without already holding the token. This holds only
+        while the token is never stored in a cookie.
+        """
+        if not management_token:
+            raise HTTPException(status_code=401, detail="Management token not configured")
+            
+        auth = req.headers.get("authorization") or ""
+        if auth.lower().startswith("bearer "):
+            got = auth[7:].strip()
+        else:
+            got = req.headers.get("x-superai-management-token") or ""
+        
+        if not got:
+            raise HTTPException(status_code=401, detail="Management token required")
+        
+        import hmac
+        if not hmac.compare_digest(got.encode('utf-8'), management_token.encode('utf-8')):
+            raise HTTPException(status_code=401, detail="Unauthorized management token")
+
     if enable_config_write:
         if not management_token:
             import logging
             logging.getLogger("superai.web_app").error("SUPERAI_WEB_ENABLE_CONFIG_WRITE is on but SUPERAI_WEB_MANAGEMENT_TOKEN is unset. Write routes will NOT be enabled.")
         else:
-            def _check_management_auth(req: Request) -> None:
-                """
-                Management token required unconditionally (including loopback).
-                Header-bearer auth is CSRF-safe by construction: a foreign page cannot attach
-                the Authorization header without already holding the token. This holds only
-                while the token is never stored in a cookie.
-                """
-                auth = req.headers.get("authorization") or ""
-                if auth.lower().startswith("bearer "):
-                    got = auth[7:].strip()
-                else:
-                    got = req.headers.get("x-superai-management-token") or ""
-                
-                if not got:
-                    raise HTTPException(status_code=401, detail="Management token required")
-                
-                import hmac
-                if not hmac.compare_digest(got.encode('utf-8'), management_token.encode('utf-8')):
-                    raise HTTPException(status_code=401, detail="Unauthorized management token")
 
             @app.post("/api/config")
             async def update_config(request: Request) -> Dict[str, Any]:
                 _check_management_auth(request)
                 return {"ok": True, "status": "updated"}
+
+    @app.get("/api/audit")
+    async def api_audit(request: Request, limit: int = Query(50, ge=1, le=500)) -> List[Dict[str, Any]]:
+        _check_management_auth(request)
+        from core.audit_log import AuditLog
+        return AuditLog().recent(limit=limit)
 
     class MemoryQuery(BaseModel):
         query: str = Field(..., min_length=1)

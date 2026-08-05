@@ -82,10 +82,28 @@ def summarize_routing(history: Optional[TaskHistory] = None, limit: int = 50) ->
     """High-level summary for CLI routing-stats."""
     model_stats = compute_model_stats(history=history, limit=limit)
     if not model_stats:
+        bandit_info = {}
+        try:
+            from .bandit_router import EpsilonGreedyBandit
+            b = EpsilonGreedyBandit()
+            bandit_info = b.status()
+        except Exception:
+            pass
+
+        ab_info = {}
+        try:
+            from .ab_routing import ABRouter
+            abr = ABRouter()
+            ab_info = abr.stats()
+        except Exception:
+            pass
+            
         return {
             "total_models_seen": 0,
             "total_runs_sampled": 0,
             "top_models": [],
+            "bandit_status": bandit_info,
+            "ab_routing": ab_info,
             "message": "No history yet. Run tasks with `superai run` first.",
         }
 
@@ -105,10 +123,29 @@ def summarize_routing(history: Optional[TaskHistory] = None, limit: int = 50) ->
         }
         for name, data in ranked[:8]
     ]
+    # Add bandit status and AB routing stats
+    bandit_info = {}
+    try:
+        from .bandit_router import EpsilonGreedyBandit
+        b = EpsilonGreedyBandit()
+        bandit_info = b.status()
+    except Exception:
+        pass
+
+    ab_info = {}
+    try:
+        from .ab_routing import ABRouter
+        abr = ABRouter()
+        ab_info = abr.stats()
+    except Exception:
+        pass
+
     return {
         "total_models_seen": len(model_stats),
         "total_runs_sampled": len(runs),
         "top_models": top,
         "by_model": model_stats,
+        "bandit_status": bandit_info,
+        "ab_routing": ab_info,
         "message": f"Aggregated {len(runs)} recent run(s) across {len(model_stats)} model(s).",
     }

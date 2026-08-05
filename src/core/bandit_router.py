@@ -48,9 +48,23 @@ class EpsilonGreedyBandit:
             self.state[model] = {"n": 0.0, "reward_sum": 0.0}
         return self.state[model]
 
+    def pin(self, model: str) -> None:
+        self.state.setdefault("_meta", {})["pinned"] = model
+        self.save()
+
+    def unpin(self) -> None:
+        if "_meta" in self.state and "pinned" in self.state["_meta"]:
+            del self.state["_meta"]["pinned"]
+            self.save()
+
     def select(self, candidates: List[str]) -> str:
         if not candidates:
             raise ValueError("No candidates")
+        
+        pinned = self.state.get("_meta", {}).get("pinned")
+        if pinned and pinned in candidates:
+            return pinned
+
         if random.random() < self.epsilon:
             return random.choice(candidates)
         best = None
@@ -64,14 +78,17 @@ class EpsilonGreedyBandit:
                 best = m
         return best or candidates[0]
 
-    def update(self, model: str, reward: float, *, event_id: Optional[str] = None) -> bool:
-        """Record one outcome; ignore a replayed event for the same model."""
+    def update(self, model: str, reward: float, *, event_id: Optional[str] = None, decay: float = 0.95) -> bool:
+        """Record one outcome; ignore a replayed event for the same model.
+        Applies exponential decay for continuous down-ranking/up-ranking over time.
+        """
         arm = self._arm(model)
         seen = list(arm.get("event_ids") or [])
         if event_id and event_id in seen:
             return False
-        arm["n"] += 1
-        arm["reward_sum"] += float(reward)
+        
+        arm["n"] = float(arm.get("n") or 0.0) * decay + 1.0
+        arm["reward_sum"] = float(arm.get("reward_sum") or 0.0) * decay + float(reward)
         arm["updated_at"] = time.time()
         if event_id:
             arm["event_ids"] = (seen + [event_id])[-100:]
@@ -93,14 +110,15 @@ class EpsilonGreedyBandit:
         """Operator view: arms ranked by mean reward (M050 continuous product)."""
         arms: List[Dict[str, Any]] = []
         for name, arm in (self.state or {}).items():
+            if name == "_meta": continue
             n = float(arm.get("n") or 0.0)
             rsum = float(arm.get("reward_sum") or 0.0)
             arms.append(
                 {
                     "model": name,
-                    "n": int(n),
+                    "n": round(n, 2),
                     "reward_sum": round(rsum, 4),
-                    "mean_reward": round(rsum / n, 4) if n else 0.0,
+                    "mean_reward": round(rsum / n, 4) if n > 0 else 0.0,
                     "updated_at": arm.get("updated_at"),
                 }
             )
@@ -111,6 +129,7 @@ class EpsilonGreedyBandit:
             "epsilon": self.epsilon,
             "arm_count": len(arms),
             "arms": arms,
+            "pinned": self.state.get("_meta", {}).get("pinned"),
             "path": str(self.path),
             "pipeline": "preferences.bias_candidates → bandit.select → call",
             "message": (

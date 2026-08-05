@@ -344,63 +344,30 @@ async function status(){
         except Exception:
             return data
 
-    @app.get("/graph", response_class=HTMLResponse)
-    def graph_page() -> str:
-        """V3 C: simple SVG graph visualizer from /api/agent-graph."""
-        return """<!doctype html><html><head><meta charset=utf-8>
-<title>SuperAI agent graph</title>
-<style>
-body{font-family:system-ui;margin:1.5rem;background:#0b1020;color:#e8eefc}
-#svg{width:100%;height:420px;background:#121a33;border-radius:12px}
-#out{white-space:pre-wrap;font-size:12px;opacity:.8}
-.node{fill:#3d7eff;stroke:#9ec1ff}
-.edge{stroke:#6b7a99;stroke-width:2}
-label{fill:#e8eefc;font-size:11px}
-</style></head><body>
-<h1>Agent graph</h1>`r`n<p id=status aria-live=polite>Loading graph…</p>
-<svg id=svg></svg>
-<pre id=out></pre>
-<script>
-async function load(){
-  const taskId=new URLSearchParams(window.location.search).get('task_id');
-  const endpoint='/api/agent-graph'+(taskId ? '?task_id='+encodeURIComponent(taskId) : '');
-  const r=await fetch(endpoint);
-  if(!r.ok) throw new Error('graph request failed: '+r.status);
-  const j=await r.json();
-  document.getElementById('status').textContent=taskId ? 'Graph for '+taskId : 'Latest graph';
-  document.getElementById('out').textContent=JSON.stringify(j,null,2);
-  const svg=document.getElementById('svg');
-  while(svg.firstChild) svg.removeChild(svg.firstChild);
-  const nodes=j.nodes||[];
-  const edges=j.edges||[];
-  const W=svg.clientWidth||800, H=400;
-  const pos={};
-  nodes.forEach((n,i)=>{
-    const a=(i/Math.max(nodes.length,1))*Math.PI*2;
-    pos[n.id]={x:W/2+Math.cos(a)*(W*0.32), y:H/2+Math.sin(a)*(H*0.32)};
-  });
-  edges.forEach(e=>{
-    const a=pos[e.from], b=pos[e.to];
-    if(!a||!b) return;
-    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',a.x); line.setAttribute('y1',a.y);
-    line.setAttribute('x2',b.x); line.setAttribute('y2',b.y);
-    line.setAttribute('class','edge');
-    svg.appendChild(line);
-  });
-  nodes.forEach(n=>{
-    const p=pos[n.id]; if(!p) return;
-    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); c.setAttribute('r',14);
-    c.setAttribute('class','node'); svg.appendChild(c);
-    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x',p.x+18); t.setAttribute('y',p.y+4);
-    t.setAttribute('class','label'); t.textContent=(n.label||n.id).slice(0,28);
-    svg.appendChild(t);
-  });
-}
-load();
-</script></body></html>"""
+    @app.get("/graph")
+    def graph_page(task_id: Optional[str] = None):
+        """V3 C: SVG graph visualizer from /api/agent-graph."""
+        from fastapi import Response
+        from core.agent_graph import graph_from_adaptation_events, graph_from_run_result, generate_svg
+        from core.history import TaskHistory
+
+        result = {}
+        if task_id:
+            try:
+                hist = TaskHistory()
+                if hasattr(hist, "get"):
+                    result = hist.get(task_id) or {}
+                elif hasattr(hist, "load"):
+                    result = hist.load(task_id) or {}
+            except Exception:
+                result = {}
+        events = (result.get("metadata") or {}).get("adaptation_events") or []
+        if events:
+            graph = graph_from_adaptation_events(events)
+        else:
+            graph = graph_from_run_result(result)
+
+        return Response(content=generate_svg(graph), media_type="image/svg+xml")
 
     @app.get("/api/memory/search")
     def memory_search(

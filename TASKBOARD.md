@@ -19,6 +19,19 @@ Resume rules for agents: read **your** owner board first, then this index. Close
 
 ---
 
+## Project boards (self-contained, unassigned — any agent may pick up)
+
+| Project | Board | Scope |
+|---------|-------|-------|
+| **Web UI Management Center** | [`projects/webui-management-center/TASKBOARD.md`](projects/webui-management-center/TASKBOARD.md) | Browser UI for SuperAI config editing + runtime status; embeds the MIT CLI Proxy API Management Center for the proxy pane. 16 tasks, W0–W5. Plan: [`projects/webui-management-center/PLAN.md`](projects/webui-management-center/PLAN.md) |
+
+Unlike the owner boards above, project boards are not assigned to a specific
+agent. Read the project's `README.md` first — it carries the constraints and the
+working agreement — then take the highest-priority `[ ]` task whose dependencies
+are all `[x]`.
+
+---
+
 ## Archives (closed — do not re-open unless regression)
 
 | Archive | Contents |

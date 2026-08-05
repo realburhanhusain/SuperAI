@@ -5,7 +5,7 @@
 **Repo index:** [`../../TASKBOARD.md`](../../TASKBOARD.md) · **Conventions:** [`../../AGENTS.md`](../../AGENTS.md)
 **Created:** 2026-08-05 · **Branch:** `feat/webui-management-center` (forked from `origin/master` @ `be28603`)
 
-**Legend:** `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked externally · `[?]` disputed / needs owner
+**Legend:** `[x]` open · `[~]` in progress · `[x]` done · `[!]` blocked externally · `[?]` disputed / needs owner
 
 ---
 
@@ -24,12 +24,12 @@
 
 | Wave | Tasks | Theme | Ships | Status |
 |------|-------|-------|-------|--------|
-| W0 | T01 | Worktree + test baseline | a trustworthy starting point | `[ ]` |
-| W1 | T02–T05 | Native read-only console | **usable status UI, one sitting** | `[ ]` |
-| W2 | T06–T11 | Config read + write, safely | config editing from the browser | `[ ]` |
-| W3 | T12 | Model registry write | model rows editable | `[ ]` |
-| W4 | T13–T15 | CLIProxyAPI admin embed | proxy operator console | `[ ]` |
-| W5 | T16 | Docs | discoverable + ToS caution recorded | `[ ]` |
+| W0 | T01 | Worktree + test baseline | a trustworthy starting point | `[x]` |
+| W1 | T02–T05 | Native read-only console | **usable status UI, one sitting** | `[x]` |
+| W2 | T06–T11 | Config read + write, safely | config editing from the browser | `[x]` |
+| W3 | T12 | Model registry write | model rows editable | `[x]` |
+| W4 | T13–T15 | CLIProxyAPI admin embed | proxy operator console | `[x]` |
+| W5 | T16 | Docs | discoverable + ToS caution recorded | `[x]` |
 
 **Smallest useful slice: W0 + W1.** No new dependencies, no vendoring, no write
 path, no security-critical surface. Everything after W1 is optional and can stop
@@ -45,18 +45,18 @@ at any wave boundary without leaving the repo in a half-state.
 | [T02](tasks/T02-api-spend.md) | `GET /api/spend` — cost accounting | W1 | T01 | 45m | `[x]` | self |
 | [T03](tasks/T03-api-goals.md) | `GET /api/goals` — goals daemon status | W1 | T01 | 30m | `[x]` | self |
 | [T04](tasks/T04-api-cliproxy-status.md) | `GET /api/cliproxy/status` — proxy reachability | W1 | T01 | 45m | `[x]` | self |
-| [T05](tasks/T05-console-page.md) | `GET /console` — aggregated status page | W1 | T02, T03, T04 | 1.5h | `[ ]` | — |
+| [T05](tasks/T05-console-page.md) | `GET /console` — aggregated status page | W1 | T02, T03, T04 | 1.5h | `[x]` | — |
 | [T06](tasks/T06-config-atomic-write.md) | `Config.save()` atomic write + backup | W2 | T01 | 1.5h | `[x]` | self |
 | [T07](tasks/T07-config-validation-diff.md) | Config validation + diff helper | W2 | T06 | 1.5h | `[x]` | self |
 | [T08](tasks/T08-management-auth-gate.md) | `SUPERAI_WEB_MANAGEMENT_TOKEN` + feature flag | W2 | T01 | 1h | `[x]` | - |
-| [T09](tasks/T09-api-config-read-write.md) | `GET`/`POST /api/config` + redaction + audit | W2 | T06, T07, T08 | 2h | `[ ]` | — |
-| [T10](tasks/T10-api-config-backups-rollback.md) | `/api/config/backups` + `/api/config/rollback` | W2 | T09 | 1h | `[ ]` | — |
-| [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[ ]` | — |
-| [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[ ]` | — |
-| [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |
-| [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[ ]` | — |
-| [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[ ]` | — |
-| [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[ ]` | — |
+| [T09](tasks/T09-api-config-read-write.md) | `GET`/`POST /api/config` + redaction + audit | W2 | T06, T07, T08 | 2h | `[x]` | — |
+| [T10](tasks/T10-api-config-backups-rollback.md) | `/api/config/backups` + `/api/config/rollback` | W2 | T09 | 1h | `[x]` | — |
+| [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[x]` | — |
+| [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[x]` | — |
+| [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[x]` | — |
+| [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[x]` | — |
+| [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[x]` | — |
+| [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[x]` | — |
 
 **Total estimate:** ~15.5 hours.
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 
 
@@ -58,7 +59,7 @@ def test_api_goals_running(tmp_path: Path, monkeypatch):
     assert body["config"]["interval_sec"] == 30.0
     assert body["ticks_total"] == 42
 
-from __future__ import annotations
+
 
 from fastapi.testclient import TestClient
 from cli.web_app import create_app

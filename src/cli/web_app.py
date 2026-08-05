@@ -50,6 +50,13 @@ def create_app() -> Any:
     if pwa_dir.is_dir():
         app.mount("/pwa", StaticFiles(directory=str(pwa_dir), html=True), name="pwa")
 
+    enable_cliproxy_admin = os.getenv("SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN") == "1"
+    if enable_cliproxy_admin:
+        mgmt_ui_dir = Path(__file__).resolve().parents[2] / "vendor" / "mgmt-ui"
+        if mgmt_ui_dir.is_dir():
+            app.mount("/cliproxy-admin", StaticFiles(directory=str(mgmt_ui_dir), html=True), name="cliproxy_admin")
+
+
     def _client_is_loopback(request: Request) -> bool:
         host = (request.client.host if request.client else "") or ""
         return host in {"127.0.0.1", "::1", "localhost", "testclient"}
@@ -1155,6 +1162,8 @@ setInterval(load, 2000);
  .live{color:#2e7d32;border-color:#2e7d32;background:#e8f5e9}
  #cliproxy-link{margin-left:auto;text-decoration:none;background:#2196f3;color:#fff;padding:.5rem 1rem;border-radius:4px;font-weight:bold}
  .error{color:#d32f2f}
+ .tos-banner{background:#fff3e0;border:1px solid #ffcc80;padding:.75rem;border-radius:6px;font-size:.9rem;margin-bottom:1rem;color:#e65100;}
+ .tos-banner a{color:#e65100;font-weight:bold;text-decoration:underline;}
 </style></head>
 <body>
 <h1>SuperAI Console</h1>
@@ -1163,6 +1172,10 @@ setInterval(load, 2000);
   <div id="sig-mode" class="signal-pill">Loading mode...</div>
   <div id="sig-cost" class="signal-pill">Loading cost basis...</div>
   <a id="cliproxy-link" href="/cliproxy-admin">Manage Proxy (CLIProxyAPI)</a>
+</div>
+<div class="tos-banner">
+  <strong>Caution:</strong> Using this proxy to wrap subscription access as a general API may conflict with vendor Terms of Service.
+  See <a href="https://github.com/superai/superai/blob/master/docs/CLIPROXY_TRANSPORT.md" target="_blank">docs/CLIPROXY_TRANSPORT.md</a>.
 </div>
 <div class="grid">
   <div class="card"><h2>Dashboard</h2><pre id="p-dashboard">Loading...</pre></div>

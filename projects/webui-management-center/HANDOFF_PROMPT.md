@@ -1,9 +1,3 @@
-# Handoff prompt
-
-Copy everything between the markers into another AI coding tool (Codex CLI,
-Gemini CLI, Grok CLI, Cursor, another Claude Code session — it is
-vendor-agnostic) to have it pick up this project from the start.
-
 ---8<--- BEGIN PROMPT ---8<---
 
 Pick up and implement an existing, fully specified project in the SuperAI repo.

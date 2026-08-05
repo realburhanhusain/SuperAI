@@ -377,10 +377,10 @@ def create_app() -> Any:
                 return {"ok": True, "status": "updated", "count": len(valid_models)}
 
     @app.get("/api/audit")
-    async def api_audit(request: Request, limit: int = Query(50, ge=1, le=500)) -> List[Dict[str, Any]]:
+    async def api_audit(request: Request, limit: int = Query(50, ge=1, le=500)) -> Dict[str, Any]:
         _check_management_auth(request)
         from core.audit_log import AuditLog
-        return AuditLog().recent(limit=limit)
+        return {"ok": True, "entries": AuditLog().recent(limit=limit)}
 
     class MemoryQuery(BaseModel):
         query: str = Field(..., min_length=1)

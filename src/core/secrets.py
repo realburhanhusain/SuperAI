@@ -15,6 +15,8 @@ _PATTERNS = [
     (re.compile(r"(?i)\b(xox[baprs]-[A-Za-z0-9-]+)\b"), "***REDACTED_SLACK***"),
     (re.compile(r"(?i)\b(ghp_[A-Za-z0-9]{20,})\b"), "***REDACTED_GH***"),
     (re.compile(r"(?i)\b(AKIA[0-9A-Z]{16})\b"), "***REDACTED_AWS***"),
+    # DSN URLs with embedded passwords: scheme://user:password@host/db
+    (re.compile(r"(\w+://[^:]+:)([^@]{3,})(@)"), r"\1***REDACTED***\3"),
 ]
 
 

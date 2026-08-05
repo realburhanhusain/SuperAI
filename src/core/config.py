@@ -47,9 +47,6 @@ class Config:
         "use_step_cache": True,
         # Failover chain (S5): ordered model names
         "failover_chain": [],
-        # Budget defaults (S4)
-        "budget_daily_usd": 5.0,
-        "budget_run_usd": 1.0,
         # Databao read-only enforcement (M5)
         "data_read_only": True,
         # Inject constitution into runs (N14)
@@ -285,11 +282,9 @@ def atomic_write_with_backup(target_path: Path, data: Any, backups_dir: Path) ->
     """Atomic JSON write with automatic backup rotation (T06)."""
     if target_path.exists():
         backups_dir.mkdir(parents=True, exist_ok=True)
-        import datetime
         ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
         prefix = target_path.stem
         backup_path = backups_dir / f"{prefix}-{ts}.json"
-        import shutil
         try:
             shutil.copy2(target_path, backup_path)
         except OSError:
@@ -311,9 +306,7 @@ def atomic_write_with_backup(target_path: Path, data: Any, backups_dir: Path) ->
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
             f.flush()
-            import os
             os.fsync(f.fileno())
-        import os
         os.replace(tmp_path, target_path)
     finally:
         if tmp_path.exists():

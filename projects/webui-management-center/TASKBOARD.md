@@ -72,12 +72,7 @@ at any wave boundary without leaving the repo in a half-state.
 |---|----------|----------------------|---------|
 | Q1 | Feature-flag / token env var names | **Approved as proposed.** `SUPERAI_WEB_MANAGEMENT_TOKEN`, `SUPERAI_WEB_ENABLE_CONFIG_WRITE`, `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN`. `SUPERAI_WEB_TOKEN` keeps its current meaning and is **not** extended to writes. | T08, T15 — **unblocked** |
 | Q3 | Which ref to pin the Management Center UI to | **Its own separate tag.** Independent of the proxy's `v7.2.116`; do not derive or align the two. Never `main`. | T14 |
-
-### Re-opened
-
-| # | Question | Status |
-|---|----------|--------|
-| Q2 | Repo-wide `.gitattributes` | **Approved, then re-opened — the premise was wrong.** `vendor/.gitattributes` **exists** with `* -text` and already covers `vendor/mgmt-ui/` recursively (`git check-attr` → `text: unset`; `vendor_sync --check` → 4/4 match). The original claim of "absent repo-wide" was true only of the repo *root*. Vendored bytes were never unprotected, so nothing needs fixing for this project. What remains is a **separate hygiene change** — normalizing *source* line endings via a root `.gitattributes` + `git add --renormalize .` — which touches nearly every tracked file while ~10 worktrees are checked out. **Deferred out of this project pending re-decision.** T13 shrank to a verification step. |
+| Q2 | Repo-wide `.gitattributes` | **Closed — dropped.** Approved initially, then re-opened when the premise proved false: `vendor/.gitattributes` already contains `* -text` covering `vendor/` recursively (`git check-attr` → `text: unset`; `vendor_sync --check` → 4/4 match). Vendored bytes were never unprotected, so there is nothing to fix. Root-level source-line-ending normalization is **not** part of this project and is not scheduled. Do not add a root `.gitattributes` here. | T13 — reduced to verification |
 
 ### Still open
 
@@ -125,6 +120,6 @@ mismatch caused a CI hang in this repo before.
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-05 | Claude Opus 5 | Project created: plan, board, 16 task files. No code written. |
-| 2026-08-05 | Claude Opus 5 | Q1 approved, Q3 answered (own tag) — T08/T15 unblocked, T14 updated. Q2 re-opened: `vendor/.gitattributes` already protects vendored bytes, so T13 shrank from "create a file" to "verify coverage" (30m → 15m). |
+| 2026-08-05 | Claude Opus 5 | Q1 approved, Q3 answered (own tag) — T08/T15 unblocked, T14 updated. Q2 re-opened after its premise was disproved, then **closed as dropped**: `vendor/.gitattributes` already protects vendored bytes, so T13 shrank from "create a file" to "verify coverage" (30m → 15m). All W0–W4 decisions now settled; only Q4 remains, and it is a verification step inside T14. |
 
-**Last session:** 2026-08-05 — decisions Q1/Q3 recorded, Q2 re-opened after a premise was disproved. Board and tasks updated. Next: T01 (unblocked; W0+W1 need no further decisions).
+**Last session:** 2026-08-05 — Q1, Q2 and Q3 all settled; board and tasks updated. **No decision now blocks any task.** Next: T01.

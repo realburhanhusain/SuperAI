@@ -7,7 +7,7 @@
 | **Depends on** | — (**must** still precede T14) |
 | **Estimate** | 15 min (was 30 min) |
 | **Owner** | — |
-| **Blocked by** | **Q2 re-opened** — see "Correction" below |
+| **Blocked by** | nothing — **Q2 closed 2026-08-05: dropped** |
 
 ## Correction (2026-08-05) — this task shrank
 
@@ -59,7 +59,7 @@ assumed rather than checked is how the original error happened.
    ```
    Must report all existing files matching their pin.
 
-## Still open: repo-wide normalization (Q2)
+## Closed: repo-wide normalization (Q2 — dropped)
 
 The owner approved "repo-wide" — but that approval was given against the false
 premise above. With vendored bytes already protected, a root `.gitattributes`
@@ -72,15 +72,16 @@ That change is real but unrelated to this project, and it is disruptive:
 worktrees have branches checked out, producing conflicts for sessions that are
 not expecting them.
 
-**Do not do it inside this project.** If the owner still wants it, it belongs in
-its own branch and its own task, sequenced when the repo is quiet. Awaiting
-re-decision — see `TASKBOARD.md` → Q2.
+**Owner decision 2026-08-05: dropped.** No root `.gitattributes` is added by this
+project, and no renormalization is scheduled. If a future session believes source
+line endings need normalizing, that is a fresh proposal on its own branch — not a
+resumption of this one.
 
 ## Acceptance criteria
 
 - [ ] `git check-attr -a vendor/mgmt-ui/management.html` reports `text: unset`, output pasted in the Log.
 - [ ] `python scripts/vendor_sync.py --check` passes at baseline, output pasted in the Log.
-- [ ] Q2's re-decision recorded on the board (repo-wide normalization deferred, or split into its own branch).
+- [ ] No root `.gitattributes` was added (Q2 closed as dropped).
 - [ ] **No new `.gitattributes` file added by this project** unless the checks above fail.
 
 ## Verification command

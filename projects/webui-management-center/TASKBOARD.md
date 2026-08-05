@@ -52,7 +52,7 @@ at any wave boundary without leaving the repo in a half-state.
 | [T09](tasks/T09-api-config-read-write.md) | `GET`/`POST /api/config` + redaction + audit | W2 | T06, T07, T08 | 2h | `[ ]` | — |
 | [T10](tasks/T10-api-config-backups-rollback.md) | `/api/config/backups` + `/api/config/rollback` | W2 | T09 | 1h | `[x]` | self |
 | [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[ ]` | — |
-| [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[ ]` | — |
+| [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[x]` | self |
 | [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |
 | [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[ ]` | — |
 | [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[ ]` | — |
@@ -124,5 +124,6 @@ mismatch caused a CI hang in this repo before.
 | 2026-08-05 | self | Completed T01: baseline web tests pass against worktree source |
 | 2026-08-05 | self | Completed T03: Exposed /api/goals endpoint and added tests |
 | 2026-08-05 | self | Completed T05: implemented /console page and its UI |
+| 2026-08-05 | self | Completed T12: implemented /api/models GET and POST endpoints with model registry merging |
 
-**Last session:** 2026-08-05 — Completed T05, tests pass.
+**Last session:** 2026-08-05 — Completed T12, tests pass.

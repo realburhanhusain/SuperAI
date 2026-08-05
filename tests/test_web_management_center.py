@@ -357,3 +357,287 @@ def test_config_routes_auth_and_flags():
         assert "/api/config/diff" not in routes
         assert "/api/config/backups" not in routes
         assert "/api/config/rollback" not in routes
+
+
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "0"}):
+        app = create_app()
+        routes = [r.path for r in app.routes if hasattr(r, "path")]
+        assert "/api/config" not in routes
+
+def test_flag_on_token_unset_route_absent_and_logs(caplog):
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1"}, clear=True):
+        app = create_app()
+        routes = [r.path for r in app.routes if hasattr(r, "path")]
+        assert "/api/config" not in routes
+        assert "SUPERAI_WEB_ENABLE_CONFIG_WRITE is on but SUPERAI_WEB_MANAGEMENT_TOKEN is unset" in caplog.text
+
+def test_flag_on_token_set_request_without_token_on_loopback_refused():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.post("/api/config", json={"some": "data"})
+        assert response.status_code == 401
+        assert "Management token required" in response.json().get("detail", "")
+
+def test_wrong_token_refused():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.post("/api/config", headers={"Authorization": "Bearer badtoken"}, json={"some": "data"})
+        assert response.status_code == 401
+        assert "Unauthorized management token" in response.json().get("detail", "")
+
+def test_correct_token_accepted():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.post("/api/config", headers={"Authorization": "Bearer secret"}, json={"some": "data"})
+        assert response.status_code == 200
+
+def test_superai_web_token_does_not_grant_write_access():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret", "SUPERAI_WEB_TOKEN": "regular"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.post("/api/config", headers={"Authorization": "Bearer regular"}, json={"some": "data"})
+        assert response.status_code == 401
+
+
+
+def test_console_page():
+    from cli.web_app import create_app
+    from fastapi.testclient import TestClient
+    app = create_app()
+    client = TestClient(app)
+    r = client.get("/console")
+    assert r.status_code == 200
+    assert "SuperAI Console" in r.text
+
+def test_api_audit_missing_token_refused():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.get("/api/audit")
+        assert response.status_code == 401
+
+def test_api_audit_read_token_refused():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret", "SUPERAI_WEB_TOKEN": "regular"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.get("/api/audit", headers={"Authorization": "Bearer regular"})
+        assert response.status_code == 401
+
+def test_api_audit_missing_file_returns_empty(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.get("/api/audit", headers={"Authorization": "Bearer secret"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+def test_api_audit_returns_entries_newest_first_and_respects_limit(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    
+    from core.audit_log import AuditLog
+    audit = AuditLog()
+    audit.record("action1", detail={"k": "v1"})
+    audit.record("action2", detail={"k": "v2"})
+    audit.record("action3", detail={"k": "v3"})
+    
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        
+        # Default limit
+        response = client.get("/api/audit", headers={"Authorization": "Bearer secret"})
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 3
+        assert data[0]["action"] == "action3"
+        assert data[2]["action"] == "action1"
+        
+        # Limit 2
+        response2 = client.get("/api/audit?limit=2", headers={"Authorization": "Bearer secret"})
+        data2 = response2.json()
+        assert len(data2) == 2
+        assert data2[0]["action"] == "action3"
+        assert data2[1]["action"] == "action2"
+
+
+def test_config_diff_writes_nothing(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        from core.config import Config
+        cfg = Config()
+        cfg.set("mock_mode", False)
+        
+        mtime = cfg.config_path.stat().st_mtime
+        content = cfg.config_path.read_text()
+        
+        r = client.post("/api/config/diff", headers={"Authorization": "Bearer secret"}, json={"changes": {"mock_mode": True}})
+        assert r.status_code == 200
+        assert "diff" in r.json()
+        
+        assert cfg.config_path.stat().st_mtime == mtime
+        assert cfg.config_path.read_text() == content
+
+
+def test_config_backups_empty(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        r = client.get("/api/config/backups", headers={"Authorization": "Bearer secret"})
+        assert r.status_code == 200
+        assert r.json()["backups"] == []
+
+def test_config_rollback(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        from core.config import Config
+        cfg = Config()
+        cfg.set("mock_mode", False)
+        
+        initial_content = cfg.config_path.read_bytes()
+        
+        r = client.post("/api/config", headers={"Authorization": "Bearer secret"}, json={"changes": {"mock_mode": True}})
+        assert r.status_code == 200
+        backup_id = r.json()["backup_id"]
+        
+        assert cfg.config_path.read_bytes() != initial_content
+        
+        # Rollback
+        r = client.post("/api/config/rollback", headers={"Authorization": "Bearer secret"}, json={"backup_id": backup_id})
+        assert r.status_code == 200
+        
+        assert cfg.config_path.read_bytes() == initial_content
+
+def test_config_rollback_path_traversal(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        
+        r = client.post("/api/config/rollback", headers={"Authorization": "Bearer secret"}, json={"backup_id": "../../../etc/passwd"})
+        assert r.status_code == 400
+        assert "invalid backup_id" in r.json()["detail"]
+
+def test_config_rollback_creates_own_backup(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        from core.config import Config
+        cfg = Config()
+        
+        r1 = client.post("/api/config", headers={"Authorization": "Bearer secret"}, json={"changes": {"mock_mode": True}})
+        backup_id = r1.json()["backup_id"]
+        
+        # Now rollback
+        r = client.post("/api/config/rollback", headers={"Authorization": "Bearer secret"}, json={"backup_id": backup_id})
+        assert r.status_code == 200
+        
+        r_list = client.get("/api/config/backups", headers={"Authorization": "Bearer secret"})
+        backups = r_list.json()["backups"]
+        assert len(backups) == 2
+
+def test_config_routes_auth_and_flags():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "0"}):
+        app = create_app()
+        routes = [r.path for r in app.routes if hasattr(r, "path")]
+        assert "/api/config/diff" not in routes
+        assert "/api/config/backups" not in routes
+        assert "/api/config/rollback" not in routes
+
+
+def test_api_models_get(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        
+        # Test GET
+        r = client.get("/api/models", headers={"Authorization": "Bearer secret"})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["ok"] is True
+        assert isinstance(data["models"], list)
+        assert len(data["models"]) > 0
+        
+        # Verify provenance field is present
+        assert "source_file" in data["models"][0]
+        assert isinstance(data["models"][0]["source_file"], str)
+
+def test_api_models_post(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        
+        # Repo models.json path
+        repo_models = Path(__file__).resolve().parents[1] / "config" / "models.json"
+        if repo_models.exists():
+            repo_hash_before = repo_models.read_bytes()
+        else:
+            repo_hash_before = b""
+        
+        # Test POST
+        models_payload = [
+            {
+                "name": "my-custom-model",
+                "provider": "openai",
+                "model_id": "gpt-4",
+                "cost_per_1k_tokens": 0.03
+            }
+        ]
+        r = client.post("/api/models", headers={"Authorization": "Bearer secret"}, json={"models": models_payload})
+        assert r.status_code == 200
+        data = r.json()
+        assert data["ok"] is True
+        assert data["count"] == 1
+        
+        # Verify user file is created
+        user_models = tmp_path / ".superai" / "config" / "models.json"
+        assert user_models.exists()
+        
+        import json
+        saved = json.loads(user_models.read_text())
+        assert len(saved) == 1
+        assert saved[0]["name"] == "my-custom-model"
+        
+        # Test proves the repo-tracked config/models.json is byte-identical after a POST
+        if repo_models.exists():
+            repo_hash_after = repo_models.read_bytes()
+            assert repo_hash_before == repo_hash_after
+
+def test_api_models_post_validation(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1", "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        
+        # Unknown field
+        bad_payload = [
+            {
+                "name": "my-model",
+                "unknown_field": "123"
+            }
+        ]
+        r = client.post("/api/models", headers={"Authorization": "Bearer secret"}, json={"models": bad_payload})
+        assert r.status_code == 400
+        assert "unknown fields" in r.text
+        
+        # Wrong type
+        bad_payload2 = [
+            {
+                "name": "my-model",
+                "context_window": "not-an-int"
+            }
+        ]
+        r = client.post("/api/models", headers={"Authorization": "Bearer secret"}, json={"models": bad_payload2})
+        assert r.status_code == 400
+        assert "type conversion error" in r.text

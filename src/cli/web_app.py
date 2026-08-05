@@ -278,6 +278,93 @@ def create_app() -> Any:
                 
                 return {"ok": True, "status": "rolled_back", "backup_id": backup_id}
 
+            @app.get("/api/models")
+            async def get_models(request: Request) -> Dict[str, Any]:
+                _check_management_auth(request)
+                from core.model_registry import ModelRegistry
+                registry = ModelRegistry()
+                
+                models_list = []
+                for m in registry.models.values():
+                    row = {
+                        "name": m.name,
+                        "provider": m.provider,
+                        "model_id": m.model_id,
+                        "base_url": m.base_url,
+                        "api_key_env": m.api_key_env,
+                        "context_window": m.context_window,
+                        "is_latest": m.is_latest,
+                        "supports_tools": m.supports_tools,
+                        "strengths": m.strengths,
+                        "cost_per_1k_tokens": m.cost_per_1k_tokens,
+                        "latency_tier": m.latency_tier,
+                        "source_file": m.source_file,
+                        **m.extra,
+                    }
+                    models_list.append(row)
+                
+                return {"ok": True, "models": models_list, "source": registry.source}
+
+            @app.post("/api/models")
+            async def update_models(request: Request) -> Dict[str, Any]:
+                _check_management_auth(request)
+                payload = await request.json()
+                models_data = payload.get("models")
+                if not isinstance(models_data, list):
+                    raise HTTPException(status_code=400, detail="models must be a list")
+                
+                from core.model_registry import ModelInfo
+                import dataclasses
+                import json
+                allowed_fields = {f.name for f in dataclasses.fields(ModelInfo) if f.name not in ('extra', 'source_file')}
+                
+                valid_models = []
+                errors = []
+                for idx, row in enumerate(models_data):
+                    if not isinstance(row, dict):
+                        errors.append(f"Row {idx}: must be an object")
+                        continue
+                    if "name" not in row or not isinstance(row["name"], str):
+                        errors.append(f"Row {idx}: missing or invalid 'name'")
+                        continue
+                    
+                    unknown = [k for k in row.keys() if k not in allowed_fields]
+                    if unknown:
+                        errors.append(f"Row {idx}: unknown fields {unknown}")
+                        continue
+                    
+                    try:
+                        # minimal type check on numeric fields if present
+                        if "context_window" in row:
+                            int(row["context_window"])
+                        if "cost_per_1k_tokens" in row:
+                            float(row["cost_per_1k_tokens"])
+                        if "latency_tier" in row:
+                            int(row["latency_tier"])
+                    except (ValueError, TypeError):
+                        errors.append(f"Row {idx}: type conversion error for numeric fields")
+                        continue
+                        
+                    valid_models.append(row)
+                
+                if errors:
+                    from core.audit_log import AuditLog
+                    AuditLog().record("models.write", detail={"errors": errors}, actor="web", outcome="failure")
+                    raise HTTPException(status_code=400, detail={"errors": errors})
+                
+                from pathlib import Path
+                target_path = Path.home() / ".superai" / "config" / "models.json"
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                from core.config import atomic_write_with_backup
+                backups_dir = Path.home() / ".superai" / "backups"
+                
+                atomic_write_with_backup(target_path, valid_models, backups_dir)
+                
+                from core.audit_log import AuditLog
+                AuditLog().record("models.write", detail={"count": len(valid_models)}, actor="web", outcome="success")
+                
+                return {"ok": True, "status": "updated", "count": len(valid_models)}
 
     @app.get("/api/audit")
     async def api_audit(request: Request, limit: int = Query(50, ge=1, le=500)) -> List[Dict[str, Any]]:

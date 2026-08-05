@@ -244,43 +244,54 @@ class Config:
     def save(self, quiet: bool = False) -> None:
         self._ensure_home()
         
-        if self.config_path.exists():
-            backups_dir = self.home_dir / "backups"
-            backups_dir.mkdir(parents=True, exist_ok=True)
-            ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            backup_path = backups_dir / f"config-{ts}.json"
-            try:
-                shutil.copy2(self.config_path, backup_path)
-            except OSError:
-                pass
-                
-            try:
-                backups = sorted(backups_dir.glob("config-*.json"))
-                while len(backups) > 20:
-                    oldest = backups.pop(0)
-                    try:
-                        oldest.unlink()
-                    except OSError:
-                        pass
-            except OSError:
-                pass
-
-        tmp_path = self.config_path.with_suffix(".json.tmp")
-        try:
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(self.config, f, indent=2)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp_path, self.config_path)
-        finally:
-            if tmp_path.exists():
-                try:
-                    tmp_path.unlink()
-                except OSError:
-                    pass
+        backups_dir = self.home_dir / "backups"
+        atomic_write_with_backup(self.config_path, self.config, backups_dir)
 
         if not quiet:
             print(f"Configuration saved to {self.config_path}")
+
+
+def atomic_write_with_backup(target_path: Path, data: Any, backups_dir: Path) -> None:
+    """Atomic JSON write with automatic backup rotation (T06)."""
+    if target_path.exists():
+        backups_dir.mkdir(parents=True, exist_ok=True)
+        import datetime
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        prefix = target_path.stem
+        backup_path = backups_dir / f"{prefix}-{ts}.json"
+        import shutil
+        try:
+            shutil.copy2(target_path, backup_path)
+        except OSError:
+            pass
+            
+        try:
+            backups = sorted(backups_dir.glob(f"{prefix}-*.json"))
+            while len(backups) > 20:
+                oldest = backups.pop(0)
+                try:
+                    oldest.unlink()
+                except OSError:
+                    pass
+        except OSError:
+            pass
+
+    tmp_path = target_path.with_suffix(".json.tmp")
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            import os
+            os.fsync(f.fileno())
+        import os
+        os.replace(tmp_path, target_path)
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
 
     def show(self) -> Dict[str, Any]:
         return dict(self.config)

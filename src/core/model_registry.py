@@ -29,6 +29,7 @@ class ModelInfo:
     strengths: str = ""
     cost_per_1k_tokens: float = 0.0
     latency_tier: int = 2  # 1=fast .. 5=slow
+    source_file: str = "builtin"
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -56,20 +57,31 @@ class ModelRegistry:
         self._load_models()
 
     def _load_models(self) -> None:
-        path = self.models_path or _project_models_json()
-        if path and path.is_file():
-            try:
-                self._load_from_json(path)
-                self.source = str(path)
-                self.models_path = path
-                if self.models:
-                    logger.debug("Loaded %d models from %s", len(self.models), path)
-                    return
-            except (OSError, json.JSONDecodeError, TypeError, KeyError) as e:
-                logger.warning("Failed to load models.json (%s); using builtin fallback", e)
-
+        self.models.clear()
         self._load_builtin_fallback()
-        self.source = "builtin"
+        
+        here = Path(__file__).resolve()
+        candidates = [
+            Path.cwd() / "config" / "models.json",
+            here.parents[1] / "config" / "models.json",  # src/
+            here.parents[2] / "config" / "models.json",  # repo root
+            Path.home() / ".superai" / "config" / "models.json",  # override
+        ]
+        
+        if self.models_path:
+            candidates.append(Path(self.models_path))
+            
+        loaded_any = False
+        # Load from lowest to highest precedence, overwriting
+        for path in candidates:
+            if path.is_file():
+                try:
+                    self._load_from_json(path)
+                    loaded_any = True
+                except (OSError, json.JSONDecodeError, TypeError, KeyError) as e:
+                    logger.warning("Failed to load models.json (%s)", e)
+                    
+        self.source = "merged" if loaded_any else "builtin"
 
     def _load_from_json(self, path: Path) -> None:
         with open(path, "r", encoding="utf-8") as f:
@@ -78,8 +90,8 @@ class ModelRegistry:
         if not isinstance(data, list):
             raise TypeError("models.json must be a JSON array")
 
-        self.models.clear()
         # Mark first model per provider as "latest" for simple UI flag
+        # (Since we are merging, we might see a provider again, but if it's the first time in this file, we can trust the file's intent or rely on what's already there)
         seen_providers: set[str] = set()
         for entry in data:
             if not isinstance(entry, dict) or "name" not in entry:
@@ -100,6 +112,7 @@ class ModelRegistry:
                 strengths=str(entry.get("strengths", "")),
                 cost_per_1k_tokens=float(entry.get("cost_per_1k_tokens", 0.0)),
                 latency_tier=int(entry.get("latency_tier", 2)),
+                source_file=str(path),
                 extra={
                     k: v
                     for k, v in entry.items()

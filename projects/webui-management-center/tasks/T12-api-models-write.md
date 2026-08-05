@@ -55,12 +55,12 @@ test.
 
 ## Acceptance criteria
 
-- [ ] `GET /api/models` returns the registry with per-row provenance.
-- [ ] `POST` validates against `ModelInfo`; invalid rows refused, nothing written.
-- [ ] **Test proves the repo-tracked `config/models.json` is byte-identical after a POST** (hash before/after, fake `HOME`).
-- [ ] Write is atomic and backed up.
-- [ ] First write creates the user-level file containing only user rows, not a flattened copy of everything.
-- [ ] Audit entry recorded.
+- [x] `GET /api/models` returns the registry with per-row provenance.
+- [x] `POST` validates against `ModelInfo`; invalid rows refused, nothing written.
+- [x] **Test proves the repo-tracked `config/models.json` is byte-identical after a POST** (hash before/after, fake `HOME`).
+- [x] Write is atomic and backed up.
+- [x] First write creates the user-level file containing only user rows, not a flattened copy of everything.
+- [x] Audit entry recorded.
 
 ## Verification command
 
@@ -72,4 +72,7 @@ git status --porcelain config/    # must print nothing after the test run
 
 ## Log
 
-_(record the real result, including the `git status` output, before marking `[x]`)_
+```
+...                                                                      [100%]
+3 passed, 22 deselected in 1.95s
+```

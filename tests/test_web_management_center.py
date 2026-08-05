@@ -641,3 +641,15 @@ def test_api_models_post_validation(tmp_path: Path, monkeypatch):
         r = client.post("/api/models", headers={"Authorization": "Bearer secret"}, json={"models": bad_payload2})
         assert r.status_code == 400
         assert "type conversion error" in r.text
+
+def test_cliproxy_admin_route_requires_opt_in():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN": "0"}):
+        app = create_app()
+        routes = [r.path for r in app.routes if hasattr(r, "path")]
+        assert "/cliproxy-admin" not in routes
+
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN": "1"}):
+        app = create_app()
+        routes = [r.path for r in app.routes if hasattr(r, "path")]
+        assert "/cliproxy-admin" in routes
+

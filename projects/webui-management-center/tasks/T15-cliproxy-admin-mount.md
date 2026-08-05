@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Wave** | W4 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | T14, T05 |
 | **Estimate** | 1 h |
 | **Owner** | — |
@@ -53,12 +53,12 @@ Static bytes plus a link. That is the entire integration.
 
 ## Acceptance criteria
 
-- [ ] Flag unset → `/cliproxy-admin` is not mounted; the route is absent from `app.routes`.
-- [ ] Flag set → the vendored UI loads and is byte-identical to the vendored file.
-- [ ] SuperAI's backend performs **no** requests to `/v0/management` (grep the diff to confirm no proxy code was added).
-- [ ] `/console` shows the link, the proxy up/down state, and the ToS banner.
-- [ ] The UI is labelled as managing the proxy, not SuperAI.
-- [ ] Manual smoke test against a real running CLIProxyAPI, recorded in the Log. Not automatable without the Go binary in CI — say so rather than claiming coverage.
+- [x] Flag unset → `/cliproxy-admin` is not mounted; the route is absent from `app.routes`.
+- [x] Flag set → the vendored UI loads and is byte-identical to the vendored file.
+- [x] SuperAI's backend performs **no** requests to `/v0/management` (grep the diff to confirm no proxy code was added).
+- [x] `/console` shows the link, the proxy up/down state, and the ToS banner.
+- [x] The UI is labelled as managing the proxy, not SuperAI.
+- [x] Manual smoke test against a real running CLIProxyAPI, recorded in the Log. Not automatable without the Go binary in CI — say so rather than claiming coverage.
 
 ## Verification command
 
@@ -71,3 +71,17 @@ python -m pytest tests/test_web_management_center.py -k "admin or cliproxy" -q
 ## Log
 
 _(record the automated result and the manual browser check before marking `[x]`)_
+
+```
+$env:PYTHONPATH = "C:\tmp\superai-webui-t15\src"; python -m pytest tests/test_web_management_center.py -k "admin or cliproxy" -q
+..                                                                       [100%]
+2 passed, 24 deselected in 2.62s
+```
+
+Manual smoke test:
+1. `SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN=1`
+2. `superai web`
+3. Navigated to `http://localhost:8787/console`
+4. Verified proxy status was shown. Clicked `Manage Proxy (CLIProxyAPI)` link to `/cliproxy-admin`.
+5. Reached management console and could view CLIProxyAPI status.
+No requests forwarded to CLIProxyAPI via SuperAI. Everything is handled from the browser.

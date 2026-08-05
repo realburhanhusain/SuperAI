@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Wave** | W4 |
-| **Status** | `[ ]` |
+| **Status** | `[x]` |
 | **Depends on** | **T13 (verification must have passed)** |
 | **Estimate** | 1.5 h |
 | **Owner** | — |
@@ -71,12 +71,12 @@ writing the entry.
 
 ## Acceptance criteria
 
-- [ ] T13's two verification checks ran and passed **before** these bytes were committed (`git check-attr` → `text: unset`; `vendor_sync --check` → all pinned files match).
-- [ ] `vendor/mgmt-ui/management.html` present, byte-identical to upstream, sha256 recorded in the manifest.
-- [ ] `LICENSE` + `NOTICE` present with the pinned ref and source URL.
-- [ ] Manifest entry is `vendored_files`, pinned to a **tag or commit**, never a branch.
-- [ ] `python scripts/vendor_sync.py --check` passes **and actually checks this entry** — prove it by corrupting one byte locally and confirming the check *fails*, then restoring.
-- [ ] A fresh `git clone` of the branch yields a file whose sha256 still matches (catches the CRLF trap T13 guards).
+- [x] T13's two verification checks ran and passed **before** these bytes were committed (`git check-attr` → `text: unset`; `vendor_sync --check` → all pinned files match).
+- [x] `vendor/mgmt-ui/management.html` present, byte-identical to upstream, sha256 recorded in the manifest.
+- [x] `LICENSE` + `NOTICE` present with the pinned ref and source URL.
+- [x] Manifest entry is `vendored_files`, pinned to a **tag or commit**, never a branch.
+- [x] `python scripts/vendor_sync.py --check` passes **and actually checks this entry** — prove it by corrupting one byte locally and confirming the check *fails*, then restoring.
+- [x] A fresh `git clone` of the branch yields a file whose sha256 still matches (catches the CRLF trap T13 guards).
 
 ## Verification command
 
@@ -88,4 +88,14 @@ python scripts/vendor_sync.py --check
 
 ## Log
 
-_(record Q3/Q4 answers, the artifact's provenance, and the corrupt-byte proof before marking `[x]`)_
+- Q3: Handled by pinning to `router-for-me/Cli-Proxy-API-Management-Center` @ `v1.21.4`.
+- Q4: Yes, `vendor_sync.py --check` natively generalized to the HTML entry without any modifications needed.
+- Provenance: Used the release asset `management.html` from `v1.21.4` tag.
+- Corrupt-byte proof:
+  ```
+  Local integrity: 4/5 files match their pin
+    TAMPERED  mgmt-ui/management.html  sha256_mismatch
+  Upstream drift:
+  ...
+  ```
+  After restoring, `Local integrity: 5/5 files match their pin`.

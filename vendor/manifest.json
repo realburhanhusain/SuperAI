@@ -75,6 +75,24 @@
       "fetched_at": "2026-08-04",
       "reference_url": "https://github.com/router-for-me/CLIProxyAPI/tree/v7.2.116",
       "files": []
+    },
+    "mgmt-ui": {
+      "kind": "vendored_files",
+      "repo": "router-for-me/Cli-Proxy-API-Management-Center",
+      "description": "The prebuilt single-file UI for Management Center. Unlike the proxy itself, which is reference-only, we ship these bytes so they can be served directly.",
+      "ref": "v1.21.4",
+      "commit": "30478c539c1f06649ac78deebeff6cfc227bbe22",
+      "committed_at": "2026-08-03T14:43:02Z",
+      "fetched_at": "2026-08-05",
+      "license": "MIT",
+      "files": [
+        {
+          "path": "mgmt-ui/management.html",
+          "url": "https://github.com/router-for-me/Cli-Proxy-API-Management-Center/releases/download/v1.21.4/management.html",
+          "bytes": 2711374,
+          "sha256": "1d885552cc2d12b98613f31f2bc326e321c81dcbb792afb1e0b0066ecb74028e"
+        }
+      ]
     }
   }
 }

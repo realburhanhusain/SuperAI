@@ -5,6 +5,9 @@ from __future__ import annotations
 
 
 
+
+
+
 """Tests for web management center API endpoints."""
 
 import os
@@ -61,6 +64,9 @@ def test_api_goals_running(tmp_path: Path, monkeypatch):
     assert body["pid"] == pid
     assert body["config"]["interval_sec"] == 30.0
     assert body["ticks_total"] == 42
+
+
+
 
 
 
@@ -201,6 +207,7 @@ def test_superai_web_token_does_not_grant_write_access():
         assert response.status_code == 401
 
 
+
 def test_console_page():
     from cli.web_app import create_app
     from fastapi.testclient import TestClient
@@ -209,4 +216,56 @@ def test_console_page():
     r = client.get("/console")
     assert r.status_code == 200
     assert "SuperAI Console" in r.text
+
+def test_api_audit_missing_token_refused():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.get("/api/audit")
+        assert response.status_code == 401
+
+def test_api_audit_read_token_refused():
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret", "SUPERAI_WEB_TOKEN": "regular"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.get("/api/audit", headers={"Authorization": "Bearer regular"})
+        assert response.status_code == 401
+
+def test_api_audit_missing_file_returns_empty(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        response = client.get("/api/audit", headers={"Authorization": "Bearer secret"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+def test_api_audit_returns_entries_newest_first_and_respects_limit(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    
+    from core.audit_log import AuditLog
+    audit = AuditLog()
+    audit.record("action1", detail={"k": "v1"})
+    audit.record("action2", detail={"k": "v2"})
+    audit.record("action3", detail={"k": "v3"})
+    
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        app = create_app()
+        client = TestClient(app)
+        
+        # Default limit
+        response = client.get("/api/audit", headers={"Authorization": "Bearer secret"})
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 3
+        assert data[0]["action"] == "action3"
+        assert data[2]["action"] == "action1"
+        
+        # Limit 2
+        response2 = client.get("/api/audit?limit=2", headers={"Authorization": "Bearer secret"})
+        data2 = response2.json()
+        assert len(data2) == 2
+        assert data2[0]["action"] == "action3"
+        assert data2[1]["action"] == "action2"
+
 

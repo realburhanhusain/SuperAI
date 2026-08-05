@@ -80,6 +80,14 @@ class ModelCaller:
         """
         from .token_stream import chunk_text, finalize_stream_result, set_stream_meta
 
+        try:
+            from .progress_events import get_progress_bus
+
+            bus = get_progress_bus()
+            bus.emit("stream_start", chars=0)
+        except Exception:
+            bus = None
+
         def _cancelled() -> bool:
             try:
                 from .call_lifecycle import check_cancel
@@ -98,6 +106,11 @@ class ModelCaller:
             n_chunks: int = 0,
         ) -> None:
             text = "".join(parts)
+            if bus:
+                try:
+                    bus.emit("stream_end", chars=len(text))
+                except Exception:
+                    pass
             finalize_stream_result(
                 text,
                 model=model,
@@ -143,6 +156,11 @@ class ModelCaller:
                 chunks += 1
                 chars += len(ch)
                 parts.append(ch)
+                if bus:
+                    try:
+                        bus.emit("token", text=ch[:80], n=len(ch))
+                    except Exception:
+                        pass
                 yield ch
             _finish(parts, mode="mock_chunked", prov=provider, n_chunks=chunks)
             return
@@ -199,6 +217,11 @@ class ModelCaller:
                         chunks += 1
                         chars += len(piece)
                         parts.append(piece)
+                        if bus:
+                            try:
+                                bus.emit("token", text=piece[:80], n=len(piece))
+                            except Exception:
+                                pass
                         yield piece
                 if chunks:
                     _finish(parts, mode="sse", prov="anthropic", n_chunks=chunks)
@@ -253,14 +276,22 @@ class ModelCaller:
                     )
                     return
                 try:
-                    delta = event.choices[0].delta
-                    piece = getattr(delta, "content", None) or ""
-                    if piece:
+                    if getattr(event, "usage", None):
                         streamed_any = True
-                        chunks += 1
-                        chars += len(piece)
-                        parts.append(piece)
-                        yield piece
+                    if getattr(event, "choices", None):
+                        streamed_any = True
+                        delta = event.choices[0].delta
+                        piece = getattr(delta, "content", None) or getattr(delta, "text", None) or ""
+                        if piece:
+                            chunks += 1
+                            chars += len(piece)
+                            parts.append(piece)
+                            if bus:
+                                try:
+                                    bus.emit("token", text=piece[:80], n=len(piece))
+                                except Exception:
+                                    pass
+                            yield piece
                 except Exception:
                     continue
             if streamed_any:
@@ -297,6 +328,11 @@ class ModelCaller:
             chunks += 1
             chars += len(ch)
             parts.append(ch)
+            if bus:
+                try:
+                    bus.emit("token", text=ch[:80], n=len(ch))
+                except Exception:
+                    pass
             yield ch
         _finish(
             parts,

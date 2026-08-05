@@ -16,7 +16,7 @@
 
 ## Product references (keep)
 
-Feature/module docs at top level of `docs/` — e.g. `STREAMING.md`, `ROUTING_PREFS_BANDIT.md`, `LEARNING_LIFECYCLE.md`, `CLI_MIDDLEWARE_INVENTORY.md`, `PUBLIC_CONTRACTS_INVENTORY.md`, memory docs (`COGNIFY`, `RECALL`, `INGEST`, …), security (`THREAT_MODEL`, `SECURITY_REVIEW`, …).
+Feature/module docs at top level of `docs/` — e.g. `WEB_MANAGEMENT_CENTER.md`, `STREAMING.md`, `ROUTING_PREFS_BANDIT.md`, `LEARNING_LIFECYCLE.md`, `CLI_MIDDLEWARE_INVENTORY.md`, `PUBLIC_CONTRACTS_INVENTORY.md`, memory docs (`COGNIFY`, `RECALL`, `INGEST`, …), security (`THREAT_MODEL`, `SECURITY_REVIEW`, …).
 
 ## Archive (closed — do not resume as active work)
 

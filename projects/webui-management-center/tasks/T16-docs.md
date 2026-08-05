@@ -62,11 +62,11 @@ same shape of feature. Note specifically what it does well and reproduce it:
 
 ## Acceptance criteria
 
-- [ ] `docs/WEB_MANAGEMENT_CENTER.md` exists covering all eight sections.
-- [ ] Env var table matches the **actual implemented** names (verify against the code, not against `PLAN.md` — Q1 may have changed them).
-- [ ] Hot-reload claim matches T06/T09's recorded evidence.
-- [ ] Cross-links added in all four places and all resolve.
-- [ ] Every documented command was actually run and produced the documented output.
+- [x] `docs/WEB_MANAGEMENT_CENTER.md` exists covering all eight sections.
+- [x] Env var table matches the **actual implemented** names (verify against the code, not against `PLAN.md` — Q1 may have changed them).
+- [x] Hot-reload claim matches T06/T09's recorded evidence.
+- [x] Cross-links added in all four places and all resolve.
+- [x] Every documented command was actually run and produced the documented output.
 
 ## Verification command
 
@@ -77,4 +77,24 @@ Select-String -Path src\cli\web_app.py,src\cli\main.py -Pattern "SUPERAI_WEB_"
 
 ## Log
 
-_(record the real result before marking `[x]`)_
+```
+src\cli\web_app.py:39:    enable_config_write = os.getenv("SUPERAI_WEB_ENABLE_CONFIG_WRITE") == "1"
+src\cli\web_app.py:40:    management_token = (os.getenv("SUPERAI_WEB_MANAGEMENT_TOKEN") or "").strip()
+src\cli\web_app.py:60:        - SUPERAI_WEB_TOKEN required for non-loopback API access
+src\cli\web_app.py:64:        token = (os.getenv("SUPERAI_WEB_TOKEN") or "").strip()
+src\cli\web_app.py:66:        # Allow loopback without token only when SUPERAI_WEB_TOKEN unset
+src\cli\web_app.py:72:                detail="SUPERAI_WEB_TOKEN required for non-loopback API access",
+src\cli\web_app.py:166:            logging.getLogger("superai.web_app").error("SUPERAI_WEB_ENABLE_CONFIG_WRITE is on but SUPERAI_WEB_MANAGEMENT_TOKEN is unset. Write 
+routes will NOT be enabled.")
+src\cli\web_app.py:946:        Auth: SUPERAI_WEB_TOKEN if set (Bearer / x-superai-token).
+src\cli\web_app.py:1177:const token = sessionStorage.getItem('SUPERAI_WEB_TOKEN') || sessionStorage.getItem('SUPERAI_WEB_MANAGEMENT_TOKEN');
+src\cli\main.py:5301:    if not loopback and not (os.getenv("SUPERAI_WEB_TOKEN") or "").strip():
+src\cli\main.py:5303:            "[red]Refusing to bind non-loopback without SUPERAI_WEB_TOKEN.[/red]\n"
+src\cli\main.py:5304:            "Set SUPERAI_WEB_TOKEN or use --host 127.0.0.1"
+src\cli\main.py:5308:    enable_config_write = os.getenv("SUPERAI_WEB_ENABLE_CONFIG_WRITE") == "1"
+src\cli\main.py:5309:    management_token = (os.getenv("SUPERAI_WEB_MANAGEMENT_TOKEN") or "").strip()
+src\cli\main.py:5312:            "[red]Refusing to bind non-loopback with SUPERAI_WEB_ENABLE_CONFIG_WRITE enabled without SUPERAI_WEB_MANAGEMENT_TOKEN.[/red]\n"
+src\cli\main.py:5313:            "Set SUPERAI_WEB_MANAGEMENT_TOKEN or disable write routes."
+src\cli\main.py:5317:    if (os.getenv("SUPERAI_WEB_TOKEN") or "").strip():
+src\cli\main.py:5318:        console.print("[dim]API auth enabled (SUPERAI_WEB_TOKEN)[/dim]")
+```

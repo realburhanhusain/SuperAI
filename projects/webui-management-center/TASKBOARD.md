@@ -56,7 +56,7 @@ at any wave boundary without leaving the repo in a half-state.
 | [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |
 | [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[ ]` | — |
 | [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[ ]` | — |
-| [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[ ]` | — |
+| [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[x]` | self |
 
 **Total estimate:** ~15.5 hours.
 
@@ -125,5 +125,6 @@ mismatch caused a CI hang in this repo before.
 | 2026-08-05 | self | Completed T03: Exposed /api/goals endpoint and added tests |
 | 2026-08-05 | self | Completed T05: implemented /console page and its UI |
 | 2026-08-05 | self | Completed T12: implemented /api/models GET and POST endpoints with model registry merging |
+| 2026-08-05 | self | Completed T16: created docs/WEB_MANAGEMENT_CENTER.md and added all cross-links |
 
-**Last session:** 2026-08-05 — Completed T12, tests pass.
+**Last session:** 2026-08-05 — Completed T16, T12, etc. Wait for T15.

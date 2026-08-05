@@ -71,6 +71,8 @@ the provider entry is inert.
 
 1. **Run the proxy** (see its README — Docker or a Go binary), then authenticate
    each vendor through its OAuth flow. Default endpoint `http://127.0.0.1:8317/v1`.
+   *(You can also manage your proxy visually using the [Web Management Center](WEB_MANAGEMENT_CENTER.md))*
+
 
 2. **Add the models.** Merge `config/models.cliproxy.example.json` into your
    registry:

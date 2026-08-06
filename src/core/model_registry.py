@@ -60,6 +60,18 @@ class ModelRegistry:
         self.models.clear()
         self._load_builtin_fallback()
         
+        if self.models_path is not None:
+            path = Path(self.models_path)
+            if path.is_file():
+                try:
+                    self._load_from_json(path)
+                    self.source = str(path)
+                    return
+                except (OSError, json.JSONDecodeError, TypeError, KeyError) as e:
+                    logger.warning("Failed to load models.json (%s)", e)
+            self.source = "builtin"
+            return
+
         here = Path(__file__).resolve()
         candidates = [
             Path.cwd() / "config" / "models.json",
@@ -68,9 +80,6 @@ class ModelRegistry:
             Path.home() / ".superai" / "config" / "models.json",  # override
         ]
         
-        if self.models_path:
-            candidates.append(Path(self.models_path))
-            
         loaded_any = False
         # Load from lowest to highest precedence, overwriting
         for path in candidates:
@@ -264,3 +273,130 @@ class ModelRegistry:
             )
             added.append(name)
         return added
+
+    def sync_cliproxy_models(self, discovered_models: List[Any]) -> Dict[str, Any]:
+        """
+        Bidirectional Auto-Sync: import or update models discovered from CLIProxyAPI
+        into ~/.superai/config/models.json and refresh active registry.
+        """
+        from pathlib import Path
+        import json
+
+        user_models_path = Path.home() / ".superai" / "config" / "models.json"
+        user_models_path.parent.mkdir(parents=True, exist_ok=True)
+
+        existing_data: List[Dict[str, Any]] = []
+        if user_models_path.is_file():
+            try:
+                with open(user_models_path, "r", encoding="utf-8") as f:
+                    content = json.load(f)
+                    if isinstance(content, list):
+                        existing_data = content
+            except Exception as e:
+                logger.warning("Could not parse existing user models.json: %s", e)
+
+        existing_by_name = {m.get("name"): m for m in existing_data if isinstance(m, dict) and "name" in m}
+
+        added_count = 0
+        updated_count = 0
+        synced_names: List[str] = []
+
+        for item in discovered_models:
+            if isinstance(item, str):
+                mid = item.strip()
+            elif isinstance(item, dict):
+                mid = str(item.get("id") or item.get("name") or "").strip()
+            else:
+                continue
+
+            if not mid:
+                continue
+
+            name = mid if mid.startswith("cliproxy:") else f"cliproxy:{mid}"
+            synced_names.append(name)
+
+            # Infer capabilities and context window
+            lower_id = mid.lower()
+            context_window = 128000
+            cost_per_1k = 0.01
+            strengths = "general"
+            latency_tier = 2
+
+            if "claude" in lower_id:
+                context_window = 200000
+                cost_per_1k = 0.015
+                strengths = "coding, reasoning, analysis"
+                latency_tier = 2
+            elif "gpt" in lower_id or "o1" in lower_id or "o3" in lower_id or "codex" in lower_id:
+                context_window = 128000
+                cost_per_1k = 0.02
+                strengths = "coding, reasoning, tools"
+                latency_tier = 2
+            elif "gemini" in lower_id:
+                context_window = 1000000
+                cost_per_1k = 0.005
+                strengths = "multimodal, long-context"
+                latency_tier = 1
+            elif "deepseek" in lower_id:
+                context_window = 64000
+                cost_per_1k = 0.002
+                strengths = "coding, math"
+                latency_tier = 2
+            elif "grok" in lower_id or "xai" in lower_id:
+                context_window = 131072
+                cost_per_1k = 0.01
+                strengths = "realtime, reasoning"
+                latency_tier = 2
+            elif "kimi" in lower_id or "moonshot" in lower_id:
+                context_window = 128000
+                cost_per_1k = 0.008
+                strengths = "long-context, Chinese, reasoning"
+                latency_tier = 2
+
+            if name in existing_by_name:
+                row = existing_by_name[name]
+                # Preserve user customizations if present
+                row.setdefault("provider", "cliproxy")
+                row.setdefault("model_id", mid)
+                row.setdefault("context_window", context_window)
+                row.setdefault("cost_per_1k_tokens", cost_per_1k)
+                row.setdefault("strengths", strengths)
+                row.setdefault("supports_tools", True)
+                row.setdefault("latency_tier", latency_tier)
+                updated_count += 1
+            else:
+                new_row = {
+                    "name": name,
+                    "provider": "cliproxy",
+                    "model_id": mid,
+                    "context_window": context_window,
+                    "is_latest": False,
+                    "supports_tools": True,
+                    "strengths": strengths,
+                    "cost_per_1k_tokens": cost_per_1k,
+                    "latency_tier": latency_tier,
+                }
+                existing_data.append(new_row)
+                existing_by_name[name] = new_row
+                added_count += 1
+
+        if added_count > 0 or updated_count > 0:
+            try:
+                from .config import atomic_write_with_backup
+                backups_dir = Path.home() / ".superai" / "backups"
+                atomic_write_with_backup(user_models_path, existing_data, backups_dir)
+            except Exception as e:
+                # Direct fallback write
+                with open(user_models_path, "w", encoding="utf-8") as f:
+                    json.dump(existing_data, f, indent=2)
+
+            self.refresh()
+
+        return {
+            "ok": True,
+            "added": added_count,
+            "updated": updated_count,
+            "synced_models": synced_names,
+            "total_registered": len(self.models),
+        }
+

@@ -1299,6 +1299,7 @@ setInterval(load, 2000);
 </body></html>"""
 
     @app.get("/console", response_class=HTMLResponse)
+    @app.get("/management.html", response_class=HTMLResponse)
     def console_page() -> str:
         return """<!doctype html>
 <html lang="en">

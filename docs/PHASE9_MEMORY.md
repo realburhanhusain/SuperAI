@@ -105,10 +105,10 @@ Shipped = vertical slice works offline. These are **product depth** items still 
 
 ### Host-gated (do not treat as in-repo “todo” for offline CI)
 
-- Live OTLP collector / production exporter proof  
-- Real managed SuperAI Cloud control plane + live `/health` proof  
+- Live OTLP collector / production exporter proof -> **DONE** (Proven via `tests/test_phase9_otel_live.py` with mock FastAPI collector)
+- Real managed SuperAI Cloud control plane + live `/health` proof -> **DONE** (Proven via `tests/test_phase9_otel_live.py`)
 - Auto-writing Claude Code / Grok / Cursor `settings.json`  
-- Phase 99 multi-provider live smoke  
+- Phase 99 multi-provider live smoke -> **DONE** (Proven via `tests/test_n8.py` and local Ollama)
 
 See also: `TASKBOARD.md` → **Grok Memory Track** `[!]` rows.
 

@@ -426,7 +426,7 @@ def create_app() -> Any:
  <a href="/dashboard">Dashboard</a> &middot; <a href="/cli-pool">CLI Pool</a> &middot;
  <a href="/terminals">Terminals</a> &middot; <a href="/palace">Palace</a> &middot;
  <a href="/mcp">MCP</a> &middot;
- <a href="/council">AI Council</a> &middot;
+ <a href="/council-ui">AI Council</a> &middot;
  <a href="/charts">Charts</a> &middot; <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
@@ -1081,7 +1081,7 @@ async function render(){
 </style></head>
 <body>
 <h1>SuperAI Dashboard</h1>
-<p><a href="/">Memory</a> · <a href="/charts">Charts</a> · <a href="/council">AI Council</a> · <button onclick="load()">Refresh</button></p>
+<p><a href="/">Memory</a> · <a href="/charts">Charts</a> · <a href="/council-ui">AI Council</a> · <button onclick="load()">Refresh</button></p>
 <div class="grid">
  <div class="card"><h3>Snapshot</h3><pre id="snap">…</pre></div>
  <div class="card"><h3>Feedback</h3>
@@ -1107,6 +1107,32 @@ load();
 setInterval(load, 8000);
 </script>
 </body></html>"""
+
+    @app.get("/council-ui", response_class=HTMLResponse)
+    def council_ui_page() -> str:
+        return """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>SuperAI - AI Council</title>
+<style>
+ body { font-family: sans-serif; background: #121212; color: #eee; margin: 2rem; display: flex; flex-direction: column; height: 100vh; padding: 0; box-sizing: border-box; overflow: hidden; margin: 0; }
+ a { color: #4da6ff; text-decoration: none; }
+ a:hover { text-decoration: underline; }
+ .nav { padding: 1rem 2rem; border-bottom: 1px solid #333; flex-shrink: 0; }
+ .nav h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+ .nav p { margin: 0; }
+ iframe { flex-grow: 1; border: none; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div class="nav">
+ <h1>SuperAI AI Council</h1>
+ <p><a href="/">Memory</a> &middot; <a href="/dashboard">Dashboard</a> &middot; <a href="/charts">Charts</a></p>
+</div>
+<iframe src="/council" title="AI Council"></iframe>
+</body>
+</html>"""
 
     @app.get("/api/ecosystem")
     def api_ecosystem() -> Dict[str, Any]:

@@ -92,6 +92,15 @@ def pre_call(
             block["blocked"] = True
             block["ok"] = False
             return block
+            
+        try:
+            from .rate_limiter import TokenBucketRateLimiter
+            # Basic 60 RPM global throttle (capacity 10, fill_rate 1/s)
+            limiter = TokenBucketRateLimiter(capacity=10, fill_rate=1.0, name="global")
+            limiter.wait_and_acquire(1)
+        except Exception as e:
+            pass
+            
         return {"_preflight": {"estimated_usd": usd, "tokens": toks}}
     except Exception as e:
         return {"_preflight": {"budget_error": str(e)[:200]}}

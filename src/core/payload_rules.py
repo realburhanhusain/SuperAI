@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 from typing import Callable, Dict, Any, List, Optional
 
@@ -67,17 +68,69 @@ class PersistentPayloadRules:
                 
         return payload
 
+class PrivacyFilterInterceptor:
+    def __call__(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        payload = payload.copy()
+        
+        api_key_pattern = r"sk-[a-zA-Z0-9]{32,}"
+        email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+        
+        for key in ["prompt", "system_prompt"]:
+            if key in payload and isinstance(payload[key], str):
+                text = payload[key]
+                text = re.sub(api_key_pattern, "[REDACTED_API_KEY]", text)
+                text = re.sub(email_pattern, "[REDACTED_EMAIL]", text)
+                payload[key] = text
+        return payload
+
+class AntigravityCodingFilterInterceptor:
+    def __call__(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        payload = payload.copy()
+        
+        patterns = [
+            ("<identity>You are Antigravity</identity>", "You are a helpful coding assistant"),
+            ("You are Antigravity", "You are a helpful coding assistant")
+        ]
+        
+        for key in ["prompt", "system_prompt"]:
+            if key in payload and isinstance(payload[key], str):
+                text = payload[key]
+                for pattern, replacement in patterns:
+                    text = text.replace(pattern, replacement)
+                payload[key] = text
+        return payload
+
+class SessionArchiveInterceptor:
+    def __init__(self, log_dir: str):
+        self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.log_file = self.log_dir / "session_archive.jsonl"
+        
+    def __call__(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload) + "\n")
+        except Exception:
+            pass
+        return payload
+
 class InterceptorChain:
     """
     A middleware/interceptor chain pattern that can intercept LLM requests 
     to modify the payload (e.g., inject system prompts or filter keywords)
     before the request is sent.
     """
-    def __init__(self, use_persistent_rules: bool = True):
+    def __init__(self, use_persistent_rules: bool = True, use_privacy_filter: bool = False, use_antigravity_filter: bool = False, archive_dir: Optional[str] = None):
         self.interceptors: List[Callable[[Dict[str, Any]], Dict[str, Any]]] = []
         if use_persistent_rules:
             self.persistent_rules = PersistentPayloadRules()
             self.add_interceptor(self.persistent_rules.apply)
+        if use_privacy_filter:
+            self.add_interceptor(PrivacyFilterInterceptor())
+        if use_antigravity_filter:
+            self.add_interceptor(AntigravityCodingFilterInterceptor())
+        if archive_dir:
+            self.add_interceptor(SessionArchiveInterceptor(archive_dir))
 
     def add_interceptor(self, interceptor: Callable[[Dict[str, Any]], Dict[str, Any]]):
         """Adds an interceptor to the chain."""

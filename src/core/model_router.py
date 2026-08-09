@@ -405,3 +405,24 @@ class ModelRouter:
             if other.model_id == model.model_id and other.provider not in providers:
                 providers.append(other.provider)
         return providers
+
+
+class AliasRouter:
+    """
+    Alias engine where agents can request generic identifiers like 'router:fast'
+    and it maps dynamically to actual model strings via a config mapping.
+    """
+    def __init__(self, mapping: Optional[Dict[str, str]] = None):
+        self._mapping = mapping or {}
+
+    def add_alias(self, alias: str, model_name: str) -> None:
+        """Add or update an alias mapping."""
+        self._mapping[alias] = model_name
+
+    def resolve(self, identifier: str) -> str:
+        """
+        Resolve an identifier to an actual model string.
+        If the identifier is not in the mapping, it returns the identifier itself.
+        """
+        return self._mapping.get(identifier, identifier)
+

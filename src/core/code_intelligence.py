@@ -152,8 +152,9 @@ def build_code_graph(root: Optional[Path] = None, *, max_files: int = 2000) -> D
 
 def _index_path(base: Path, cache_dir: Optional[Path]) -> Path:
     directory = Path(cache_dir or (Path.home() / ".superai" / "code-intelligence"))
-    digest = hashlib.sha256(str(base).encode("utf-8")).hexdigest()[:20]
+    digest = hashlib.sha256(str(Path(base).resolve()).encode("utf-8")).hexdigest()[:20]
     return directory / f"{digest}.json"
+
 
 
 def _load_index(path: Path, base: Path, max_files: int) -> Optional[Dict[str, Any]]:

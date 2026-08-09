@@ -19,9 +19,101 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 # M001 — spend path registry (exhaustive known entrypoints)
 # ---------------------------------------------------------------------------
 
-# Deprecated: Replaced by dynamic surface_inventory (Phase 0 enumerator).
-# Kept only for legacy references; new audits use surface_inventory.
-SPEND_PATHS: List[Dict[str, str]] = []
+# Each row: id, module path, budget mechanism, notes
+SPEND_PATHS: List[Dict[str, str]] = [
+    {
+        "id": "model_caller.call",
+        "module": "core.model_caller.ModelCaller.call",
+        "budget": "call_lifecycle.pre_call → spend_guard.budget_precheck",
+        "notes": "Universal model spend; skip_budget only for mock/explicit",
+    },
+    {
+        "id": "model_caller.call_stream",
+        "module": "core.model_caller.ModelCaller.call_stream",
+        "budget": "call_lifecycle.pre_call (same as call)",
+        "notes": "Streaming spend path",
+    },
+    {
+        "id": "council.run",
+        "module": "core.council",
+        "budget": "budget_precheck before members + ModelCaller",
+        "notes": "Board-level ceiling then per-call",
+    },
+    {
+        "id": "multi_cli_advisory",
+        "module": "core.multi_cli_advisory",
+        "budget": "ModelCaller / board preflight",
+        "notes": "CLI board opinions",
+    },
+    {
+        "id": "orchestrator",
+        "module": "core.orchestrator",
+        "budget": "ModelCaller + BudgetGuard",
+        "notes": "Agent run path",
+    },
+    {
+        "id": "board_preflight",
+        "module": "core.board_preflight",
+        "budget": "budget_precheck on estimate_board",
+        "notes": "Pre-run board cost gate",
+    },
+    {
+        "id": "mcp_superai_run",
+        "module": "core.mcp_server",
+        "budget": "budget_precheck on spend tools",
+        "notes": "MCP parity with CLI",
+    },
+    {
+        "id": "mcp_safety",
+        "module": "core.mcp_safety",
+        "budget": "budget_precheck",
+        "notes": "MCP safety matrix",
+    },
+    {
+        "id": "web_api_run",
+        "module": "scli.web_app",
+        "budget": "budget_precheck + ensure_public_result",
+        "notes": "HTTP /api/superai/run",
+    },
+    {
+        "id": "public_surface.budget_gate",
+        "module": "core.public_surface.budget_gate",
+        "budget": "budget_precheck",
+        "notes": "CLI helper for non-ModelCaller estimates",
+    },
+    {
+        "id": "live_smoke",
+        "module": "core.live_smoke_complete",
+        "budget": "budget_precheck",
+        "notes": "Live smoke harness",
+    },
+    {
+        "id": "bakeoff_compare",
+        "module": "core.model_bakeoff",
+        "also": "core.model_compare",
+        "budget": "ModelCaller + spend_guard on public paths",
+        "notes": "Eval spend",
+    },
+    {
+        "id": "nl_ask_run",
+        "module": "core.nl_intent",
+        "also": "core.nl_preview",
+        "budget": "ask_superai → ModelCaller / orchestrator",
+        "notes": "NL front door",
+    },
+    {
+        "id": "assistant_goals_execute",
+        "module": "core.assistant_goals",
+        "budget": "ask_superai + execute caps (no yolo)",
+        "notes": "Goals execution opt-in",
+    },
+    {
+        "id": "pr_review",
+        "module": "core.pr_review",
+        "budget": "Council / multi-CLI → ModelCaller",
+        "notes": "Diff review spend",
+    },
+]
 
 # TUI slash handlers that must return contract envelopes (M008)
 TUI_SLASH_HANDLERS: List[str] = [

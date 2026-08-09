@@ -397,9 +397,14 @@ class ModelCaller:
         Anthropic Messages API streaming (SSE). Requires ANTHROPIC_API_KEY.
         Yields text deltas only.
         """
-        import os
-
-        api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+        try:
+            from .key_pool import KeyPool
+            api_key = KeyPool().get_key("ANTHROPIC_API_KEY", fallback_env="ANTHROPIC_API_KEY")
+            if not api_key:
+                api_key = KeyPool().get_key("CLAUDE_API_KEY", fallback_env="CLAUDE_API_KEY")
+        except Exception:
+            api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+            
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
         try:
@@ -711,6 +716,29 @@ class ModelCaller:
             except Exception as e:
                 latency = time.time() - start
                 self.health_store.record_failure(prov, error=str(e), latency=latency)
+                
+                # Check for 429 Too Many Requests to rotate key
+                err_str = str(e).lower()
+                if "429" in err_str or "too many requests" in err_str or "rate limit" in err_str:
+                    try:
+                        from .key_pool import KeyPool
+                        # Resolve the env name for this provider/model to rotate it
+                        info = self.registry.get_model(model) if self.registry else None
+                        env_name = None
+                        if info and info.api_key_env:
+                            env_name = info.api_key_env
+                        if not env_name:
+                            from .provider_catalog import get_openai_compat_config
+                            cat = get_openai_compat_config(prov)
+                            if cat:
+                                env_name = cat.get("env")
+                        if not env_name and "anthropic" in prov.lower():
+                            env_name = "ANTHROPIC_API_KEY"
+                        
+                        if env_name:
+                            KeyPool().rotate(env_name)
+                    except Exception:
+                        pass
                 raise
 
         if self.use_mock:
@@ -718,7 +746,7 @@ class ModelCaller:
 
         try:
             return self.load_balancer.execute_with_fallback(
-                candidates, model, _invoke, max_retries_per_provider=1
+                candidates, model, _invoke, max_retries_per_provider=3
             )
         except Exception as e:  # noqa: BLE001
             logger.error(
@@ -1064,7 +1092,14 @@ class ModelCaller:
                 "Register with: superai models-register --name … --base-url …"
             )
 
-        api_key = (os.getenv(env_name) or "").strip() if env_name else ""
+        api_key = ""
+        if env_name:
+            try:
+                from .key_pool import KeyPool
+                api_key = KeyPool().get_key(env_name, fallback_env=env_name) or ""
+            except Exception:
+                api_key = (os.getenv(env_name) or "").strip()
+        
         if not api_key:
             if allow_empty or provider in {
                 "lmstudio",
@@ -1139,7 +1174,12 @@ class ModelCaller:
         except ImportError:
             raise RuntimeError("pip install anthropic") from None
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        try:
+            from .key_pool import KeyPool
+            api_key = KeyPool().get_key("ANTHROPIC_API_KEY", fallback_env="ANTHROPIC_API_KEY")
+        except Exception:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            
         if not api_key:
             raise RuntimeError("No ANTHROPIC_API_KEY")
 
@@ -1170,7 +1210,12 @@ class ModelCaller:
         except ImportError:
             raise RuntimeError("pip install google-generativeai") from None
 
-        api_key = os.getenv("GOOGLE_API_KEY")
+        try:
+            from .key_pool import KeyPool
+            api_key = KeyPool().get_key("GOOGLE_API_KEY", fallback_env="GOOGLE_API_KEY")
+        except Exception:
+            api_key = os.getenv("GOOGLE_API_KEY")
+            
         if not api_key:
             raise RuntimeError("No GOOGLE_API_KEY")
 

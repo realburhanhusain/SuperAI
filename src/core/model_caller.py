@@ -123,6 +123,15 @@ class ModelCaller:
                 prompt=prompt,
             )
 
+        if not model:
+            raise ValueError("ModelCaller requires a model name")
+            
+        try:
+            from .model_router import AliasRouter
+            model = AliasRouter().resolve(model)
+        except Exception:
+            pass
+
         info = self.registry.get_model(model) if self.registry else None
         provider = (
             (info.provider if info else None)
@@ -427,6 +436,12 @@ class ModelCaller:
     ) -> Dict[str, Any]:
         if not model:
             raise ValueError("ModelCaller.call requires a model name")
+
+        try:
+            from .model_router import AliasRouter
+            model = AliasRouter().resolve(model)
+        except Exception:
+            pass
 
         started = time.time()
         skip_budget = bool(kwargs.pop("skip_budget", False))

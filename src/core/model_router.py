@@ -412,17 +412,53 @@ class AliasRouter:
     Alias engine where agents can request generic identifiers like 'router:fast'
     and it maps dynamically to actual model strings via a config mapping.
     """
-    def __init__(self, mapping: Optional[Dict[str, str]] = None):
-        self._mapping = mapping or {}
+    def __init__(self, storage_path: Optional[str] = None):
+        import json
+        from pathlib import Path
+        
+        if storage_path:
+            self.path = Path(storage_path)
+        else:
+            self.path = Path.home() / ".superai" / "config" / "aliases.json"
+            
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._mapping = {}
+        self._load()
+        
+    def _load(self):
+        import json
+        if self.path.exists():
+            try:
+                with open(self.path, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content:
+                        self._mapping = json.loads(content)
+            except Exception:
+                pass
+                
+    def _save(self):
+        import json
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(self._mapping, f, indent=2)
 
     def add_alias(self, alias: str, model_name: str) -> None:
         """Add or update an alias mapping."""
+        self._load()
         self._mapping[alias] = model_name
+        self._save()
+        
+    def remove_alias(self, alias: str) -> None:
+        """Remove an alias mapping."""
+        self._load()
+        if alias in self._mapping:
+            del self._mapping[alias]
+            self._save()
 
     def resolve(self, identifier: str) -> str:
         """
         Resolve an identifier to an actual model string.
         If the identifier is not in the mapping, it returns the identifier itself.
         """
+        self._load()
         return self._mapping.get(identifier, identifier)
 

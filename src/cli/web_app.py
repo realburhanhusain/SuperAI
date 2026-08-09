@@ -423,10 +423,11 @@ def create_app() -> Any:
 <body>
 <h1>SuperAI Memory Query</h1>
 <p>Shared surface for terminal + web (Mempalace-inspired).
- <a href="/dashboard">Dashboard</a> · <a href="/cli-pool">CLI Pool</a> ·
- <a href="/terminals">Terminals</a> · <a href="/palace">Palace</a> ·
- <a href="/mcp">MCP</a> ·
- <a href="/charts">Charts</a> · <a href="/pwa/">PWA</a></p>
+ <a href="/dashboard">Dashboard</a> &middot; <a href="/cli-pool">CLI Pool</a> &middot;
+ <a href="/terminals">Terminals</a> &middot; <a href="/palace">Palace</a> &middot;
+ <a href="/mcp">MCP</a> &middot;
+ <a href="/council">AI Council</a> &middot;
+ <a href="/charts">Charts</a> &middot; <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
 <button onclick="go()">Search</button>
@@ -1080,8 +1081,7 @@ async function render(){
 </style></head>
 <body>
 <h1>SuperAI Dashboard</h1>
-<p><a href="/">Memory</a> · <a href="/charts">Charts</a> ·
-<button onclick="load()">Refresh</button></p>
+<p><a href="/">Memory</a> · <a href="/charts">Charts</a> · <a href="/council">AI Council</a> · <button onclick="load()">Refresh</button></p>
 <div class="grid">
  <div class="card"><h3>Snapshot</h3><pre id="snap">…</pre></div>
  <div class="card"><h3>Feedback</h3>

@@ -5320,6 +5320,27 @@ def web(
     uvicorn.run(create_app(), host=host, port=port, log_level="info")
 
 
+@app.command()
+def desktop():
+    """Launch the EasyCLIProxyAPI Desktop GUI"""
+    import subprocess
+    import os
+    
+    project_dir = Path(__file__).parent.parent.parent / "projects" / "easy-cli-proxy-api"
+    if not project_dir.exists():
+        console.print("[red]EasyCLIProxyAPI vendored project not found.[/red]")
+        raise typer.Exit(code=1)
+        
+    console.print(f"[green]Starting EasyCLIProxyAPI Desktop from {project_dir}[/green]")
+    console.print("Running npm install (if needed) and launching dev server...")
+    
+    try:
+        subprocess.run("npm install && npm run tauri dev", cwd=str(project_dir), shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]Failed to launch desktop app: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
 @app.command("delegate")
 def delegate(
     goal: str = typer.Argument(..., help="High-level goal to decompose and run"),

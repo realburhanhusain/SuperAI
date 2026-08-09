@@ -1,0 +1,24384 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod claude_catalog;
+mod codex_catalog;
+mod codex_sessions;
+mod usage;
+
+use flate2::read::GzDecoder;
+use futures_util::StreamExt;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+#[cfg(target_os = "macos")]
+use objc2::MainThreadMarker;
+#[cfg(target_os = "macos")]
+use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSEvent};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+#[cfg(target_os = "windows")]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(target_os = "macos")]
+use std::sync::Arc;
+use std::{
+    collections::HashSet,
+    env, fs,
+    fs::File,
+    io::{self, Read, Seek, SeekFrom, Write},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket},
+    path::{Component, Path, PathBuf},
+    process::{Child, Command, Stdio},
+    sync::{LazyLock, Mutex},
+    thread,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+use tar::Archive;
+#[cfg(target_os = "windows")]
+use tauri::menu::PredefinedMenuItem;
+#[cfg(target_os = "macos")]
+use tauri::tray::{MouseButtonState, TrayIcon};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
+};
+use tauri::{Emitter, LogicalSize, Manager};
+use tauri_plugin_opener::OpenerExt;
+use tokio_util::sync::CancellationToken;
+use zip::ZipArchive;
+
+const RELEASE_PAGE_URL: &str = "https://github.com/router-for-me/CLIProxyAPI/releases/latest";
+const RELEASE_ATOM_URL: &str = "https://github.com/router-for-me/CLIProxyAPI/releases.atom";
+const RELEASE_DOWNLOAD_PREFIX: &str =
+    "https://github.com/router-for-me/CLIProxyAPI/releases/download/";
+const APP_UPDATE_MANIFEST_URL: &str = "https://github.com/router-for-me/EasyCLIProxyAPI/releases/latest/download/portable-update-windows.json";
+const APP_RELEASE_DOWNLOAD_PREFIX: &str =
+    "https://github.com/router-for-me/EasyCLIProxyAPI/releases/download/";
+const APP_UPDATE_MANIFEST_NAME: &str = "portable-update-windows.json";
+const CODEX_MODEL_CATALOG_URL: &str = "https://raw.githubusercontent.com/router-for-me/EasyCLIProxyAPI/main/src-tauri/resources/codex_models/model-catalog.json";
+const CODEX_MODEL_CATALOG_OVERRIDE_DIR: &str = "codex_models";
+const CODEX_MODEL_CATALOG_SOURCE_FILE: &str = "model-catalog.json";
+const MAX_CODEX_MODEL_CATALOG_BYTES: usize = 4 * 1024 * 1024;
+const APP_UPDATE_PROGRESS_EVENT: &str = "app-update-progress";
+const PORTABLE_APP_MANIFEST_FILE: &str = "portable-app.json";
+#[cfg(windows)]
+const PORTABLE_APP_BINARY: &str = "EasyCLIProxyAPI.exe";
+const CORE_INSTALL_PROGRESS_EVENT: &str = "core-install-progress";
+const CORE_STATUS_EVENT: &str = "core-status-changed";
+const CONFIG_FILES_CHANGED_EVENT: &str = "config-files-changed";
+#[cfg(target_os = "windows")]
+const WINDOWS_CLOSE_REQUEST_EVENT: &str = "windows-close-requested";
+const CORE_METADATA_FILE: &str = "cpa-gui-meta.json";
+const CORE_CONFIG_FILE: &str = "config.yaml";
+const CORE_EXAMPLE_CONFIG_FILE: &str = "config.example.yaml";
+const CORE_VERSION_FILE: &str = "core-version.txt";
+const CORE_CHECKSUMS_FILE: &str = "checksums.txt";
+const GUI_CONFIG_FILE: &str = "config.toml";
+const LEGACY_GUI_CONFIG_FILE: &str = "cpa-gui.yaml";
+const MIN_MAIN_WINDOW_WIDTH: u32 = 640;
+const MIN_MAIN_WINDOW_HEIGHT: u32 = 600;
+const MAX_SAVED_WINDOW_DIMENSION: u32 = 16_384;
+const DEFAULT_MAIN_WINDOW_WIDTH: u32 = 1531;
+const DEFAULT_MAIN_WINDOW_HEIGHT: u32 = 891;
+const OAUTH_DIR_NAME: &str = "oauth";
+const DEFAULT_AUTH_DIR: &str = "../oauth";
+const DEFAULT_API_KEY: &str = "123456";
+const DEFAULT_API_KEY_INITIAL_REMARK: &str = "默认密钥";
+const LEGACY_DEFAULT_MANAGEMENT_SECRET_KEY: &str = "123456";
+const MANAGED_AGENT_PROVIDER_ID: &str = "cpa-gui";
+const PI_AGENT_ID: &str = "pi";
+const PI_AGENT_NAME: &str = "Pi";
+const PI_CLIPROXYAPI_PACKAGE: &str = "npm:@router-for-me/pi-cliproxyapi-provider";
+const PI_CLIPROXYAPI_NPM_LATEST_URL: &str =
+    "https://registry.npmjs.org/@router-for-me%2Fpi-cliproxyapi-provider/latest";
+const PI_CLIPROXYAPI_PROVIDER_ID: &str = "cliproxyapi";
+const PI_AGENT_CONFIG_FILE: &str = "cliproxyapi.json";
+const PI_AGENT_SETTINGS_FILE: &str = "settings.json";
+const CODEX_MODEL_CATALOG_FILE: &str = "cpa-gui-model-catalog.json";
+const CODEX_OAUTH_LOGIN_REQUIRED_ERROR: &str = "CODEX_OAUTH_LOGIN_REQUIRED";
+const CLAUDE_DESKTOP_PROFILE_ID: &str = "00000000-0000-4000-8000-000000831700";
+const CLAUDE_DESKTOP_OPUS_MODEL_ID: &str = "claude-opus-5";
+const CLAUDE_DESKTOP_SONNET_MODEL_ID: &str = "claude-sonnet-4-6";
+const CLAUDE_DESKTOP_HAIKU_MODEL_ID: &str = "claude-haiku-4-5";
+const MANAGED_CLAUDE_OPUS_ALIAS_DISPLAY_NAME: &str = "EasyCLIProxyAPI managed Claude Opus mapping";
+const MANAGED_CLAUDE_SONNET_ALIAS_DISPLAY_NAME: &str =
+    "EasyCLIProxyAPI managed Claude Sonnet mapping";
+const MANAGED_CLAUDE_HAIKU_ALIAS_DISPLAY_NAME: &str =
+    "EasyCLIProxyAPI managed Claude Haiku mapping";
+const DEFAULT_CLAUDE_CONTEXT_WINDOW: u64 = 200_000;
+const CLAUDE_DESKTOP_EXTENDED_CONTEXT_WINDOW: u64 = 1_000_000;
+const CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV: &str = "CLAUDE_CODE_MAX_CONTEXT_TOKENS";
+const MODEL_ALIAS_CONFIG_SECTIONS: &[&str] = &[
+    "codex-api-key",
+    "openai-compatibility",
+    "claude-api-key",
+    "gemini-api-key",
+];
+const LEGACY_AGENT_MODIFICATION_STATE_VERSION: u8 = 1;
+const AGENT_MODIFICATION_STATE_VERSION: u8 = 2;
+const AGENT_APPLIED_STATE_VERSION: u8 = 4;
+const AGENT_PHASE_APPLYING: &str = "applying";
+const AGENT_PHASE_ACTIVE: &str = "active";
+const AGENT_PHASE_RESTORING: &str = "restoring";
+const AGENT_PHASE_RECOVERY: &str = "recovery";
+#[cfg(test)]
+const AGENT_MODIFICATION_STATE_CONFLICT: &str = "conflict";
+const USER_AGENT: &str = concat!(
+    "CPA-GUI/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/router-for-me/CLIProxyAPI)"
+);
+const APP_USER_AGENT: &str = concat!(
+    "EasyCLIProxyAPI/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/router-for-me/EasyCLIProxyAPI)"
+);
+static CORE_CONFIG_FILE_LOCK: Mutex<()> = Mutex::new(());
+static AGENT_CONFIG_FILE_LOCK: Mutex<()> = Mutex::new(());
+static CODEX_APPLIED_STATES: LazyLock<
+    Mutex<std::collections::HashMap<PathBuf, AgentAppliedState>>,
+> = LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
+static CONFIG_WRITE_HASHES: LazyLock<Mutex<std::collections::HashMap<PathBuf, String>>> =
+    LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
+
+fn normalize_app_locale(locale: &str) -> &'static str {
+    let normalized = locale.trim().to_ascii_lowercase();
+    if normalized.starts_with("en") {
+        "en"
+    } else if normalized.starts_with("ja") {
+        "ja"
+    } else if normalized == "zh-tw"
+        || normalized == "zh-hk"
+        || normalized == "zh-mo"
+        || normalized.starts_with("zh-hant")
+    {
+        "zh-TW"
+    } else {
+        "zh-CN"
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn locale_text<'a>(locale: &str, zh_cn: &'a str, en: &'a str) -> &'a str {
+    match normalize_app_locale(locale) {
+        "en" => en,
+        "zh-TW" => match zh_cn {
+            "打开主界面" => "開啟主介面",
+            "退出" => "退出",
+            "内核状态：处理中" => "核心狀態：處理中",
+            "内核状态：未安装" => "核心狀態：未安裝",
+            "内核状态：运行中" => "核心狀態：執行中",
+            "内核状态：已停止" => "核心狀態：已停止",
+            "处理中..." => "處理中...",
+            "停止内核" => "停止核心",
+            "启动内核" => "啟動核心",
+            "重启内核" => "重新啟動核心",
+            "EasyCLIProxyAPI · 内核处理中" => "EasyCLIProxyAPI · 核心處理中",
+            "EasyCLIProxyAPI · 内核未安装" => "EasyCLIProxyAPI · 核心未安裝",
+            "EasyCLIProxyAPI · 内核运行中" => "EasyCLIProxyAPI · 核心執行中",
+            "EasyCLIProxyAPI · 内核已停止" => "EasyCLIProxyAPI · 核心已停止",
+            "EasyCLIProxyAPI · 内核操作失败" => "EasyCLIProxyAPI · 核心操作失敗",
+            "内核状态：正在检查" => "核心狀態：正在檢查",
+            _ => zh_cn,
+        },
+        "ja" => match zh_cn {
+            "打开主界面" => "メイン画面を開く",
+            "退出" => "終了",
+            "内核状态：处理中" => "コア状態：処理中",
+            "内核状态：未安装" => "コア状態：未インストール",
+            "内核状态：运行中" => "コア状態：実行中",
+            "内核状态：已停止" => "コア状態：停止済み",
+            "处理中..." => "処理中...",
+            "停止内核" => "コアを停止",
+            "启动内核" => "コアを起動",
+            "重启内核" => "コアを再起動",
+            "EasyCLIProxyAPI · 内核处理中" => "EasyCLIProxyAPI · コア処理中",
+            "EasyCLIProxyAPI · 内核未安装" => "EasyCLIProxyAPI · コア未インストール",
+            "EasyCLIProxyAPI · 内核运行中" => "EasyCLIProxyAPI · コア実行中",
+            "EasyCLIProxyAPI · 内核已停止" => "EasyCLIProxyAPI · コア停止済み",
+            "EasyCLIProxyAPI · 内核操作失败" => "EasyCLIProxyAPI · コア操作失敗",
+            "内核状态：正在检查" => "コア状態：確認中",
+            _ => zh_cn,
+        },
+        _ => zh_cn,
+    }
+}
+
+#[derive(Default)]
+struct CoreDownloadState {
+    inner: Mutex<CoreDownloadInner>,
+}
+
+#[derive(Default)]
+struct CoreDownloadInner {
+    running: bool,
+    token: Option<CancellationToken>,
+    task: CoreInstallTask,
+}
+
+#[derive(Default)]
+struct AppUpdateState {
+    inner: Mutex<AppUpdateInner>,
+}
+
+#[derive(Default)]
+struct AppUpdateInner {
+    task: AppUpdateTask,
+    token: Option<CancellationToken>,
+    pending: Option<PendingAppUpdate>,
+}
+
+#[derive(Default)]
+struct CoreProcessState {
+    child: Mutex<Option<Child>>,
+    #[cfg(windows)]
+    job: Mutex<Option<isize>>,
+}
+
+struct GuiConfigState {
+    inner: Mutex<GuiConfigFile>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SavedWindowSize {
+    width: u32,
+    height: u32,
+}
+
+struct MainWindowSizeState {
+    inner: Mutex<Option<SavedWindowSize>>,
+}
+
+#[derive(Default)]
+struct AgentConfigStatusCache {
+    refresh_lock: Mutex<()>,
+    entry: Mutex<Option<AgentConfigStatusCacheEntry>>,
+}
+
+struct AgentConfigStatusCacheEntry {
+    port: u16,
+    api_key_sha256: String,
+    statuses: Vec<AgentConfigStatus>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConfigFilesChangedPayload {
+    paths: Vec<String>,
+    errors: Vec<String>,
+}
+
+impl AgentConfigStatusCache {
+    fn get(&self, port: u16, api_key: &str) -> Result<Option<Vec<AgentConfigStatus>>, String> {
+        let api_key_sha256 = sha256_bytes(api_key.as_bytes());
+        self.entry
+            .lock()
+            .map(|entry| {
+                entry
+                    .as_ref()
+                    .filter(|entry| entry.port == port && entry.api_key_sha256 == api_key_sha256)
+                    .map(|entry| entry.statuses.clone())
+            })
+            .map_err(|_| "智能体配置状态缓存锁已损坏".to_string())
+    }
+
+    fn replace(
+        &self,
+        port: u16,
+        api_key: &str,
+        statuses: Vec<AgentConfigStatus>,
+    ) -> Result<(), String> {
+        let mut current = self
+            .entry
+            .lock()
+            .map_err(|_| "智能体配置状态缓存锁已损坏".to_string())?;
+        *current = Some(AgentConfigStatusCacheEntry {
+            port,
+            api_key_sha256: sha256_bytes(api_key.as_bytes()),
+            statuses,
+        });
+        Ok(())
+    }
+
+    fn clear(&self) -> Result<(), String> {
+        let mut current = self
+            .entry
+            .lock()
+            .map_err(|_| "智能体配置状态缓存锁已损坏".to_string())?;
+        *current = None;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CorePlatform {
+    os: String,
+    arch: String,
+    asset_os: String,
+    asset_arch: String,
+    archive_kind: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreStatus {
+    installed: bool,
+    running: bool,
+    managed: bool,
+    process_id: Option<u32>,
+    current_version: Option<String>,
+    install_dir: String,
+    binary_path: Option<String>,
+    message: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreLatest {
+    version: String,
+    asset_name: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppUpdateInfo {
+    current_version: String,
+    latest_version: String,
+    update_available: bool,
+    release_url: String,
+    auto_update_supported: bool,
+    download_size_bytes: Option<u64>,
+    unsupported_reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PortableUpdateManifest {
+    schema_version: u32,
+    version: String,
+    published_at: String,
+    release_url: String,
+    assets: std::collections::HashMap<String, PortableUpdateAsset>,
+    #[serde(default)]
+    full_assets: Option<std::collections::HashMap<String, PortableUpdateAsset>>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PortableUpdateAsset {
+    url: String,
+    #[serde(default)]
+    fallback_urls: Vec<String>,
+    sha256: String,
+    size_bytes: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitcodeRelease {
+    tag_name: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PortableAppManifest {
+    schema_version: u32,
+    application: String,
+    version: String,
+    platform: String,
+    arch: String,
+    #[serde(default)]
+    auto_update: bool,
+}
+
+#[derive(Clone)]
+struct PendingAppUpdate {
+    version: String,
+    asset: PortableUpdateAsset,
+    #[cfg_attr(not(windows), allow(dead_code))]
+    arch: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppUpdateTask {
+    running: bool,
+    cancellable: bool,
+    phase: String,
+    target_version: Option<String>,
+    downloaded_bytes: u64,
+    total_bytes: Option<u64>,
+    percent: Option<f64>,
+    message: Option<String>,
+}
+
+impl Default for AppUpdateTask {
+    fn default() -> Self {
+        Self {
+            running: false,
+            cancellable: false,
+            phase: "idle".to_string(),
+            target_version: None,
+            downloaded_bytes: 0,
+            total_bytes: None,
+            percent: None,
+            message: None,
+        }
+    }
+}
+
+#[cfg(windows)]
+struct PortablePackagePayload {
+    manifest: PortableAppManifest,
+    core_archive_name: Option<String>,
+}
+
+#[cfg(windows)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PortableUpdateDescriptor {
+    parent_pid: u32,
+    current_exe: PathBuf,
+    staged_exe: PathBuf,
+    current_manifest: PathBuf,
+    staged_manifest: PathBuf,
+    backup_exe: PathBuf,
+    backup_manifest: PathBuf,
+    current_core_version: PathBuf,
+    staged_core_version: PathBuf,
+    backup_core_version: PathBuf,
+    staged_core_archive: PathBuf,
+    target_core_archive: PathBuf,
+    install_core_archive: bool,
+    ack_path: PathBuf,
+    work_dir: PathBuf,
+    target_version: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BundledCoreInfo {
+    version: String,
+    asset_name: String,
+    size_bytes: u64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreInstallResult {
+    version: String,
+    asset_name: String,
+    install_dir: String,
+    binary_path: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreInstallTask {
+    running: bool,
+    cancellable: bool,
+    phase: String,
+    downloaded: u64,
+    total: Option<u64>,
+    percent: Option<f64>,
+    message: Option<String>,
+    result: Option<CoreInstallResult>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+struct GuiConfigFile {
+    locale: String,
+    port: u16,
+    allow_lan: bool,
+    host: String,
+    run_on_startup: bool,
+    close_behavior: WindowsCloseBehavior,
+    window_width: Option<u32>,
+    window_height: Option<u32>,
+    auth_dir: String,
+    #[serde(deserialize_with = "deserialize_gui_api_keys")]
+    api_keys: Vec<GuiApiKeyEntry>,
+    api_access_remarks: Vec<GuiApiAccessRemark>,
+    management_secret_key: String,
+    usage_statistics_enabled: bool,
+    plugins_enabled: bool,
+    routing_strategy: String,
+    proxy_url: String,
+    routing_session_affinity: bool,
+    routing_session_affinity_ttl: String,
+    codex_session_repair_on_launch: bool,
+    claude_code_working_directory: String,
+    claude_code_working_directory_prompt_disabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum WindowsCloseAction {
+    Exit,
+    MinimizeToTray,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum WindowsCloseBehavior {
+    #[default]
+    Ask,
+    Exit,
+    MinimizeToTray,
+}
+
+impl WindowsCloseBehavior {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Ask => "ask",
+            Self::Exit => "exit",
+            Self::MinimizeToTray => "minimize-to-tray",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct GuiApiKeyEntry {
+    key: String,
+    #[serde(default)]
+    remark: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct GuiApiAccessRemark {
+    provider_section: String,
+    api_key_hash: String,
+    remark: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApiAccessRemarkQuery {
+    provider_section: String,
+    api_keys: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApiAccessRemarkUpdate {
+    provider_section: String,
+    previous_api_keys: Vec<String>,
+    api_keys: Vec<String>,
+    remark: String,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum GuiApiKeyInput {
+    Legacy(String),
+    Entry(GuiApiKeyEntry),
+}
+
+fn deserialize_gui_api_keys<'de, D>(deserializer: D) -> Result<Vec<GuiApiKeyEntry>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let entries = Vec::<GuiApiKeyInput>::deserialize(deserializer)?;
+    Ok(entries
+        .into_iter()
+        .map(|entry| match entry {
+            GuiApiKeyInput::Legacy(key) => GuiApiKeyEntry {
+                remark: String::new(),
+                key,
+            },
+            GuiApiKeyInput::Entry(entry) => entry,
+        })
+        .collect())
+}
+
+impl Default for GuiConfigFile {
+    fn default() -> Self {
+        Self {
+            locale: "zh-CN".to_string(),
+            port: 8317,
+            allow_lan: false,
+            host: "127.0.0.1".to_string(),
+            run_on_startup: false,
+            close_behavior: WindowsCloseBehavior::Ask,
+            window_width: Some(DEFAULT_MAIN_WINDOW_WIDTH),
+            window_height: Some(DEFAULT_MAIN_WINDOW_HEIGHT),
+            auth_dir: DEFAULT_AUTH_DIR.to_string(),
+            api_keys: vec![default_api_key_entry()],
+            api_access_remarks: Vec::new(),
+            // Populated with an OS-generated secret while loading the GUI
+            // configuration. Core hashes the value written into config.yaml.
+            management_secret_key: String::new(),
+            usage_statistics_enabled: true,
+            plugins_enabled: false,
+            routing_strategy: "round-robin".to_string(),
+            proxy_url: String::new(),
+            routing_session_affinity: false,
+            routing_session_affinity_ttl: String::new(),
+            codex_session_repair_on_launch: false,
+            claude_code_working_directory: String::new(),
+            claude_code_working_directory_prompt_disabled: false,
+        }
+    }
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+struct GuiConfigPresence {
+    locale: Option<String>,
+    port: Option<u16>,
+    allow_lan: Option<bool>,
+    host: Option<String>,
+    auth_dir: Option<String>,
+    api_keys: Option<Vec<GuiApiKeyInput>>,
+    api_access_remarks: Option<Vec<GuiApiAccessRemark>>,
+    management_secret_key: Option<String>,
+    close_behavior: Option<WindowsCloseBehavior>,
+    codex_session_repair_on_launch: Option<bool>,
+    usage_statistics_enabled: Option<bool>,
+    plugins_enabled: Option<bool>,
+    routing_strategy: Option<String>,
+    proxy_url: Option<String>,
+    routing_session_affinity: Option<bool>,
+    routing_session_affinity_ttl: Option<String>,
+    claude_code_working_directory: Option<String>,
+    claude_code_working_directory_prompt_disabled: Option<bool>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GuiSettings {
+    port: u16,
+    allow_lan: bool,
+    run_on_startup: bool,
+    close_behavior: WindowsCloseBehavior,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentConfigStatus {
+    id: String,
+    name: String,
+    supported_platform: bool,
+    installed: bool,
+    plugin_installed: bool,
+    executable_path: Option<String>,
+    launch_targets: Vec<AgentLaunchTarget>,
+    version: Option<String>,
+    cli_version: Option<String>,
+    app_version: Option<String>,
+    plugin_version: Option<String>,
+    config_paths: Vec<String>,
+    config_exists: bool,
+    config_valid: bool,
+    configured: bool,
+    current_model: Option<String>,
+    oauth_configuration: bool,
+    modification_enabled: bool,
+    modification_state: String,
+    backup_available: bool,
+    applied_model: Option<String>,
+    claude_code_model_mappings: Option<ClaudeDesktopModelMappings>,
+    claude_desktop_model_mappings: Option<ClaudeDesktopModelMappings>,
+    claude_code_working_directory: Option<String>,
+    claude_code_working_directory_prompt_disabled: bool,
+    warnings: Vec<String>,
+    error: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentLaunchTarget {
+    id: String,
+    label: String,
+    detail: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentConfigActionResult {
+    outcome: String,
+    enabled: bool,
+    model: Option<String>,
+    changed_files: Vec<String>,
+    conflict_files: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PiProviderUpdateStatus {
+    installed_version: Option<String>,
+    latest_version: Option<String>,
+    update_available: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CodexModelCatalogUpdateResult {
+    outcome: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentModelOption {
+    name: String,
+    alias: Option<String>,
+    #[serde(default)]
+    is_alias: bool,
+    #[serde(default)]
+    context_window: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ClaudeDesktopModelMappings {
+    opus: String,
+    sonnet: String,
+    haiku: String,
+}
+
+impl ClaudeDesktopModelMappings {
+    fn all(model: &str) -> Self {
+        Self {
+            opus: model.to_string(),
+            sonnet: model.to_string(),
+            haiku: model.to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct CodexModelDefinition {
+    id: String,
+    display_name: Option<String>,
+    description: Option<String>,
+    context_window: Option<u64>,
+    reasoning_levels: Vec<String>,
+    supports_tools: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ThinkingAliasEntry {
+    source_model: String,
+    alias: String,
+    effort: Option<String>,
+    provider: String,
+    kind: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SpeedAliasEntry {
+    source_model: String,
+    alias: String,
+    service_tier: String,
+    provider: String,
+    kind: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ThinkingAliasSource {
+    id: String,
+    model: String,
+    display_name: Option<String>,
+    provider: String,
+    kind: String,
+    protocol: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ThinkingAliasSourceLocation {
+    CodexOauth,
+    ConfigModel {
+        section: &'static str,
+        provider_index: usize,
+        model_index: usize,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ResolvedThinkingAliasSource {
+    source: ThinkingAliasSource,
+    location: ThinkingAliasSourceLocation,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentModificationRecord {
+    version: u8,
+    client: String,
+    phase: String,
+    model: String,
+    files: Vec<AgentModificationFile>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentModificationFile {
+    path: PathBuf,
+    backup_path: PathBuf,
+    existed_before: bool,
+    original_sha256: Option<String>,
+    managed_sha256: String,
+}
+
+struct AgentModificationInspection {
+    enabled: bool,
+    state: String,
+    backup_available: bool,
+    applied_model: Option<String>,
+    claude_desktop_model_mappings: Option<ClaudeDesktopModelMappings>,
+    warnings: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentAppliedState {
+    version: u8,
+    client: String,
+    model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    claude_desktop_model_mappings: Option<ClaudeDesktopModelMappings>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    backup_files: Vec<AgentAppliedBackupFile>,
+    updated_at_unix: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentAppliedBackupFile {
+    path: PathBuf,
+    backup_path: PathBuf,
+    existed_before: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AgentClient {
+    ClaudeCode,
+    ClaudeDesktop,
+    Codex,
+    OpenCode,
+    OpenClaw,
+    Hermes,
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))] // The desktop-app variants are constructed only on macOS/Windows builds.
+enum CodexAppTarget {
+    Application(PathBuf),
+    #[cfg(target_os = "windows")]
+    WindowsAppId(String),
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
+enum ClaudeDesktopTarget {
+    Application(PathBuf),
+    #[cfg(target_os = "windows")]
+    WindowsAppId(String),
+}
+
+impl AgentClient {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "claude-code" => Ok(Self::ClaudeCode),
+            "claude-desktop" => Ok(Self::ClaudeDesktop),
+            "codex" => Ok(Self::Codex),
+            "opencode" => Ok(Self::OpenCode),
+            "openclaw" => Ok(Self::OpenClaw),
+            "hermes" => Ok(Self::Hermes),
+            _ => Err(format!("不支持的智能体客户端: {value}")),
+        }
+    }
+
+    fn id(self) -> &'static str {
+        match self {
+            Self::ClaudeCode => "claude-code",
+            Self::ClaudeDesktop => "claude-desktop",
+            Self::Codex => "codex",
+            Self::OpenCode => "opencode",
+            Self::OpenClaw => "openclaw",
+            Self::Hermes => "hermes",
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::ClaudeCode => "Claude Code",
+            Self::ClaudeDesktop => "Claude Desktop",
+            Self::Codex => "Codex",
+            Self::OpenCode => "OpenCode",
+            Self::OpenClaw => "OpenClaw",
+            Self::Hermes => "Hermes Agent",
+        }
+    }
+
+    fn supported_platform(self) -> bool {
+        self != Self::ClaudeDesktop
+            || cfg!(any(
+                target_os = "windows",
+                target_os = "macos",
+                target_os = "linux"
+            ))
+    }
+
+    fn executable_names(self) -> &'static [&'static str] {
+        match self {
+            Self::ClaudeCode => &["claude"],
+            Self::ClaudeDesktop => &[],
+            Self::Codex => &["codex"],
+            Self::OpenCode => &["opencode"],
+            Self::OpenClaw => &["openclaw"],
+            Self::Hermes => &["hermes"],
+        }
+    }
+}
+
+struct AgentFileUpdate {
+    path: PathBuf,
+    after: String,
+}
+
+struct AgentConfigurationOptions<'a> {
+    models: &'a [AgentModelOption],
+    codex_catalog: Option<&'a str>,
+    oauth_configuration: bool,
+    claude_code_model_mappings: Option<&'a ClaudeDesktopModelMappings>,
+    claude_desktop_model_mappings: Option<&'a ClaudeDesktopModelMappings>,
+}
+
+struct PreparedAgentModels {
+    models: Vec<AgentModelOption>,
+    codex_catalog: Option<String>,
+}
+
+type FileSnapshot = (PathBuf, Option<Vec<u8>>);
+#[cfg(test)]
+type AgentRecordExtension = (AgentModificationRecord, Vec<FileSnapshot>);
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GuiNetworkSettings {
+    port: u16,
+    allow_lan: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GuiNetworkRoutingSettings {
+    port: u16,
+    allow_lan: bool,
+    proxy_url: String,
+    routing_session_affinity: bool,
+    routing_session_affinity_ttl: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreConfigSettings {
+    #[serde(skip_serializing)]
+    host: String,
+    #[serde(skip_serializing)]
+    port: u16,
+    #[serde(skip_serializing)]
+    auth_dir: String,
+    api_keys: Vec<String>,
+    management_secret_configured: bool,
+    #[serde(skip_serializing)]
+    usage_statistics_enabled: bool,
+    plugins_enabled: bool,
+    routing_strategy: String,
+    proxy_url: String,
+    routing_session_affinity: bool,
+    routing_session_affinity_ttl: String,
+    // Kept for internal config migration/tests; never exposed to the WebView.
+    #[allow(dead_code)]
+    #[serde(skip_serializing)]
+    management_secret_key: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreApiKeyView {
+    api_key: String,
+    remark: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreConfigView {
+    api_keys: Vec<CoreApiKeyView>,
+    management_secret_configured: bool,
+    port: u16,
+    allow_lan: bool,
+    plugins_enabled: bool,
+    routing_strategy: String,
+    proxy_url: String,
+    routing_session_affinity: bool,
+    routing_session_affinity_ttl: String,
+}
+
+impl Default for CoreInstallTask {
+    fn default() -> Self {
+        Self {
+            running: false,
+            cancellable: false,
+            phase: "空闲".to_string(),
+            downloaded: 0,
+            total: None,
+            percent: None,
+            message: None,
+            result: None,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreMetadata {
+    version: String,
+    asset_name: String,
+    installed_at_unix: u64,
+}
+
+struct DownloadedArchive {
+    size: u64,
+    sha256: String,
+}
+
+impl CoreDownloadState {
+    fn start(&self, token: CancellationToken, version: Option<String>) -> Result<(), String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "内核安装状态锁已损坏".to_string())?;
+
+        if inner.running {
+            return Err("已有内核安装任务正在运行".to_string());
+        }
+
+        inner.running = true;
+        inner.token = Some(token);
+        inner.task = CoreInstallTask {
+            running: true,
+            cancellable: true,
+            phase: version
+                .map(|version| format!("准备安装 {version}"))
+                .unwrap_or_else(|| "准备安装最新版".to_string()),
+            downloaded: 0,
+            total: None,
+            percent: None,
+            message: None,
+            result: None,
+        };
+
+        Ok(())
+    }
+
+    fn cancel(&self) {
+        if let Ok(inner) = self.inner.lock() {
+            if let Some(token) = &inner.token {
+                token.cancel();
+            }
+        }
+    }
+
+    fn snapshot(&self) -> CoreInstallTask {
+        self.inner
+            .lock()
+            .map(|inner| inner.task.clone())
+            .unwrap_or_default()
+    }
+
+    fn progress(
+        &self,
+        window: &tauri::Window,
+        phase: &str,
+        downloaded: u64,
+        total: Option<u64>,
+        cancellable: bool,
+    ) {
+        let percent = total
+            .filter(|total| *total > 0)
+            .map(|total| downloaded as f64 * 100.0 / total as f64);
+
+        let task = {
+            let Ok(mut inner) = self.inner.lock() else {
+                return;
+            };
+
+            inner.task.running = inner.running;
+            inner.task.cancellable = cancellable;
+            inner.task.phase = phase.to_string();
+            inner.task.downloaded = downloaded;
+            inner.task.total = total;
+            inner.task.percent = percent;
+            inner.task.clone()
+        };
+
+        let _ = window.emit(CORE_INSTALL_PROGRESS_EVENT, task);
+    }
+
+    fn finish(&self, window: &tauri::Window, result: Result<CoreInstallResult, String>) {
+        let task = {
+            let Ok(mut inner) = self.inner.lock() else {
+                return;
+            };
+
+            inner.running = false;
+            inner.token = None;
+            inner.task.running = false;
+            inner.task.cancellable = false;
+
+            match result {
+                Ok(result) => {
+                    inner.task.phase = "安装完成".to_string();
+                    inner.task.downloaded = 1;
+                    inner.task.total = Some(1);
+                    inner.task.percent = Some(100.0);
+                    inner.task.message = Some(format!("{} 安装完成", result.version));
+                    inner.task.result = Some(result);
+                }
+                Err(error) => {
+                    inner.task.phase = if error.contains("取消") {
+                        "已取消".to_string()
+                    } else {
+                        "安装失败".to_string()
+                    };
+                    inner.task.message = Some(error);
+                    inner.task.result = None;
+                }
+            }
+
+            inner.task.clone()
+        };
+
+        let _ = window.emit(CORE_INSTALL_PROGRESS_EVENT, task);
+    }
+}
+
+impl AppUpdateState {
+    fn snapshot(&self) -> AppUpdateTask {
+        self.inner
+            .lock()
+            .map(|inner| inner.task.clone())
+            .unwrap_or_default()
+    }
+
+    fn set_pending(&self, pending: Option<PendingAppUpdate>, task: AppUpdateTask) {
+        if let Ok(mut inner) = self.inner.lock() {
+            inner.pending = pending;
+            if !inner.task.running {
+                inner.task = task;
+            }
+        }
+    }
+
+    fn start(&self, token: CancellationToken) -> Result<PendingAppUpdate, String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "应用更新状态锁已损坏".to_string())?;
+        if inner.task.running {
+            return Err("已有应用更新任务正在运行".to_string());
+        }
+        let pending = inner
+            .pending
+            .clone()
+            .ok_or_else(|| "没有可安装的应用更新，请先检查更新".to_string())?;
+        inner.token = Some(token);
+        inner.task = AppUpdateTask {
+            running: true,
+            cancellable: true,
+            phase: "downloading".to_string(),
+            target_version: Some(pending.version.clone()),
+            downloaded_bytes: 0,
+            total_bytes: Some(pending.asset.size_bytes),
+            percent: Some(0.0),
+            message: None,
+        };
+        Ok(pending)
+    }
+
+    #[cfg(windows)]
+    fn update_task<F>(&self, update: F) -> AppUpdateTask
+    where
+        F: FnOnce(&mut AppUpdateTask),
+    {
+        let Ok(mut inner) = self.inner.lock() else {
+            return AppUpdateTask::default();
+        };
+        update(&mut inner.task);
+        inner.task.clone()
+    }
+
+    fn finish(&self, phase: &str, message: Option<String>) -> AppUpdateTask {
+        let Ok(mut inner) = self.inner.lock() else {
+            return AppUpdateTask::default();
+        };
+        inner.task.running = false;
+        inner.task.cancellable = false;
+        inner.task.phase = phase.to_string();
+        inner.task.message = message;
+        inner.token = None;
+        inner.task.clone()
+    }
+
+    fn cancel(&self) {
+        if let Ok(inner) = self.inner.lock() {
+            if let Some(token) = &inner.token {
+                token.cancel();
+            }
+        }
+    }
+}
+
+impl CoreProcessState {
+    fn managed_pid(&self) -> Option<u32> {
+        let Ok(mut child) = self.child.lock() else {
+            return None;
+        };
+
+        let process = child.as_mut()?;
+
+        if let Ok(None) = process.try_wait() {
+            return Some(process.id());
+        }
+
+        *child = None;
+        drop(child);
+        self.clear_lifetime_guard();
+
+        None
+    }
+
+    fn clear_lifetime_guard(&self) {
+        #[cfg(windows)]
+        if let Ok(mut job) = self.job.lock() {
+            if let Some(handle) = job.take() {
+                close_windows_handle(handle);
+            }
+        }
+    }
+
+    fn take_child(&self) -> Option<Child> {
+        self.child.lock().ok().and_then(|mut child| child.take())
+    }
+
+    fn store_child(&self, child: Child) -> Result<u32, String> {
+        let pid = child.id();
+
+        #[cfg(windows)]
+        {
+            let job = attach_child_to_windows_job(&child)?;
+            let Ok(mut managed_child) = self.child.lock() else {
+                close_windows_handle(job);
+                return Err("内核进程状态锁已损坏".to_string());
+            };
+            let Ok(mut managed_job) = self.job.lock() else {
+                close_windows_handle(job);
+                return Err("内核进程作业状态锁已损坏".to_string());
+            };
+            *managed_child = Some(child);
+            *managed_job = Some(job);
+        }
+
+        #[cfg(not(windows))]
+        {
+            let mut managed_child = self
+                .child
+                .lock()
+                .map_err(|_| "内核进程状态锁已损坏".to_string())?;
+            *managed_child = Some(child);
+        }
+
+        Ok(pid)
+    }
+}
+
+impl MainWindowSizeState {
+    fn new(size: Option<SavedWindowSize>) -> Self {
+        Self {
+            inner: Mutex::new(size),
+        }
+    }
+
+    fn snapshot(&self) -> Result<Option<SavedWindowSize>, String> {
+        self.inner
+            .lock()
+            .map(|size| *size)
+            .map_err(|_| "主窗口尺寸状态锁已损坏".to_string())
+    }
+
+    fn replace(&self, size: SavedWindowSize) -> Result<(), String> {
+        let mut current = self
+            .inner
+            .lock()
+            .map_err(|_| "主窗口尺寸状态锁已损坏".to_string())?;
+        *current = Some(size);
+        Ok(())
+    }
+}
+
+impl GuiConfigState {
+    fn new(config: GuiConfigFile) -> Self {
+        Self {
+            inner: Mutex::new(config),
+        }
+    }
+
+    fn snapshot(&self) -> Result<GuiConfigFile, String> {
+        self.inner
+            .lock()
+            .map(|config| config.clone())
+            .map_err(|_| "GUI 配置状态锁已损坏".to_string())
+    }
+
+    fn replace_external(&self, config: GuiConfigFile) -> Result<(), String> {
+        let mut current = self
+            .inner
+            .lock()
+            .map_err(|_| "GUI 配置状态锁已损坏".to_string())?;
+        *current = config;
+        Ok(())
+    }
+
+    fn replace_core_settings_external(
+        &self,
+        settings: &CoreConfigSettings,
+    ) -> Result<GuiConfigFile, String> {
+        let mut current = self
+            .inner
+            .lock()
+            .map_err(|_| "GUI 配置状态锁已损坏".to_string())?;
+        let mut config = current.clone();
+        apply_core_settings_to_gui_config(&mut config, settings);
+        validate_gui_config(&config)?;
+        *current = config.clone();
+        Ok(config)
+    }
+
+    fn update_network(&self, port: u16, allow_lan: bool) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.port = port;
+            config.allow_lan = allow_lan;
+            config.host = if allow_lan { "0.0.0.0" } else { "127.0.0.1" }.to_string();
+            Ok(())
+        })
+    }
+
+    fn update_network_routing(
+        &self,
+        port: u16,
+        allow_lan: bool,
+        proxy_url: &str,
+        routing_session_affinity: bool,
+        routing_session_affinity_ttl: &str,
+    ) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.port = port;
+            config.allow_lan = allow_lan;
+            config.host = if allow_lan { "0.0.0.0" } else { "127.0.0.1" }.to_string();
+            config.proxy_url = proxy_url.to_string();
+            config.routing_session_affinity = routing_session_affinity;
+            config.routing_session_affinity_ttl = routing_session_affinity_ttl.to_string();
+            Ok(())
+        })
+    }
+
+    fn set_run_on_startup(&self, run_on_startup: bool) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.run_on_startup = run_on_startup;
+            Ok(())
+        })
+    }
+
+    fn set_close_behavior(
+        &self,
+        close_behavior: WindowsCloseBehavior,
+    ) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.close_behavior = close_behavior;
+            Ok(())
+        })
+    }
+
+    fn set_codex_session_repair_on_launch(&self, enabled: bool) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.codex_session_repair_on_launch = enabled;
+            Ok(())
+        })
+    }
+
+    fn set_claude_code_launch_preferences(
+        &self,
+        working_directory: Option<&Path>,
+        prompt_disabled: bool,
+    ) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            if let Some(working_directory) = working_directory {
+                config.claude_code_working_directory = path_to_string(working_directory);
+            }
+            config.claude_code_working_directory_prompt_disabled = prompt_disabled;
+            Ok(())
+        })
+    }
+
+    fn set_locale(&self, locale: String) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.locale = normalize_app_locale(&locale).to_string();
+            Ok(())
+        })
+    }
+
+    fn set_window_size(&self, size: SavedWindowSize) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.window_width = Some(size.width);
+            config.window_height = Some(size.height);
+            Ok(())
+        })
+    }
+
+    fn set_management_secret_key(&self, secret_key: String) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.management_secret_key = secret_key;
+            Ok(())
+        })
+    }
+
+    fn sync_core_settings(&self, settings: &CoreConfigSettings) -> Result<GuiConfigFile, String> {
+        self.sync_core_settings_with_api_key(settings, None)
+    }
+
+    fn sync_core_settings_with_api_key(
+        &self,
+        settings: &CoreConfigSettings,
+        added_api_key: Option<GuiApiKeyEntry>,
+    ) -> Result<GuiConfigFile, String> {
+        self.update(|config| {
+            config.api_keys = merge_core_api_keys_with_gui_metadata(
+                &config.api_keys,
+                &settings.api_keys,
+                added_api_key.as_ref(),
+            );
+            config.host = settings.host.clone();
+            config.port = settings.port;
+            config.allow_lan = !is_loopback_host(&settings.host);
+            config.auth_dir = settings.auth_dir.clone();
+            config.usage_statistics_enabled = settings.usage_statistics_enabled;
+            if let Some(secret_key) = settings
+                .management_secret_key
+                .as_deref()
+                .filter(|secret_key| !secret_key.is_empty())
+                .filter(|secret_key| !is_hashed_management_secret_key(secret_key))
+            {
+                config.management_secret_key = secret_key.to_string();
+            }
+            config.plugins_enabled = settings.plugins_enabled;
+            config.routing_strategy = settings.routing_strategy.clone();
+            config.proxy_url = settings.proxy_url.clone();
+            config.routing_session_affinity = settings.routing_session_affinity;
+            config.routing_session_affinity_ttl = settings.routing_session_affinity_ttl.clone();
+            Ok(())
+        })
+    }
+
+    fn update<F>(&self, update: F) -> Result<GuiConfigFile, String>
+    where
+        F: FnOnce(&mut GuiConfigFile) -> Result<(), String>,
+    {
+        let mut current = self
+            .inner
+            .lock()
+            .map_err(|_| "GUI 配置状态锁已损坏".to_string())?;
+        let mut config = current.clone();
+        update(&mut config)?;
+        write_gui_config(&config)?;
+        *current = config.clone();
+        Ok(config)
+    }
+}
+
+impl From<&GuiConfigFile> for GuiSettings {
+    fn from(config: &GuiConfigFile) -> Self {
+        Self {
+            port: config.port,
+            allow_lan: config.allow_lan,
+            run_on_startup: config.run_on_startup,
+            close_behavior: config.close_behavior,
+        }
+    }
+}
+
+impl From<&GuiConfigFile> for CoreConfigSettings {
+    fn from(config: &GuiConfigFile) -> Self {
+        Self {
+            host: config.host.clone(),
+            port: config.port,
+            auth_dir: config.auth_dir.clone(),
+            api_keys: gui_api_key_values(&config.api_keys),
+            management_secret_configured: !config.management_secret_key.is_empty(),
+            usage_statistics_enabled: config.usage_statistics_enabled,
+            plugins_enabled: config.plugins_enabled,
+            routing_strategy: config.routing_strategy.clone(),
+            proxy_url: config.proxy_url.clone(),
+            routing_session_affinity: config.routing_session_affinity,
+            routing_session_affinity_ttl: config.routing_session_affinity_ttl.clone(),
+            management_secret_key: Some(config.management_secret_key.clone()),
+        }
+    }
+}
+
+impl From<&GuiConfigFile> for CoreConfigView {
+    fn from(config: &GuiConfigFile) -> Self {
+        Self {
+            api_keys: config
+                .api_keys
+                .iter()
+                .map(|entry| CoreApiKeyView {
+                    api_key: entry.key.clone(),
+                    remark: entry.remark.clone(),
+                })
+                .collect(),
+            management_secret_configured: !config.management_secret_key.is_empty(),
+            port: config.port,
+            allow_lan: config.allow_lan,
+            plugins_enabled: config.plugins_enabled,
+            routing_strategy: config.routing_strategy.clone(),
+            proxy_url: config.proxy_url.clone(),
+            routing_session_affinity: config.routing_session_affinity,
+            routing_session_affinity_ttl: config.routing_session_affinity_ttl.clone(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct GithubRelease {
+    tag_name: String,
+    assets: Vec<GithubAsset>,
+}
+
+#[derive(Deserialize)]
+struct GithubAsset {
+    name: String,
+    browser_download_url: String,
+    #[serde(default)]
+    fallback_download_urls: Vec<String>,
+    size: Option<u64>,
+    digest: Option<String>,
+}
+
+#[tauri::command]
+fn health_check() -> &'static str {
+    "EasyCLIProxyAPI Rust backend is ready"
+}
+
+#[tauri::command]
+fn detect_core_platform() -> Result<CorePlatform, String> {
+    current_core_platform()
+}
+
+#[tauri::command]
+fn get_core_status(
+    process_state: tauri::State<'_, CoreProcessState>,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<CoreStatus, String> {
+    let config = gui_config_state.snapshot()?;
+    current_core_status(Some(process_state.inner()), Some(config.port))
+}
+
+fn emit_core_status(app: &tauri::AppHandle, status: &CoreStatus) {
+    #[cfg(target_os = "windows")]
+    update_windows_tray_status(app, status);
+    let _ = app.emit(CORE_STATUS_EVENT, status);
+}
+
+#[tauri::command]
+fn get_gui_settings(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<GuiSettings, String> {
+    let config = gui_config_state.snapshot()?;
+    Ok(GuiSettings::from(&config))
+}
+
+#[tauri::command]
+fn resolve_api_access_remarks(
+    queries: Vec<ApiAccessRemarkQuery>,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<Vec<String>, String> {
+    let config = gui_config_state.snapshot()?;
+    queries
+        .into_iter()
+        .map(|query| {
+            validate_api_access_provider_section(&query.provider_section)?;
+            Ok(query
+                .api_keys
+                .iter()
+                .filter_map(|key| api_access_key_hash(key))
+                .find_map(|hash| {
+                    config.api_access_remarks.iter().find(|entry| {
+                        entry.provider_section == query.provider_section
+                            && entry.api_key_hash == hash
+                    })
+                })
+                .map(|entry| entry.remark.clone())
+                .unwrap_or_default())
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn save_api_access_remark(
+    update: ApiAccessRemarkUpdate,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<(), String> {
+    validate_api_access_provider_section(&update.provider_section)?;
+    let remark = update.remark.trim().to_string();
+    validate_api_key_remark(&remark)?;
+    let previous_hashes = update
+        .previous_api_keys
+        .iter()
+        .filter_map(|key| api_access_key_hash(key))
+        .collect::<HashSet<_>>();
+    let next_hashes = update
+        .api_keys
+        .iter()
+        .filter_map(|key| api_access_key_hash(key))
+        .collect::<HashSet<_>>();
+    let hashes_to_replace = previous_hashes
+        .union(&next_hashes)
+        .cloned()
+        .collect::<HashSet<_>>();
+    let provider_section = update.provider_section;
+
+    gui_config_state.update(|config| {
+        config.api_access_remarks.retain(|entry| {
+            entry.provider_section != provider_section
+                || !hashes_to_replace.contains(&entry.api_key_hash)
+        });
+        if !remark.is_empty() {
+            config
+                .api_access_remarks
+                .extend(next_hashes.iter().map(|hash| GuiApiAccessRemark {
+                    provider_section: provider_section.clone(),
+                    api_key_hash: hash.clone(),
+                    remark: remark.clone(),
+                }));
+        }
+        Ok(())
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+fn set_app_locale(
+    app: tauri::AppHandle,
+    process_state: tauri::State<'_, CoreProcessState>,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    locale: String,
+) -> Result<String, String> {
+    let config = gui_config_state.set_locale(locale)?;
+    #[cfg(target_os = "windows")]
+    if let Ok(status) = current_core_status(Some(process_state.inner()), Some(config.port)) {
+        update_windows_tray_locale(&app, &config.locale, &status);
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = (app, process_state);
+    Ok(config.locale)
+}
+
+#[tauri::command]
+fn resolve_windows_close_request(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    action: WindowsCloseAction,
+    remember: Option<bool>,
+) -> Result<(), String> {
+    if remember.unwrap_or(false) {
+        let close_behavior = match action {
+            WindowsCloseAction::Exit => WindowsCloseBehavior::Exit,
+            WindowsCloseAction::MinimizeToTray => WindowsCloseBehavior::MinimizeToTray,
+        };
+        gui_config_state.set_close_behavior(close_behavior)?;
+    }
+
+    match action {
+        WindowsCloseAction::Exit => app.exit(0),
+        WindowsCloseAction::MinimizeToTray => {
+            let window = app
+                .get_webview_window("main")
+                .ok_or_else(|| "主窗口不存在".to_string())?;
+            window
+                .hide()
+                .map_err(|error| format!("隐藏主窗口失败: {error}"))?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn save_app_close_behavior(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    behavior: WindowsCloseBehavior,
+) -> Result<GuiSettings, String> {
+    let config = gui_config_state.set_close_behavior(behavior)?;
+    Ok(GuiSettings::from(&config))
+}
+
+fn inspect_agent_config_statuses(
+    app: &tauri::AppHandle,
+    config: &GuiConfigFile,
+) -> Result<Vec<AgentConfigStatus>, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let api_key = effective_agent_api_key(config);
+    let mut statuses = [
+        AgentClient::ClaudeCode,
+        AgentClient::ClaudeDesktop,
+        AgentClient::Codex,
+        AgentClient::OpenCode,
+        AgentClient::OpenClaw,
+        AgentClient::Hermes,
+    ]
+    .into_iter()
+    .map(|client| inspect_agent_config(client, &home, config.port, api_key))
+    .collect::<Vec<_>>();
+    statuses.push(inspect_pi_provider_status(&home, config.port, api_key));
+    if let Some(status) = statuses
+        .iter_mut()
+        .find(|status| status.id == AgentClient::ClaudeCode.id())
+    {
+        status.claude_code_working_directory =
+            (!config.claude_code_working_directory.trim().is_empty())
+                .then(|| config.claude_code_working_directory.clone());
+        status.claude_code_working_directory_prompt_disabled =
+            config.claude_code_working_directory_prompt_disabled;
+    }
+    Ok(statuses)
+}
+
+fn refresh_agent_config_status_cache(
+    app: &tauri::AppHandle,
+    gui_config_state: &GuiConfigState,
+    cache: &AgentConfigStatusCache,
+) -> Result<Vec<AgentConfigStatus>, String> {
+    let _refresh_guard = cache
+        .refresh_lock
+        .lock()
+        .map_err(|_| "智能体配置状态刷新锁已损坏".to_string())?;
+    let config = gui_config_state.snapshot()?;
+    let port = config.port;
+    let api_key = effective_agent_api_key(&config);
+    let statuses = inspect_agent_config_statuses(app, &config)?;
+    cache.replace(port, api_key, statuses.clone())?;
+    Ok(statuses)
+}
+
+#[tauri::command]
+async fn get_agent_config_statuses(
+    app: tauri::AppHandle,
+) -> Result<Vec<AgentConfigStatus>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let gui_config_state = app.state::<GuiConfigState>();
+        let cache = app.state::<AgentConfigStatusCache>();
+        {
+            let _refresh_guard = cache
+                .refresh_lock
+                .lock()
+                .map_err(|_| "智能体配置状态刷新锁已损坏".to_string())?;
+            let config = gui_config_state.snapshot()?;
+            let port = config.port;
+            if let Some(statuses) = cache.get(port, effective_agent_api_key(&config))? {
+                return Ok(statuses);
+            }
+        }
+        refresh_agent_config_status_cache(&app, gui_config_state.inner(), cache.inner())
+    })
+    .await
+    .map_err(|error| format!("智能体检测后台任务失败: {error}"))?
+}
+
+#[tauri::command]
+async fn refresh_agent_config_statuses(
+    app: tauri::AppHandle,
+) -> Result<Vec<AgentConfigStatus>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let gui_config_state = app.state::<GuiConfigState>();
+        let cache = app.state::<AgentConfigStatusCache>();
+        refresh_agent_config_status_cache(&app, gui_config_state.inner(), cache.inner())
+    })
+    .await
+    .map_err(|error| format!("智能体检测后台任务失败: {error}"))?
+}
+
+#[tauri::command]
+async fn get_agent_models(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    client: String,
+) -> Result<Vec<AgentModelOption>, String> {
+    if client.trim().eq_ignore_ascii_case(PI_AGENT_ID) {
+        let config = gui_config_state.snapshot()?;
+        return fetch_agent_models(config.port, effective_agent_api_key(&config)).await;
+    }
+    let client = AgentClient::parse(&client)?;
+    let config = gui_config_state.snapshot()?;
+    Ok(fetch_prepared_agent_models(client, &config).await?.models)
+}
+
+async fn resolve_pi_default_model(config: &GuiConfigFile, model: &str) -> Result<String, String> {
+    let models = fetch_agent_models(config.port, effective_agent_api_key(config)).await?;
+    resolve_available_agent_model(&models, &validate_agent_model(model)?)
+}
+
+#[tauri::command]
+async fn check_pi_provider_update(app: tauri::AppHandle) -> Result<PiProviderUpdateStatus, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let installed_version = read_pi_provider_version(&home)?;
+    let Some(installed_version_value) = installed_version.as_deref() else {
+        return Ok(PiProviderUpdateStatus {
+            installed_version: None,
+            latest_version: None,
+            update_available: false,
+        });
+    };
+    let latest_version = fetch_pi_provider_latest_version().await?;
+    let update_available = pi_provider_update_available(installed_version_value, &latest_version)?;
+    Ok(PiProviderUpdateStatus {
+        installed_version,
+        latest_version: Some(latest_version),
+        update_available,
+    })
+}
+
+#[tauri::command]
+async fn install_pi_provider(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    cache: tauri::State<'_, AgentConfigStatusCache>,
+    model: String,
+) -> Result<AgentConfigActionResult, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let executable = find_pi_executable(&home)
+        .ok_or_else(|| "未检测到 Pi CLI，请先安装 Pi 并确保 pi 命令在 PATH 中".to_string())?;
+    let model = resolve_pi_default_model(&config, &model).await?;
+    let port = config.port;
+    let api_key = effective_agent_api_key(&config).to_string();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        install_pi_provider_inner(&home, &executable, port, &api_key, &model)
+    })
+    .await
+    .map_err(|error| format!("安装 Pi CLIProxyAPI provider 任务失败: {error}"))??;
+    cache.clear()?;
+    Ok(result)
+}
+
+#[tauri::command]
+async fn update_pi_provider(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    cache: tauri::State<'_, AgentConfigStatusCache>,
+    model: String,
+) -> Result<AgentConfigActionResult, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let executable = find_pi_executable(&home)
+        .ok_or_else(|| "未检测到 Pi CLI，请先安装 Pi 并确保 pi 命令在 PATH 中".to_string())?;
+    let model = resolve_pi_default_model(&config, &model).await?;
+    let port = config.port;
+    let api_key = effective_agent_api_key(&config).to_string();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        update_pi_provider_inner(&home, &executable, port, &api_key, &model)
+    })
+    .await
+    .map_err(|error| format!("更新 Pi 插件任务失败: {error}"))??;
+    cache.clear()?;
+    Ok(result)
+}
+
+#[tauri::command]
+async fn repair_pi_provider(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    cache: tauri::State<'_, AgentConfigStatusCache>,
+    model: String,
+) -> Result<AgentConfigActionResult, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let model = resolve_pi_default_model(&config, &model).await?;
+    let port = config.port;
+    let api_key = effective_agent_api_key(&config).to_string();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        repair_pi_provider_inner(&home, port, &api_key, &model)
+    })
+    .await
+    .map_err(|error| format!("修复 Pi 配置任务失败: {error}"))??;
+    cache.clear()?;
+    Ok(result)
+}
+
+#[tauri::command]
+async fn uninstall_pi_provider(
+    app: tauri::AppHandle,
+    cache: tauri::State<'_, AgentConfigStatusCache>,
+) -> Result<AgentConfigActionResult, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("鏃犳硶鑾峰彇鐢ㄦ埛鐩綍: {error}"))?;
+    let executable =
+        find_pi_executable(&home).ok_or_else(|| "鏈娴嬪埌 Pi CLI锛岃鍏堝畨瑁?Pi".to_string())?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        uninstall_pi_provider_inner(&home, &executable)
+    })
+    .await
+    .map_err(|error| format!("鍗歌浇 Pi 鎻掍欢浠诲姟澶辫触: {error}"))??;
+    cache.clear()?;
+    Ok(result)
+}
+
+fn validate_claude_code_working_directory(value: &str) -> Result<PathBuf, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(
+            "CLAUDE_CODE_WORKING_DIRECTORY_REQUIRED: Please select a working directory".to_string(),
+        );
+    }
+    if value.chars().any(char::is_control) {
+        return Err("The Claude Code working directory contains invalid characters".to_string());
+    }
+    let path = PathBuf::from(value);
+    if !path.is_absolute() {
+        return Err("The Claude Code working directory must be an absolute path".to_string());
+    }
+    if !path.is_dir() {
+        return Err(format!(
+            "CLAUDE_CODE_WORKING_DIRECTORY_INVALID: The working directory does not exist: {}",
+            path_to_string(&path)
+        ));
+    }
+    Ok(path)
+}
+
+#[tauri::command]
+fn check_codex_oauth_login(app: tauri::AppHandle) -> Result<(), String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    validate_codex_oauth_login(&home)
+}
+
+#[tauri::command]
+async fn update_codex_model_catalog(
+    app: tauri::AppHandle,
+) -> Result<CodexModelCatalogUpdateResult, String> {
+    update_codex_model_catalog_inner(&app).await
+}
+
+async fn update_codex_model_catalog_inner(
+    app: &tauri::AppHandle,
+) -> Result<CodexModelCatalogUpdateResult, String> {
+    let client = reqwest::Client::builder()
+        .redirect(github_https_redirect_policy())
+        .connect_timeout(Duration::from_secs(8))
+        .read_timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(25))
+        .build()
+        .map_err(|error| format!("创建 Codex 模型目录更新客户端失败: {error}"))?;
+    let response = client
+        .get(CODEX_MODEL_CATALOG_URL)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .header(reqwest::header::USER_AGENT, APP_USER_AGENT)
+        .send()
+        .await
+        .map_err(|error| format!("从 GitHub 读取 Codex 模型目录失败: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!(
+            "从 GitHub 读取 Codex 模型目录失败: HTTP {}",
+            status.as_u16()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_CODEX_MODEL_CATALOG_BYTES as u64)
+    {
+        return Err(format!(
+            "GitHub Codex 模型目录超过 {} MiB 限制",
+            MAX_CODEX_MODEL_CATALOG_BYTES / 1024 / 1024
+        ));
+    }
+
+    let mut bytes = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| format!("读取 GitHub Codex 模型目录失败: {error}"))?;
+        if bytes.len().saturating_add(chunk.len()) > MAX_CODEX_MODEL_CATALOG_BYTES {
+            return Err(format!(
+                "GitHub Codex 模型目录超过 {} MiB 限制",
+                MAX_CODEX_MODEL_CATALOG_BYTES / 1024 / 1024
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    let catalog_json = String::from_utf8(bytes)
+        .map_err(|_| "GitHub Codex 模型目录不是有效的 UTF-8 文件".to_string())?;
+    codex_catalog::validate_catalog_json(&catalog_json)
+        .map_err(|error| format!("GitHub Codex 模型目录校验失败: {error}"))?;
+
+    if codex_catalog::current_catalog_json()? == catalog_json {
+        return Ok(CodexModelCatalogUpdateResult {
+            outcome: "unchanged".to_string(),
+        });
+    }
+
+    let path = codex_model_catalog_override_path(app)?;
+    write_bytes_atomically(&path, catalog_json.as_bytes())?;
+    let changed = codex_catalog::activate_catalog_json(&catalog_json)?;
+    Ok(CodexModelCatalogUpdateResult {
+        outcome: if changed { "updated" } else { "unchanged" }.to_string(),
+    })
+}
+
+fn codex_model_catalog_override_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("无法获取应用数据目录: {error}"))?;
+    Ok(app_data
+        .join(CODEX_MODEL_CATALOG_OVERRIDE_DIR)
+        .join(CODEX_MODEL_CATALOG_SOURCE_FILE))
+}
+
+fn load_codex_model_catalog_override(app: &tauri::AppHandle) -> Result<(), String> {
+    let path = codex_model_catalog_override_path(app)?;
+    if !path.is_file() {
+        return Ok(());
+    }
+    let catalog_json = fs::read_to_string(&path)
+        .map_err(|error| format!("读取本地 Codex 模型目录更新文件失败: {error}"))?;
+    codex_catalog::activate_catalog_json(&catalog_json)
+        .map_err(|error| format!("本地 Codex 模型目录更新文件无效: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_thinking_aliases(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<Vec<ThinkingAliasEntry>, String> {
+    let config = gui_config_state.snapshot()?;
+    let content = fetch_management_config_yaml(&config).await?;
+    thinking_aliases_from_yaml(&content)
+}
+
+#[tauri::command]
+async fn get_thinking_alias_sources(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<Vec<ThinkingAliasSource>, String> {
+    let config = gui_config_state.snapshot()?;
+    let content = fetch_management_config_yaml(&config).await?;
+    let available_models =
+        fetch_agent_models(config.port, effective_agent_api_key(&config)).await?;
+    let definitions = fetch_codex_model_definitions(&config)
+        .await
+        .unwrap_or_default();
+    Ok(
+        resolved_thinking_alias_sources(&content, &definitions, &available_models)?
+            .into_iter()
+            .map(|resolved| resolved.source)
+            .collect(),
+    )
+}
+
+#[tauri::command]
+async fn create_thinking_alias(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    source_id: String,
+    alias: String,
+    effort: String,
+    fast: Option<bool>,
+) -> Result<Vec<ThinkingAliasEntry>, String> {
+    let config = gui_config_state.snapshot()?;
+    let source_id = source_id.trim().to_string();
+    if source_id.is_empty() {
+        return Err("请先选择原模型".to_string());
+    }
+    let alias = validate_thinking_alias_model_id(&alias, "别名模型")?;
+    let effort = validate_thinking_alias_effort(&effort)?;
+    let content = fetch_management_config_yaml(&config).await?;
+    let available_models =
+        fetch_agent_models(config.port, effective_agent_api_key(&config)).await?;
+    let definitions = fetch_codex_model_definitions(&config)
+        .await
+        .unwrap_or_default();
+    let sources = resolved_thinking_alias_sources(&content, &definitions, &available_models)?;
+    let source = sources
+        .iter()
+        .find(|source| source.source.id == source_id)
+        .cloned()
+        .ok_or_else(|| {
+            "原模型已不在内核当前可用模型中，或其配置来源已经变化，请刷新后重新选择".to_string()
+        })?;
+    if source.source.model.eq_ignore_ascii_case(&alias) {
+        return Err("别名模型不能和原模型相同".to_string());
+    }
+
+    if available_models
+        .iter()
+        .any(|model| model.name.eq_ignore_ascii_case(&alias))
+    {
+        return Err(format!("{alias} 已经是实际模型 ID，不能再作为别名"));
+    }
+    let document = serde_norway::from_str::<serde_norway::Value>(&content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    if configured_model_alias_exists(root, &alias) {
+        return Err(format!("别名模型 {alias} 已存在"));
+    }
+
+    let updated =
+        add_model_alias_to_yaml(&content, &source, &alias, &effort, fast.unwrap_or(false))?;
+    put_management_config_yaml(&config, &updated).await?;
+    thinking_aliases_from_yaml(&updated)
+}
+
+#[tauri::command]
+async fn delete_thinking_alias(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    alias: String,
+) -> Result<Vec<ThinkingAliasEntry>, String> {
+    let config = gui_config_state.snapshot()?;
+    let alias = validate_thinking_alias_model_id(&alias, "别名模型")?;
+    let content = fetch_management_config_yaml(&config).await?;
+    let updated = remove_thinking_alias_from_yaml(&content, &alias)?;
+    put_management_config_yaml(&config, &updated).await?;
+    thinking_aliases_from_yaml(&updated)
+}
+
+#[tauri::command]
+async fn get_speed_aliases(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<Vec<SpeedAliasEntry>, String> {
+    let config = gui_config_state.snapshot()?;
+    let content = fetch_management_config_yaml(&config).await?;
+    speed_aliases_from_yaml(&content)
+}
+
+#[tauri::command]
+async fn get_speed_alias_sources(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<Vec<ThinkingAliasSource>, String> {
+    let config = gui_config_state.snapshot()?;
+    let content = fetch_management_config_yaml(&config).await?;
+    let available_models =
+        fetch_agent_models(config.port, effective_agent_api_key(&config)).await?;
+    let definitions = fetch_codex_model_definitions(&config)
+        .await
+        .unwrap_or_default();
+    Ok(
+        resolved_speed_alias_sources(&content, &definitions, &available_models)?
+            .into_iter()
+            .map(|resolved| resolved.source)
+            .collect(),
+    )
+}
+
+#[tauri::command]
+async fn create_speed_alias(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    source_id: String,
+    alias: String,
+) -> Result<Vec<SpeedAliasEntry>, String> {
+    let config = gui_config_state.snapshot()?;
+    let source_id = source_id.trim().to_string();
+    if source_id.is_empty() {
+        return Err("请先选择原模型".to_string());
+    }
+    let alias = validate_thinking_alias_model_id(&alias, "别名模型")?;
+    let content = fetch_management_config_yaml(&config).await?;
+    let available_models =
+        fetch_agent_models(config.port, effective_agent_api_key(&config)).await?;
+    let definitions = fetch_codex_model_definitions(&config)
+        .await
+        .unwrap_or_default();
+    let sources = resolved_speed_alias_sources(&content, &definitions, &available_models)?;
+    let source = sources
+        .iter()
+        .find(|source| source.source.id == source_id)
+        .cloned()
+        .ok_or_else(|| {
+            "原模型已不在内核当前可用模型中，或其配置来源已经变化，请刷新后重试".to_string()
+        })?;
+    if source.source.model.eq_ignore_ascii_case(&alias) {
+        return Err("别名模型不能和原模型相同".to_string());
+    }
+    if available_models
+        .iter()
+        .any(|model| model.name.eq_ignore_ascii_case(&alias))
+    {
+        return Err(format!("{alias} 已经是实际模型 ID，不能再作为别名"));
+    }
+    let document = serde_norway::from_str::<serde_norway::Value>(&content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    if configured_model_alias_exists(root, &alias) {
+        return Err(format!("别名模型 {alias} 已存在"));
+    }
+
+    let updated = add_speed_alias_to_yaml(&content, &source, &alias)?;
+    put_management_config_yaml(&config, &updated).await?;
+    speed_aliases_from_yaml(&updated)
+}
+
+#[tauri::command]
+async fn delete_speed_alias(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    alias: String,
+) -> Result<Vec<SpeedAliasEntry>, String> {
+    let config = gui_config_state.snapshot()?;
+    let alias = validate_thinking_alias_model_id(&alias, "别名模型")?;
+    let content = fetch_management_config_yaml(&config).await?;
+    let updated = remove_speed_alias_from_yaml(&content, &alias)?;
+    put_management_config_yaml(&config, &updated).await?;
+    speed_aliases_from_yaml(&updated)
+}
+
+async fn fetch_agent_models(port: u16, api_key: &str) -> Result<Vec<AgentModelOption>, String> {
+    if port == 0 {
+        return Err("内核端口无效".to_string());
+    }
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(3))
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|error| format!("创建模型列表客户端失败: {error}"))?;
+    let base_url = format!("http://127.0.0.1:{port}");
+    let endpoints = [
+        format!("{base_url}/v1/models"),
+        format!("{base_url}/models"),
+    ];
+
+    for (index, endpoint) in endpoints.iter().enumerate() {
+        let response = client
+            .get(endpoint)
+            .bearer_auth(api_key)
+            .header(reqwest::header::ACCEPT, "application/json")
+            .header(reqwest::header::USER_AGENT, USER_AGENT)
+            .send()
+            .await
+            .map_err(|error| format!("请求本机模型列表失败: {error}"))?;
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|error| format!("读取本机模型列表失败: {error}"))?;
+        if status.is_success() {
+            let payload = serde_json::from_str::<serde_json::Value>(&body).map_err(|error| {
+                format!(
+                    "解析本机模型列表失败: {error}; body={}",
+                    truncate_for_error(&body)
+                )
+            })?;
+            return parse_agent_model_options(&payload);
+        }
+
+        let can_try_legacy_path = index == 0 && matches!(status.as_u16(), 404 | 405);
+        if !can_try_legacy_path {
+            return Err(format_agent_models_error(status.as_u16(), &body));
+        }
+    }
+
+    Err("本机内核不支持模型列表接口".to_string())
+}
+
+async fn fetch_codex_runtime_models(
+    port: u16,
+    api_key: &str,
+) -> Result<Vec<codex_catalog::CodexRuntimeModel>, String> {
+    if port == 0 {
+        return Err("内核端口无效".to_string());
+    }
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(3))
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|error| format!("创建 Codex 模型列表客户端失败: {error}"))?;
+    let base_url = format!("http://127.0.0.1:{port}");
+    let endpoints = [
+        format!("{base_url}/v1/models"),
+        format!("{base_url}/models"),
+    ];
+
+    for (index, endpoint) in endpoints.iter().enumerate() {
+        let response = client
+            .get(endpoint)
+            .query(&[("client_version", env!("CARGO_PKG_VERSION"))])
+            .bearer_auth(api_key)
+            .header(reqwest::header::ACCEPT, "application/json")
+            .header(reqwest::header::USER_AGENT, USER_AGENT)
+            .send()
+            .await
+            .map_err(|error| format!("请求本地 Codex 模型列表失败: {error}"))?;
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|error| format!("读取本地 Codex 模型列表失败: {error}"))?;
+        if status.is_success() {
+            let payload = serde_json::from_str::<serde_json::Value>(&body).map_err(|error| {
+                format!(
+                    "解析本地 Codex 模型列表失败: {error}; body={}",
+                    truncate_for_error(&body)
+                )
+            })?;
+            return codex_catalog::parse_runtime_models(&payload);
+        }
+
+        let can_try_legacy_path = index == 0 && matches!(status.as_u16(), 404 | 405);
+        if !can_try_legacy_path {
+            return Err(format_agent_models_error(status.as_u16(), &body));
+        }
+    }
+
+    Err("本地内核不支持 Codex 模型列表接口".to_string())
+}
+
+async fn fetch_prepared_agent_models(
+    client: AgentClient,
+    config: &GuiConfigFile,
+) -> Result<PreparedAgentModels, String> {
+    let api_key = effective_agent_api_key(config);
+    if client == AgentClient::Codex {
+        let runtime_models = fetch_codex_runtime_models(config.port, api_key).await?;
+        prepare_codex_agent_models(&runtime_models)
+    } else {
+        let mut models = fetch_agent_models(config.port, api_key).await?;
+        if matches!(client, AgentClient::ClaudeCode | AgentClient::ClaudeDesktop) {
+            let content = fetch_management_config_yaml(config).await?;
+            mark_configured_agent_model_aliases(&mut models, &content)?;
+            for model in &mut models {
+                model.context_window = Some(claude_catalog::context_window_for(
+                    &model.name,
+                    model.context_window,
+                )?);
+                if !model.is_alias {
+                    if let Some(display_name) = claude_catalog::display_name_for(&model.name)? {
+                        model.alias = Some(display_name);
+                    }
+                }
+            }
+        }
+        Ok(PreparedAgentModels {
+            models,
+            codex_catalog: None,
+        })
+    }
+}
+
+fn resolve_claude_desktop_model_mappings(
+    client: AgentClient,
+    models: &[AgentModelOption],
+    selected_model: &str,
+    requested: Option<ClaudeDesktopModelMappings>,
+) -> Result<Option<ClaudeDesktopModelMappings>, String> {
+    if client != AgentClient::ClaudeDesktop {
+        return Ok(None);
+    }
+    let requested = requested.unwrap_or_else(|| ClaudeDesktopModelMappings::all(selected_model));
+    let resolve =
+        |model: &str| resolve_available_agent_model(models, &validate_agent_model(model)?);
+    Ok(Some(ClaudeDesktopModelMappings {
+        opus: resolve(&requested.opus)?,
+        sonnet: resolve(&requested.sonnet)?,
+        haiku: resolve(&requested.haiku)?,
+    }))
+}
+
+fn resolve_claude_code_model_mappings(
+    client: AgentClient,
+    models: &[AgentModelOption],
+    selected_model: &str,
+    requested: Option<ClaudeDesktopModelMappings>,
+) -> Result<Option<ClaudeDesktopModelMappings>, String> {
+    if client != AgentClient::ClaudeCode {
+        return Ok(None);
+    }
+    let requested = requested.unwrap_or_else(|| ClaudeDesktopModelMappings::all(selected_model));
+    let resolve =
+        |model: &str| resolve_available_agent_model(models, &validate_agent_model(model)?);
+    Ok(Some(ClaudeDesktopModelMappings {
+        opus: resolve(&requested.opus)?,
+        sonnet: resolve(&requested.sonnet)?,
+        haiku: resolve(&requested.haiku)?,
+    }))
+}
+
+fn prepare_codex_agent_models(
+    runtime_models: &[codex_catalog::CodexRuntimeModel],
+) -> Result<PreparedAgentModels, String> {
+    match codex_catalog::prepare_catalog(runtime_models) {
+        Ok(catalog) => Ok(PreparedAgentModels {
+            models: catalog.models,
+            codex_catalog: Some(catalog.json),
+        }),
+        Err(error) if error.contains("CPA 当前没有可写入 Codex 的模型") => {
+            Ok(PreparedAgentModels {
+                models: Vec::new(),
+                codex_catalog: None,
+            })
+        }
+        Err(error) => Err(error),
+    }
+}
+
+#[tauri::command]
+async fn apply_agent_config(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    client: String,
+    model: String,
+    oauth_configuration: bool,
+    claude_code_model_mappings: Option<ClaudeDesktopModelMappings>,
+    claude_desktop_model_mappings: Option<ClaudeDesktopModelMappings>,
+) -> Result<AgentConfigActionResult, String> {
+    let client = AgentClient::parse(&client)?;
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let api_key = effective_agent_api_key(&config);
+    if client == AgentClient::Codex && oauth_configuration {
+        validate_codex_oauth_login(&home)?;
+    }
+    validate_agent_can_enable(client, &home, config.port, api_key)?;
+    let prepared = fetch_prepared_agent_models(client, &config).await?;
+    let model = resolve_available_agent_model(&prepared.models, &validate_agent_model(&model)?)?;
+    let claude_code_model_mappings = resolve_claude_code_model_mappings(
+        client,
+        &prepared.models,
+        &model,
+        claude_code_model_mappings,
+    )?;
+    let claude_desktop_model_mappings = resolve_claude_desktop_model_mappings(
+        client,
+        &prepared.models,
+        &model,
+        claude_desktop_model_mappings,
+    )?;
+    if let Some(mappings) = claude_desktop_model_mappings.as_ref() {
+        ensure_claude_desktop_model_aliases(&config, mappings, &prepared.models).await?;
+    }
+    let _guard = AGENT_CONFIG_FILE_LOCK
+        .lock()
+        .map_err(|_| "智能体配置文件锁已损坏".to_string())?;
+    apply_agent_configuration_with_oauth(
+        client,
+        &home,
+        config.port,
+        api_key,
+        &model,
+        AgentConfigurationOptions {
+            models: &prepared.models,
+            codex_catalog: prepared.codex_catalog.as_deref(),
+            oauth_configuration,
+            claude_code_model_mappings: claude_code_model_mappings.as_ref(),
+            claude_desktop_model_mappings: claude_desktop_model_mappings.as_ref(),
+        },
+    )
+}
+
+#[tauri::command]
+fn close_agent_config_modification(
+    app: tauri::AppHandle,
+    client: String,
+) -> Result<AgentConfigActionResult, String> {
+    let client = AgentClient::parse(&client)?;
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let _guard = AGENT_CONFIG_FILE_LOCK
+        .lock()
+        .map_err(|_| "智能体配置文件锁已损坏".to_string())?;
+    restore_agent_session_configuration(client, &home)?;
+    Ok(action_result("closed", false, None, Vec::new(), Vec::new()))
+}
+
+#[tauri::command]
+async fn reset_agent_config_to_default(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    client: String,
+    model: String,
+    oauth_configuration: bool,
+    claude_code_model_mappings: Option<ClaudeDesktopModelMappings>,
+    claude_desktop_model_mappings: Option<ClaudeDesktopModelMappings>,
+) -> Result<AgentConfigActionResult, String> {
+    let client = AgentClient::parse(&client)?;
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let api_key = effective_agent_api_key(&config);
+    if client == AgentClient::Codex && oauth_configuration {
+        validate_codex_oauth_login(&home)?;
+    }
+    validate_agent_can_enable(client, &home, config.port, api_key)?;
+    let prepared = fetch_prepared_agent_models(client, &config).await?;
+    let model = resolve_available_agent_model(&prepared.models, &validate_agent_model(&model)?)?;
+    let claude_code_model_mappings = resolve_claude_code_model_mappings(
+        client,
+        &prepared.models,
+        &model,
+        claude_code_model_mappings,
+    )?;
+    let claude_desktop_model_mappings = resolve_claude_desktop_model_mappings(
+        client,
+        &prepared.models,
+        &model,
+        claude_desktop_model_mappings,
+    )?;
+    if let Some(mappings) = claude_desktop_model_mappings.as_ref() {
+        ensure_claude_desktop_model_aliases(&config, mappings, &prepared.models).await?;
+    }
+    let _guard = AGENT_CONFIG_FILE_LOCK
+        .lock()
+        .map_err(|_| "智能体配置文件锁已损坏".to_string())?;
+    reset_agent_configuration_to_default_with_oauth(AgentDefaultConfiguration {
+        client,
+        home: &home,
+        port: config.port,
+        api_key,
+        model: &model,
+        models: &prepared.models,
+        codex_catalog: prepared.codex_catalog.as_deref(),
+        oauth_configuration,
+        claude_code_model_mappings: claude_code_model_mappings.as_ref(),
+        claude_desktop_model_mappings: claude_desktop_model_mappings.as_ref(),
+    })
+}
+
+#[tauri::command]
+fn clear_codex_config(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let _guard = AGENT_CONFIG_FILE_LOCK
+        .lock()
+        .map_err(|_| "智能体配置文件锁已损坏".to_string())?;
+    clear_codex_config_files(&home)
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn set_agent_config_enabled(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    client: String,
+    model: String,
+    enabled: bool,
+    force_restore: bool,
+    claude_code_model_mappings: Option<ClaudeDesktopModelMappings>,
+    claude_desktop_model_mappings: Option<ClaudeDesktopModelMappings>,
+) -> Result<AgentConfigActionResult, String> {
+    let client = AgentClient::parse(&client)?;
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let port = config.port;
+    let api_key = effective_agent_api_key(&config);
+
+    if enabled {
+        validate_agent_can_enable(client, &home, port, api_key)?;
+        let prepared = fetch_prepared_agent_models(client, &config).await?;
+        let model =
+            resolve_available_agent_model(&prepared.models, &validate_agent_model(&model)?)?;
+        let claude_code_model_mappings = resolve_claude_code_model_mappings(
+            client,
+            &prepared.models,
+            &model,
+            claude_code_model_mappings,
+        )?;
+        let claude_desktop_model_mappings = resolve_claude_desktop_model_mappings(
+            client,
+            &prepared.models,
+            &model,
+            claude_desktop_model_mappings,
+        )?;
+        if let Some(mappings) = claude_desktop_model_mappings.as_ref() {
+            ensure_claude_desktop_model_aliases(&config, mappings, &prepared.models).await?;
+        }
+        let _guard = AGENT_CONFIG_FILE_LOCK
+            .lock()
+            .map_err(|_| "智能体配置文件锁已损坏".to_string())?;
+        apply_agent_configuration_with_oauth(
+            client,
+            &home,
+            port,
+            api_key,
+            &model,
+            AgentConfigurationOptions {
+                models: &prepared.models,
+                codex_catalog: prepared.codex_catalog.as_deref(),
+                oauth_configuration: false,
+                claude_code_model_mappings: claude_code_model_mappings.as_ref(),
+                claude_desktop_model_mappings: claude_desktop_model_mappings.as_ref(),
+            },
+        )
+    } else {
+        let _guard = AGENT_CONFIG_FILE_LOCK
+            .lock()
+            .map_err(|_| "智能体配置文件锁已损坏".to_string())?;
+        let _ = force_restore;
+        Err("停用智能体配置接口已移除；如需整体重置，请使用“默认配置”".to_string())
+    }
+}
+
+#[tauri::command]
+async fn update_agent_config(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    client: String,
+    model: String,
+    claude_code_model_mappings: Option<ClaudeDesktopModelMappings>,
+    claude_desktop_model_mappings: Option<ClaudeDesktopModelMappings>,
+) -> Result<AgentConfigActionResult, String> {
+    let client = AgentClient::parse(&client)?;
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let port = config.port;
+    let api_key = effective_agent_api_key(&config);
+    let prepared = fetch_prepared_agent_models(client, &config).await?;
+    let model = resolve_available_agent_model(&prepared.models, &validate_agent_model(&model)?)?;
+    let claude_code_model_mappings = resolve_claude_code_model_mappings(
+        client,
+        &prepared.models,
+        &model,
+        claude_code_model_mappings,
+    )?;
+    let claude_desktop_model_mappings = resolve_claude_desktop_model_mappings(
+        client,
+        &prepared.models,
+        &model,
+        claude_desktop_model_mappings,
+    )?;
+    if let Some(mappings) = claude_desktop_model_mappings.as_ref() {
+        ensure_claude_desktop_model_aliases(&config, mappings, &prepared.models).await?;
+    }
+    let _guard = AGENT_CONFIG_FILE_LOCK
+        .lock()
+        .map_err(|_| "智能体配置文件锁已损坏".to_string())?;
+    apply_agent_configuration_with_oauth(
+        client,
+        &home,
+        port,
+        api_key,
+        &model,
+        AgentConfigurationOptions {
+            models: &prepared.models,
+            codex_catalog: prepared.codex_catalog.as_deref(),
+            oauth_configuration: false,
+            claude_code_model_mappings: claude_code_model_mappings.as_ref(),
+            claude_desktop_model_mappings: claude_desktop_model_mappings.as_ref(),
+        },
+    )
+}
+
+#[tauri::command]
+async fn launch_agent(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    cache: tauri::State<'_, AgentConfigStatusCache>,
+    client: String,
+    target: Option<String>,
+    working_directory: Option<String>,
+    suppress_working_directory_prompt: Option<bool>,
+) -> Result<(), String> {
+    if client.trim().eq_ignore_ascii_case(PI_AGENT_ID) {
+        let home = app
+            .path()
+            .home_dir()
+            .map_err(|error| format!("无法获取用户目录: {error}"))?;
+        let config = gui_config_state.snapshot()?;
+        let status =
+            inspect_pi_provider_status(&home, config.port, effective_agent_api_key(&config));
+        if !status.installed {
+            return Err("未检测到 Pi CLI，请先安装 Pi 并确保 pi 命令在 PATH 中".to_string());
+        }
+        if !status.configured {
+            return Err("请先安装并配置 Pi CLIProxyAPI provider 插件".to_string());
+        }
+        let requested_target = target
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        if requested_target.is_some_and(|value| value != "cli") {
+            return Err("Pi 只支持 CLI 启动方式".to_string());
+        }
+        let executable =
+            find_pi_executable(&home).ok_or_else(|| "未找到 Pi CLI 可执行文件".to_string())?;
+        return launch_cli_agent(&executable, PI_AGENT_NAME, &home, &[], &[]);
+    }
+    let client = AgentClient::parse(&client)?;
+    if !client.supported_platform() {
+        return Err(format!("当前平台不支持启动 {}", client.name()));
+    }
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let config = gui_config_state.snapshot()?;
+    let port = config.port;
+    let status = inspect_agent_config(client, &home, port, effective_agent_api_key(&config));
+    validate_agent_launch_modification(
+        client,
+        status.modification_enabled,
+        &status.modification_state,
+    )?;
+    if client == AgentClient::Codex && status.oauth_configuration {
+        validate_codex_oauth_login(&home)?;
+    }
+    if client == AgentClient::Codex && config.codex_session_repair_on_launch {
+        let repair_home = home.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            codex_sessions::repair_before_codex_launch(&repair_home)
+        })
+        .await
+        .map_err(|error| format!("启动前会话修复任务失败: {error}"))??;
+    }
+    let requested_target = target
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if client == AgentClient::Codex && requested_target != Some("cli") {
+        if let Some(app_target) = find_codex_app_target(&home) {
+            return launch_codex_app(&app_target);
+        }
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        if let Some(codex_cli) = find_agent_executable(AgentClient::Codex, &home) {
+            if launch_codex_app_via_cli(&codex_cli, &home).is_ok() {
+                return Ok(());
+            }
+        }
+        if requested_target == Some("app") {
+            return Err("未检测到 ChatGPT App，请重新检测或改用 Codex CLI".to_string());
+        }
+    }
+    if requested_target.is_some_and(|value| value != "cli" && value != "app") {
+        return Err("不支持的智能体启动方式".to_string());
+    }
+    if client == AgentClient::ClaudeDesktop && requested_target == Some("cli") {
+        return Err("Claude Desktop 不支持 CLI 启动方式".to_string());
+    }
+    if client != AgentClient::Codex
+        && client != AgentClient::ClaudeDesktop
+        && requested_target == Some("app")
+    {
+        return Err(format!("{} 不支持桌面 App 启动方式", client.name()));
+    }
+
+    if client == AgentClient::ClaudeDesktop {
+        let target = find_claude_desktop_target(&home)
+            .ok_or_else(|| "未检测到 Claude Desktop 应用，请先安装或重新检测。".to_string())?;
+        return launch_claude_desktop(&target);
+    }
+    let executable = find_agent_executable(client, &home)
+        .ok_or_else(|| format!("未找到 {} 的可执行文件", client.name()))?;
+    if client == AgentClient::ClaudeCode {
+        let explicit_working_directory = working_directory
+            .as_deref()
+            .map(validate_claude_code_working_directory)
+            .transpose()?;
+        let selected_working_directory = match explicit_working_directory {
+            Some(path) => path,
+            None if config.claude_code_working_directory_prompt_disabled => {
+                validate_claude_code_working_directory(&config.claude_code_working_directory)?
+            }
+            None => {
+                return Err(
+                    "CLAUDE_CODE_WORKING_DIRECTORY_REQUIRED: Please select a working directory"
+                        .to_string(),
+                )
+            }
+        };
+        if working_directory.is_some() {
+            gui_config_state.set_claude_code_launch_preferences(
+                Some(&selected_working_directory),
+                suppress_working_directory_prompt.unwrap_or(false),
+            )?;
+            cache.clear()?;
+        }
+        let claude_config_path = agent_config_paths(client, &home)[0].clone();
+        {
+            let _guard = AGENT_CONFIG_FILE_LOCK
+                .lock()
+                .map_err(|_| "Claude Code configuration lock is poisoned".to_string())?;
+            remove_claude_code_conflicting_api_key(&claude_config_path)?;
+        }
+        let mappings = inspect_claude_code_model_mappings(&claude_config_path)?
+            .or_else(|| {
+                status
+                    .current_model
+                    .as_deref()
+                    .map(ClaudeDesktopModelMappings::all)
+            })
+            .ok_or_else(|| "Claude Code model environment is not configured".to_string())?;
+        let prepared = fetch_prepared_agent_models(client, &config).await?;
+        let max_context_tokens = claude_code_max_context_tokens(&mappings, &prepared.models)?;
+        let max_context_override =
+            (!claude_code_model_supports_1m(&prepared.models, &mappings.sonnet)?)
+                .then_some(max_context_tokens);
+        {
+            let _guard = AGENT_CONFIG_FILE_LOCK
+                .lock()
+                .map_err(|_| "Claude Code configuration lock is poisoned".to_string())?;
+            update_claude_code_context_window(&claude_config_path, max_context_override)?;
+        }
+        let environment = claude_code_launch_environment(
+            &format!("http://127.0.0.1:{port}"),
+            effective_agent_api_key(&config),
+            &mappings,
+            &prepared.models,
+            max_context_tokens,
+        )?;
+        let mut environment_to_remove = vec!["ANTHROPIC_API_KEY"];
+        if !environment
+            .iter()
+            .any(|(key, _)| key == "CLAUDE_CODE_EFFORT_LEVEL")
+        {
+            environment_to_remove.push("CLAUDE_CODE_EFFORT_LEVEL");
+        }
+        if max_context_override.is_none() {
+            environment_to_remove.push(CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV);
+        }
+        return launch_cli_agent(
+            &executable,
+            client.name(),
+            &selected_working_directory,
+            &environment,
+            &environment_to_remove,
+        );
+    }
+    launch_cli_agent(&executable, client.name(), &home, &[], &[])
+}
+
+fn validate_agent_launch_modification(
+    client: AgentClient,
+    enabled: bool,
+    state: &str,
+) -> Result<(), String> {
+    if client == AgentClient::Codex || (enabled && state == "applied") {
+        return Ok(());
+    }
+    Err(format!(
+        "请先为 {} 应用配置修改，确保 CPA 配置生效后再启动",
+        client.name()
+    ))
+}
+
+#[allow(dead_code)]
+fn validate_agent_can_enable_legacy(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+) -> Result<(), String> {
+    if !client.supported_platform() {
+        return Err(format!(
+            "{} 当前仅支持在 Windows、macOS 和 Linux 上配置",
+            client.name()
+        ));
+    }
+    let detection = inspect_agent_config(client, home, port, DEFAULT_API_KEY);
+    if !detection.installed {
+        return Err(format!("未检测到 {}，请先安装后再配置", client.name()));
+    }
+    if !detection.config_valid {
+        return Err(detection
+            .error
+            .unwrap_or_else(|| "原配置格式异常，请先修复后再应用配置修改".to_string()));
+    }
+    Ok(())
+}
+
+fn validate_agent_can_enable(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    api_key: &str,
+) -> Result<(), String> {
+    if !client.supported_platform() {
+        return Err(format!(
+            "{} is not supported on the current platform",
+            client.name()
+        ));
+    }
+    let detection = inspect_agent_config(client, home, port, api_key);
+    if !detection.installed {
+        return Err(format!("{} is not installed", client.name()));
+    }
+    Ok(())
+}
+
+fn validate_agent_model(value: &str) -> Result<String, String> {
+    let model = value.trim();
+    if model.is_empty() {
+        return Err("请先选择模型".to_string());
+    }
+    if model.len() > 240 || model.chars().any(char::is_control) {
+        return Err("模型名称格式无效".to_string());
+    }
+    Ok(model.to_string())
+}
+
+fn resolve_available_agent_model(
+    models: &[AgentModelOption],
+    model: &str,
+) -> Result<String, String> {
+    if models.is_empty() {
+        return Err("当前内核没有可选模型，无法应用配置修改".to_string());
+    }
+    models
+        .iter()
+        .find(|available| available.name.eq_ignore_ascii_case(model))
+        .map(|available| available.name.clone())
+        .ok_or_else(|| format!("模型 {model} 不在当前可用模型列表中，请刷新后重新选择"))
+}
+
+fn parse_agent_model_options(payload: &serde_json::Value) -> Result<Vec<AgentModelOption>, String> {
+    let source = payload
+        .as_array()
+        .or_else(|| payload.get("data").and_then(serde_json::Value::as_array))
+        .or_else(|| payload.get("models").and_then(serde_json::Value::as_array))
+        .ok_or_else(|| "本机模型列表响应缺少 data 或 models 数组".to_string())?;
+    let mut models = Vec::new();
+    for item in source {
+        let name = if let Some(name) = item.as_str() {
+            name.trim().to_string()
+        } else {
+            ["id", "name", "model", "value"]
+                .into_iter()
+                .find_map(|key| item.get(key).and_then(serde_json::Value::as_str))
+                .unwrap_or_default()
+                .trim()
+                .to_string()
+        };
+        let display_name = ["display_name", "displayName"]
+            .into_iter()
+            .find_map(|key| item.get(key).and_then(serde_json::Value::as_str))
+            .map(str::trim)
+            .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case(&name))
+            .map(str::to_string);
+        let model_alias = item
+            .get("alias")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case(&name))
+            .map(str::to_string);
+        let keep_original = item
+            .get("fork")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        let context_window = [
+            "context_length",
+            "contextLength",
+            "ContextLength",
+            "context_window",
+            "contextWindow",
+            "max_input_tokens",
+            "maxInputTokens",
+            "input_token_limit",
+            "inputTokenLimit",
+        ]
+        .into_iter()
+        .find_map(|key| item.get(key).and_then(json_positive_u64));
+
+        if let Some(model_alias) = model_alias {
+            if keep_original {
+                append_agent_model_option(&mut models, &name, display_name, false, context_window);
+            }
+            append_agent_model_option(&mut models, &model_alias, Some(name), true, context_window);
+        } else {
+            append_agent_model_option(&mut models, &name, display_name, false, context_window);
+        }
+    }
+    Ok(models)
+}
+
+fn append_agent_model_option(
+    models: &mut Vec<AgentModelOption>,
+    name: &str,
+    alias: Option<String>,
+    is_alias: bool,
+    context_window: Option<u64>,
+) {
+    let name = name.trim();
+    if name.is_empty()
+        || models
+            .iter()
+            .any(|model| model.name.eq_ignore_ascii_case(name))
+    {
+        return;
+    }
+    let alias = alias
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case(name))
+        .map(str::to_string);
+    models.push(AgentModelOption {
+        name: name.to_string(),
+        alias,
+        is_alias,
+        context_window,
+    });
+}
+
+fn mark_configured_agent_model_aliases(
+    models: &mut [AgentModelOption],
+    content: &str,
+) -> Result<(), String> {
+    let document = serde_norway::from_str::<serde_norway::Value>(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+
+    for section in MODEL_ALIAS_CONFIG_SECTIONS {
+        let Some(providers) = yaml_mapping_value(root, section) else {
+            continue;
+        };
+        let providers = providers
+            .as_sequence()
+            .ok_or_else(|| format!("{section} 必须是数组"))?;
+        for provider in providers {
+            let Some(provider) = provider.as_mapping() else {
+                continue;
+            };
+            let Some(configured_models) = yaml_mapping_value(provider, "models") else {
+                continue;
+            };
+            let configured_models = configured_models
+                .as_sequence()
+                .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+            mark_agent_model_aliases_from_sequence(models, configured_models);
+        }
+    }
+
+    if let Some(oauth_aliases) = yaml_mapping_value(root, "oauth-model-alias") {
+        let oauth_aliases = oauth_aliases
+            .as_mapping()
+            .ok_or_else(|| "oauth-model-alias 必须是 YAML 映射".to_string())?;
+        for entries in oauth_aliases.values() {
+            let Some(entries) = entries.as_sequence() else {
+                continue;
+            };
+            mark_agent_model_aliases_from_sequence(models, entries);
+        }
+    }
+    Ok(())
+}
+
+fn mark_agent_model_aliases_from_sequence(
+    models: &mut [AgentModelOption],
+    configured_models: &[serde_norway::Value],
+) {
+    for configured in configured_models {
+        let Some((source_model, client_model, _)) = configured_model_identity(configured) else {
+            continue;
+        };
+        if source_model.eq_ignore_ascii_case(&client_model) {
+            continue;
+        }
+        let Some(model) = models
+            .iter_mut()
+            .find(|model| model.name.eq_ignore_ascii_case(&client_model))
+        else {
+            continue;
+        };
+        model.is_alias = true;
+        model.alias = Some(source_model);
+    }
+}
+
+fn parse_codex_model_definitions(
+    payload: &serde_json::Value,
+) -> Result<Vec<CodexModelDefinition>, String> {
+    let source = payload
+        .as_array()
+        .or_else(|| payload.get("models").and_then(serde_json::Value::as_array))
+        .or_else(|| payload.get("data").and_then(serde_json::Value::as_array))
+        .ok_or_else(|| "Codex 模型定义响应缺少 models 或 data 数组".to_string())?;
+    let mut definitions = Vec::new();
+    for item in source {
+        let id = ["id", "ID", "name"]
+            .into_iter()
+            .find_map(|key| item.get(key).and_then(serde_json::Value::as_str))
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let Some(id) = id else {
+            continue;
+        };
+        if definitions
+            .iter()
+            .any(|definition: &CodexModelDefinition| definition.id.eq_ignore_ascii_case(id))
+        {
+            continue;
+        }
+        let display_name = ["display_name", "displayName", "DisplayName"]
+            .into_iter()
+            .find_map(|key| item.get(key).and_then(serde_json::Value::as_str))
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        let description = item
+            .get("description")
+            .or_else(|| item.get("Description"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        let context_window = ["context_length", "contextLength", "ContextLength"]
+            .into_iter()
+            .find_map(|key| item.get(key).and_then(json_positive_u64));
+        let reasoning_levels = item
+            .get("thinking")
+            .or_else(|| item.get("Thinking"))
+            .and_then(|thinking| thinking.get("levels").or_else(|| thinking.get("Levels")))
+            .and_then(serde_json::Value::as_array)
+            .map(|levels| {
+                levels
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .map(str::to_ascii_lowercase)
+                    .filter(|level| is_codex_reasoning_level(level))
+                    .fold(Vec::new(), |mut result, level| {
+                        if !result.contains(&level) {
+                            result.push(level);
+                        }
+                        result
+                    })
+            })
+            .unwrap_or_default();
+        let supports_tools = item
+            .get("supported_parameters")
+            .or_else(|| item.get("supportedParameters"))
+            .or_else(|| item.get("SupportedParameters"))
+            .and_then(serde_json::Value::as_array)
+            .map(|parameters| {
+                parameters.iter().any(|parameter| {
+                    parameter
+                        .as_str()
+                        .is_some_and(|value| value.eq_ignore_ascii_case("tools"))
+                })
+            });
+        definitions.push(CodexModelDefinition {
+            id: id.to_string(),
+            display_name,
+            description,
+            context_window,
+            reasoning_levels,
+            supports_tools,
+        });
+    }
+    Ok(definitions)
+}
+
+fn json_positive_u64(value: &serde_json::Value) -> Option<u64> {
+    value
+        .as_u64()
+        .or_else(|| value.as_str()?.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+}
+
+fn is_codex_reasoning_level(value: &str) -> bool {
+    matches!(
+        value,
+        "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra"
+    )
+}
+
+fn format_agent_models_error(status: u16, body: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
+        let message = value
+            .get("error")
+            .and_then(|error| {
+                error
+                    .as_str()
+                    .or_else(|| error.get("message").and_then(serde_json::Value::as_str))
+            })
+            .or_else(|| value.get("message").and_then(serde_json::Value::as_str))
+            .map(str::trim)
+            .filter(|message| !message.is_empty());
+        if let Some(message) = message {
+            return format!("获取本机模型列表失败 ({status}): {message}");
+        }
+    }
+    let body = body.trim();
+    if body.is_empty() {
+        format!("获取本机模型列表失败 ({status})")
+    } else {
+        format!(
+            "获取本机模型列表失败 ({status}): {}",
+            truncate_for_error(body)
+        )
+    }
+}
+
+fn agent_config_paths(client: AgentClient, home: &Path) -> Vec<PathBuf> {
+    match client {
+        AgentClient::ClaudeCode => {
+            let directory = home.join(".claude");
+            let settings = directory.join("settings.json");
+            let legacy = directory.join("claude.json");
+            let settings_state_exists = agent_state_path(std::slice::from_ref(&settings))
+                .map(|path| path.exists())
+                .unwrap_or(false);
+            let legacy_state_exists = agent_state_path(std::slice::from_ref(&legacy))
+                .map(|path| path.exists())
+                .unwrap_or(false);
+            vec![if settings_state_exists {
+                settings
+            } else if legacy_state_exists || (!settings.exists() && legacy.exists()) {
+                legacy
+            } else {
+                settings
+            }]
+        }
+        AgentClient::ClaudeDesktop => claude_desktop_config_paths(home),
+        AgentClient::Codex => vec![codex_configuration_directory(home).join("config.toml")],
+        AgentClient::OpenCode => vec![home.join(".config/opencode/opencode.json")],
+        AgentClient::OpenClaw => vec![home.join(".openclaw/openclaw.json")],
+        AgentClient::Hermes => vec![hermes_agent_config_path(home)],
+    }
+}
+
+fn pi_agent_directory(home: &Path) -> PathBuf {
+    env::var_os("PI_CODING_AGENT_DIR")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| home.join(".pi/agent"))
+}
+
+fn pi_provider_config_path(home: &Path) -> PathBuf {
+    pi_agent_directory(home).join(PI_AGENT_CONFIG_FILE)
+}
+
+fn pi_provider_settings_path(home: &Path) -> PathBuf {
+    pi_agent_directory(home).join(PI_AGENT_SETTINGS_FILE)
+}
+
+fn pi_provider_package_json_path(home: &Path) -> PathBuf {
+    pi_agent_directory(home)
+        .join("npm/node_modules/@router-for-me/pi-cliproxyapi-provider/package.json")
+}
+
+fn read_pi_provider_version(home: &Path) -> Result<Option<String>, String> {
+    let path = pi_provider_package_json_path(home);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&path).map_err(|error| {
+        format!(
+            "读取 Pi provider package.json 失败 {}: {error}",
+            path_to_string(&path)
+        )
+    })?;
+    let package = serde_json::from_str::<serde_json::Value>(&content).map_err(|error| {
+        format!(
+            "解析 Pi provider package.json 失败 {}: {error}",
+            path_to_string(&path)
+        )
+    })?;
+    Ok(package
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string))
+}
+
+fn parse_pi_provider_latest_version(payload: &serde_json::Value) -> Result<String, String> {
+    payload
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| "npm registry 返回的 Pi provider 版本无效".to_string())
+}
+
+async fn fetch_pi_provider_latest_version() -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(12))
+        .build()
+        .map_err(|error| format!("创建 Pi provider 更新检测客户端失败: {error}"))?;
+    let response = client
+        .get(PI_CLIPROXYAPI_NPM_LATEST_URL)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .header(reqwest::header::USER_AGENT, APP_USER_AGENT)
+        .send()
+        .await
+        .map_err(|error| format!("查询 Pi provider 最新版本失败: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!(
+            "查询 Pi provider 最新版本失败: HTTP {}",
+            status.as_u16()
+        ));
+    }
+    let payload = response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| format!("解析 Pi provider 最新版本失败: {error}"))?;
+    parse_pi_provider_latest_version(&payload)
+}
+
+fn pi_provider_update_available(installed: &str, latest: &str) -> Result<bool, String> {
+    let parse = |value: &str| {
+        semver::Version::parse(value.trim().trim_start_matches('v'))
+            .map_err(|error| format!("无法解析 Pi provider 版本号 {value}: {error}"))
+    };
+    Ok(parse(latest)? > parse(installed)?)
+}
+
+fn pi_package_source_matches(value: &str) -> bool {
+    let value = value.trim();
+    value == PI_CLIPROXYAPI_PACKAGE || value.starts_with(&format!("{PI_CLIPROXYAPI_PACKAGE}@"))
+}
+
+fn read_pi_settings(home: &Path) -> Result<Option<serde_json::Value>, String> {
+    let path = pi_provider_settings_path(home);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&path).map_err(|error| {
+        format!(
+            "读取 Pi settings.json 失败 {}: {error}",
+            path_to_string(&path)
+        )
+    })?;
+    serde_json::from_str::<serde_json::Value>(&content)
+        .map(Some)
+        .map_err(|error| {
+            format!(
+                "解析 Pi settings.json 失败 {}: {error}",
+                path_to_string(&path)
+            )
+        })
+}
+
+fn pi_settings_contains_provider(settings: &serde_json::Value) -> bool {
+    settings
+        .get("packages")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|packages| {
+            packages.iter().any(|package| {
+                package.as_str().is_some_and(pi_package_source_matches)
+                    || package
+                        .get("source")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(pi_package_source_matches)
+            })
+        })
+}
+
+fn pi_provider_package_installed(home: &Path) -> Result<bool, String> {
+    Ok(read_pi_settings(home)?
+        .as_ref()
+        .is_some_and(pi_settings_contains_provider))
+}
+
+fn build_pi_provider_config(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+) -> Result<String, String> {
+    let mut root = match existing.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => serde_json::from_str::<serde_json::Value>(value)
+            .map_err(|error| format!("解析 Pi CLIProxyAPI 配置失败: {error}"))?,
+        None => serde_json::json!({}),
+    };
+    let object = root
+        .as_object_mut()
+        .ok_or_else(|| "Pi CLIProxyAPI 配置根节点必须是 JSON 对象".to_string())?;
+    object.insert("baseUrl".to_string(), serde_json::json!(base_url));
+    object.insert("apiKey".to_string(), serde_json::json!(api_key));
+    let mut rendered = serde_json::to_string_pretty(&root)
+        .map_err(|error| format!("生成 Pi CLIProxyAPI 配置失败: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+fn build_pi_provider_settings(existing: &str, default_model: &str) -> Result<String, String> {
+    let default_model = default_model.trim();
+    if default_model.is_empty() {
+        return Err("Pi 默认模型不能为空".to_string());
+    }
+    let mut root = serde_json::from_str::<serde_json::Value>(existing)
+        .map_err(|error| format!("解析 Pi settings.json 失败: {error}"))?;
+    let object = root
+        .as_object_mut()
+        .ok_or_else(|| "Pi settings.json 根节点必须是 JSON 对象".to_string())?;
+    object.insert(
+        "defaultProvider".to_string(),
+        serde_json::json!(PI_CLIPROXYAPI_PROVIDER_ID),
+    );
+    object.insert("defaultModel".to_string(), serde_json::json!(default_model));
+    let mut rendered = serde_json::to_string_pretty(&root)
+        .map_err(|error| format!("生成 Pi settings.json 失败: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+fn inspect_pi_provider_status(home: &Path, port: u16, api_key: &str) -> AgentConfigStatus {
+    let config_path = pi_provider_config_path(home);
+    let settings_path = pi_provider_settings_path(home);
+    let executable = find_pi_executable(home);
+    let launch_targets = executable
+        .as_ref()
+        .map(|path| {
+            vec![AgentLaunchTarget {
+                id: "cli".to_string(),
+                label: PI_AGENT_NAME.to_string(),
+                detail: path_to_string(path),
+            }]
+        })
+        .unwrap_or_default();
+    let mut errors = Vec::new();
+    let (plugin_installed, default_provider_matches, current_model) = match read_pi_settings(home) {
+        Ok(Some(settings)) => {
+            let plugin_installed = pi_settings_contains_provider(&settings);
+            let default_provider_matches = settings
+                .get("defaultProvider")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.trim() == PI_CLIPROXYAPI_PROVIDER_ID);
+            let current_model = settings
+                .get("defaultModel")
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
+            (plugin_installed, default_provider_matches, current_model)
+        }
+        Ok(None) => (false, false, None),
+        Err(error) => {
+            errors.push(error);
+            (false, false, None)
+        }
+    };
+    let mut credentials_match = false;
+    if config_path.is_file() {
+        match fs::read_to_string(&config_path)
+            .map_err(|error| format!("读取 Pi CLIProxyAPI 配置失败: {error}"))
+            .and_then(|content| {
+                let root = serde_json::from_str::<serde_json::Value>(&content)
+                    .map_err(|error| format!("解析 Pi CLIProxyAPI 配置失败: {error}"))?;
+                let object = root
+                    .as_object()
+                    .ok_or_else(|| "Pi CLIProxyAPI 配置根节点必须是 JSON 对象".to_string())?;
+                let expected_base_url = format!("http://127.0.0.1:{port}");
+                credentials_match = object
+                    .get("baseUrl")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|value| value.trim() == expected_base_url)
+                    && object.get("apiKey").and_then(serde_json::Value::as_str) == Some(api_key);
+                Ok(())
+            }) {
+            Ok(()) => {}
+            Err(error) => errors.push(error),
+        }
+    }
+    let config_exists = config_path.is_file() || settings_path.is_file();
+    let config_valid = errors.is_empty();
+    let configured = plugin_installed
+        && credentials_match
+        && default_provider_matches
+        && current_model.is_some()
+        && config_valid;
+    let mut warnings = Vec::new();
+    if executable.is_some() && !plugin_installed && config_valid {
+        warnings.push("Pi CLIProxyAPI provider 插件尚未安装".to_string());
+    } else if plugin_installed
+        && (!credentials_match || !default_provider_matches || current_model.is_none())
+        && config_valid
+        && config_exists
+    {
+        warnings.push(
+            "Pi 插件配置不完整，请使用“应用配置”重新写入凭据、默认 provider 和默认模型".to_string(),
+        );
+    }
+    if executable.is_none() && plugin_installed {
+        warnings.push("已找到 Pi 插件配置，但未检测到 Pi CLI 命令".to_string());
+    }
+    let modification_state = if configured {
+        "applied"
+    } else {
+        "unconfigured"
+    };
+    let error = errors.into_iter().next();
+    let cli_version = executable.as_deref().and_then(read_agent_version);
+    let plugin_version = read_pi_provider_version(home).ok().flatten();
+    AgentConfigStatus {
+        id: PI_AGENT_ID.to_string(),
+        name: PI_AGENT_NAME.to_string(),
+        supported_platform: true,
+        installed: executable.is_some(),
+        plugin_installed,
+        executable_path: launch_targets.first().map(|target| target.detail.clone()),
+        launch_targets,
+        version: cli_version.clone(),
+        cli_version,
+        app_version: None,
+        plugin_version,
+        config_paths: vec![path_to_string(&config_path), path_to_string(&settings_path)],
+        config_exists,
+        config_valid,
+        configured,
+        current_model: current_model.clone(),
+        oauth_configuration: false,
+        modification_enabled: configured,
+        modification_state: modification_state.to_string(),
+        backup_available: false,
+        applied_model: current_model,
+        claude_code_model_mappings: None,
+        claude_desktop_model_mappings: None,
+        claude_code_working_directory: None,
+        claude_code_working_directory_prompt_disabled: false,
+        warnings,
+        error,
+    }
+}
+
+fn install_pi_provider_inner(
+    home: &Path,
+    executable: &Path,
+    port: u16,
+    api_key: &str,
+    default_model: &str,
+) -> Result<AgentConfigActionResult, String> {
+    if port == 0 {
+        return Err("内核端口无效".to_string());
+    }
+    if api_key.trim().is_empty() {
+        return Err("EasyCLIProxyAPI 没有可用的 API key".to_string());
+    }
+    let settings_path = pi_provider_settings_path(home);
+    let mut changed_files = Vec::new();
+    if !pi_provider_package_installed(home)? {
+        install_pi_package(executable, home)?;
+        changed_files.push(path_to_string(&settings_path));
+    }
+
+    let mut result = repair_pi_provider_inner(home, port, api_key, default_model)?;
+    changed_files.extend(result.changed_files);
+    result.changed_files = changed_files;
+    Ok(result)
+}
+
+fn repair_pi_provider_inner(
+    home: &Path,
+    port: u16,
+    api_key: &str,
+    default_model: &str,
+) -> Result<AgentConfigActionResult, String> {
+    if port == 0 {
+        return Err("Core port is invalid".to_string());
+    }
+    if api_key.trim().is_empty() {
+        return Err("EasyCLIProxyAPI has no usable API key".to_string());
+    }
+    let config_path = pi_provider_config_path(home);
+    let settings_path = pi_provider_settings_path(home);
+    let mut changed_files = Vec::new();
+    if !pi_provider_package_installed(home)? {
+        return Err("Pi CLIProxyAPI provider is not installed".to_string());
+    }
+    let existing = if config_path.is_file() {
+        Some(fs::read_to_string(&config_path).map_err(|error| {
+            format!(
+                "读取 Pi CLIProxyAPI 配置失败 {}: {error}",
+                path_to_string(&config_path)
+            )
+        })?)
+    } else {
+        None
+    };
+    let base_url = format!("http://127.0.0.1:{port}");
+    let rendered = build_pi_provider_config(existing.as_deref(), &base_url, api_key)?;
+    if existing.as_deref() != Some(rendered.as_str()) {
+        write_bytes_atomically(&config_path, rendered.as_bytes())?;
+        changed_files.push(path_to_string(&config_path));
+    }
+
+    let settings = fs::read_to_string(&settings_path).map_err(|error| {
+        format!(
+            "读取 Pi settings.json 失败 {}: {error}",
+            path_to_string(&settings_path)
+        )
+    })?;
+    let rendered_settings = build_pi_provider_settings(&settings, default_model)?;
+    if settings != rendered_settings {
+        write_bytes_atomically(&settings_path, rendered_settings.as_bytes())?;
+        changed_files.push(path_to_string(&settings_path));
+    }
+
+    Ok(action_result(
+        "applied",
+        true,
+        Some(default_model.trim().to_string()),
+        changed_files,
+        Vec::new(),
+    ))
+}
+
+fn update_pi_provider_inner(
+    home: &Path,
+    executable: &Path,
+    port: u16,
+    api_key: &str,
+    default_model: &str,
+) -> Result<AgentConfigActionResult, String> {
+    if !pi_provider_package_installed(home)? {
+        return Err("Pi CLIProxyAPI provider 插件尚未安装".to_string());
+    }
+    update_pi_package(executable, home)?;
+    let mut result = repair_pi_provider_inner(home, port, api_key, default_model)?;
+    result.outcome = "updated".to_string();
+    Ok(result)
+}
+
+fn uninstall_pi_provider_inner(
+    home: &Path,
+    executable: &Path,
+) -> Result<AgentConfigActionResult, String> {
+    if !pi_provider_package_installed(home)? {
+        return Ok(action_result(
+            "not-installed",
+            false,
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+    }
+    remove_pi_package(executable, home)?;
+    Ok(action_result(
+        "removed",
+        false,
+        None,
+        vec![path_to_string(&pi_provider_settings_path(home))],
+        Vec::new(),
+    ))
+}
+
+fn install_pi_package(executable: &Path, home: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let mut command = windows_command_for_executable(executable, false);
+    #[cfg(not(target_os = "windows"))]
+    let mut command = Command::new(executable);
+
+    command
+        .arg("install")
+        .arg(PI_CLIPROXYAPI_PACKAGE)
+        .current_dir(home)
+        .stdin(Stdio::null());
+    configure_background_command(&mut command);
+    let output = command
+        .output()
+        .map_err(|error| format!("执行 Pi 插件安装失败: {error}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let detail = if !stderr.is_empty() { stderr } else { stdout };
+    Err(format!(
+        "Pi CLIProxyAPI provider 插件安装失败{}",
+        if detail.is_empty() {
+            String::new()
+        } else {
+            format!(": {detail}")
+        }
+    ))
+}
+
+fn update_pi_package(executable: &Path, home: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let mut command = windows_command_for_executable(executable, false);
+    #[cfg(not(target_os = "windows"))]
+    let mut command = Command::new(executable);
+
+    command
+        .arg("update")
+        .arg("--extension")
+        .arg(PI_CLIPROXYAPI_PACKAGE)
+        .current_dir(home)
+        .stdin(Stdio::null());
+    configure_background_command(&mut command);
+    let output = command
+        .output()
+        .map_err(|error| format!("执行 Pi 插件更新失败: {error}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let detail = if !stderr.is_empty() { stderr } else { stdout };
+    Err(format!(
+        "Pi CLIProxyAPI provider 插件更新失败{}",
+        if detail.is_empty() {
+            String::new()
+        } else {
+            format!(": {detail}")
+        }
+    ))
+}
+
+fn remove_pi_package(executable: &Path, home: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let mut command = windows_command_for_executable(executable, false);
+    #[cfg(not(target_os = "windows"))]
+    let mut command = Command::new(executable);
+
+    command
+        .arg("remove")
+        .arg(PI_CLIPROXYAPI_PACKAGE)
+        .current_dir(home)
+        .stdin(Stdio::null());
+    configure_background_command(&mut command);
+    let output = command
+        .output()
+        .map_err(|error| format!("鎵ц Pi 鎻掍欢鍗歌浇澶辫触: {error}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let detail = if !stderr.is_empty() { stderr } else { stdout };
+    Err(format!(
+        "Pi CLIProxyAPI provider 鎻掍欢鍗歌浇澶辫触{}",
+        if detail.is_empty() {
+            String::new()
+        } else {
+            format!(": {detail}")
+        }
+    ))
+}
+
+fn codex_configuration_directory(home: &Path) -> PathBuf {
+    env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| home.join(".codex"))
+}
+
+fn codex_auth_file_has_oauth_tokens(path: &Path) -> bool {
+    let Ok(content) = fs::read_to_string(path) else {
+        return false;
+    };
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return false;
+    };
+    root.get("tokens")
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(|tokens| {
+            tokens
+                .values()
+                .any(|value| value.as_str().is_some_and(|token| !token.trim().is_empty()))
+        })
+}
+
+fn validate_codex_oauth_login(home: &Path) -> Result<(), String> {
+    validate_codex_oauth_login_at(&codex_configuration_directory(home).join("auth.json"))
+}
+
+fn validate_codex_oauth_login_at(auth_path: &Path) -> Result<(), String> {
+    if codex_auth_file_has_oauth_tokens(auth_path) {
+        Ok(())
+    } else {
+        Err(CODEX_OAUTH_LOGIN_REQUIRED_ERROR.to_string())
+    }
+}
+
+fn remove_codex_config_file(path: &Path) -> Result<bool, String> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(format!(
+            "删除 Codex 配置文件失败 {}: {error}",
+            path_to_string(path)
+        )),
+    }
+}
+
+fn clear_codex_config_files(home: &Path) -> Result<Vec<String>, String> {
+    let codex_dir = codex_configuration_directory(home);
+    let config_path = codex_dir.join("config.toml");
+    let targets = [codex_dir.join("auth.json"), config_path.clone()];
+    let mut deleted = Vec::new();
+
+    for path in targets {
+        if remove_codex_config_file(&path)? {
+            deleted.push(path_to_string(&path));
+        }
+    }
+
+    let state_path = agent_state_path(std::slice::from_ref(&config_path))?;
+    clear_codex_applied_state(&state_path)?;
+    // Clean up state files left by older releases. New Codex applications keep
+    // this short-lived restore metadata in memory instead.
+    remove_codex_config_file(&state_path)?;
+
+    Ok(deleted)
+}
+
+fn codex_model_catalog_path(home: &Path) -> PathBuf {
+    codex_configuration_directory(home).join(CODEX_MODEL_CATALOG_FILE)
+}
+
+fn expected_agent_record_paths(client: AgentClient, paths: &[PathBuf]) -> Vec<PathBuf> {
+    if client == AgentClient::Codex && paths.len() == 1 {
+        let mut expected = paths.to_vec();
+        expected.push(paths[0].with_file_name(CODEX_MODEL_CATALOG_FILE));
+        expected
+    } else {
+        paths.to_vec()
+    }
+}
+
+fn claude_desktop_config_paths(_home: &Path) -> Vec<PathBuf> {
+    #[cfg(target_os = "macos")]
+    let (normal, threep) = {
+        let support = _home.join("Library/Application Support");
+        (support.join("Claude"), support.join("Claude-3p"))
+    };
+    #[cfg(target_os = "windows")]
+    {
+        let local = env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| _home.join("AppData/Local"));
+        claude_desktop_config_paths_from_local_app_data(&local)
+    }
+    #[cfg(target_os = "linux")]
+    let (normal, threep) = {
+        let config_home = env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .unwrap_or_else(|| _home.join(".config"));
+        (config_home.join("Claude"), config_home.join("Claude-3p"))
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    return Vec::new();
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        claude_desktop_config_paths_from_directories(normal, threep)
+    }
+}
+
+fn claude_desktop_config_paths_from_directories(normal: PathBuf, threep: PathBuf) -> Vec<PathBuf> {
+    let library = threep.join("configLibrary");
+    vec![
+        normal.join("claude_desktop_config.json"),
+        threep.join("claude_desktop_config.json"),
+        library.join(format!("{CLAUDE_DESKTOP_PROFILE_ID}.json")),
+        library.join("_meta.json"),
+    ]
+}
+
+#[cfg(target_os = "windows")]
+fn claude_desktop_config_paths_from_local_app_data(local_app_data: &Path) -> Vec<PathBuf> {
+    // Claude Desktop may add a channel or version suffix to these directories.
+    // Match cc-switch's resolver so status detection and configuration writes use
+    // the same files as the installed Desktop client rather than only the legacy
+    // fixed `Claude` / `Claude-3p` locations.
+    let normal = find_windows_claude_data_directory(local_app_data, false)
+        .unwrap_or_else(|| local_app_data.join("Claude"));
+    let threep = find_windows_claude_data_directory(local_app_data, true)
+        .unwrap_or_else(|| local_app_data.join("Claude-3p"));
+    claude_desktop_config_paths_from_directories(normal, threep)
+}
+
+#[cfg(target_os = "windows")]
+fn find_windows_claude_data_directory(local_app_data: &Path, threep: bool) -> Option<PathBuf> {
+    let exact_name = if threep { "Claude-3p" } else { "Claude" };
+    let exact = local_app_data.join(exact_name);
+    if exact.is_dir() {
+        return Some(exact);
+    }
+
+    let mut candidates = fs::read_dir(local_app_data)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .filter(|path| {
+            let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+                return false;
+            };
+            let normalized = name.to_ascii_lowercase();
+            normalized.starts_with("claude") && normalized.contains("-3p") == threep
+        })
+        .collect::<Vec<_>>();
+    candidates.sort();
+    candidates.into_iter().next()
+}
+
+fn hermes_agent_config_path(home: &Path) -> PathBuf {
+    if let Some(directory) = env::var_os("HERMES_HOME")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        return directory.join("config.yaml");
+    }
+    #[cfg(target_os = "windows")]
+    {
+        env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData/Local"))
+            .join("hermes/config.yaml")
+    }
+    #[cfg(not(target_os = "windows"))]
+    home.join(".hermes/config.yaml")
+}
+
+fn inspect_agent_config(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    api_key: &str,
+) -> AgentConfigStatus {
+    let paths = agent_config_paths(client, home);
+    let config_exists = paths.iter().any(|path| path.is_file());
+    let result = inspect_agent_managed_config(client, &paths, port, api_key).and_then(
+        |(configured, model, oauth_configuration)| {
+            if client == AgentClient::Codex && configured {
+                let model = model
+                    .as_deref()
+                    .ok_or_else(|| "Codex 配置缺少默认模型".to_string())?;
+                validate_codex_catalog_file(&paths[0], model)?;
+            }
+            Ok((configured, model, oauth_configuration))
+        },
+    );
+    let (configured, current_model, oauth_configuration, config_valid, error) = match result {
+        Ok((configured, model, oauth_configuration)) => {
+            (configured, model, oauth_configuration, true, None)
+        }
+        Err(error) => (false, None, false, false, Some(error)),
+    };
+    let launch_targets = agent_launch_targets(client, home);
+    let executable = find_agent_executable(client, home);
+    let cli_version = executable.as_deref().and_then(read_agent_version);
+    let app_version = match client {
+        AgentClient::ClaudeDesktop => read_claude_desktop_version(home),
+        AgentClient::Codex => read_codex_app_version(home),
+        _ => None,
+    };
+    let version = cli_version.clone().or_else(|| app_version.clone());
+    let installed = agent_client_is_installed(client, &launch_targets, version.as_deref());
+    let mut warnings = Vec::new();
+    if !client.supported_platform() {
+        warnings.push("当前平台不支持 Claude Desktop 3P 配置".to_string());
+    } else if launch_targets.is_empty() && config_exists {
+        warnings.push("只检测到配置文件，未在 PATH 中找到客户端命令".to_string());
+    } else if !installed && !launch_targets.is_empty() && version.is_none() {
+        warnings.push("检测到客户端入口，但无法读取有效版本，未标记为已安装".to_string());
+    }
+    if let Some(message) = error.as_ref() {
+        warnings.push(message.clone());
+    }
+    let modification = inspect_agent_application(client, home);
+    warnings.extend(modification.warnings.iter().cloned());
+
+    AgentConfigStatus {
+        id: client.id().to_string(),
+        name: client.name().to_string(),
+        supported_platform: client.supported_platform(),
+        installed,
+        plugin_installed: true,
+        executable_path: launch_targets.first().map(|target| target.detail.clone()),
+        launch_targets,
+        version,
+        cli_version,
+        app_version,
+        plugin_version: None,
+        config_paths: paths.iter().map(|path| path_to_string(path)).collect(),
+        config_exists,
+        config_valid,
+        configured,
+        current_model,
+        oauth_configuration,
+        modification_enabled: modification.enabled,
+        modification_state: modification.state,
+        backup_available: modification.backup_available,
+        applied_model: modification.applied_model,
+        claude_code_model_mappings: (client == AgentClient::ClaudeCode)
+            .then(|| inspect_claude_code_model_mappings(&paths[0]).ok().flatten())
+            .flatten(),
+        claude_desktop_model_mappings: modification.claude_desktop_model_mappings,
+        claude_code_working_directory: None,
+        claude_code_working_directory_prompt_disabled: false,
+        warnings,
+        error,
+    }
+}
+
+fn inspect_agent_application(client: AgentClient, home: &Path) -> AgentModificationInspection {
+    match load_agent_applied_state(client, home) {
+        Ok(Some(state)) => {
+            let paths = agent_config_paths(client, home);
+            let backup_available = !state.backup_files.is_empty()
+                && state
+                    .backup_files
+                    .iter()
+                    .all(|file| !file.existed_before || file.backup_path.is_file());
+            if state.backup_files.is_empty() {
+                match agent_has_managed_marker(client, &paths) {
+                    Ok(false) => {
+                        return AgentModificationInspection {
+                            enabled: false,
+                            state: "unconfigured".to_string(),
+                            backup_available: false,
+                            applied_model: None,
+                            claude_desktop_model_mappings: None,
+                            warnings: Vec::new(),
+                        };
+                    }
+                    Err(error) => {
+                        return AgentModificationInspection {
+                            enabled: false,
+                            state: "invalid".to_string(),
+                            backup_available: false,
+                            applied_model: None,
+                            claude_desktop_model_mappings: None,
+                            warnings: vec![error],
+                        };
+                    }
+                    Ok(true) => {}
+                }
+            }
+            let mut warnings = Vec::new();
+            if state.backup_files.is_empty() {
+                warnings.push("检测到旧版应用状态；关闭时将只移除 CPA 管理的配置字段".to_string());
+            } else if !backup_available {
+                warnings.push("原配置会话备份不完整，暂时无法安全恢复".to_string());
+            }
+            AgentModificationInspection {
+                enabled: true,
+                state: "applied".to_string(),
+                backup_available,
+                applied_model: Some(state.model),
+                claude_desktop_model_mappings: state.claude_desktop_model_mappings,
+                warnings,
+            }
+        }
+        Ok(None) => AgentModificationInspection {
+            enabled: false,
+            state: "unconfigured".to_string(),
+            backup_available: false,
+            applied_model: None,
+            claude_desktop_model_mappings: None,
+            warnings: Vec::new(),
+        },
+        Err(error) => AgentModificationInspection {
+            enabled: false,
+            state: "invalid".to_string(),
+            backup_available: false,
+            applied_model: None,
+            claude_desktop_model_mappings: None,
+            warnings: vec![error],
+        },
+    }
+}
+
+fn inspect_agent_managed_config(
+    client: AgentClient,
+    paths: &[PathBuf],
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>, bool), String> {
+    match client {
+        AgentClient::ClaudeCode => inspect_claude_agent_config(&paths[0], port, api_key)
+            .map(|(configured, model)| (configured, model, false)),
+        AgentClient::ClaudeDesktop if client.supported_platform() => {
+            inspect_claude_desktop_agent_config(paths, port, api_key)
+                .map(|(configured, model)| (configured, model, false))
+        }
+        AgentClient::ClaudeDesktop => Ok((false, None, false)),
+        AgentClient::Codex => inspect_codex_agent_config(&paths[0], port, api_key),
+        AgentClient::OpenCode => inspect_opencode_agent_config(&paths[0], port, api_key)
+            .map(|(configured, model)| (configured, model, false)),
+        AgentClient::OpenClaw => inspect_openclaw_agent_config(&paths[0], port, api_key)
+            .map(|(configured, model)| (configured, model, false)),
+        AgentClient::Hermes => inspect_hermes_agent_config(&paths[0], port, api_key)
+            .map(|(configured, model)| (configured, model, false)),
+    }
+}
+
+fn agent_has_managed_marker(client: AgentClient, paths: &[PathBuf]) -> Result<bool, String> {
+    match client {
+        AgentClient::ClaudeCode => {
+            if !paths[0].is_file() {
+                return Ok(false);
+            }
+            let root = read_agent_json_or_empty(&paths[0], "Claude Code 配置")?;
+            let env = root.get("env");
+            Ok(env
+                .and_then(|value| value.get("ANTHROPIC_BASE_URL"))
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(is_managed_agent_base_url))
+        }
+        AgentClient::ClaudeDesktop => {
+            if paths.len() != 4 {
+                return Ok(false);
+            }
+            let meta = read_agent_json_or_empty(&paths[3], "Claude Desktop 配置索引")?;
+            let profile = read_agent_json_or_empty(&paths[2], "Claude Desktop 网关配置")?;
+            Ok(meta.get("appliedId").and_then(serde_json::Value::as_str)
+                == Some(CLAUDE_DESKTOP_PROFILE_ID)
+                || meta
+                    .get("entries")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|entries| {
+                        entries.iter().any(|entry| {
+                            entry.get("id").and_then(serde_json::Value::as_str)
+                                == Some(CLAUDE_DESKTOP_PROFILE_ID)
+                        })
+                    })
+                || profile
+                    .get("inferenceGatewayBaseUrl")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(is_managed_agent_base_url))
+        }
+        AgentClient::Codex => {
+            if !paths[0].is_file() {
+                return Ok(false);
+            }
+            let root: toml::Value = toml::from_str(
+                &fs::read_to_string(&paths[0])
+                    .map_err(|error| format!("读取 Codex 配置失败: {error}"))?,
+            )
+            .map_err(|error| format!("解析 Codex 配置失败: {error}"))?;
+            Ok(root.get("model_provider").and_then(toml::Value::as_str)
+                == Some(MANAGED_AGENT_PROVIDER_ID))
+        }
+        AgentClient::OpenCode => {
+            if !paths[0].is_file() {
+                return Ok(false);
+            }
+            let root = read_agent_json_or_empty(&paths[0], "OpenCode 配置")?;
+            let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+            let provider_exists = root
+                .get("provider")
+                .and_then(|value| value.get(MANAGED_AGENT_PROVIDER_ID))
+                .is_some();
+            let model_selected = root
+                .get("model")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|model| model.starts_with(&prefix));
+            Ok(provider_exists && model_selected)
+        }
+        AgentClient::OpenClaw => {
+            if !paths[0].is_file() {
+                return Ok(false);
+            }
+            let root: serde_json::Value = json5::from_str(
+                &fs::read_to_string(&paths[0])
+                    .map_err(|error| format!("读取 OpenClaw 配置失败: {error}"))?,
+            )
+            .map_err(|error| format!("解析 OpenClaw 配置失败: {error}"))?;
+            let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+            let provider_exists = root
+                .get("models")
+                .and_then(|value| value.get("providers"))
+                .and_then(|value| value.get(MANAGED_AGENT_PROVIDER_ID))
+                .is_some();
+            let model_selected = root
+                .get("agents")
+                .and_then(|value| value.get("defaults"))
+                .and_then(|value| value.get("model"))
+                .and_then(|value| value.get("primary"))
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|model| model.starts_with(&prefix));
+            Ok(provider_exists && model_selected)
+        }
+        AgentClient::Hermes => {
+            if !paths[0].is_file() {
+                return Ok(false);
+            }
+            let root: serde_yaml::Value = serde_yaml::from_str(
+                &fs::read_to_string(&paths[0])
+                    .map_err(|error| format!("读取 Hermes 配置失败: {error}"))?,
+            )
+            .map_err(|error| format!("解析 Hermes 配置失败: {error}"))?;
+            let provider_exists = root
+                .get("custom_providers")
+                .and_then(serde_yaml::Value::as_sequence)
+                .is_some_and(|providers| {
+                    providers.iter().any(|provider| {
+                        provider.get("name").and_then(serde_yaml::Value::as_str)
+                            == Some(MANAGED_AGENT_PROVIDER_ID)
+                    })
+                });
+            let model_selected = root
+                .get("model")
+                .and_then(|value| value.get("provider"))
+                .and_then(serde_yaml::Value::as_str)
+                == Some(MANAGED_AGENT_PROVIDER_ID);
+            Ok(provider_exists && model_selected)
+        }
+    }
+}
+
+fn is_managed_agent_base_url(value: &str) -> bool {
+    let value = value.trim().to_ascii_lowercase();
+    value.starts_with("http://127.0.0.1:") || value.starts_with("http://localhost:")
+}
+
+fn agent_client_is_installed(
+    client: AgentClient,
+    launch_targets: &[AgentLaunchTarget],
+    version: Option<&str>,
+) -> bool {
+    if client == AgentClient::Codex {
+        // Codex can be installed as either a CLI or a desktop app. Discovery
+        // of either real entry is enough; version lookup is independent.
+        launch_targets
+            .iter()
+            .any(|target| target.id == "cli" || target.id == "app")
+    } else {
+        version.is_some()
+    }
+}
+
+fn agent_launch_targets(client: AgentClient, home: &Path) -> Vec<AgentLaunchTarget> {
+    let mut targets = Vec::new();
+    if client == AgentClient::ClaudeDesktop {
+        if let Some(target) = find_claude_desktop_target(home) {
+            targets.push(AgentLaunchTarget {
+                id: "app".to_string(),
+                label: "Claude Desktop".to_string(),
+                detail: claude_desktop_target_detail(&target),
+            });
+        }
+        return targets;
+    }
+    if client == AgentClient::Codex {
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        if let Some(target) = find_codex_app_target(home) {
+            targets.push(AgentLaunchTarget {
+                id: "app".to_string(),
+                label: "ChatGPT App".to_string(),
+                detail: codex_app_target_detail(&target),
+            });
+        }
+    }
+
+    if let Some(executable) = find_agent_executable(client, home) {
+        targets.push(AgentLaunchTarget {
+            id: if client == AgentClient::ClaudeDesktop {
+                "app".to_string()
+            } else {
+                "cli".to_string()
+            },
+            label: match client {
+                AgentClient::ClaudeDesktop => "Claude Desktop".to_string(),
+                AgentClient::Codex => "Codex CLI".to_string(),
+                _ => client.name().to_string(),
+            },
+            detail: path_to_string(&executable),
+        });
+    }
+    targets
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn codex_app_target_detail(target: &CodexAppTarget) -> String {
+    match target {
+        CodexAppTarget::Application(path) => path_to_string(path),
+        #[cfg(target_os = "windows")]
+        CodexAppTarget::WindowsAppId(app_id) => format!("Microsoft Store · {app_id}"),
+    }
+}
+
+fn claude_desktop_target_detail(target: &ClaudeDesktopTarget) -> String {
+    match target {
+        ClaudeDesktopTarget::Application(path) => path_to_string(path),
+        #[cfg(target_os = "windows")]
+        ClaudeDesktopTarget::WindowsAppId(app_id) => format!("Microsoft Store · {app_id}"),
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn launch_codex_app_via_cli(executable: &Path, home: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let mut command = windows_command_for_executable(executable, false);
+
+    #[cfg(not(target_os = "windows"))]
+    let mut command = Command::new(executable);
+
+    command
+        .arg("app")
+        .arg(home)
+        .current_dir(home)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    configure_background_command(&mut command);
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("通过 Codex CLI 启动 ChatGPT App 失败: {error}"))
+}
+
+fn find_codex_app_target(home: &Path) -> Option<CodexAppTarget> {
+    #[cfg(target_os = "macos")]
+    {
+        [PathBuf::from("/Applications"), home.join("Applications")]
+            .into_iter()
+            .flat_map(|directory| {
+                [
+                    "ChatGPT.app",
+                    "Codex.app",
+                    "OpenAI Codex.app",
+                    "OpenAI.Codex.app",
+                ]
+                .into_iter()
+                .map(move |name| directory.join(name))
+            })
+            .find(|path| path.is_dir())
+            .map(CodexAppTarget::Application)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        find_windows_codex_app_target(home)
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = home;
+        None
+    }
+}
+
+fn find_claude_desktop_target(home: &Path) -> Option<ClaudeDesktopTarget> {
+    #[cfg(target_os = "windows")]
+    {
+        find_windows_claude_desktop_target(home)
+    }
+    #[cfg(not(target_os = "windows"))]
+    find_claude_desktop_executable(home).map(ClaudeDesktopTarget::Application)
+}
+
+fn read_claude_desktop_version(home: &Path) -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        read_windows_claude_desktop_store_version().or_else(|| {
+            find_claude_desktop_executable(home).and_then(|path| read_agent_version(&path))
+        })
+    }
+    #[cfg(not(target_os = "windows"))]
+    find_claude_desktop_executable(home).and_then(|path| read_agent_version(&path))
+}
+
+fn read_codex_app_version(home: &Path) -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        match find_codex_app_target(home)? {
+            CodexAppTarget::WindowsAppId(_) => read_windows_codex_store_version(),
+            CodexAppTarget::Application(path) => {
+                read_windows_executable_version(&path).or_else(|| read_agent_version(&path))
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let CodexAppTarget::Application(path) = find_codex_app_target(home)?;
+        read_macos_app_version(&path)
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let _ = home;
+        None
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn read_macos_app_version(application: &Path) -> Option<String> {
+    let info_plist = application.join("Contents/Info.plist");
+    for key in ["CFBundleShortVersionString", "CFBundleVersion"] {
+        let output = Command::new("/usr/bin/plutil")
+            .args(["-extract", key, "raw", "-o", "-"])
+            .arg(&info_plist)
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            continue;
+        }
+        if let Some(version) =
+            normalize_detected_agent_version(&String::from_utf8_lossy(&output.stdout))
+        {
+            return Some(version);
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn windows_system_root() -> PathBuf {
+    env::var_os("SystemRoot")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+}
+
+#[cfg(target_os = "windows")]
+fn windows_powershell_executable() -> PathBuf {
+    let executable = windows_system_root().join("System32/WindowsPowerShell/v1.0/powershell.exe");
+    if executable.is_file() {
+        executable
+    } else {
+        PathBuf::from("powershell.exe")
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_explorer_executable() -> PathBuf {
+    let executable = windows_system_root().join("explorer.exe");
+    if executable.is_file() {
+        executable
+    } else {
+        PathBuf::from("explorer.exe")
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_registry_executable() -> PathBuf {
+    let executable = windows_system_root().join("System32/reg.exe");
+    if executable.is_file() {
+        executable
+    } else {
+        PathBuf::from("reg.exe")
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_command_processor() -> PathBuf {
+    env::var_os("ComSpec")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| windows_system_root().join("System32/cmd.exe"))
+}
+
+#[cfg(target_os = "windows")]
+fn find_windows_codex_app_target(home: &Path) -> Option<CodexAppTarget> {
+    find_windows_registered_codex_app_target()
+        .or_else(|| find_windows_codex_app_id_via_registry().map(CodexAppTarget::WindowsAppId))
+        .or_else(|| find_windows_codex_app_executable(home).map(CodexAppTarget::Application))
+}
+
+#[cfg(target_os = "windows")]
+fn find_windows_claude_desktop_target(home: &Path) -> Option<ClaudeDesktopTarget> {
+    find_windows_registered_claude_desktop_target()
+        .or_else(|| find_claude_desktop_executable(home).map(ClaudeDesktopTarget::Application))
+}
+
+#[cfg(target_os = "windows")]
+fn find_windows_registered_claude_desktop_target() -> Option<ClaudeDesktopTarget> {
+    const DISCOVERY_SCRIPT: &str = r#"
+$ErrorActionPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
+$startApps = @(Get-StartApps)
+$appId = $startApps |
+    Where-Object {
+        $_.AppID -like 'Claude_*!*' -or
+        $_.AppID -like 'Anthropic.Claude_*!*'
+    } |
+    Select-Object -First 1 -ExpandProperty AppID
+if ($appId) {
+    Write-Output "APPID:$appId"
+    exit 0
+}
+
+$packages = @(Get-AppxPackage) |
+    Where-Object {
+        $_.Name -eq 'Claude' -or
+        $_.Name -like 'Anthropic.Claude*' -or
+        $_.PackageFamilyName -match '^(Claude|Anthropic\.Claude)_'
+    }
+foreach ($package in $packages) {
+    $manifest = Get-AppxPackageManifest -Package $package.PackageFullName
+    $application = @($manifest.Package.Applications.Application) |
+        Where-Object { $_.Id } |
+        Select-Object -First 1
+    if ($application -and $package.PackageFamilyName) {
+        Write-Output "APPID:$($package.PackageFamilyName)!$($application.Id)"
+        exit 0
+    }
+}
+"#;
+
+    let encoded_command = windows_powershell_encoded_command(DISCOVERY_SCRIPT);
+    let mut command = Command::new(windows_powershell_executable());
+    command.args([
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+        &encoded_command,
+    ]);
+    configure_background_command(&mut command);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_windows_claude_desktop_discovery_output(&String::from_utf8_lossy(&output.stdout))
+}
+
+#[cfg(target_os = "windows")]
+fn read_windows_claude_desktop_store_version() -> Option<String> {
+    const VERSION_SCRIPT: &str = r#"
+$ErrorActionPreference = 'SilentlyContinue'
+$package = @(Get-AppxPackage) |
+    Where-Object {
+        $_.Name -eq 'Claude' -or
+        $_.Name -like 'Anthropic.Claude*' -or
+        $_.PackageFamilyName -match '^(Claude|Anthropic\.Claude)_'
+    } |
+    Select-Object -First 1
+if ($package -and $package.Version) {
+    Write-Output "VERSION:$($package.Version)"
+}
+"#;
+
+    let encoded_command = windows_powershell_encoded_command(VERSION_SCRIPT);
+    let mut command = Command::new(windows_powershell_executable());
+    command.args([
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+        &encoded_command,
+    ]);
+    configure_background_command(&mut command);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_windows_claude_desktop_version_output(&String::from_utf8_lossy(&output.stdout))
+}
+
+#[cfg(target_os = "windows")]
+fn read_windows_codex_store_version() -> Option<String> {
+    const VERSION_SCRIPT: &str = r#"
+$ErrorActionPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
+$package = @(Get-AppxPackage) |
+    Where-Object {
+        $_.Name -in @('OpenAI.Codex', 'OpenAI.CodexBeta', 'OpenAI.ChatGPT') -or
+        $_.PackageFamilyName -match '^OpenAI\.(Codex|CodexBeta|ChatGPT)_'
+    } |
+    Sort-Object { [version]$_.Version } -Descending |
+    Select-Object -First 1
+if ($package -and $package.Version) {
+    Write-Output "VERSION:$($package.Version)"
+}
+"#;
+
+    let encoded_command = windows_powershell_encoded_command(VERSION_SCRIPT);
+    let mut command = Command::new(windows_powershell_executable());
+    command.args([
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+        &encoded_command,
+    ]);
+    configure_background_command(&mut command);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_windows_codex_version_output(&String::from_utf8_lossy(&output.stdout))
+}
+
+#[cfg(target_os = "windows")]
+fn find_windows_registered_codex_app_target() -> Option<CodexAppTarget> {
+    const DISCOVERY_SCRIPT: &str = r#"
+$ErrorActionPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
+$startApps = @(Get-StartApps)
+$appId = $startApps |
+    Where-Object {
+        $_.AppID -like 'OpenAI.Codex_*!*' -or
+        $_.AppID -like 'OpenAI.CodexBeta_*!*' -or
+        $_.AppID -like 'OpenAI.ChatGPT_*!*'
+    } |
+    Select-Object -First 1 -ExpandProperty AppID
+if ($appId) {
+    Write-Output "APPID:$appId"
+    exit 0
+}
+
+$packages = @(Get-AppxPackage) |
+    Where-Object {
+        $_.Name -in @('OpenAI.Codex', 'OpenAI.CodexBeta', 'OpenAI.ChatGPT') -or
+        $_.PackageFamilyName -match '^OpenAI\.(Codex|CodexBeta|ChatGPT)_'
+    }
+foreach ($package in $packages) {
+    $manifest = Get-AppxPackageManifest -Package $package.PackageFullName
+    $application = @($manifest.Package.Applications.Application) |
+        Where-Object { $_.Id } |
+        Select-Object -First 1
+    if ($application -and $package.PackageFamilyName) {
+        Write-Output "APPID:$($package.PackageFamilyName)!$($application.Id)"
+        exit 0
+    }
+}
+
+$appPathKeys = @(
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths\ChatGPT.exe',
+    'HKLM:\Software\Microsoft\Windows\CurrentVersion\App Paths\ChatGPT.exe',
+    'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths\ChatGPT.exe'
+)
+foreach ($key in $appPathKeys) {
+    if (-not (Test-Path -LiteralPath $key)) { continue }
+    $candidate = (Get-Item -LiteralPath $key).GetValue('')
+    if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        Write-Output "EXE:$candidate"
+        exit 0
+    }
+}
+
+$shortcutRoots = @(
+    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs"
+)
+$shell = New-Object -ComObject WScript.Shell
+foreach ($shortcutFile in (Get-ChildItem -LiteralPath $shortcutRoots -Filter '*.lnk' -Recurse)) {
+    $shortcut = $shell.CreateShortcut($shortcutFile.FullName)
+    $target = $shortcut.TargetPath
+    if (-not $target -or -not (Test-Path -LiteralPath $target -PathType Leaf)) { continue }
+    $fileName = [System.IO.Path]::GetFileName($target)
+    if ($fileName -ieq 'Codex.exe' -and $target -match '(?i)\\(bin|node_modules|\.vscode\\extensions)\\') {
+        continue
+    }
+    if ($fileName -ieq 'ChatGPT.exe' -or $fileName -ieq 'Codex.exe') {
+        Write-Output "EXE:$target"
+        exit 0
+    }
+}
+"#;
+
+    let encoded_command = windows_powershell_encoded_command(DISCOVERY_SCRIPT);
+    let mut command = Command::new(windows_powershell_executable());
+    command.args([
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+        &encoded_command,
+    ]);
+    configure_background_command(&mut command);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_windows_codex_app_discovery_output(&String::from_utf8_lossy(&output.stdout)).and_then(
+        |target| match &target {
+            CodexAppTarget::Application(path) if !path.is_file() => None,
+            _ => Some(target),
+        },
+    )
+}
+
+#[cfg(target_os = "windows")]
+fn windows_powershell_encoded_command(script: &str) -> String {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+    let bytes = script
+        .encode_utf16()
+        .flat_map(|unit| unit.to_le_bytes())
+        .collect::<Vec<_>>();
+    STANDARD.encode(bytes)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_powershell_single_quoted_literal(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+#[cfg(target_os = "windows")]
+fn read_windows_executable_version(path: &Path) -> Option<String> {
+    let path = windows_powershell_single_quoted_literal(&path_to_string(path));
+    let script = format!(
+        r#"
+$ErrorActionPreference = 'SilentlyContinue'
+$item = Get-Item -LiteralPath {path}
+$version = $item.VersionInfo.ProductVersion
+if ($version) {{
+    Write-Output "VERSION:$version"
+}}
+"#
+    );
+    let encoded_command = windows_powershell_encoded_command(&script);
+    let mut command = Command::new(windows_powershell_executable());
+    command.args([
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+        &encoded_command,
+    ]);
+    configure_background_command(&mut command);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_windows_codex_version_output(&String::from_utf8_lossy(&output.stdout))
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_codex_app_discovery_output(output: &str) -> Option<CodexAppTarget> {
+    output.lines().find_map(|line| {
+        let line = line.trim();
+        if let Some(app_id) = line.strip_prefix("APPID:").map(str::trim) {
+            return (!app_id.is_empty()).then(|| CodexAppTarget::WindowsAppId(app_id.to_string()));
+        }
+        line.strip_prefix("EXE:")
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(|path| CodexAppTarget::Application(PathBuf::from(path)))
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_claude_desktop_discovery_output(output: &str) -> Option<ClaudeDesktopTarget> {
+    output.lines().find_map(|line| {
+        let app_id = line.trim().strip_prefix("APPID:")?.trim();
+        (!app_id.is_empty()).then(|| ClaudeDesktopTarget::WindowsAppId(app_id.to_string()))
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_claude_desktop_version_output(output: &str) -> Option<String> {
+    output.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("VERSION:")
+            .and_then(normalize_detected_agent_version)
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_codex_version_output(output: &str) -> Option<String> {
+    output.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("VERSION:")
+            .and_then(normalize_detected_agent_version)
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn find_windows_codex_app_id_via_registry() -> Option<String> {
+    const PACKAGES_KEY: &str = r"HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+    for package_name in ["OpenAI.Codex_", "OpenAI.CodexBeta_", "OpenAI.ChatGPT_"] {
+        let mut command = Command::new(windows_registry_executable());
+        command.args(["query", PACKAGES_KEY, "/f", package_name, "/k", "/s"]);
+        configure_background_command(&mut command);
+        let Ok(output) = command.output() else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+        if let Some(app_id) =
+            parse_windows_codex_app_id_from_registry(&String::from_utf8_lossy(&output.stdout))
+        {
+            return Some(app_id);
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn parse_windows_codex_app_id_from_registry(output: &str) -> Option<String> {
+    const PACKAGE_MARKER: &str = "\\AppModel\\Repository\\Packages\\";
+    output.lines().find_map(|line| {
+        let line = line.trim();
+        let (_, package_full_name) = line.split_once(PACKAGE_MARKER)?;
+        if package_full_name.contains('\\') {
+            return None;
+        }
+        windows_codex_app_id_from_package_full_name(package_full_name)
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn windows_codex_app_id_from_package_full_name(package_full_name: &str) -> Option<String> {
+    let package_name = package_full_name.split('_').next()?.trim();
+    if !matches!(
+        package_name,
+        "OpenAI.Codex" | "OpenAI.CodexBeta" | "OpenAI.ChatGPT"
+    ) {
+        return None;
+    }
+    let publisher_id = package_full_name.rsplit('_').next()?.trim();
+    if publisher_id.is_empty() || publisher_id == package_name {
+        return None;
+    }
+    Some(format!("{package_name}_{publisher_id}!App"))
+}
+
+#[cfg(target_os = "windows")]
+fn find_windows_codex_app_executable(home: &Path) -> Option<PathBuf> {
+    let local = env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join("AppData/Local"));
+    let mut candidates = vec![
+        local.join("Programs/OpenAI/ChatGPT/ChatGPT.exe"),
+        local.join("Programs/ChatGPT/ChatGPT.exe"),
+        local.join("OpenAI/ChatGPT/ChatGPT.exe"),
+        local.join("OpenAI/Codex/Codex.exe"),
+        local.join("Programs/OpenAI/Codex/Codex.exe"),
+        local.join("Programs/Codex/Codex.exe"),
+        local.join("Microsoft/WindowsApps/ChatGPT.exe"),
+    ];
+    for variable in ["ProgramFiles", "ProgramFiles(x86)"] {
+        let Some(root) = env::var_os(variable)
+            .map(PathBuf::from)
+            .filter(|path| !path.as_os_str().is_empty())
+        else {
+            continue;
+        };
+        candidates.extend([
+            root.join("OpenAI/ChatGPT/ChatGPT.exe"),
+            root.join("ChatGPT/ChatGPT.exe"),
+            root.join("OpenAI/Codex/Codex.exe"),
+            root.join("Codex/Codex.exe"),
+        ]);
+    }
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+#[cfg(target_os = "macos")]
+fn launch_codex_app(target: &CodexAppTarget) -> Result<(), String> {
+    let CodexAppTarget::Application(application) = target;
+    Command::new("open")
+        .arg(application)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("启动 ChatGPT App 失败: {error}"))
+}
+
+#[cfg(target_os = "windows")]
+fn launch_codex_app(target: &CodexAppTarget) -> Result<(), String> {
+    let mut command = match target {
+        CodexAppTarget::Application(executable) => Command::new(executable),
+        CodexAppTarget::WindowsAppId(app_id) => {
+            let mut command = Command::new(windows_explorer_executable());
+            command.arg(format!("shell:AppsFolder\\{app_id}"));
+            command
+        }
+    };
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    configure_background_command(&mut command);
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("启动 ChatGPT App 失败: {error}"))
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn launch_codex_app(_target: &CodexAppTarget) -> Result<(), String> {
+    Err("当前平台不支持 ChatGPT App".to_string())
+}
+
+fn find_agent_executable(client: AgentClient, home: &Path) -> Option<PathBuf> {
+    if client == AgentClient::ClaudeDesktop {
+        return find_claude_desktop_executable(home);
+    }
+    find_named_agent_executable(home, client.executable_names())
+}
+
+fn find_pi_executable(home: &Path) -> Option<PathBuf> {
+    find_named_agent_executable(home, &["pi"])
+}
+
+fn find_named_agent_executable(home: &Path, names: &[&str]) -> Option<PathBuf> {
+    for directory in agent_executable_directories(home) {
+        for name in names {
+            #[cfg(target_os = "windows")]
+            let candidates = [
+                directory.join(format!("{name}.exe")),
+                directory.join(format!("{name}.cmd")),
+                directory.join(format!("{name}.bat")),
+                directory.join(name),
+            ];
+            #[cfg(not(target_os = "windows"))]
+            let candidates = [directory.join(name)];
+            if let Some(candidate) = candidates.into_iter().find(|path| path.is_file()) {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn agent_executable_directories(home: &Path) -> Vec<PathBuf> {
+    let mut directories = Vec::new();
+    let mut push = |path: PathBuf| {
+        if !path.as_os_str().is_empty() && !directories.iter().any(|item| item == &path) {
+            directories.push(path);
+        }
+    };
+
+    if let Some(path) = env::var_os("PATH") {
+        env::split_paths(&path).for_each(&mut push);
+    }
+    [
+        home.join(".local/bin"),
+        home.join(".npm-global/bin"),
+        home.join(".bun/bin"),
+        home.join(".cargo/bin"),
+        home.join("bin"),
+    ]
+    .into_iter()
+    .for_each(&mut push);
+    for variable in ["PNPM_HOME", "BUN_INSTALL", "NPM_CONFIG_PREFIX"] {
+        if let Some(path) = env::var_os(variable) {
+            let path = PathBuf::from(path);
+            push(
+                if variable == "BUN_INSTALL" || variable == "NPM_CONFIG_PREFIX" {
+                    path.join("bin")
+                } else {
+                    path
+                },
+            );
+        }
+    }
+    for root in [
+        home.join(".nvm/versions/node"),
+        home.join(".local/state/fnm_multishells"),
+    ] {
+        if let Ok(entries) = fs::read_dir(root) {
+            for entry in entries.flatten() {
+                push(entry.path().join("bin"));
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    for path in ["/usr/local/bin", "/usr/bin", "/bin"] {
+        push(PathBuf::from(path));
+    }
+
+    #[cfg(target_os = "macos")]
+    push(PathBuf::from("/opt/homebrew/bin"));
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(app_data) = env::var_os("APPDATA") {
+            push(PathBuf::from(app_data).join("npm"));
+        }
+        if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
+            push(PathBuf::from(local_app_data).join("Microsoft/WindowsApps"));
+        }
+    }
+
+    directories
+}
+
+fn find_claude_desktop_executable(home: &Path) -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        [
+            PathBuf::from("/Applications/Claude.app/Contents/MacOS/Claude"),
+            home.join("Applications/Claude.app/Contents/MacOS/Claude"),
+        ]
+        .into_iter()
+        .find(|path| path.is_file())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let local = env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData/Local"));
+        [
+            local.join("Programs/Claude/Claude.exe"),
+            local.join("Claude/Claude.exe"),
+        ]
+        .into_iter()
+        .find(|path| path.is_file())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let mut candidates = agent_executable_directories(home)
+            .into_iter()
+            .map(|directory| directory.join("claude-desktop"))
+            .collect::<Vec<_>>();
+        candidates.extend([
+            PathBuf::from("/opt/Claude/claude-desktop"),
+            PathBuf::from("/opt/Claude/claude"),
+            PathBuf::from("/opt/claude-desktop/claude-desktop"),
+        ]);
+        candidates.into_iter().find(|path| path.is_file())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    {
+        let _ = home;
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_command_for_executable(executable: &Path, keep_shell_open: bool) -> Command {
+    use std::os::windows::process::CommandExt;
+
+    let is_batch_script = executable
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat")
+        });
+    if !is_batch_script {
+        return Command::new(executable);
+    }
+
+    let mut command = Command::new(windows_command_processor());
+    command.args(["/D", if keep_shell_open { "/K" } else { "/C" }, "call"]);
+    command.raw_arg(windows_batch_executable_argument(executable));
+    command
+}
+
+#[cfg(target_os = "windows")]
+fn windows_batch_executable_argument(executable: &Path) -> String {
+    format!("\"{}\"", path_to_string(executable))
+}
+
+fn read_agent_version(path: &Path) -> Option<String> {
+    #[cfg(target_os = "windows")]
+    let mut command = windows_command_for_executable(path, false);
+
+    #[cfg(not(target_os = "windows"))]
+    let mut command = Command::new(path);
+
+    command.arg("--version");
+    configure_background_command(&mut command);
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    stdout
+        .lines()
+        .chain(stderr.lines())
+        .find_map(normalize_detected_agent_version)
+}
+
+fn normalize_detected_agent_version(value: &str) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()
+        && value.len() <= 256
+        && value.chars().any(|character| character.is_ascii_digit())
+        && !value.chars().any(char::is_control))
+    .then(|| value.to_string())
+}
+
+fn launch_desktop_agent(executable: &Path, label: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let application = executable
+            .ancestors()
+            .find(|path| path.extension().and_then(|value| value.to_str()) == Some("app"))
+            .unwrap_or(executable);
+        let mut command = Command::new("open");
+        command.arg(application);
+        command
+    };
+
+    #[cfg(target_os = "windows")]
+    let mut command = Command::new(executable);
+
+    #[cfg(target_os = "linux")]
+    let mut command = Command::new(executable);
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    {
+        let _ = (executable, label);
+        return Err("当前平台不支持桌面智能体".to_string());
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    configure_background_command(&mut command);
+
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("启动 {label} 失败: {error}"))
+}
+
+fn launch_claude_desktop(target: &ClaudeDesktopTarget) -> Result<(), String> {
+    match target {
+        ClaudeDesktopTarget::Application(executable) => {
+            launch_desktop_agent(executable, "Claude Desktop")
+        }
+        #[cfg(target_os = "windows")]
+        ClaudeDesktopTarget::WindowsAppId(app_id) => {
+            let mut command = Command::new(windows_explorer_executable());
+            command.arg(format!("shell:AppsFolder\\{app_id}"));
+            command
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            configure_background_command(&mut command);
+            command
+                .spawn()
+                .map(|_| ())
+                .map_err(|error| format!("启动 Claude Desktop 失败: {error}"))
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn shell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+#[cfg(target_os = "macos")]
+fn launch_cli_agent(
+    executable: &Path,
+    label: &str,
+    working_directory: &Path,
+    environment: &[(String, String)],
+    environment_to_remove: &[&str],
+) -> Result<(), String> {
+    let environment_removals = environment_to_remove
+        .iter()
+        .map(|key| format!("-u {}", shell_single_quote(key)))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let environment = environment
+        .iter()
+        .map(|(key, value)| format!("{key}={}", shell_single_quote(value)))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let command_line = format!(
+        "cd {} && exec env {} {} {}",
+        shell_single_quote(&path_to_string(working_directory)),
+        environment_removals,
+        environment,
+        shell_single_quote(&path_to_string(executable))
+    );
+    let apple_script_command = command_line.replace('\\', "\\\\").replace('"', "\\\"");
+    let script = format!(
+        "tell application \"Terminal\"\nactivate\ndo script \"{apple_script_command}\"\nend tell"
+    );
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(script)
+        .output()
+        .map_err(|error| format!("启动 {label} 终端失败: {error}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(format!(
+        "启动 {label} 终端失败{}",
+        if message.is_empty() {
+            String::new()
+        } else {
+            format!(": {message}")
+        }
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn launch_cli_agent(
+    executable: &Path,
+    label: &str,
+    working_directory: &Path,
+    environment: &[(String, String)],
+    environment_to_remove: &[&str],
+) -> Result<(), String> {
+    let terminals: &[(&str, &[&str])] = &[
+        ("x-terminal-emulator", &["-e"]),
+        ("gnome-terminal", &["--"]),
+        ("konsole", &["-e"]),
+        ("xfce4-terminal", &["-e"]),
+        ("mate-terminal", &["--"]),
+        ("kitty", &["-e"]),
+        ("alacritty", &["-e"]),
+        ("ghostty", &["-e"]),
+        ("xterm", &["-e"]),
+    ];
+    let path = env::var_os("PATH").unwrap_or_default();
+    let mut last_error = None;
+    for (terminal, arguments) in terminals {
+        let available = env::split_paths(&path).any(|directory| directory.join(terminal).is_file());
+        if !available {
+            continue;
+        }
+        let mut command = Command::new(terminal);
+        command
+            .args(*arguments)
+            .arg(executable)
+            .envs(environment.iter().map(|(key, value)| (key, value)))
+            .current_dir(working_directory)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        for key in environment_to_remove {
+            command.env_remove(key);
+        }
+        match command.spawn() {
+            Ok(_) => return Ok(()),
+            Err(error) => last_error = Some(error.to_string()),
+        }
+    }
+    Err(match last_error {
+        Some(error) => format!("启动 {label} 失败: {error}"),
+        None => format!("启动 {label} 失败：未找到可用的终端程序"),
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn launch_cli_agent(
+    executable: &Path,
+    label: &str,
+    working_directory: &Path,
+    environment: &[(String, String)],
+    environment_to_remove: &[&str],
+) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+    let mut command = windows_command_for_executable(executable, true);
+    command
+        .envs(environment.iter().map(|(key, value)| (key, value)))
+        .current_dir(working_directory)
+        .creation_flags(CREATE_NEW_CONSOLE);
+    for key in environment_to_remove {
+        command.env_remove(key);
+    }
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("启动 {label} 失败: {error}"))
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+fn launch_cli_agent(
+    _executable: &Path,
+    label: &str,
+    _working_directory: &Path,
+    _environment: &[(String, String)],
+    _environment_to_remove: &[&str],
+) -> Result<(), String> {
+    Err(format!("当前平台不支持启动 {label}"))
+}
+
+fn inspect_claude_agent_config(
+    path: &Path,
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>), String> {
+    if !path.is_file() {
+        return Ok((false, None));
+    }
+    let root: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(path).map_err(|error| format!("读取 Claude Code 配置失败: {error}"))?,
+    )
+    .map_err(|error| format!("解析 Claude Code 配置失败: {error}"))?;
+    let env = root.get("env").and_then(serde_json::Value::as_object);
+    let expected_base = format!("http://127.0.0.1:{port}");
+    let configured = env
+        .and_then(|env| env.get("ANTHROPIC_BASE_URL"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        == Some(expected_base.as_str())
+        && env
+            .and_then(|env| env.get("ANTHROPIC_AUTH_TOKEN"))
+            .and_then(serde_json::Value::as_str)
+            == Some(api_key);
+    let model = env
+        .and_then(|env| env.get("ANTHROPIC_MODEL"))
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| root.get("model").and_then(serde_json::Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(strip_claude_code_context_suffix)
+        .map(str::to_string);
+    Ok((configured, model))
+}
+
+fn inspect_claude_code_model_mappings(
+    path: &Path,
+) -> Result<Option<ClaudeDesktopModelMappings>, String> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let root: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(path)
+            .map_err(|error| format!("Failed to read Claude Code configuration: {error}"))?,
+    )
+    .map_err(|error| format!("Failed to parse Claude Code configuration: {error}"))?;
+    let Some(env) = root.get("env").and_then(serde_json::Value::as_object) else {
+        return Ok(None);
+    };
+    let fallback = env
+        .get("ANTHROPIC_MODEL")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let read_model = |key: &str| {
+        env.get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .or(fallback)
+            .map(strip_claude_code_context_suffix)
+            .map(str::to_string)
+    };
+    let Some(opus) = read_model("ANTHROPIC_DEFAULT_OPUS_MODEL") else {
+        return Ok(None);
+    };
+    let Some(sonnet) = read_model("ANTHROPIC_DEFAULT_SONNET_MODEL") else {
+        return Ok(None);
+    };
+    let Some(haiku) = read_model("ANTHROPIC_DEFAULT_HAIKU_MODEL") else {
+        return Ok(None);
+    };
+    Ok(Some(ClaudeDesktopModelMappings {
+        opus,
+        sonnet,
+        haiku,
+    }))
+}
+
+fn strip_claude_code_context_suffix(value: &str) -> &str {
+    let mut value = value.trim();
+    loop {
+        let Some(suffix_start) = value.len().checked_sub(4) else {
+            return value;
+        };
+        if !value[suffix_start..].eq_ignore_ascii_case("[1m]") {
+            return value;
+        }
+        value = value[..suffix_start].trim_end();
+    }
+}
+
+fn agent_model_source_name<'a>(models: &'a [AgentModelOption], model_name: &'a str) -> &'a str {
+    let model_name = strip_claude_code_context_suffix(model_name);
+    let Some(model) = models
+        .iter()
+        .find(|model| model.name.eq_ignore_ascii_case(model_name))
+    else {
+        return model_name;
+    };
+    if model.is_alias {
+        model.alias.as_deref().unwrap_or(model.name.as_str())
+    } else {
+        model.name.as_str()
+    }
+}
+
+fn agent_model_context_window(models: &[AgentModelOption], model_name: &str) -> Option<u64> {
+    let model_name = strip_claude_code_context_suffix(model_name);
+    let selected = models
+        .iter()
+        .find(|model| model.name.eq_ignore_ascii_case(model_name))?;
+    if !selected.is_alias {
+        return Some(
+            selected
+                .context_window
+                .unwrap_or(DEFAULT_CLAUDE_CONTEXT_WINDOW),
+        );
+    }
+    selected
+        .alias
+        .as_deref()
+        .and_then(|source| {
+            models
+                .iter()
+                .find(|model| model.name.eq_ignore_ascii_case(source))
+        })
+        .and_then(|model| model.context_window)
+        .or(selected.context_window)
+        .or(Some(DEFAULT_CLAUDE_CONTEXT_WINDOW))
+}
+
+fn claude_code_max_context_tokens(
+    mappings: &ClaudeDesktopModelMappings,
+    models: &[AgentModelOption],
+) -> Result<u64, String> {
+    let model = mappings.sonnet.as_str();
+    let context_window = agent_model_context_window(models, model)
+        .ok_or_else(|| format!("CPA 模型 API 未返回 Claude Code 主模型 {model} 的上下文窗口"))?;
+    if context_window >= CLAUDE_DESKTOP_EXTENDED_CONTEXT_WINDOW
+        && !claude_code_model_supports_1m(models, model)?
+    {
+        return Ok(DEFAULT_CLAUDE_CONTEXT_WINDOW);
+    }
+    Ok(context_window)
+}
+
+fn agent_model_display_name<'a>(models: &'a [AgentModelOption], model_name: &'a str) -> &'a str {
+    let model_name = strip_claude_code_context_suffix(model_name);
+    let Some(model) = models
+        .iter()
+        .find(|model| model.name.eq_ignore_ascii_case(model_name))
+    else {
+        return model_name;
+    };
+    if model.is_alias {
+        model.name.as_str()
+    } else {
+        model.alias.as_deref().unwrap_or(model.name.as_str())
+    }
+}
+
+fn claude_code_model_supports_1m(
+    models: &[AgentModelOption],
+    model_name: &str,
+) -> Result<bool, String> {
+    claude_catalog::supports_claude_code_1m(agent_model_source_name(models, model_name))
+}
+
+fn claude_code_model_effort_level(
+    models: &[AgentModelOption],
+    model_name: &str,
+) -> Result<Option<String>, String> {
+    claude_catalog::claude_code_effort_level_for(agent_model_source_name(models, model_name))
+}
+
+fn claude_code_model_setting(
+    models: &[AgentModelOption],
+    model_name: &str,
+    enable_1m_variant: bool,
+) -> Result<String, String> {
+    let model_name = strip_claude_code_context_suffix(model_name);
+    if enable_1m_variant && claude_code_model_supports_1m(models, model_name)? {
+        Ok(format!("{model_name}[1m]"))
+    } else {
+        Ok(model_name.to_string())
+    }
+}
+
+fn claude_code_model_settings(
+    mappings: &ClaudeDesktopModelMappings,
+    models: &[AgentModelOption],
+) -> Result<ClaudeDesktopModelMappings, String> {
+    Ok(ClaudeDesktopModelMappings {
+        opus: claude_code_model_setting(models, &mappings.opus, true)?,
+        sonnet: claude_code_model_setting(models, &mappings.sonnet, true)?,
+        haiku: claude_code_model_setting(models, &mappings.haiku, false)?,
+    })
+}
+
+fn format_context_window(context_window: u64) -> String {
+    if context_window.is_multiple_of(1_000_000) {
+        format!("{}M", context_window / 1_000_000)
+    } else if context_window.is_multiple_of(1_000) {
+        format!("{}K", context_window / 1_000)
+    } else {
+        context_window.to_string()
+    }
+}
+
+fn claude_code_model_presentation(
+    models: &[AgentModelOption],
+    model_name: &str,
+    role: Option<&str>,
+) -> (String, String) {
+    let display_name = agent_model_display_name(models, model_name);
+    let context_window =
+        agent_model_context_window(models, model_name).unwrap_or(DEFAULT_CLAUDE_CONTEXT_WINDOW);
+    let context_label = format_context_window(context_window);
+    let name = match role {
+        Some(role) => format!("{display_name} ({role}, {context_label} context)"),
+        None => format!("{display_name} ({context_label} context)"),
+    };
+    let description = format!("CPA model {model_name} - {context_label} context window");
+    (name, description)
+}
+
+fn claude_code_model_presentation_environment(
+    mappings: &ClaudeDesktopModelMappings,
+    models: &[AgentModelOption],
+) -> Result<Vec<(String, String)>, String> {
+    let opus = claude_code_model_presentation(models, &mappings.opus, Some("Opus mapping"));
+    let sonnet = claude_code_model_presentation(models, &mappings.sonnet, Some("Sonnet mapping"));
+    let haiku = claude_code_model_presentation(models, &mappings.haiku, Some("Haiku mapping"));
+    let fable = claude_code_model_presentation(models, &mappings.sonnet, Some("Fable mapping"));
+    let custom = claude_code_model_presentation(models, &mappings.sonnet, None);
+    let custom_model = claude_code_model_setting(models, &mappings.sonnet, true)?;
+    Ok([
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL_NAME", opus.0),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION", opus.1),
+        ("ANTHROPIC_DEFAULT_SONNET_MODEL_NAME", sonnet.0),
+        ("ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION", sonnet.1),
+        ("ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME", haiku.0),
+        ("ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION", haiku.1),
+        ("ANTHROPIC_DEFAULT_FABLE_MODEL_NAME", fable.0),
+        ("ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION", fable.1),
+        ("ANTHROPIC_CUSTOM_MODEL_OPTION", custom_model),
+        ("ANTHROPIC_CUSTOM_MODEL_OPTION_NAME", custom.0),
+        ("ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION", custom.1),
+    ]
+    .into_iter()
+    .map(|(key, value)| (key.to_string(), value))
+    .collect())
+}
+
+fn claude_code_launch_environment(
+    base_url: &str,
+    api_key: &str,
+    mappings: &ClaudeDesktopModelMappings,
+    models: &[AgentModelOption],
+    max_context_tokens: u64,
+) -> Result<Vec<(String, String)>, String> {
+    let model_settings = claude_code_model_settings(mappings, models)?;
+    let subagent_model = strip_claude_code_context_suffix(&mappings.haiku).to_string();
+    let mut environment = [
+        ("ANTHROPIC_BASE_URL", base_url),
+        ("ANTHROPIC_AUTH_TOKEN", api_key),
+        ("ANTHROPIC_MODEL", model_settings.sonnet.as_str()),
+        (
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+            model_settings.haiku.as_str(),
+        ),
+        (
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            model_settings.sonnet.as_str(),
+        ),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL", model_settings.opus.as_str()),
+        (
+            "ANTHROPIC_DEFAULT_FABLE_MODEL",
+            model_settings.sonnet.as_str(),
+        ),
+        ("CLAUDE_CODE_SUBAGENT_MODEL", subagent_model.as_str()),
+    ]
+    .into_iter()
+    .map(|(key, value)| (key.to_string(), value.to_string()))
+    .collect::<Vec<_>>();
+    environment.extend(claude_code_model_presentation_environment(
+        mappings, models,
+    )?);
+    if let Some(effort_level) = claude_code_model_effort_level(models, &mappings.sonnet)? {
+        environment.push(("CLAUDE_CODE_EFFORT_LEVEL".to_string(), effort_level));
+    }
+    if !claude_code_model_supports_1m(models, &mappings.sonnet)? {
+        environment.push((
+            CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV.to_string(),
+            max_context_tokens.to_string(),
+        ));
+    }
+    Ok(environment)
+}
+
+fn inspect_claude_desktop_agent_config(
+    paths: &[PathBuf],
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>), String> {
+    if paths.len() != 4 || !paths.iter().any(|path| path.is_file()) {
+        return Ok((false, None));
+    }
+    let normal = read_agent_json_or_empty(&paths[0], "Claude Desktop 主配置")?;
+    let threep = read_agent_json_or_empty(&paths[1], "Claude Desktop 3P 配置")?;
+    let profile = read_agent_json_or_empty(&paths[2], "Claude Desktop 网关配置")?;
+    let meta = read_agent_json_or_empty(&paths[3], "Claude Desktop 配置索引")?;
+    let expected_base = format!("http://127.0.0.1:{port}");
+    let configured = normal
+        .get("deploymentMode")
+        .and_then(serde_json::Value::as_str)
+        == Some("3p")
+        && threep
+            .get("deploymentMode")
+            .and_then(serde_json::Value::as_str)
+            == Some("3p")
+        && profile
+            .get("inferenceGatewayBaseUrl")
+            .and_then(serde_json::Value::as_str)
+            == Some(expected_base.as_str())
+        && profile
+            .get("inferenceGatewayApiKey")
+            .and_then(serde_json::Value::as_str)
+            == Some(api_key)
+        && meta.get("appliedId").and_then(serde_json::Value::as_str)
+            == Some(CLAUDE_DESKTOP_PROFILE_ID);
+    let model = profile
+        .get("inferenceModels")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|models| models.first())
+        .and_then(|model| {
+            model
+                .as_str()
+                .or_else(|| {
+                    model
+                        .get("labelOverride")
+                        .and_then(serde_json::Value::as_str)
+                })
+                .or_else(|| model.get("name").and_then(serde_json::Value::as_str))
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    Ok((configured, model))
+}
+
+fn read_agent_json_or_empty(path: &Path, label: &str) -> Result<serde_json::Value, String> {
+    if !path.is_file() {
+        return Ok(serde_json::json!({}));
+    }
+    let content =
+        fs::read_to_string(path).map_err(|error| format!("读取 {label} 失败: {error}"))?;
+    if content.trim().is_empty() {
+        return Ok(serde_json::json!({}));
+    }
+    let value: serde_json::Value =
+        serde_json::from_str(&content).map_err(|error| format!("解析 {label} 失败: {error}"))?;
+    if !value.is_object() {
+        return Err(format!("{label} 根节点必须是对象"));
+    }
+    Ok(value)
+}
+
+fn inspect_codex_agent_config(
+    path: &Path,
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>, bool), String> {
+    if !path.is_file() {
+        return Ok((false, None, false));
+    }
+    let root: toml::Value = toml::from_str(
+        &fs::read_to_string(path).map_err(|error| format!("读取 Codex 配置失败: {error}"))?,
+    )
+    .map_err(|error| format!("解析 Codex 配置失败: {error}"))?;
+    let expected_base = format!("http://127.0.0.1:{port}/v1");
+    let provider = root
+        .get("model_providers")
+        .and_then(toml::Value::as_table)
+        .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID))
+        .and_then(toml::Value::as_table);
+    let uses_api_key = provider
+        .and_then(|provider| provider.get("experimental_bearer_token"))
+        .and_then(toml::Value::as_str)
+        == Some(api_key);
+    let oauth_configuration = provider
+        .and_then(|provider| provider.get("requires_openai_auth"))
+        .and_then(toml::Value::as_bool)
+        == Some(true);
+    let configured = root.get("model_provider").and_then(toml::Value::as_str)
+        == Some(MANAGED_AGENT_PROVIDER_ID)
+        && root.get("model_catalog_json").and_then(toml::Value::as_str)
+            == Some(CODEX_MODEL_CATALOG_FILE)
+        && provider
+            .and_then(|provider| provider.get("name"))
+            .and_then(toml::Value::as_str)
+            == Some("EasyCLIProxyAPI")
+        && provider
+            .and_then(|provider| provider.get("base_url"))
+            .and_then(toml::Value::as_str)
+            == Some(expected_base.as_str())
+        && uses_api_key
+        && provider
+            .and_then(|provider| provider.get("wire_api"))
+            .and_then(toml::Value::as_str)
+            == Some("responses");
+    let model = root
+        .get("model")
+        .and_then(toml::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    Ok((configured, model, oauth_configuration))
+}
+
+fn validate_codex_catalog_file(config_path: &Path, model: &str) -> Result<(), String> {
+    let catalog_path = config_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(CODEX_MODEL_CATALOG_FILE);
+    let catalog = fs::read_to_string(&catalog_path).map_err(|error| {
+        format!(
+            "读取 Codex 模型目录失败 {}: {error}",
+            path_to_string(&catalog_path)
+        )
+    })?;
+    validate_codex_catalog(&catalog, model)
+}
+
+fn inspect_opencode_agent_config(
+    path: &Path,
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>), String> {
+    if !path.is_file() {
+        return Ok((false, None));
+    }
+    let root: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(path).map_err(|error| format!("读取 OpenCode 配置失败: {error}"))?,
+    )
+    .map_err(|error| format!("解析 OpenCode 配置失败: {error}"))?;
+    let provider = root
+        .get("provider")
+        .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID));
+    let expected_base = format!("http://127.0.0.1:{port}/v1");
+    let configured = provider
+        .and_then(|provider| provider.get("options"))
+        .and_then(|options| options.get("baseURL"))
+        .and_then(serde_json::Value::as_str)
+        == Some(expected_base.as_str())
+        && provider
+            .and_then(|provider| provider.get("options"))
+            .and_then(|options| options.get("apiKey"))
+            .and_then(serde_json::Value::as_str)
+            == Some(api_key);
+    let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+    let model = root
+        .get("model")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.strip_prefix(&prefix).unwrap_or(value))
+        .map(str::to_string);
+    Ok((configured, model))
+}
+
+fn inspect_openclaw_agent_config(
+    path: &Path,
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>), String> {
+    if !path.is_file() {
+        return Ok((false, None));
+    }
+    let content =
+        fs::read_to_string(path).map_err(|error| format!("读取 OpenClaw 配置失败: {error}"))?;
+    let root: serde_json::Value = json5::from_str(&content)
+        .map_err(|error| format!("解析 OpenClaw JSON5 配置失败: {error}"))?;
+    let provider = root
+        .get("models")
+        .and_then(|models| models.get("providers"))
+        .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID));
+    let expected_base = format!("http://127.0.0.1:{port}/v1");
+    let configured = provider
+        .and_then(|provider| provider.get("baseUrl"))
+        .and_then(serde_json::Value::as_str)
+        == Some(expected_base.as_str())
+        && provider
+            .and_then(|provider| provider.get("apiKey"))
+            .and_then(serde_json::Value::as_str)
+            == Some(api_key);
+    let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+    let model = root
+        .get("agents")
+        .and_then(|agents| agents.get("defaults"))
+        .and_then(|defaults| defaults.get("model"))
+        .and_then(|model| model.get("primary"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.strip_prefix(&prefix).unwrap_or(value))
+        .map(str::to_string);
+    Ok((configured, model))
+}
+
+fn inspect_hermes_agent_config(
+    path: &Path,
+    port: u16,
+    api_key: &str,
+) -> Result<(bool, Option<String>), String> {
+    if !path.is_file() {
+        return Ok((false, None));
+    }
+    let root: serde_yaml::Value = serde_yaml::from_str(
+        &fs::read_to_string(path).map_err(|error| format!("读取 Hermes 配置失败: {error}"))?,
+    )
+    .map_err(|error| format!("解析 Hermes YAML 配置失败: {error}"))?;
+    let provider = root
+        .get("custom_providers")
+        .and_then(serde_yaml::Value::as_sequence)
+        .and_then(|providers| {
+            providers.iter().find(|provider| {
+                provider.get("name").and_then(serde_yaml::Value::as_str)
+                    == Some(MANAGED_AGENT_PROVIDER_ID)
+            })
+        });
+    let expected_base = format!("http://127.0.0.1:{port}/v1");
+    let configured = provider
+        .and_then(|provider| provider.get("base_url"))
+        .and_then(serde_yaml::Value::as_str)
+        == Some(expected_base.as_str())
+        && provider
+            .and_then(|provider| provider.get("api_key"))
+            .and_then(serde_yaml::Value::as_str)
+            == Some(api_key)
+        && root
+            .get("model")
+            .and_then(|model| model.get("provider"))
+            .and_then(serde_yaml::Value::as_str)
+            == Some(MANAGED_AGENT_PROVIDER_ID);
+    let model = root
+        .get("model")
+        .and_then(|model| model.get("default"))
+        .and_then(serde_yaml::Value::as_str)
+        .or_else(|| provider.and_then(|provider| provider.get("model")?.as_str()))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    Ok((configured, model))
+}
+
+#[cfg(test)]
+fn build_agent_updates(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    api_key: &str,
+    model: &str,
+    models: &[AgentModelOption],
+    codex_catalog: Option<&str>,
+) -> Result<Vec<AgentFileUpdate>, String> {
+    build_agent_updates_with_oauth(
+        client,
+        home,
+        port,
+        api_key,
+        model,
+        AgentConfigurationOptions {
+            models,
+            codex_catalog,
+            oauth_configuration: false,
+            claude_code_model_mappings: None,
+            claude_desktop_model_mappings: None,
+        },
+    )
+}
+
+fn build_agent_updates_with_oauth(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    api_key: &str,
+    model: &str,
+    options: AgentConfigurationOptions<'_>,
+) -> Result<Vec<AgentFileUpdate>, String> {
+    let AgentConfigurationOptions {
+        models,
+        codex_catalog,
+        oauth_configuration,
+        claude_code_model_mappings,
+        claude_desktop_model_mappings,
+    } = options;
+    let paths = agent_config_paths(client, home);
+    let root_base = format!("http://127.0.0.1:{port}");
+    let openai_base = format!("{root_base}/v1");
+    match client {
+        AgentClient::ClaudeCode => {
+            let before = read_optional_text(&paths[0])?;
+            let after = build_claude_agent_config(
+                before.as_deref(),
+                &root_base,
+                api_key,
+                model,
+                models,
+                claude_code_model_mappings,
+            )
+            .or_else(|_| {
+                build_claude_agent_config(
+                    None,
+                    &root_base,
+                    api_key,
+                    model,
+                    models,
+                    claude_code_model_mappings,
+                )
+            })?;
+            Ok(vec![AgentFileUpdate {
+                path: paths[0].clone(),
+                after,
+            }])
+        }
+        AgentClient::ClaudeDesktop => {
+            if paths.len() != 4 {
+                return Err("Claude Desktop 当前平台配置路径不可用".to_string());
+            }
+            let normal_before = read_optional_text(&paths[0])?;
+            let threep_before = read_optional_text(&paths[1])?;
+            let profile_before = read_optional_text(&paths[2])?;
+            let meta_before = read_optional_text(&paths[3])?;
+            Ok(vec![
+                AgentFileUpdate {
+                    path: paths[0].clone(),
+                    after: build_claude_desktop_deployment_config(normal_before.as_deref())
+                        .or_else(|_| build_claude_desktop_deployment_config(None))?,
+                },
+                AgentFileUpdate {
+                    path: paths[1].clone(),
+                    after: build_claude_desktop_deployment_config(threep_before.as_deref())
+                        .or_else(|_| build_claude_desktop_deployment_config(None))?,
+                },
+                AgentFileUpdate {
+                    path: paths[2].clone(),
+                    after: build_claude_desktop_profile(
+                        profile_before.as_deref(),
+                        &root_base,
+                        api_key,
+                        model,
+                        models,
+                        claude_desktop_model_mappings,
+                    )
+                    .or_else(|_| {
+                        build_claude_desktop_profile(
+                            None,
+                            &root_base,
+                            api_key,
+                            model,
+                            models,
+                            claude_desktop_model_mappings,
+                        )
+                    })?,
+                },
+                AgentFileUpdate {
+                    path: paths[3].clone(),
+                    after: build_claude_desktop_meta(meta_before.as_deref())
+                        .or_else(|_| build_claude_desktop_meta(None))?,
+                },
+            ])
+        }
+        AgentClient::Codex => {
+            let before = read_optional_text(&paths[0])?;
+            let after = build_codex_agent_config_with_oauth(
+                before.as_deref(),
+                &openai_base,
+                api_key,
+                model,
+                oauth_configuration,
+            )
+            .or_else(|_| {
+                build_codex_agent_config_with_oauth(
+                    None,
+                    &openai_base,
+                    api_key,
+                    model,
+                    oauth_configuration,
+                )
+            })?;
+            let mut updates = vec![AgentFileUpdate {
+                path: paths[0].clone(),
+                after,
+            }];
+            let catalog = codex_catalog.ok_or_else(|| "无法生成 Codex 模型目录".to_string())?;
+            validate_codex_catalog(catalog, model)?;
+            updates.push(AgentFileUpdate {
+                path: codex_model_catalog_path(home),
+                after: catalog.to_string(),
+            });
+            Ok(updates)
+        }
+        AgentClient::OpenCode => {
+            let before = read_optional_text(&paths[0])?;
+            let after = build_opencode_agent_config(
+                before.as_deref(),
+                &openai_base,
+                api_key,
+                model,
+                models,
+            )
+            .or_else(|_| build_opencode_agent_config(None, &openai_base, api_key, model, models))?;
+            Ok(vec![AgentFileUpdate {
+                path: paths[0].clone(),
+                after,
+            }])
+        }
+        AgentClient::OpenClaw => {
+            let before = read_optional_text(&paths[0])?;
+            let after = build_openclaw_agent_config(
+                before.as_deref(),
+                &openai_base,
+                api_key,
+                model,
+                models,
+            )
+            .or_else(|_| build_openclaw_agent_config(None, &openai_base, api_key, model, models))?;
+            Ok(vec![AgentFileUpdate {
+                path: paths[0].clone(),
+                after,
+            }])
+        }
+        AgentClient::Hermes => {
+            let before = read_optional_text(&paths[0])?;
+            let after =
+                build_hermes_agent_config(before.as_deref(), &openai_base, api_key, model, models)
+                    .or_else(|_| {
+                        build_hermes_agent_config(None, &openai_base, api_key, model, models)
+                    })?;
+            Ok(vec![AgentFileUpdate {
+                path: paths[0].clone(),
+                after,
+            }])
+        }
+    }
+}
+
+fn read_optional_text(path: &Path) -> Result<Option<String>, String> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    fs::read_to_string(path)
+        .map(Some)
+        .map_err(|error| format!("读取配置失败 {}: {error}", path_to_string(path)))
+}
+
+fn build_claude_agent_config(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    models: &[AgentModelOption],
+    mappings: Option<&ClaudeDesktopModelMappings>,
+) -> Result<String, String> {
+    let mut root = match existing.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => serde_json::from_str::<serde_json::Value>(value)
+            .map_err(|error| format!("Claude Code settings.json 格式无效: {error}"))?,
+        None => serde_json::json!({}),
+    };
+    let root = root
+        .as_object_mut()
+        .ok_or_else(|| "Claude Code settings.json 根节点必须是对象".to_string())?;
+    let mappings = mappings
+        .cloned()
+        .unwrap_or_else(|| ClaudeDesktopModelMappings::all(model));
+    let max_context_tokens = claude_code_max_context_tokens(&mappings, models)?;
+    let use_max_context_override = !claude_code_model_supports_1m(models, &mappings.sonnet)?;
+    let model_settings = claude_code_model_settings(&mappings, models)?;
+    let subagent_model = strip_claude_code_context_suffix(&mappings.haiku).to_string();
+    let effort_level = claude_code_model_effort_level(models, &mappings.sonnet)?;
+    let env = ensure_json_object_entry(root, "env");
+    env.remove("ANTHROPIC_API_KEY");
+    env.remove("CLAUDE_CODE_EFFORT_LEVEL");
+    env.remove(CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV);
+    for (key, value) in [
+        ("ANTHROPIC_BASE_URL", base_url),
+        ("ANTHROPIC_AUTH_TOKEN", api_key),
+        ("ANTHROPIC_MODEL", model_settings.sonnet.as_str()),
+        (
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+            model_settings.haiku.as_str(),
+        ),
+        (
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            model_settings.sonnet.as_str(),
+        ),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL", model_settings.opus.as_str()),
+        (
+            "ANTHROPIC_DEFAULT_FABLE_MODEL",
+            model_settings.sonnet.as_str(),
+        ),
+        ("CLAUDE_CODE_SUBAGENT_MODEL", subagent_model.as_str()),
+    ] {
+        env.insert(
+            key.to_string(),
+            serde_json::Value::String(value.to_string()),
+        );
+    }
+    if use_max_context_override {
+        env.insert(
+            CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV.to_string(),
+            serde_json::Value::String(max_context_tokens.to_string()),
+        );
+    }
+    for (key, value) in claude_code_model_presentation_environment(&mappings, models)? {
+        env.insert(key, serde_json::Value::String(value));
+    }
+    if let Some(effort_level) = effort_level {
+        env.insert(
+            "CLAUDE_CODE_EFFORT_LEVEL".to_string(),
+            serde_json::Value::String(effort_level),
+        );
+    }
+    root.insert(
+        "model".to_string(),
+        serde_json::Value::String(model_settings.sonnet),
+    );
+    let mut rendered = serde_json::to_string_pretty(&serde_json::Value::Object(root.clone()))
+        .map_err(|error| format!("生成 Claude Code 配置失败: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+fn remove_claude_code_conflicting_api_key(path: &Path) -> Result<bool, String> {
+    update_agent_json_file(path, "Claude Code configuration", |root| {
+        let managed = root
+            .get("env")
+            .and_then(serde_json::Value::as_object)
+            .and_then(|env| env.get("ANTHROPIC_BASE_URL"))
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(is_managed_agent_base_url);
+        if !managed {
+            return false;
+        }
+        root.get_mut("env")
+            .and_then(serde_json::Value::as_object_mut)
+            .is_some_and(|env| env.remove("ANTHROPIC_API_KEY").is_some())
+    })
+}
+
+fn update_claude_code_context_window(
+    path: &Path,
+    max_context_tokens: Option<u64>,
+) -> Result<bool, String> {
+    update_agent_json_file(path, "Claude Code configuration", |root| {
+        let managed = root
+            .get("env")
+            .and_then(serde_json::Value::as_object)
+            .and_then(|env| env.get("ANTHROPIC_BASE_URL"))
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(is_managed_agent_base_url);
+        if !managed {
+            return false;
+        }
+        let env = ensure_json_object_entry(root, "env");
+        let Some(max_context_tokens) = max_context_tokens else {
+            return env.remove(CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV).is_some();
+        };
+        let expected = max_context_tokens.to_string();
+        if env
+            .get(CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV)
+            .and_then(serde_json::Value::as_str)
+            == Some(expected.as_str())
+        {
+            return false;
+        }
+        env.insert(
+            CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV.to_string(),
+            serde_json::Value::String(expected),
+        );
+        true
+    })
+}
+
+fn parse_agent_json_object(
+    existing: Option<&str>,
+    label: &str,
+) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+    let value = match existing.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => serde_json::from_str::<serde_json::Value>(value)
+            .map_err(|error| format!("{label} 格式无效: {error}"))?,
+        None => serde_json::json!({}),
+    };
+    value
+        .as_object()
+        .cloned()
+        .ok_or_else(|| format!("{label} 根节点必须是对象"))
+}
+
+fn ensure_json_object_entry<'a>(
+    root: &'a mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> &'a mut serde_json::Map<String, serde_json::Value> {
+    if !root.get(key).is_some_and(serde_json::Value::is_object) {
+        root.insert(key.to_string(), serde_json::json!({}));
+    }
+    root.get_mut(key)
+        .and_then(serde_json::Value::as_object_mut)
+        .expect("object entry was just normalized")
+}
+
+fn ensure_json_array_entry<'a>(
+    root: &'a mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> &'a mut Vec<serde_json::Value> {
+    if !root.get(key).is_some_and(serde_json::Value::is_array) {
+        root.insert(key.to_string(), serde_json::json!([]));
+    }
+    root.get_mut(key)
+        .and_then(serde_json::Value::as_array_mut)
+        .expect("array entry was just normalized")
+}
+
+fn render_agent_json(
+    root: serde_json::Map<String, serde_json::Value>,
+    label: &str,
+) -> Result<String, String> {
+    let mut rendered = serde_json::to_string_pretty(&serde_json::Value::Object(root))
+        .map_err(|error| format!("生成 {label} 失败: {error}"))?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+fn ordered_agent_models(
+    models: &[AgentModelOption],
+    selected_model: &str,
+) -> Vec<AgentModelOption> {
+    let mut ordered = Vec::with_capacity(models.len().max(1));
+    if let Some(selected) = models
+        .iter()
+        .find(|model| model.name.eq_ignore_ascii_case(selected_model))
+    {
+        ordered.push(selected.clone());
+    } else {
+        ordered.push(AgentModelOption {
+            name: selected_model.to_string(),
+            alias: None,
+            is_alias: false,
+            context_window: None,
+        });
+    }
+    for model in models {
+        if ordered
+            .iter()
+            .any(|existing| existing.name.eq_ignore_ascii_case(&model.name))
+        {
+            continue;
+        }
+        ordered.push(model.clone());
+    }
+    ordered
+}
+
+fn build_claude_desktop_deployment_config(existing: Option<&str>) -> Result<String, String> {
+    let mut root = parse_agent_json_object(existing, "Claude Desktop 配置")?;
+    root.insert("deploymentMode".to_string(), serde_json::json!("3p"));
+    render_agent_json(root, "Claude Desktop 配置")
+}
+
+fn build_claude_desktop_profile(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    models: &[AgentModelOption],
+    mappings: Option<&ClaudeDesktopModelMappings>,
+) -> Result<String, String> {
+    let mut root = parse_agent_json_object(existing, "Claude Desktop 网关配置")?;
+    root.remove("coworkEgressAllowedHosts");
+    root.insert(
+        "disableDeploymentModeChooser".to_string(),
+        serde_json::json!(true),
+    );
+    root.insert(
+        "inferenceGatewayApiKey".to_string(),
+        serde_json::json!(api_key),
+    );
+    root.insert(
+        "inferenceGatewayAuthScheme".to_string(),
+        serde_json::json!("bearer"),
+    );
+    root.insert(
+        "inferenceGatewayBaseUrl".to_string(),
+        serde_json::json!(base_url),
+    );
+    root.insert(
+        "inferenceProvider".to_string(),
+        serde_json::json!("gateway"),
+    );
+    let mappings = mappings
+        .cloned()
+        .unwrap_or_else(|| ClaudeDesktopModelMappings::all(model));
+    let mut inference_models = vec![
+        claude_desktop_inference_model(CLAUDE_DESKTOP_OPUS_MODEL_ID, &mappings.opus, models),
+        claude_desktop_inference_model(CLAUDE_DESKTOP_SONNET_MODEL_ID, &mappings.sonnet, models),
+        claude_desktop_inference_model(CLAUDE_DESKTOP_HAIKU_MODEL_ID, &mappings.haiku, models),
+    ];
+    let mut seen_models = HashSet::new();
+    inference_models.retain(|entry| {
+        entry
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|name| seen_models.insert(name.to_ascii_lowercase()))
+    });
+    root.insert(
+        "inferenceModels".to_string(),
+        serde_json::Value::Array(inference_models),
+    );
+    render_agent_json(root, "Claude Desktop 网关配置")
+}
+
+fn claude_desktop_inference_model(
+    route_model: &str,
+    source_model: &str,
+    models: &[AgentModelOption],
+) -> serde_json::Value {
+    let selected = models
+        .iter()
+        .find(|model| model.name.eq_ignore_ascii_case(source_model));
+    let direct_alias = selected.is_some_and(|model| model.is_alias);
+    let context_window = agent_model_context_window(models, source_model);
+    let mut entry = serde_json::Map::new();
+    entry.insert(
+        "name".to_string(),
+        serde_json::json!(if direct_alias {
+            source_model
+        } else {
+            route_model
+        }),
+    );
+    if let Some(context_window) = context_window {
+        entry.insert(
+            "contextWindow".to_string(),
+            serde_json::json!(context_window),
+        );
+        if context_window >= CLAUDE_DESKTOP_EXTENDED_CONTEXT_WINDOW {
+            entry.insert("supports1m".to_string(), serde_json::json!(true));
+            entry.insert("prefer1m".to_string(), serde_json::json!(true));
+        }
+    }
+    serde_json::Value::Object(entry)
+}
+
+fn build_claude_desktop_meta(existing: Option<&str>) -> Result<String, String> {
+    let mut root = parse_agent_json_object(existing, "Claude Desktop 配置索引")?;
+    let entries = ensure_json_array_entry(&mut root, "entries");
+    let mut managed_entry = None;
+    let mut retained_entries = Vec::with_capacity(entries.len());
+    for entry in std::mem::take(entries) {
+        match entry.get("id").and_then(serde_json::Value::as_str) {
+            Some(id) if id == CLAUDE_DESKTOP_PROFILE_ID => {
+                if managed_entry.is_none() {
+                    managed_entry = entry.as_object().cloned();
+                }
+            }
+            Some(_) => retained_entries.push(entry),
+            None => {}
+        }
+    }
+    let mut managed_entry = managed_entry.unwrap_or_default();
+    managed_entry.insert(
+        "id".to_string(),
+        serde_json::json!(CLAUDE_DESKTOP_PROFILE_ID),
+    );
+    managed_entry.insert("name".to_string(), serde_json::json!("EasyCLIProxyAPI"));
+    retained_entries.push(serde_json::Value::Object(managed_entry));
+    *entries = retained_entries;
+    root.insert(
+        "appliedId".to_string(),
+        serde_json::json!(CLAUDE_DESKTOP_PROFILE_ID),
+    );
+    render_agent_json(root, "Claude Desktop 配置索引")
+}
+
+fn update_agent_json_file<F>(path: &Path, label: &str, update: F) -> Result<bool, String>
+where
+    F: FnOnce(&mut serde_json::Map<String, serde_json::Value>) -> bool,
+{
+    if !path.is_file() {
+        return Ok(false);
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| format!("读取 {label} 失败 {}: {error}", path_to_string(path)))?;
+    let mut root = parse_agent_json_object(Some(&content), label)?;
+    if !update(&mut root) {
+        return Ok(false);
+    }
+    if root.is_empty() {
+        fs::remove_file(path)
+            .map_err(|error| format!("删除空的 {label} 失败 {}: {error}", path_to_string(path)))?;
+    } else {
+        let rendered = render_agent_json(root, label)?;
+        write_bytes_directly(path, rendered.as_bytes())?;
+    }
+    Ok(true)
+}
+
+fn remove_claude_desktop_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    if paths.len() != 4 {
+        return Err("Claude Desktop 当前平台配置路径不可用".to_string());
+    }
+    let mut changed = Vec::new();
+    for (path, label) in [
+        (&paths[0], "Claude Desktop 主配置"),
+        (&paths[1], "Claude Desktop 3P 配置"),
+    ] {
+        if update_agent_json_file(path, label, |root| {
+            if root
+                .get("deploymentMode")
+                .and_then(serde_json::Value::as_str)
+                == Some("3p")
+            {
+                root.remove("deploymentMode");
+                true
+            } else {
+                false
+            }
+        })? {
+            changed.push(path_to_string(path));
+        }
+    }
+
+    if update_agent_json_file(&paths[2], "Claude Desktop 网关配置", |root| {
+        let mut updated = false;
+        for key in [
+            "coworkEgressAllowedHosts",
+            "disableDeploymentModeChooser",
+            "inferenceGatewayApiKey",
+            "inferenceGatewayAuthScheme",
+            "inferenceGatewayBaseUrl",
+            "inferenceProvider",
+            "inferenceModels",
+        ] {
+            updated |= root.remove(key).is_some();
+        }
+        updated
+    })? {
+        changed.push(path_to_string(&paths[2]));
+    }
+
+    if update_agent_json_file(&paths[3], "Claude Desktop 配置索引", |root| {
+        let mut updated = false;
+        if root.get("appliedId").and_then(serde_json::Value::as_str)
+            == Some(CLAUDE_DESKTOP_PROFILE_ID)
+        {
+            root.remove("appliedId");
+            updated = true;
+        }
+        let entries_empty = if let Some(entries) = root
+            .get_mut("entries")
+            .and_then(serde_json::Value::as_array_mut)
+        {
+            let previous_len = entries.len();
+            entries.retain(|entry| {
+                entry.get("id").and_then(serde_json::Value::as_str)
+                    != Some(CLAUDE_DESKTOP_PROFILE_ID)
+            });
+            updated |= entries.len() != previous_len;
+            entries.is_empty()
+        } else {
+            false
+        };
+        if entries_empty {
+            root.remove("entries");
+        }
+        updated
+    })? {
+        changed.push(path_to_string(&paths[3]));
+    }
+    Ok(changed)
+}
+
+fn remove_claude_code_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    let Some(path) = paths.first() else {
+        return Err("Claude Code 当前平台配置路径不可用".to_string());
+    };
+    let updated = update_agent_json_file(path, "Claude Code 配置", |root| {
+        let managed_model = root
+            .get("env")
+            .and_then(serde_json::Value::as_object)
+            .and_then(|env| env.get("ANTHROPIC_MODEL"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        let managed = root
+            .get("env")
+            .and_then(serde_json::Value::as_object)
+            .and_then(|env| env.get("ANTHROPIC_BASE_URL"))
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(is_managed_agent_base_url);
+        if !managed {
+            return false;
+        }
+        if root.get("model").and_then(serde_json::Value::as_str) == managed_model.as_deref() {
+            root.remove("model");
+        }
+        let env_empty = if let Some(env) = root
+            .get_mut("env")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            for key in [
+                "ANTHROPIC_BASE_URL",
+                "ANTHROPIC_API_KEY",
+                "ANTHROPIC_AUTH_TOKEN",
+                "ANTHROPIC_MODEL",
+                "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+                "ANTHROPIC_DEFAULT_SONNET_MODEL",
+                "ANTHROPIC_DEFAULT_OPUS_MODEL",
+                "ANTHROPIC_DEFAULT_FABLE_MODEL",
+                CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV,
+            ] {
+                env.remove(key);
+            }
+            env.is_empty()
+        } else {
+            false
+        };
+        if env_empty {
+            root.remove("env");
+        }
+        true
+    })?;
+    Ok(updated.then(|| path_to_string(path)).into_iter().collect())
+}
+
+fn remove_codex_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    use toml_edit::{Document, Item};
+
+    let Some(path) = paths.first() else {
+        return Err("Codex 当前平台配置路径不可用".to_string());
+    };
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| format!("读取 Codex 配置失败 {}: {error}", path_to_string(path)))?;
+    let mut document = content
+        .parse::<Document>()
+        .map_err(|error| format!("解析 Codex 配置失败: {error}"))?;
+    let managed_selected =
+        document.get("model_provider").and_then(Item::as_str) == Some(MANAGED_AGENT_PROVIDER_ID);
+    let managed_catalog =
+        document.get("model_catalog_json").and_then(Item::as_str) == Some(CODEX_MODEL_CATALOG_FILE);
+    let managed_provider = document
+        .get("model_providers")
+        .and_then(Item::as_table)
+        .is_some_and(|providers| providers.contains_key(MANAGED_AGENT_PROVIDER_ID));
+    if !managed_selected && !managed_catalog && !managed_provider {
+        return Ok(Vec::new());
+    }
+    if managed_selected {
+        document.remove("model_provider");
+        document.remove("model");
+    }
+    if managed_catalog {
+        document.remove("model_catalog_json");
+    }
+    if let Some(providers) = document
+        .get_mut("model_providers")
+        .and_then(Item::as_table_mut)
+    {
+        providers.remove(MANAGED_AGENT_PROVIDER_ID);
+    }
+    if document
+        .get("model_providers")
+        .and_then(Item::as_table)
+        .is_some_and(toml_edit::Table::is_empty)
+    {
+        document.remove("model_providers");
+    }
+    let rendered = document.to_string();
+    toml::from_str::<toml::Value>(&rendered)
+        .map_err(|error| format!("验证恢复后的 Codex 配置失败: {error}"))?;
+    if rendered.trim().is_empty() {
+        fs::remove_file(path).map_err(|error| {
+            format!("删除空的 Codex 配置失败 {}: {error}", path_to_string(path))
+        })?;
+    } else {
+        write_bytes_directly(path, rendered.as_bytes())?;
+    }
+    let mut changed = vec![path_to_string(path)];
+    if managed_catalog {
+        let catalog_path = path.with_file_name(CODEX_MODEL_CATALOG_FILE);
+        if catalog_path.is_file() {
+            fs::remove_file(&catalog_path).map_err(|error| {
+                format!(
+                    "删除 Codex CPA 模型目录失败 {}: {error}",
+                    path_to_string(&catalog_path)
+                )
+            })?;
+            changed.push(path_to_string(&catalog_path));
+        }
+    }
+    Ok(changed)
+}
+
+fn remove_opencode_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    let Some(path) = paths.first() else {
+        return Err("OpenCode 当前平台配置路径不可用".to_string());
+    };
+    let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+    let updated = update_agent_json_file(path, "OpenCode 配置", |root| {
+        let mut changed = false;
+        if root
+            .get("model")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|model| model.starts_with(&prefix))
+        {
+            root.remove("model");
+            changed = true;
+        }
+        let providers_empty = if let Some(providers) = root
+            .get_mut("provider")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            changed |= providers.remove(MANAGED_AGENT_PROVIDER_ID).is_some();
+            providers.is_empty()
+        } else {
+            false
+        };
+        if providers_empty {
+            root.remove("provider");
+        }
+        changed
+    })?;
+    Ok(updated.then(|| path_to_string(path)).into_iter().collect())
+}
+
+fn update_agent_json5_file<F>(path: &Path, label: &str, update: F) -> Result<bool, String>
+where
+    F: FnOnce(&mut serde_json::Map<String, serde_json::Value>) -> bool,
+{
+    if !path.is_file() {
+        return Ok(false);
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| format!("读取 {label} 失败 {}: {error}", path_to_string(path)))?;
+    let value = json5::from_str::<serde_json::Value>(&content)
+        .map_err(|error| format!("解析 {label} 失败: {error}"))?;
+    let mut root = value
+        .as_object()
+        .cloned()
+        .ok_or_else(|| format!("{label} 根节点必须是对象"))?;
+    if !update(&mut root) {
+        return Ok(false);
+    }
+    if root.is_empty() {
+        fs::remove_file(path)
+            .map_err(|error| format!("删除空的 {label} 失败 {}: {error}", path_to_string(path)))?;
+    } else {
+        let rendered = render_agent_json(root, label)?;
+        let comments = extract_json5_comments(&content);
+        let rendered = if comments.is_empty() {
+            rendered
+        } else {
+            format!("{}\n{rendered}", comments.join("\n"))
+        };
+        write_bytes_directly(path, rendered.as_bytes())?;
+    }
+    Ok(true)
+}
+
+fn remove_openclaw_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    let Some(path) = paths.first() else {
+        return Err("OpenClaw 当前平台配置路径不可用".to_string());
+    };
+    let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+    let updated = update_agent_json5_file(path, "OpenClaw 配置", |root| {
+        let mut changed = false;
+        if let Some(models) = root
+            .get_mut("models")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            let providers_empty = if let Some(providers) = models
+                .get_mut("providers")
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                changed |= providers.remove(MANAGED_AGENT_PROVIDER_ID).is_some();
+                providers.is_empty()
+            } else {
+                false
+            };
+            if providers_empty {
+                models.remove("providers");
+            }
+        }
+        if let Some(defaults) = root
+            .get_mut("agents")
+            .and_then(serde_json::Value::as_object_mut)
+            .and_then(|agents| agents.get_mut("defaults"))
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            let model_empty = if let Some(model) = defaults
+                .get_mut("model")
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                if model
+                    .get("primary")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|model| model.starts_with(&prefix))
+                {
+                    model.remove("primary");
+                    changed = true;
+                }
+                model.is_empty()
+            } else {
+                false
+            };
+            if model_empty {
+                defaults.remove("model");
+            }
+            let catalog_empty = if let Some(catalog) = defaults
+                .get_mut("models")
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                let previous_len = catalog.len();
+                catalog.retain(|name, _| !name.starts_with(&prefix));
+                changed |= catalog.len() != previous_len;
+                catalog.is_empty()
+            } else {
+                false
+            };
+            if catalog_empty {
+                defaults.remove("models");
+            }
+        }
+        changed
+    })?;
+    Ok(updated.then(|| path_to_string(path)).into_iter().collect())
+}
+
+fn remove_hermes_managed_configuration(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    let Some(path) = paths.first() else {
+        return Err("Hermes 当前平台配置路径不可用".to_string());
+    };
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| format!("读取 Hermes 配置失败 {}: {error}", path_to_string(path)))?;
+    let mut document = yaml_serde_edit::YamlValue::parse(&content)
+        .map_err(|error| format!("解析 Hermes 配置失败: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "Hermes 配置根节点必须是映射".to_string())?;
+    let mut changed = false;
+    let providers_empty = if let Some(providers) = root
+        .get_mut(yaml_key("custom_providers"))
+        .and_then(serde_norway::Value::as_sequence_mut)
+    {
+        let previous_len = providers.len();
+        providers.retain(|provider| {
+            provider.get("name").and_then(serde_norway::Value::as_str)
+                != Some(MANAGED_AGENT_PROVIDER_ID)
+        });
+        changed |= providers.len() != previous_len;
+        providers.is_empty()
+    } else {
+        false
+    };
+    if providers_empty {
+        root.remove(yaml_key("custom_providers"));
+    }
+    let model_empty = if let Some(model) = root
+        .get_mut(yaml_key("model"))
+        .and_then(serde_norway::Value::as_mapping_mut)
+    {
+        if model
+            .get(yaml_key("provider"))
+            .and_then(serde_norway::Value::as_str)
+            == Some(MANAGED_AGENT_PROVIDER_ID)
+        {
+            model.remove(yaml_key("provider"));
+            model.remove(yaml_key("default"));
+            changed = true;
+        }
+        model.is_empty()
+    } else {
+        false
+    };
+    if model_empty {
+        root.remove(yaml_key("model"));
+    }
+    if !changed {
+        return Ok(Vec::new());
+    }
+    if root.is_empty() {
+        fs::remove_file(path).map_err(|error| {
+            format!("删除空的 Hermes 配置失败 {}: {error}", path_to_string(path))
+        })?;
+    } else {
+        let rendered = render_updated_core_yaml(&mut document, updated)?;
+        write_bytes_directly(path, rendered.as_bytes())?;
+    }
+    Ok(vec![path_to_string(path)])
+}
+
+fn remove_agent_managed_configuration(
+    client: AgentClient,
+    paths: &[PathBuf],
+) -> Result<Vec<String>, String> {
+    match client {
+        AgentClient::ClaudeCode => remove_claude_code_managed_configuration(paths),
+        AgentClient::ClaudeDesktop => remove_claude_desktop_managed_configuration(paths),
+        AgentClient::Codex => remove_codex_managed_configuration(paths),
+        AgentClient::OpenCode => remove_opencode_managed_configuration(paths),
+        AgentClient::OpenClaw => remove_openclaw_managed_configuration(paths),
+        AgentClient::Hermes => remove_hermes_managed_configuration(paths),
+    }
+}
+
+fn restore_json_key(
+    current: &mut serde_json::Map<String, serde_json::Value>,
+    original: Option<&serde_json::Map<String, serde_json::Value>>,
+    key: &str,
+) {
+    if let Some(value) = original.and_then(|root| root.get(key)).cloned() {
+        current.insert(key.to_string(), value);
+    } else {
+        current.remove(key);
+    }
+}
+
+fn parse_restored_json_object(
+    content: Option<&str>,
+    label: &str,
+) -> Result<Option<serde_json::Map<String, serde_json::Value>>, String> {
+    content
+        .map(|content| parse_agent_json_object(Some(content), label))
+        .transpose()
+}
+
+fn render_restored_json(
+    root: serde_json::Map<String, serde_json::Value>,
+    original_existed: bool,
+    label: &str,
+) -> Result<Option<String>, String> {
+    if root.is_empty() && !original_existed {
+        Ok(None)
+    } else {
+        render_agent_json(root, label).map(Some)
+    }
+}
+
+fn build_restored_claude_code_config(
+    current: &str,
+    original: Option<&str>,
+) -> Result<Option<String>, String> {
+    let mut root = parse_agent_json_object(Some(current), "当前 Claude Code 配置")?;
+    let original_root = parse_restored_json_object(original, "原始 Claude Code 配置")?;
+    restore_json_key(&mut root, original_root.as_ref(), "model");
+    let original_env = original_root
+        .as_ref()
+        .and_then(|root| root.get("env"))
+        .and_then(serde_json::Value::as_object);
+    if root.get("env").is_some_and(serde_json::Value::is_object) {
+        let env = root
+            .get_mut("env")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("Claude Code env was checked as an object");
+        for key in [
+            "ANTHROPIC_BASE_URL",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
+            "ANTHROPIC_MODEL",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_FABLE_MODEL",
+            CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV,
+        ] {
+            restore_json_key(env, original_env, key);
+        }
+        if env.is_empty() && original_env.is_none() {
+            root.remove("env");
+        }
+    } else {
+        restore_json_key(&mut root, original_root.as_ref(), "env");
+    }
+    render_restored_json(root, original.is_some(), "恢复后的 Claude Code 配置")
+}
+
+fn build_restored_claude_desktop_config(
+    index: usize,
+    current: &str,
+    original: Option<&str>,
+) -> Result<Option<String>, String> {
+    let mut root = parse_agent_json_object(Some(current), "当前 Claude Desktop 配置")?;
+    let original_root = parse_restored_json_object(original, "原始 Claude Desktop 配置")?;
+    match index {
+        0 | 1 => restore_json_key(&mut root, original_root.as_ref(), "deploymentMode"),
+        2 => {
+            for key in [
+                "coworkEgressAllowedHosts",
+                "disableDeploymentModeChooser",
+                "inferenceGatewayApiKey",
+                "inferenceGatewayAuthScheme",
+                "inferenceGatewayBaseUrl",
+                "inferenceProvider",
+                "inferenceModels",
+            ] {
+                restore_json_key(&mut root, original_root.as_ref(), key);
+            }
+        }
+        3 => {
+            restore_json_key(&mut root, original_root.as_ref(), "appliedId");
+            let mut entries = root
+                .remove("entries")
+                .and_then(|value| value.as_array().cloned())
+                .unwrap_or_default();
+            entries.retain(|entry| {
+                entry.get("id").and_then(serde_json::Value::as_str)
+                    != Some(CLAUDE_DESKTOP_PROFILE_ID)
+            });
+            let original_managed_entries = original_root
+                .as_ref()
+                .and_then(|root| root.get("entries"))
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter(|entry| {
+                    entry.get("id").and_then(serde_json::Value::as_str)
+                        == Some(CLAUDE_DESKTOP_PROFILE_ID)
+                })
+                .cloned();
+            entries.extend(original_managed_entries);
+            if !entries.is_empty()
+                || original_root
+                    .as_ref()
+                    .and_then(|root| root.get("entries"))
+                    .is_some()
+            {
+                root.insert("entries".to_string(), serde_json::Value::Array(entries));
+            }
+        }
+        _ => return Err("Claude Desktop 配置文件索引无效".to_string()),
+    }
+    render_restored_json(root, original.is_some(), "恢复后的 Claude Desktop 配置")
+}
+
+fn build_restored_opencode_config(
+    current: &str,
+    original: Option<&str>,
+) -> Result<Option<String>, String> {
+    let mut root = parse_agent_json_object(Some(current), "当前 OpenCode 配置")?;
+    let original_root = parse_restored_json_object(original, "原始 OpenCode 配置")?;
+    for key in ["$schema", "model"] {
+        restore_json_key(&mut root, original_root.as_ref(), key);
+    }
+    let original_provider = original_root
+        .as_ref()
+        .and_then(|root| root.get("provider"))
+        .and_then(serde_json::Value::as_object);
+    let original_managed = original_provider
+        .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID))
+        .and_then(serde_json::Value::as_object);
+    if root
+        .get("provider")
+        .is_some_and(serde_json::Value::is_object)
+    {
+        let providers = root
+            .get_mut("provider")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("OpenCode provider was checked as an object");
+        if providers
+            .get(MANAGED_AGENT_PROVIDER_ID)
+            .is_some_and(serde_json::Value::is_object)
+        {
+            let managed = providers
+                .get_mut(MANAGED_AGENT_PROVIDER_ID)
+                .and_then(serde_json::Value::as_object_mut)
+                .expect("OpenCode managed provider was checked as an object");
+            for key in ["npm", "name", "models"] {
+                restore_json_key(managed, original_managed, key);
+            }
+            let original_options = original_managed
+                .and_then(|managed| managed.get("options"))
+                .and_then(serde_json::Value::as_object);
+            if managed
+                .get("options")
+                .is_some_and(serde_json::Value::is_object)
+            {
+                let options = managed
+                    .get_mut("options")
+                    .and_then(serde_json::Value::as_object_mut)
+                    .expect("OpenCode options were checked as an object");
+                for key in ["baseURL", "apiKey"] {
+                    restore_json_key(options, original_options, key);
+                }
+                if options.is_empty() && original_options.is_none() {
+                    managed.remove("options");
+                }
+            } else {
+                restore_json_key(managed, original_managed, "options");
+            }
+            if managed.is_empty() && original_managed.is_none() {
+                providers.remove(MANAGED_AGENT_PROVIDER_ID);
+            }
+        } else if let Some(original_managed) = original_provider
+            .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID))
+            .cloned()
+        {
+            providers.insert(MANAGED_AGENT_PROVIDER_ID.to_string(), original_managed);
+        }
+        if providers.is_empty() && original_provider.is_none() {
+            root.remove("provider");
+        }
+    } else {
+        restore_json_key(&mut root, original_root.as_ref(), "provider");
+    }
+    render_restored_json(root, original.is_some(), "恢复后的 OpenCode 配置")
+}
+
+fn build_restored_openclaw_config(
+    current: &str,
+    original: Option<&str>,
+) -> Result<Option<String>, String> {
+    let current_value = json5::from_str::<serde_json::Value>(current)
+        .map_err(|error| format!("当前 OpenClaw 配置格式无效: {error}"))?;
+    let mut root = current_value
+        .as_object()
+        .cloned()
+        .ok_or_else(|| "当前 OpenClaw 配置根节点必须是对象".to_string())?;
+    let original_root = original
+        .map(|content| {
+            json5::from_str::<serde_json::Value>(content)
+                .map_err(|error| format!("原始 OpenClaw 配置格式无效: {error}"))?
+                .as_object()
+                .cloned()
+                .ok_or_else(|| "原始 OpenClaw 配置根节点必须是对象".to_string())
+        })
+        .transpose()?;
+    let original_models = original_root
+        .as_ref()
+        .and_then(|root| root.get("models"))
+        .and_then(serde_json::Value::as_object);
+    if root.get("models").is_some_and(serde_json::Value::is_object) {
+        let models = root
+            .get_mut("models")
+            .and_then(serde_json::Value::as_object_mut)
+            .expect("OpenClaw models were checked as an object");
+        restore_json_key(models, original_models, "mode");
+        let original_providers = original_models
+            .and_then(|models| models.get("providers"))
+            .and_then(serde_json::Value::as_object);
+        if models
+            .get("providers")
+            .is_some_and(serde_json::Value::is_object)
+        {
+            let providers = models
+                .get_mut("providers")
+                .and_then(serde_json::Value::as_object_mut)
+                .expect("OpenClaw providers were checked as an object");
+            let original_managed = original_providers
+                .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID))
+                .and_then(serde_json::Value::as_object);
+            if providers
+                .get(MANAGED_AGENT_PROVIDER_ID)
+                .is_some_and(serde_json::Value::is_object)
+            {
+                let managed = providers
+                    .get_mut(MANAGED_AGENT_PROVIDER_ID)
+                    .and_then(serde_json::Value::as_object_mut)
+                    .expect("OpenClaw managed provider was checked as an object");
+                for key in ["baseUrl", "apiKey", "api", "models"] {
+                    restore_json_key(managed, original_managed, key);
+                }
+                if managed.is_empty() && original_managed.is_none() {
+                    providers.remove(MANAGED_AGENT_PROVIDER_ID);
+                }
+            } else if let Some(original_managed) = original_providers
+                .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID))
+                .cloned()
+            {
+                providers.insert(MANAGED_AGENT_PROVIDER_ID.to_string(), original_managed);
+            }
+            if providers.is_empty() && original_providers.is_none() {
+                models.remove("providers");
+            }
+        } else {
+            restore_json_key(models, original_models, "providers");
+        }
+        if models.is_empty() && original_models.is_none() {
+            root.remove("models");
+        }
+    } else {
+        restore_json_key(&mut root, original_root.as_ref(), "models");
+    }
+
+    let original_defaults = original_root
+        .as_ref()
+        .and_then(|root| root.get("agents"))
+        .and_then(|agents| agents.get("defaults"))
+        .and_then(serde_json::Value::as_object);
+    if let Some(defaults) = root
+        .get_mut("agents")
+        .and_then(serde_json::Value::as_object_mut)
+        .and_then(|agents| agents.get_mut("defaults"))
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        let original_model = original_defaults
+            .and_then(|defaults| defaults.get("model"))
+            .and_then(serde_json::Value::as_object);
+        if defaults
+            .get("model")
+            .is_some_and(serde_json::Value::is_object)
+        {
+            let model = defaults
+                .get_mut("model")
+                .and_then(serde_json::Value::as_object_mut)
+                .expect("OpenClaw default model was checked as an object");
+            restore_json_key(model, original_model, "primary");
+            if model.is_empty() && original_model.is_none() {
+                defaults.remove("model");
+            }
+        } else {
+            restore_json_key(defaults, original_defaults, "model");
+        }
+
+        let original_catalog = original_defaults
+            .and_then(|defaults| defaults.get("models"))
+            .and_then(serde_json::Value::as_object);
+        if defaults
+            .get("models")
+            .is_some_and(serde_json::Value::is_object)
+        {
+            let prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+            let catalog = defaults
+                .get_mut("models")
+                .and_then(serde_json::Value::as_object_mut)
+                .expect("OpenClaw model catalog was checked as an object");
+            catalog.retain(|name, _| !name.starts_with(&prefix));
+            if let Some(original_catalog) = original_catalog {
+                catalog.extend(
+                    original_catalog
+                        .iter()
+                        .filter(|(name, _)| name.starts_with(&prefix))
+                        .map(|(name, value)| (name.clone(), value.clone())),
+                );
+            }
+            if catalog.is_empty() && original_catalog.is_none() {
+                defaults.remove("models");
+            }
+        } else {
+            restore_json_key(defaults, original_defaults, "models");
+        }
+    }
+    let original_agents = original_root
+        .as_ref()
+        .and_then(|root| root.get("agents"))
+        .and_then(serde_json::Value::as_object);
+    if let Some(agents) = root
+        .get_mut("agents")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        let remove_defaults = agents
+            .get("defaults")
+            .and_then(serde_json::Value::as_object)
+            .is_some_and(serde_json::Map::is_empty)
+            && original_defaults.is_none();
+        if remove_defaults {
+            agents.remove("defaults");
+        }
+        if agents.is_empty() && original_agents.is_none() {
+            root.remove("agents");
+        }
+    }
+    if root.is_empty() && original.is_none() {
+        return Ok(None);
+    }
+    let rendered = render_agent_json(root, "恢复后的 OpenClaw 配置")?;
+    let comments = extract_json5_comments(current);
+    Ok(Some(if comments.is_empty() {
+        rendered
+    } else {
+        format!("{}\n{rendered}", comments.join("\n"))
+    }))
+}
+
+fn restore_yaml_key(
+    current: &mut serde_norway::Mapping,
+    original: Option<&serde_norway::Mapping>,
+    key: &str,
+) {
+    if let Some(value) = original.and_then(|root| root.get(yaml_key(key))).cloned() {
+        current.insert(yaml_key(key), value);
+    } else {
+        current.remove(yaml_key(key));
+    }
+}
+
+fn build_restored_hermes_config(
+    current: &str,
+    original: Option<&str>,
+) -> Result<Option<String>, String> {
+    let mut document = yaml_serde_edit::YamlValue::parse(current)
+        .map_err(|error| format!("当前 Hermes 配置格式无效: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "当前 Hermes 配置根节点必须是映射".to_string())?;
+    let original_value = original
+        .map(|content| {
+            serde_norway::from_str::<serde_norway::Value>(content)
+                .map_err(|error| format!("原始 Hermes 配置格式无效: {error}"))
+        })
+        .transpose()?;
+    let original_root = original_value
+        .as_ref()
+        .and_then(serde_norway::Value::as_mapping);
+    let original_managed = original_root
+        .and_then(|root| root.get(yaml_key("custom_providers")))
+        .and_then(serde_norway::Value::as_sequence)
+        .and_then(|providers| {
+            providers.iter().find(|provider| {
+                provider.get("name").and_then(serde_norway::Value::as_str)
+                    == Some(MANAGED_AGENT_PROVIDER_ID)
+            })
+        });
+    if let Some(providers) = root
+        .get_mut(yaml_key("custom_providers"))
+        .and_then(serde_norway::Value::as_sequence_mut)
+    {
+        let current_managed = providers
+            .iter()
+            .find(|provider| {
+                provider.get("name").and_then(serde_norway::Value::as_str)
+                    == Some(MANAGED_AGENT_PROVIDER_ID)
+            })
+            .and_then(serde_norway::Value::as_mapping)
+            .cloned();
+        providers.retain(|provider| {
+            provider.get("name").and_then(serde_norway::Value::as_str)
+                != Some(MANAGED_AGENT_PROVIDER_ID)
+        });
+        let mut managed = current_managed.unwrap_or_default();
+        let original_managed = original_managed.and_then(serde_norway::Value::as_mapping);
+        for key in ["name", "base_url", "api_key", "api_mode", "model", "models"] {
+            restore_yaml_key(&mut managed, original_managed, key);
+        }
+        if original_managed.is_some() {
+            providers.push(serde_norway::Value::Mapping(managed));
+        } else if !managed.is_empty() {
+            managed.insert(
+                yaml_key("name"),
+                serde_norway::Value::String(MANAGED_AGENT_PROVIDER_ID.to_string()),
+            );
+            providers.push(serde_norway::Value::Mapping(managed));
+        }
+        if providers.is_empty()
+            && original_root
+                .and_then(|root| root.get(yaml_key("custom_providers")))
+                .is_none()
+        {
+            root.remove(yaml_key("custom_providers"));
+        }
+    } else {
+        restore_yaml_key(root, original_root, "custom_providers");
+    }
+    let original_model = original_root
+        .and_then(|root| root.get(yaml_key("model")))
+        .and_then(serde_norway::Value::as_mapping);
+    if let Some(model) = root
+        .get_mut(yaml_key("model"))
+        .and_then(serde_norway::Value::as_mapping_mut)
+    {
+        for key in ["default", "provider"] {
+            restore_yaml_key(model, original_model, key);
+        }
+        if model.is_empty() && original_model.is_none() {
+            root.remove(yaml_key("model"));
+        }
+    } else {
+        restore_yaml_key(root, original_root, "model");
+    }
+    if root.is_empty() && original.is_none() {
+        return Ok(None);
+    }
+    render_updated_core_yaml(&mut document, updated).map(Some)
+}
+
+fn agent_config_semantically_equal(client: AgentClient, actual: &str, expected: &str) -> bool {
+    match client {
+        AgentClient::Codex => {
+            toml::from_str::<toml::Value>(actual).ok()
+                == toml::from_str::<toml::Value>(expected).ok()
+        }
+        AgentClient::OpenClaw => {
+            json5::from_str::<serde_json::Value>(actual).ok()
+                == json5::from_str::<serde_json::Value>(expected).ok()
+        }
+        AgentClient::Hermes => {
+            serde_norway::from_str::<serde_norway::Value>(actual).ok()
+                == serde_norway::from_str::<serde_norway::Value>(expected).ok()
+        }
+        _ => {
+            serde_json::from_str::<serde_json::Value>(actual).ok()
+                == serde_json::from_str::<serde_json::Value>(expected).ok()
+        }
+    }
+}
+
+fn build_agent_session_restored_bytes(
+    client: AgentClient,
+    paths: &[PathBuf],
+    path: &Path,
+    current: Option<&[u8]>,
+    original: Option<&[u8]>,
+) -> Result<Option<Vec<u8>>, String> {
+    let Some(current) = current else {
+        return Ok(original.map(ToOwned::to_owned));
+    };
+    if client == AgentClient::Codex && paths.first().is_none_or(|config| config != path) {
+        return Ok(original.map(ToOwned::to_owned));
+    }
+    let current = std::str::from_utf8(current)
+        .map_err(|_| format!("当前智能体配置不是 UTF-8 文本: {}", path_to_string(path)))?;
+    let original_bytes = original;
+    let original = original_bytes
+        .map(|bytes| {
+            std::str::from_utf8(bytes)
+                .map_err(|_| format!("原智能体配置不是 UTF-8 文本: {}", path_to_string(path)))
+        })
+        .transpose()?;
+    let restored = match client {
+        AgentClient::ClaudeCode => build_restored_claude_code_config(current, original)?,
+        AgentClient::ClaudeDesktop => {
+            let index = paths
+                .iter()
+                .position(|candidate| candidate == path)
+                .ok_or_else(|| "Claude Desktop 恢复路径不匹配".to_string())?;
+            build_restored_claude_desktop_config(index, current, original)?
+        }
+        AgentClient::Codex => build_restored_codex_agent_config(Some(current), original)?,
+        AgentClient::OpenCode => build_restored_opencode_config(current, original)?,
+        AgentClient::OpenClaw => build_restored_openclaw_config(current, original)?,
+        AgentClient::Hermes => build_restored_hermes_config(current, original)?,
+    };
+    if let (Some(restored), Some(original), Some(original_bytes)) =
+        (restored.as_deref(), original, original_bytes)
+    {
+        if agent_config_semantically_equal(client, restored, original) {
+            return Ok(Some(original_bytes.to_vec()));
+        }
+    }
+    Ok(restored.map(String::into_bytes))
+}
+
+#[cfg(test)]
+fn build_codex_agent_config(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+) -> Result<String, String> {
+    build_codex_agent_config_with_oauth(existing, base_url, api_key, model, false)
+}
+
+fn build_codex_agent_config_with_oauth(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    oauth_configuration: bool,
+) -> Result<String, String> {
+    use toml_edit::{value, Document, Item, Table};
+
+    let mut document = match existing.filter(|value| !value.trim().is_empty()) {
+        Some(value) => value
+            .parse::<Document>()
+            .map_err(|error| format!("Codex config.toml 格式无效: {error}"))?,
+        None => Document::new(),
+    };
+    set_codex_table_item(
+        document.as_table_mut(),
+        "model_provider",
+        value(MANAGED_AGENT_PROVIDER_ID),
+    );
+    set_codex_table_item(document.as_table_mut(), "model", value(model));
+    set_codex_table_item(
+        document.as_table_mut(),
+        "model_catalog_json",
+        value(CODEX_MODEL_CATALOG_FILE),
+    );
+    if !document
+        .get("model_providers")
+        .is_some_and(toml_edit::Item::is_table)
+    {
+        document.remove("model_providers");
+        document["model_providers"] = Item::Table(Table::new());
+    }
+    let providers = document["model_providers"]
+        .as_table_mut()
+        .ok_or_else(|| "Codex model_providers 必须是 TOML 表".to_string())?;
+    if !providers
+        .get(MANAGED_AGENT_PROVIDER_ID)
+        .is_some_and(toml_edit::Item::is_table)
+    {
+        providers.remove(MANAGED_AGENT_PROVIDER_ID);
+        providers.insert(MANAGED_AGENT_PROVIDER_ID, Item::Table(Table::new()));
+    }
+    let provider = providers
+        .get_mut(MANAGED_AGENT_PROVIDER_ID)
+        .and_then(Item::as_table_mut)
+        .ok_or_else(|| "Codex cpa-gui provider 必须是 TOML 表".to_string())?;
+    set_codex_table_item(provider, "name", value("EasyCLIProxyAPI"));
+    set_codex_table_item(provider, "base_url", value(base_url));
+    set_codex_table_item(provider, "wire_api", value("responses"));
+    set_codex_table_item(provider, "experimental_bearer_token", value(api_key));
+    if oauth_configuration {
+        set_codex_table_item(provider, "requires_openai_auth", value(true));
+    } else {
+        provider.remove("requires_openai_auth");
+    }
+    let rendered = document.to_string();
+    toml::from_str::<toml::Value>(&rendered)
+        .map_err(|error| format!("验证 Codex 配置失败: {error}"))?;
+    Ok(rendered)
+}
+
+const CODEX_MANAGED_ROOT_KEYS: [&str; 3] = ["model_provider", "model", "model_catalog_json"];
+const CODEX_MANAGED_PROVIDER_KEYS: [&str; 5] = [
+    "name",
+    "base_url",
+    "wire_api",
+    "experimental_bearer_token",
+    "requires_openai_auth",
+];
+
+fn set_codex_table_item(table: &mut toml_edit::Table, key: &str, mut item: toml_edit::Item) {
+    if let (Some(current), Some(next)) = (
+        table.get(key).and_then(toml_edit::Item::as_value),
+        item.as_value_mut(),
+    ) {
+        *next.decor_mut() = current.decor().clone();
+    }
+    *table.entry(key).or_insert(toml_edit::Item::None) = item;
+}
+
+fn restore_codex_table_item(
+    current: &mut toml_edit::Table,
+    original: Option<&toml_edit::Table>,
+    key: &str,
+) {
+    let original_item = original.and_then(|table| table.get(key)).cloned();
+    if let Some(item) = original_item {
+        let existed = current.contains_key(key);
+        let original_key_decor = original.and_then(|table| table.key_decor(key)).cloned();
+        set_codex_table_item(current, key, item);
+        if !existed {
+            if let (Some(current_decor), Some(original_decor)) =
+                (current.key_decor_mut(key), original_key_decor)
+            {
+                *current_decor = original_decor;
+            }
+        }
+    } else {
+        current.remove(key);
+    }
+}
+
+fn parse_codex_document(content: Option<&str>, label: &str) -> Result<toml_edit::Document, String> {
+    use toml_edit::Document;
+
+    match content.filter(|value| !value.trim().is_empty()) {
+        Some(value) => value
+            .parse::<Document>()
+            .map_err(|error| format!("{label} 格式无效: {error}")),
+        None => Ok(Document::new()),
+    }
+}
+
+fn codex_provider_table(document: &toml_edit::Document) -> Option<&toml_edit::Table> {
+    document
+        .as_table()
+        .get("model_providers")
+        .and_then(toml_edit::Item::as_table)
+        .and_then(|providers| providers.get(MANAGED_AGENT_PROVIDER_ID))
+        .and_then(toml_edit::Item::as_table)
+}
+
+fn ensure_codex_provider_table(
+    document: &mut toml_edit::Document,
+) -> Result<&mut toml_edit::Table, String> {
+    use toml_edit::{Item, Table};
+
+    let root = document.as_table_mut();
+    if !root.contains_key("model_providers") {
+        root.insert("model_providers", Item::Table(Table::new()));
+    }
+    let providers = root
+        .get_mut("model_providers")
+        .and_then(Item::as_table_mut)
+        .ok_or_else(|| "Codex model_providers 必须是 TOML 表".to_string())?;
+    if !providers.contains_key(MANAGED_AGENT_PROVIDER_ID) {
+        providers.insert(MANAGED_AGENT_PROVIDER_ID, Item::Table(Table::new()));
+    }
+    providers
+        .get_mut(MANAGED_AGENT_PROVIDER_ID)
+        .and_then(Item::as_table_mut)
+        .ok_or_else(|| "Codex cpa-gui provider 必须是 TOML 表".to_string())
+}
+
+fn merge_missing_codex_table_items(current: &mut toml_edit::Table, original: &toml_edit::Table) {
+    for (key, original_item) in original.iter() {
+        if !current.contains_key(key) {
+            current.insert(key, original_item.clone());
+            continue;
+        }
+        if let (Some(current_table), Some(original_table)) = (
+            current.get_mut(key).and_then(toml_edit::Item::as_table_mut),
+            original_item.as_table(),
+        ) {
+            merge_missing_codex_table_items(current_table, original_table);
+        }
+    }
+}
+
+fn build_restored_codex_agent_config(
+    current: Option<&str>,
+    original: Option<&str>,
+) -> Result<Option<String>, String> {
+    use toml_edit::Item;
+
+    let mut current_document = parse_codex_document(current, "当前 Codex config.toml")?;
+    let original_document = original
+        .map(|content| parse_codex_document(Some(content), "原始 Codex config.toml"))
+        .transpose()?;
+    if let Some(original_document) = original_document.as_ref() {
+        merge_missing_codex_table_items(
+            current_document.as_table_mut(),
+            original_document.as_table(),
+        );
+    }
+
+    for key in CODEX_MANAGED_ROOT_KEYS {
+        restore_codex_table_item(
+            current_document.as_table_mut(),
+            original_document
+                .as_ref()
+                .map(|document| document.as_table()),
+            key,
+        );
+    }
+
+    let original_provider_items = CODEX_MANAGED_PROVIDER_KEYS
+        .into_iter()
+        .map(|key| {
+            (
+                key,
+                original_document
+                    .as_ref()
+                    .and_then(codex_provider_table)
+                    .and_then(|provider| provider.get(key))
+                    .cloned(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let needs_provider = original_provider_items
+        .iter()
+        .any(|(_, item)| item.is_some());
+
+    if needs_provider {
+        let provider = ensure_codex_provider_table(&mut current_document)?;
+        let original_provider = original_document.as_ref().and_then(codex_provider_table);
+        for (key, item) in &original_provider_items {
+            if item.is_some() {
+                restore_codex_table_item(provider, original_provider, key);
+            } else {
+                provider.remove(key);
+            }
+        }
+    } else if let Some(providers) = current_document
+        .as_table_mut()
+        .get_mut("model_providers")
+        .and_then(Item::as_table_mut)
+    {
+        if let Some(provider) = providers
+            .get_mut(MANAGED_AGENT_PROVIDER_ID)
+            .and_then(Item::as_table_mut)
+        {
+            for key in CODEX_MANAGED_PROVIDER_KEYS {
+                provider.remove(key);
+            }
+            if provider.is_empty() {
+                providers.remove(MANAGED_AGENT_PROVIDER_ID);
+            }
+        }
+    }
+
+    let remove_providers = current_document
+        .as_table()
+        .get("model_providers")
+        .and_then(Item::as_table)
+        .is_some_and(toml_edit::Table::is_empty);
+    if remove_providers {
+        current_document.as_table_mut().remove("model_providers");
+    }
+
+    let rendered = current_document.to_string();
+    toml::from_str::<toml::Value>(&rendered)
+        .map_err(|error| format!("验证恢复后的 Codex 配置失败: {error}"))?;
+    if original.is_none() && rendered.trim().is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(rendered))
+    }
+}
+
+fn validate_codex_catalog(catalog: &str, model: &str) -> Result<(), String> {
+    let root: serde_json::Value = serde_json::from_str(catalog)
+        .map_err(|error| format!("Codex 模型目录格式无效: {error}"))?;
+    let models = root
+        .get("models")
+        .and_then(serde_json::Value::as_array)
+        .filter(|models| !models.is_empty())
+        .ok_or_else(|| "Codex 模型目录必须包含非空 models 数组".to_string())?;
+    if !models.iter().any(|entry| {
+        entry
+            .get("slug")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|slug| slug.eq_ignore_ascii_case(model))
+    }) {
+        return Err(format!("默认模型 {model} 不在生成的 Codex 模型目录中"));
+    }
+    Ok(())
+}
+
+fn build_opencode_agent_config(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    available_models: &[AgentModelOption],
+) -> Result<String, String> {
+    let mut root = parse_agent_json_object(existing, "OpenCode opencode.json")?;
+    root.entry("$schema".to_string())
+        .or_insert_with(|| serde_json::json!("https://opencode.ai/config.json"));
+    let providers = ensure_json_object_entry(&mut root, "provider");
+    let models = ordered_agent_models(available_models, model)
+        .into_iter()
+        .map(|model| {
+            let display_name = model.alias.as_deref().unwrap_or(&model.name).to_string();
+            (model.name, serde_json::json!({ "name": display_name }))
+        })
+        .collect::<serde_json::Map<_, _>>();
+    let managed_provider = ensure_json_object_entry(providers, MANAGED_AGENT_PROVIDER_ID);
+    managed_provider.insert(
+        "npm".to_string(),
+        serde_json::json!("@ai-sdk/openai-compatible"),
+    );
+    managed_provider.insert("name".to_string(), serde_json::json!("EasyCLIProxyAPI"));
+    let options = ensure_json_object_entry(managed_provider, "options");
+    options.insert("baseURL".to_string(), serde_json::json!(base_url));
+    options.insert("apiKey".to_string(), serde_json::json!(api_key));
+    managed_provider.insert("models".to_string(), serde_json::Value::Object(models));
+    root.insert(
+        "model".to_string(),
+        serde_json::json!(format!("{MANAGED_AGENT_PROVIDER_ID}/{model}")),
+    );
+    render_agent_json(root, "OpenCode 配置")
+}
+
+fn build_openclaw_agent_config(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    available_models: &[AgentModelOption],
+) -> Result<String, String> {
+    let mut root = match existing.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => json5::from_str::<serde_json::Value>(value)
+            .map_err(|error| format!("OpenClaw openclaw.json 格式无效: {error}"))?,
+        None => serde_json::json!({}),
+    };
+    let root = root
+        .as_object_mut()
+        .ok_or_else(|| "OpenClaw openclaw.json 根节点必须是对象".to_string())?;
+    let ordered_models = ordered_agent_models(available_models, model);
+    let models = ensure_json_object_entry(root, "models");
+    models
+        .entry("mode".to_string())
+        .or_insert_with(|| serde_json::json!("merge"));
+    let providers = ensure_json_object_entry(models, "providers");
+    let managed_provider = ensure_json_object_entry(providers, MANAGED_AGENT_PROVIDER_ID);
+    managed_provider.insert("baseUrl".to_string(), serde_json::json!(base_url));
+    managed_provider.insert("apiKey".to_string(), serde_json::json!(api_key));
+    managed_provider.insert("api".to_string(), serde_json::json!("openai-completions"));
+    managed_provider.insert(
+        "models".to_string(),
+        serde_json::Value::Array(
+            ordered_models
+                .iter()
+                .map(|model| {
+                    serde_json::json!({
+                        "id": model.name.clone(),
+                        "name": model.alias.as_deref().unwrap_or(&model.name),
+                    })
+                })
+                .collect(),
+        ),
+    );
+    let agents = ensure_json_object_entry(root, "agents");
+    let defaults = ensure_json_object_entry(agents, "defaults");
+    let default_model = ensure_json_object_entry(defaults, "model");
+    default_model.insert(
+        "primary".to_string(),
+        serde_json::json!(format!("{MANAGED_AGENT_PROVIDER_ID}/{model}")),
+    );
+    let model_catalog = ensure_json_object_entry(defaults, "models");
+    let managed_prefix = format!("{MANAGED_AGENT_PROVIDER_ID}/");
+    model_catalog.retain(|name, _| !name.starts_with(&managed_prefix));
+    for model in &ordered_models {
+        let name = format!("{MANAGED_AGENT_PROVIDER_ID}/{}", model.name);
+        let value = model
+            .alias
+            .as_deref()
+            .map(|alias| serde_json::json!({ "alias": alias }))
+            .unwrap_or_else(|| serde_json::json!({}));
+        model_catalog.insert(name, value);
+    }
+    let rendered = render_agent_json(root.clone(), "OpenClaw 配置")?;
+    let comments = existing.map(extract_json5_comments).unwrap_or_default();
+    if comments.is_empty() {
+        Ok(rendered)
+    } else {
+        Ok(format!("{}\n{rendered}", comments.join("\n")))
+    }
+}
+
+fn extract_json5_comments(content: &str) -> Vec<String> {
+    let bytes = content.as_bytes();
+    let mut comments = Vec::new();
+    let mut index = 0;
+    let mut quote = None;
+    let mut escaped = false;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if let Some(active_quote) = quote {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == active_quote {
+                quote = None;
+            }
+            index += 1;
+            continue;
+        }
+        if matches!(byte, b'\'' | b'"') {
+            quote = Some(byte);
+            index += 1;
+            continue;
+        }
+        if byte == b'/' && bytes.get(index + 1) == Some(&b'/') {
+            let start = index;
+            index += 2;
+            while index < bytes.len() && !matches!(bytes[index], b'\r' | b'\n') {
+                index += 1;
+            }
+            comments.push(content[start..index].to_string());
+            continue;
+        }
+        if byte == b'/' && bytes.get(index + 1) == Some(&b'*') {
+            let start = index;
+            index += 2;
+            while index + 1 < bytes.len() && !(bytes[index] == b'*' && bytes[index + 1] == b'/') {
+                index += 1;
+            }
+            index = (index + 2).min(bytes.len());
+            comments.push(content[start..index].to_string());
+            continue;
+        }
+        index += 1;
+    }
+    comments
+}
+
+fn ensure_yaml_mapping_entry<'a>(
+    root: &'a mut serde_norway::Mapping,
+    key: &str,
+) -> &'a mut serde_norway::Mapping {
+    let key_value = serde_norway::Value::String(key.to_string());
+    if !root
+        .get(&key_value)
+        .is_some_and(|value| value.as_mapping().is_some())
+    {
+        root.insert(
+            key_value.clone(),
+            serde_norway::Value::Mapping(serde_norway::Mapping::new()),
+        );
+    }
+    root.get_mut(&key_value)
+        .and_then(serde_norway::Value::as_mapping_mut)
+        .expect("mapping entry was just normalized")
+}
+
+fn ensure_yaml_sequence_entry<'a>(
+    root: &'a mut serde_norway::Mapping,
+    key: &str,
+) -> &'a mut Vec<serde_norway::Value> {
+    let key_value = serde_norway::Value::String(key.to_string());
+    if !root
+        .get(&key_value)
+        .is_some_and(|value| value.as_sequence().is_some())
+    {
+        root.insert(key_value.clone(), serde_norway::Value::Sequence(Vec::new()));
+    }
+    root.get_mut(&key_value)
+        .and_then(serde_norway::Value::as_sequence_mut)
+        .expect("sequence entry was just normalized")
+}
+
+fn build_hermes_agent_config(
+    existing: Option<&str>,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    available_models: &[AgentModelOption],
+) -> Result<String, String> {
+    let original = match existing.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => serde_norway::from_str::<serde_norway::Value>(value)
+            .map_err(|error| format!("Hermes config.yaml 格式无效: {error}"))?,
+        None => serde_norway::Value::Mapping(serde_norway::Mapping::new()),
+    };
+    let mut root = original.clone();
+    let mapping = root
+        .as_mapping_mut()
+        .ok_or_else(|| "Hermes config.yaml 根节点必须是映射".to_string())?;
+    let providers = ensure_yaml_sequence_entry(mapping, "custom_providers");
+    let mut managed_provider = None;
+    let mut retained_providers = Vec::with_capacity(providers.len());
+    for provider in std::mem::take(providers) {
+        match provider.get("name").and_then(serde_norway::Value::as_str) {
+            Some(name) if name == MANAGED_AGENT_PROVIDER_ID => {
+                if managed_provider.is_none() {
+                    managed_provider = provider.as_mapping().cloned();
+                }
+            }
+            Some(_) => retained_providers.push(provider),
+            None => {}
+        }
+    }
+    let provider_models = ordered_agent_models(available_models, model)
+        .into_iter()
+        .map(|model| (model.name, serde_json::json!({})))
+        .collect::<serde_json::Map<_, _>>();
+    let canonical_provider = serde_norway::to_value(serde_json::json!({
+        "name": MANAGED_AGENT_PROVIDER_ID,
+        "base_url": base_url,
+        "api_key": api_key,
+        "api_mode": "chat_completions",
+        "model": model,
+        "models": provider_models
+    }))
+    .map_err(|error| format!("生成 Hermes provider 失败: {error}"))?;
+    let canonical_provider = canonical_provider
+        .as_mapping()
+        .ok_or_else(|| "生成 Hermes provider 失败: 根节点不是映射".to_string())?;
+    let mut managed_provider = managed_provider.unwrap_or_default();
+    for (key, value) in canonical_provider {
+        managed_provider.insert(key.clone(), value.clone());
+    }
+    retained_providers.push(serde_norway::Value::Mapping(managed_provider));
+    *providers = retained_providers;
+    let model_config = ensure_yaml_mapping_entry(mapping, "model");
+    model_config.insert(
+        serde_norway::Value::String("default".to_string()),
+        serde_norway::Value::String(model.to_string()),
+    );
+    model_config.insert(
+        serde_norway::Value::String("provider".to_string()),
+        serde_norway::Value::String(MANAGED_AGENT_PROVIDER_ID.to_string()),
+    );
+    let rendered = if let Some(existing) = existing.filter(|value| !value.trim().is_empty()) {
+        render_yaml_value_changes(existing, &original, &root)?
+    } else {
+        serde_norway::to_string(&root).map_err(|error| format!("生成 Hermes 配置失败: {error}"))?
+    };
+    serde_norway::from_str::<serde_norway::Value>(&rendered)
+        .map_err(|error| format!("验证 Hermes 配置失败: {error}"))?;
+    Ok(rendered)
+}
+
+fn agent_backup_path(path: &Path) -> Result<PathBuf, String> {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(path)))?;
+    Ok(path.with_file_name(format!("{file_name}.cpa-gui.backup")))
+}
+
+fn agent_state_path(paths: &[PathBuf]) -> Result<PathBuf, String> {
+    let primary = paths
+        .first()
+        .ok_or_else(|| "当前平台没有可用的智能体配置路径".to_string())?;
+    let file_name = primary
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(primary)))?;
+    Ok(primary.with_file_name(format!("{file_name}.cpa-gui.state.json")))
+}
+
+fn sha256_bytes(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+fn agent_managed_paths(client: AgentClient, home: &Path) -> Vec<PathBuf> {
+    let paths = agent_config_paths(client, home);
+    expected_agent_record_paths(client, &paths)
+}
+
+fn legacy_agent_backup_paths(state_content: &str) -> Vec<PathBuf> {
+    serde_json::from_str::<AgentModificationRecord>(state_content)
+        .ok()
+        .map(|record| {
+            record
+                .files
+                .into_iter()
+                .map(|file| file.backup_path)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn write_agent_applied_state(path: &Path, state: &AgentAppliedState) -> Result<(), String> {
+    if state.client == AgentClient::Codex.id() {
+        CODEX_APPLIED_STATES
+            .lock()
+            .map_err(|_| "Codex 应用状态内存锁已损坏".to_string())?
+            .insert(path.to_path_buf(), state.clone());
+        if path.is_file() {
+            fs::remove_file(path).map_err(|error| {
+                format!(
+                    "清理旧版 Codex 应用状态失败 {}: {error}",
+                    path_to_string(path)
+                )
+            })?;
+        }
+        return Ok(());
+    }
+
+    let mut content = serde_json::to_string_pretty(state)
+        .map_err(|error| format!("生成智能体应用状态失败: {error}"))?;
+    content.push('\n');
+    write_bytes_directly(path, content.as_bytes())
+}
+
+fn clear_codex_applied_state(path: &Path) -> Result<(), String> {
+    CODEX_APPLIED_STATES
+        .lock()
+        .map_err(|_| "Codex 应用状态内存锁已损坏".to_string())?
+        .remove(path);
+    Ok(())
+}
+
+fn is_dated_agent_backup_name(file_name: &str, original_name: &str) -> bool {
+    let Some(date) = file_name
+        .strip_prefix(&format!("{original_name}."))
+        .and_then(|value| value.strip_suffix(".bak"))
+    else {
+        return false;
+    };
+    let bytes = date.as_bytes();
+    bytes.len() == 8
+        && bytes[0..2].iter().all(u8::is_ascii_digit)
+        && bytes[2] == b'-'
+        && bytes[3..5].iter().all(u8::is_ascii_digit)
+        && bytes[5] == b'-'
+        && bytes[6..8].iter().all(u8::is_ascii_digit)
+}
+
+fn latest_dated_agent_backup_path(path: &Path) -> Result<Option<PathBuf>, String> {
+    let directory = path.parent().unwrap_or_else(|| Path::new("."));
+    if !directory.is_dir() {
+        return Ok(None);
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(path)))?;
+    let mut candidates = fs::read_dir(directory)
+        .map_err(|error| {
+            format!(
+                "读取智能体备份目录失败 {}: {error}",
+                path_to_string(directory)
+            )
+        })?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|candidate| {
+            candidate
+                .file_name()
+                .and_then(|value| value.to_str())
+                .is_some_and(|value| is_dated_agent_backup_name(value, file_name))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort();
+    Ok(candidates.pop())
+}
+
+fn recover_codex_applied_state_from_backups(
+    paths: &[PathBuf],
+) -> Result<Option<AgentAppliedState>, String> {
+    let managed_paths = expected_agent_record_paths(AgentClient::Codex, paths);
+    let mut discovered = Vec::with_capacity(managed_paths.len());
+    let mut found_backup = false;
+    for path in managed_paths {
+        let backup = latest_dated_agent_backup_path(&path)?;
+        found_backup |= backup.is_some();
+        discovered.push((path, backup));
+    }
+    if !found_backup {
+        return Ok(None);
+    }
+
+    let model = paths
+        .first()
+        .and_then(|path| fs::read_to_string(path).ok())
+        .and_then(|content| toml::from_str::<toml::Value>(&content).ok())
+        .and_then(|root| {
+            root.get("model")
+                .and_then(toml::Value::as_str)
+                .map(str::to_string)
+        })
+        .unwrap_or_default();
+    let mut backup_files = Vec::with_capacity(discovered.len());
+    for (path, backup) in discovered {
+        let existed_before = backup.is_some();
+        backup_files.push(AgentAppliedBackupFile {
+            backup_path: match backup {
+                Some(path) => path,
+                None => dated_agent_backup_path(&path)?,
+            },
+            path,
+            existed_before,
+        });
+    }
+    let state = AgentAppliedState {
+        version: AGENT_APPLIED_STATE_VERSION,
+        client: AgentClient::Codex.id().to_string(),
+        model,
+        claude_desktop_model_mappings: None,
+        backup_files,
+        updated_at_unix: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+    };
+    Ok(Some(state))
+}
+
+fn validate_agent_applied_state(
+    client: AgentClient,
+    paths: &[PathBuf],
+    state: &AgentAppliedState,
+) -> Result<(), String> {
+    if state.client != client.id() {
+        return Err("智能体应用状态与客户端不匹配".to_string());
+    }
+    if state.backup_files.is_empty() {
+        return Ok(());
+    }
+    let expected_paths = expected_agent_record_paths(client, paths);
+    let state_paths = state
+        .backup_files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<Vec<_>>();
+    let valid_paths = state_paths == expected_paths
+        || (client == AgentClient::Codex && state_paths.as_slice() == paths);
+    if !valid_paths {
+        return Err("智能体应用状态文件数量或路径不匹配".to_string());
+    }
+    for file in &state.backup_files {
+        let legacy_backup = agent_backup_path(&file.path)?;
+        let original_name = file
+            .path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(&file.path)))?;
+        let dated_backup = file.backup_path.parent() == file.path.parent()
+            && file
+                .backup_path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .is_some_and(|name| is_dated_agent_backup_name(name, original_name));
+        if file.backup_path != legacy_backup && !dated_backup {
+            return Err("智能体应用状态包含非预期备份路径".to_string());
+        }
+    }
+    Ok(())
+}
+
+fn load_agent_applied_state(
+    client: AgentClient,
+    home: &Path,
+) -> Result<Option<AgentAppliedState>, String> {
+    let paths = agent_config_paths(client, home);
+    let state_path = agent_state_path(&paths)?;
+    if client == AgentClient::Codex {
+        if let Some(state) = CODEX_APPLIED_STATES
+            .lock()
+            .map_err(|_| "Codex 应用状态内存锁已损坏".to_string())?
+            .get(&state_path)
+            .cloned()
+        {
+            return Ok(Some(state));
+        }
+    }
+    if !state_path.is_file() {
+        let recovered = if client == AgentClient::Codex {
+            recover_codex_applied_state_from_backups(&paths)?
+        } else {
+            None
+        };
+        if let Some(state) = recovered.as_ref() {
+            write_agent_applied_state(&state_path, state)?;
+        }
+        return Ok(recovered);
+    }
+    let content = fs::read_to_string(&state_path)
+        .map_err(|error| format!("读取智能体应用状态失败: {error}"))?;
+    let value = serde_json::from_str::<serde_json::Value>(&content)
+        .map_err(|error| format!("解析智能体应用状态失败: {error}"))?;
+    let version = value
+        .get("version")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| "智能体应用状态缺少版本号".to_string())?;
+    let version = u8::try_from(version).map_err(|_| "不支持的智能体应用状态版本".to_string())?;
+    if version == AGENT_APPLIED_STATE_VERSION || version == 3 {
+        let state = serde_json::from_value::<AgentAppliedState>(value)
+            .map_err(|error| format!("解析智能体应用状态失败: {error}"))?;
+        validate_agent_applied_state(client, &paths, &state)?;
+        if client == AgentClient::Codex {
+            write_agent_applied_state(&state_path, &state)?;
+        }
+        return Ok(Some(state));
+    }
+    if version != LEGACY_AGENT_MODIFICATION_STATE_VERSION
+        && version != AGENT_MODIFICATION_STATE_VERSION
+    {
+        return Err("不支持的智能体应用状态版本".to_string());
+    }
+
+    let record = serde_json::from_value::<AgentModificationRecord>(value)
+        .map_err(|error| format!("解析旧版智能体状态失败: {error}"))?;
+    validate_agent_record(client, &paths, &record)?;
+    let backup_files = record
+        .files
+        .iter()
+        .map(|file| AgentAppliedBackupFile {
+            path: file.path.clone(),
+            backup_path: file.backup_path.clone(),
+            existed_before: file.existed_before,
+        })
+        .collect();
+    let state = AgentAppliedState {
+        version: AGENT_APPLIED_STATE_VERSION,
+        client: client.id().to_string(),
+        model: record.model,
+        claude_desktop_model_mappings: None,
+        backup_files,
+        updated_at_unix: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+    };
+    write_agent_applied_state(&state_path, &state)?;
+    Ok(Some(state))
+}
+
+fn read_agent_bytes(path: &Path) -> Result<Option<Vec<u8>>, String> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    fs::read(path)
+        .map(Some)
+        .map_err(|error| format!("读取智能体配置失败 {}: {error}", path_to_string(path)))
+}
+
+#[cfg(test)]
+fn read_agent_original_bytes(file: &AgentModificationFile) -> Result<Option<Vec<u8>>, String> {
+    if !file.existed_before {
+        return Ok(None);
+    }
+    let original_sha256 = file
+        .original_sha256
+        .as_deref()
+        .ok_or_else(|| format!("原配置备份缺少校验值: {}", path_to_string(&file.path)))?;
+    let bytes = fs::read(&file.backup_path).map_err(|error| {
+        format!(
+            "读取原配置备份失败 {}: {error}",
+            path_to_string(&file.backup_path)
+        )
+    })?;
+    if sha256_bytes(&bytes) != original_sha256 {
+        return Err(format!(
+            "原配置备份校验失败: {}",
+            path_to_string(&file.backup_path)
+        ));
+    }
+    Ok(Some(bytes))
+}
+
+#[cfg(test)]
+fn read_agent_original_text(file: &AgentModificationFile) -> Result<Option<String>, String> {
+    read_agent_original_bytes(file)?
+        .map(|bytes| {
+            String::from_utf8(bytes).map_err(|_| {
+                format!(
+                    "原 Codex 配置不是 UTF-8 文本: {}",
+                    path_to_string(&file.path)
+                )
+            })
+        })
+        .transpose()
+}
+
+#[cfg(test)]
+fn write_agent_state(path: &Path, record: &AgentModificationRecord) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            format!("创建智能体状态目录失败 {}: {error}", path_to_string(parent))
+        })?;
+    }
+    let mut content = serde_json::to_string_pretty(record)
+        .map_err(|error| format!("生成智能体备份状态失败: {error}"))?;
+    content.push('\n');
+    write_yaml_if_changed(path, &content).map(|_| ())
+}
+
+fn validate_agent_record(
+    client: AgentClient,
+    paths: &[PathBuf],
+    record: &AgentModificationRecord,
+) -> Result<(), String> {
+    let supported_version = record.version == AGENT_MODIFICATION_STATE_VERSION
+        || record.version == LEGACY_AGENT_MODIFICATION_STATE_VERSION;
+    if !supported_version || record.client != client.id() {
+        return Err("智能体备份状态版本或客户端不匹配".to_string());
+    }
+    if ![
+        AGENT_PHASE_APPLYING,
+        AGENT_PHASE_ACTIVE,
+        AGENT_PHASE_RESTORING,
+        AGENT_PHASE_RECOVERY,
+    ]
+    .contains(&record.phase.as_str())
+    {
+        return Err("智能体备份状态阶段无效".to_string());
+    }
+    let expected_paths = expected_agent_record_paths(client, paths);
+    let record_paths = record
+        .files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<Vec<_>>();
+    let valid_paths = record_paths.as_slice() == paths
+        || (client == AgentClient::Codex && record_paths == expected_paths);
+    if !valid_paths {
+        return Err("智能体备份状态文件数量或路径不匹配".to_string());
+    }
+    for file in &record.files {
+        if file.backup_path != agent_backup_path(&file.path)? {
+            return Err("智能体备份状态包含非预期路径".to_string());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn load_agent_record(
+    client: AgentClient,
+    paths: &[PathBuf],
+) -> Result<Option<AgentModificationRecord>, String> {
+    let state_path = agent_state_path(paths)?;
+    if !state_path.is_file() {
+        return Ok(None);
+    }
+    let mut record: AgentModificationRecord = serde_json::from_str(
+        &fs::read_to_string(&state_path)
+            .map_err(|error| format!("读取智能体备份状态失败: {error}"))?,
+    )
+    .map_err(|error| format!("解析智能体备份状态失败: {error}"))?;
+    validate_agent_record(client, paths, &record)?;
+    if record.version == LEGACY_AGENT_MODIFICATION_STATE_VERSION {
+        record.version = AGENT_MODIFICATION_STATE_VERSION;
+    }
+    Ok(Some(record))
+}
+
+#[cfg(test)]
+fn record_backup_available(record: &AgentModificationRecord) -> bool {
+    record
+        .files
+        .iter()
+        .all(|file| !file.existed_before || file.backup_path.is_file())
+}
+
+#[cfg(test)]
+fn record_conflict_files(record: &AgentModificationRecord) -> Result<Vec<String>, String> {
+    let mut conflicts = Vec::new();
+    for file in &record.files {
+        let current = read_agent_bytes(&file.path)?;
+        let matches =
+            current.as_deref().map(sha256_bytes).as_deref() == Some(file.managed_sha256.as_str());
+        if !matches {
+            conflicts.push(path_to_string(&file.path));
+        }
+    }
+    Ok(conflicts)
+}
+
+#[cfg(test)]
+fn record_restore_conflict_files(record: &AgentModificationRecord) -> Result<Vec<String>, String> {
+    let mut conflicts = Vec::new();
+    for file in &record.files {
+        let current = read_agent_bytes(&file.path)?;
+        let matches_managed =
+            current.as_deref().map(sha256_bytes).as_deref() == Some(file.managed_sha256.as_str());
+        let matches_original = if file.existed_before {
+            current.as_deref().map(sha256_bytes) == file.original_sha256
+        } else {
+            current.is_none()
+        };
+        if !matches_managed && !matches_original {
+            conflicts.push(path_to_string(&file.path));
+        }
+    }
+    Ok(conflicts)
+}
+
+#[cfg(test)]
+fn record_matches_original(record: &AgentModificationRecord) -> Result<bool, String> {
+    for file in &record.files {
+        let current = read_agent_bytes(&file.path)?;
+        let matches = if file.existed_before {
+            current.as_deref().map(sha256_bytes) == file.original_sha256
+        } else {
+            current.is_none()
+        };
+        if !matches {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+#[cfg(test)]
+fn codex_record_needs_resync(
+    record: &AgentModificationRecord,
+    configured: bool,
+    current_model: Option<&str>,
+) -> Result<bool, String> {
+    if !configured || current_model != Some(record.model.as_str()) {
+        return Ok(true);
+    }
+    for file in record.files.iter().skip(1) {
+        let current_sha256 = read_agent_bytes(&file.path)?.as_deref().map(sha256_bytes);
+        if current_sha256.as_deref() != Some(file.managed_sha256.as_str()) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(test)]
+fn inspect_agent_modification(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    configured: bool,
+    current_model: Option<&str>,
+) -> AgentModificationInspection {
+    let paths = agent_config_paths(client, home);
+    let state_path = match agent_state_path(&paths) {
+        Ok(path) => path,
+        Err(_) => {
+            return AgentModificationInspection {
+                enabled: false,
+                state: "inactive".to_string(),
+                backup_available: false,
+                applied_model: current_model.map(str::to_string),
+                claude_desktop_model_mappings: None,
+                warnings: Vec::new(),
+            }
+        }
+    };
+
+    if state_path.is_file() {
+        return match load_agent_record(client, &paths) {
+            Ok(Some(record)) => {
+                let backup_available = record_backup_available(&record);
+                let state = if record.phase != AGENT_PHASE_ACTIVE {
+                    "recovery"
+                } else if client == AgentClient::Codex {
+                    "active"
+                } else {
+                    match record_conflict_files(&record) {
+                        Ok(conflicts) if conflicts.is_empty() => "active",
+                        Ok(_) => AGENT_MODIFICATION_STATE_CONFLICT,
+                        Err(_) => "recovery",
+                    }
+                };
+                let mut warnings = Vec::new();
+                if !backup_available {
+                    warnings.push("原配置备份不完整，恢复前请勿删除剩余备份文件".to_string());
+                }
+                if state == AGENT_MODIFICATION_STATE_CONFLICT {
+                    warnings.push("配置已被其他程序修改，清除修改时需要确认是否恢复".to_string());
+                } else if state == "recovery" {
+                    warnings.push("上次配置操作未完整结束，可使用“清除修改”恢复原配置".to_string());
+                } else if client == AgentClient::Codex
+                    && codex_record_needs_resync(&record, configured, current_model).unwrap_or(true)
+                {
+                    warnings.push(
+                        "Codex 受管配置已发生变化，将在下次更新或启动时自动重新同步".to_string(),
+                    );
+                }
+                AgentModificationInspection {
+                    enabled: true,
+                    state: state.to_string(),
+                    backup_available,
+                    applied_model: Some(record.model),
+                    claude_desktop_model_mappings: None,
+                    warnings,
+                }
+            }
+            Ok(None) => AgentModificationInspection {
+                enabled: false,
+                state: "inactive".to_string(),
+                backup_available: false,
+                applied_model: current_model.map(str::to_string),
+                claude_desktop_model_mappings: None,
+                warnings: Vec::new(),
+            },
+            Err(error) => AgentModificationInspection {
+                enabled: true,
+                state: "recovery".to_string(),
+                backup_available: expected_agent_record_paths(client, &paths)
+                    .iter()
+                    .filter_map(|path| agent_backup_path(path).ok())
+                    .any(|path| path.is_file()),
+                applied_model: current_model.map(str::to_string),
+                claude_desktop_model_mappings: None,
+                warnings: vec![error],
+            },
+        };
+    }
+
+    if configured {
+        if let Some(model) = current_model {
+            match build_legacy_agent_record(client, home, port, model) {
+                Ok(Some(record)) => {
+                    return AgentModificationInspection {
+                        enabled: true,
+                        state: "active".to_string(),
+                        backup_available: true,
+                        applied_model: Some(record.model),
+                        claude_desktop_model_mappings: None,
+                        warnings: vec![
+                            "检测到旧版 CPA 配置和备份，可使用“清除修改”恢复原配置".to_string()
+                        ],
+                    }
+                }
+                Ok(None) => {
+                    return AgentModificationInspection {
+                        enabled: false,
+                        state: "inactive".to_string(),
+                        backup_available: false,
+                        applied_model: current_model.map(str::to_string),
+                        claude_desktop_model_mappings: None,
+                        warnings: vec!["检测到 CPA 配置，但缺少可安全恢复的原始备份".to_string()],
+                    }
+                }
+                Err(error) => {
+                    return AgentModificationInspection {
+                        enabled: false,
+                        state: "inactive".to_string(),
+                        backup_available: false,
+                        applied_model: current_model.map(str::to_string),
+                        claude_desktop_model_mappings: None,
+                        warnings: vec![error],
+                    }
+                }
+            }
+        }
+    }
+
+    AgentModificationInspection {
+        enabled: false,
+        state: "inactive".to_string(),
+        backup_available: false,
+        applied_model: current_model.map(str::to_string),
+        claude_desktop_model_mappings: None,
+        warnings: Vec::new(),
+    }
+}
+
+#[cfg(test)]
+fn fresh_agent_contents(
+    client: AgentClient,
+    port: u16,
+    api_key: &str,
+    model: &str,
+) -> Result<Vec<String>, String> {
+    let models = [AgentModelOption {
+        name: model.to_string(),
+        alias: None,
+        is_alias: false,
+        context_window: Some(200_000),
+    }];
+    fresh_agent_contents_with_oauth(
+        client,
+        port,
+        api_key,
+        model,
+        AgentConfigurationOptions {
+            models: &models,
+            codex_catalog: None,
+            oauth_configuration: false,
+            claude_code_model_mappings: None,
+            claude_desktop_model_mappings: None,
+        },
+    )
+}
+
+fn fresh_agent_contents_with_oauth(
+    client: AgentClient,
+    port: u16,
+    api_key: &str,
+    model: &str,
+    options: AgentConfigurationOptions<'_>,
+) -> Result<Vec<String>, String> {
+    let AgentConfigurationOptions {
+        models,
+        oauth_configuration,
+        claude_code_model_mappings,
+        claude_desktop_model_mappings,
+        ..
+    } = options;
+    let root_base = format!("http://127.0.0.1:{port}");
+    let openai_base = format!("{root_base}/v1");
+    match client {
+        AgentClient::ClaudeCode => Ok(vec![build_claude_agent_config(
+            None,
+            &root_base,
+            api_key,
+            model,
+            models,
+            claude_code_model_mappings,
+        )?]),
+        AgentClient::ClaudeDesktop => Ok(vec![
+            build_claude_desktop_deployment_config(None)?,
+            build_claude_desktop_deployment_config(None)?,
+            build_claude_desktop_profile(
+                None,
+                &root_base,
+                api_key,
+                model,
+                models,
+                claude_desktop_model_mappings,
+            )?,
+            build_claude_desktop_meta(None)?,
+        ]),
+        AgentClient::Codex => Ok(vec![build_codex_agent_config_with_oauth(
+            None,
+            &openai_base,
+            api_key,
+            model,
+            oauth_configuration,
+        )?]),
+        AgentClient::OpenCode => Ok(vec![build_opencode_agent_config(
+            None,
+            &openai_base,
+            api_key,
+            model,
+            models,
+        )?]),
+        AgentClient::OpenClaw => Ok(vec![build_openclaw_agent_config(
+            None,
+            &openai_base,
+            api_key,
+            model,
+            models,
+        )?]),
+        AgentClient::Hermes => Ok(vec![build_hermes_agent_config(
+            None,
+            &openai_base,
+            api_key,
+            model,
+            models,
+        )?]),
+    }
+}
+
+#[cfg(test)]
+fn agent_contents_equal(client: AgentClient, actual: &str, expected: &str) -> bool {
+    match client {
+        AgentClient::Codex => {
+            normalize_codex_config_for_legacy_compare(actual)
+                == normalize_codex_config_for_legacy_compare(expected)
+        }
+        AgentClient::OpenClaw => {
+            json5::from_str::<serde_json::Value>(actual).ok()
+                == json5::from_str::<serde_json::Value>(expected).ok()
+        }
+        AgentClient::Hermes => {
+            serde_yaml::from_str::<serde_yaml::Value>(actual).ok()
+                == serde_yaml::from_str::<serde_yaml::Value>(expected).ok()
+        }
+        _ => {
+            serde_json::from_str::<serde_json::Value>(actual).ok()
+                == serde_json::from_str::<serde_json::Value>(expected).ok()
+        }
+    }
+}
+
+#[cfg(test)]
+fn normalize_codex_config_for_legacy_compare(content: &str) -> Option<toml::Value> {
+    let mut value = toml::from_str::<toml::Value>(content).ok()?;
+    if value
+        .get("model_catalog_json")
+        .and_then(toml::Value::as_str)
+        == Some(CODEX_MODEL_CATALOG_FILE)
+    {
+        value.as_table_mut()?.remove("model_catalog_json");
+    }
+    Some(value)
+}
+
+#[cfg(test)]
+fn build_legacy_agent_record(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    model: &str,
+) -> Result<Option<AgentModificationRecord>, String> {
+    let paths = agent_config_paths(client, home);
+    let generated = fresh_agent_contents(client, port, DEFAULT_API_KEY, model)?;
+    if generated.len() != paths.len() {
+        return Ok(None);
+    }
+    let mut files = Vec::new();
+    for (index, path) in paths.iter().enumerate() {
+        let current = read_agent_bytes(path)?;
+        let Some(current) = current else {
+            return Ok(None);
+        };
+        let backup_path = agent_backup_path(path)?;
+        let (existed_before, original_sha256) = if backup_path.is_file() {
+            let backup = fs::read(&backup_path).map_err(|error| {
+                format!(
+                    "读取旧版智能体备份失败 {}: {error}",
+                    path_to_string(&backup_path)
+                )
+            })?;
+            (true, Some(sha256_bytes(&backup)))
+        } else {
+            let actual = String::from_utf8(current.clone())
+                .map_err(|_| format!("智能体配置不是 UTF-8 文本: {}", path_to_string(path)))?;
+            if !agent_contents_equal(client, &actual, &generated[index]) {
+                return Ok(None);
+            }
+            (false, None)
+        };
+        files.push(AgentModificationFile {
+            path: path.clone(),
+            backup_path,
+            existed_before,
+            original_sha256,
+            managed_sha256: sha256_bytes(&current),
+        });
+    }
+    Ok(Some(AgentModificationRecord {
+        version: AGENT_MODIFICATION_STATE_VERSION,
+        client: client.id().to_string(),
+        phase: AGENT_PHASE_ACTIVE.to_string(),
+        model: model.to_string(),
+        files,
+    }))
+}
+
+#[cfg(test)]
+fn prepare_agent_record(
+    client: AgentClient,
+    paths: &[PathBuf],
+    model: &str,
+    updates: &[AgentFileUpdate],
+) -> Result<AgentModificationRecord, String> {
+    if paths.len() != updates.len() {
+        return Err("智能体配置更新文件数量不匹配".to_string());
+    }
+    let mut prepared = Vec::new();
+    for (path, update) in paths.iter().zip(updates) {
+        if path != &update.path {
+            return Err("智能体配置更新路径不匹配".to_string());
+        }
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|error| {
+                format!("创建智能体配置目录失败 {}: {error}", path_to_string(parent))
+            })?;
+        }
+        let backup_path = agent_backup_path(path)?;
+        let current = read_agent_bytes(path)?;
+        let previous_backup = if backup_path.exists() {
+            if !backup_path.is_file() {
+                return Err(format!(
+                    "智能体备份路径不是文件: {}",
+                    path_to_string(&backup_path)
+                ));
+            }
+            Some(fs::read(&backup_path).map_err(|error| {
+                format!(
+                    "读取原有智能体备份失败 {}: {error}",
+                    path_to_string(&backup_path)
+                )
+            })?)
+        } else {
+            None
+        };
+
+        prepared.push((
+            path.clone(),
+            backup_path,
+            current,
+            previous_backup,
+            sha256_bytes(update.after.as_bytes()),
+        ));
+    }
+
+    let backup_snapshots = prepared
+        .iter()
+        .map(|(_, backup_path, _, previous_backup, _)| {
+            (backup_path.clone(), previous_backup.clone())
+        })
+        .collect::<Vec<_>>();
+    let mut files = Vec::new();
+    for (path, backup_path, current, _, managed_sha256) in prepared {
+        let backup_result = if let Some(current) = current.as_deref() {
+            write_bytes_atomically(&backup_path, current).and_then(|_| {
+                let copied = fs::read(&backup_path).map_err(|error| {
+                    format!(
+                        "校验智能体备份失败 {}: {error}",
+                        path_to_string(&backup_path)
+                    )
+                })?;
+                if sha256_bytes(&copied) != sha256_bytes(current) {
+                    return Err(format!("智能体备份校验失败: {}", path_to_string(&path)));
+                }
+                Ok(())
+            })
+        } else if backup_path.exists() {
+            fs::remove_file(&backup_path).map_err(|error| {
+                format!(
+                    "清理旧智能体备份失败 {}: {error}",
+                    path_to_string(&backup_path)
+                )
+            })
+        } else {
+            Ok(())
+        };
+        if let Err(error) = backup_result {
+            let rollback = restore_snapshots(&backup_snapshots);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(rollback_error) => format!("{error}；恢复原有备份失败: {rollback_error}"),
+            });
+        }
+
+        let existed_before = current.is_some();
+        let original_sha256 = current.as_deref().map(sha256_bytes);
+        files.push(AgentModificationFile {
+            path,
+            backup_path,
+            existed_before,
+            original_sha256,
+            managed_sha256,
+        });
+    }
+    Ok(AgentModificationRecord {
+        version: AGENT_MODIFICATION_STATE_VERSION,
+        client: client.id().to_string(),
+        phase: AGENT_PHASE_APPLYING.to_string(),
+        model: model.to_string(),
+        files,
+    })
+}
+
+#[cfg(test)]
+fn extend_agent_record_for_updates(
+    record: &AgentModificationRecord,
+    updates: &[AgentFileUpdate],
+) -> Result<AgentRecordExtension, String> {
+    if record.files.len() > updates.len() {
+        return Err("智能体配置更新文件数量不匹配".to_string());
+    }
+    for (file, update) in record.files.iter().zip(updates) {
+        if file.path != update.path {
+            return Err("智能体配置更新路径不匹配".to_string());
+        }
+    }
+    if record.files.len() == updates.len() {
+        return Ok((record.clone(), Vec::new()));
+    }
+
+    let mut prepared = Vec::new();
+    for update in updates.iter().skip(record.files.len()) {
+        if let Some(parent) = update.path.parent() {
+            fs::create_dir_all(parent).map_err(|error| {
+                format!("创建智能体配置目录失败 {}: {error}", path_to_string(parent))
+            })?;
+        }
+        let backup_path = agent_backup_path(&update.path)?;
+        let previous_backup = if backup_path.exists() {
+            if !backup_path.is_file() {
+                return Err(format!(
+                    "智能体备份路径不是文件: {}",
+                    path_to_string(&backup_path)
+                ));
+            }
+            Some(fs::read(&backup_path).map_err(|error| {
+                format!(
+                    "读取原有智能体备份失败 {}: {error}",
+                    path_to_string(&backup_path)
+                )
+            })?)
+        } else {
+            None
+        };
+        let current = read_agent_bytes(&update.path)?;
+        prepared.push((update, backup_path, previous_backup, current));
+    }
+
+    let backup_snapshots = prepared
+        .iter()
+        .map(|(_, backup_path, previous_backup, _)| (backup_path.clone(), previous_backup.clone()))
+        .collect::<Vec<_>>();
+    let mut next = record.clone();
+    for (update, backup_path, _, current) in prepared {
+        let backup_result = if let Some(current) = current.as_deref() {
+            write_bytes_atomically(&backup_path, current).and_then(|_| {
+                let copied = fs::read(&backup_path).map_err(|error| {
+                    format!(
+                        "校验智能体备份失败 {}: {error}",
+                        path_to_string(&backup_path)
+                    )
+                })?;
+                if sha256_bytes(&copied) != sha256_bytes(current) {
+                    return Err(format!(
+                        "智能体备份校验失败: {}",
+                        path_to_string(&update.path)
+                    ));
+                }
+                Ok(())
+            })
+        } else if backup_path.exists() {
+            fs::remove_file(&backup_path).map_err(|error| {
+                format!(
+                    "清理旧智能体备份失败 {}: {error}",
+                    path_to_string(&backup_path)
+                )
+            })
+        } else {
+            Ok(())
+        };
+        if let Err(error) = backup_result {
+            let rollback = restore_snapshots(&backup_snapshots);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(rollback_error) => format!("{error}；恢复原有备份失败: {rollback_error}"),
+            });
+        }
+        next.files.push(AgentModificationFile {
+            path: update.path.clone(),
+            backup_path,
+            existed_before: current.is_some(),
+            original_sha256: current.as_deref().map(sha256_bytes),
+            managed_sha256: sha256_bytes(update.after.as_bytes()),
+        });
+    }
+    Ok((next, backup_snapshots))
+}
+
+#[cfg(test)]
+fn restore_snapshots(snapshots: &[FileSnapshot]) -> Result<(), String> {
+    restore_snapshots_with_direct_path(snapshots, None)
+}
+
+#[cfg(test)]
+fn write_agent_bytes(
+    path: &Path,
+    content: &[u8],
+    direct_write_path: Option<&Path>,
+) -> Result<(), String> {
+    if direct_write_path == Some(path) {
+        write_bytes_directly(path, content)
+    } else {
+        write_bytes_atomically(path, content)
+    }
+}
+
+#[cfg(test)]
+fn restore_snapshots_with_direct_path(
+    snapshots: &[FileSnapshot],
+    direct_write_path: Option<&Path>,
+) -> Result<(), String> {
+    let mut errors = Vec::new();
+    for (path, bytes) in snapshots.iter().rev() {
+        let result = match bytes {
+            Some(bytes) => write_agent_bytes(path, bytes, direct_write_path),
+            None if path.exists() => fs::remove_file(path)
+                .map_err(|error| format!("删除配置失败 {}: {error}", path_to_string(path))),
+            None => Ok(()),
+        };
+        if let Err(error) = result {
+            errors.push(error);
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("；"))
+    }
+}
+
+#[cfg(test)]
+fn apply_agent_file_replacements(
+    replacements: &[(PathBuf, Option<Vec<u8>>)],
+    direct_write_path: Option<&Path>,
+) -> Result<Vec<String>, String> {
+    let snapshots = replacements
+        .iter()
+        .map(|(path, _)| Ok((path.clone(), read_agent_bytes(path)?)))
+        .collect::<Result<Vec<_>, String>>()?;
+    let mut changed = Vec::new();
+    for (path, replacement) in replacements {
+        let current = read_agent_bytes(path)?;
+        let result = match replacement {
+            Some(bytes) if current.as_deref() == Some(bytes.as_slice()) => Ok(()),
+            Some(bytes) => {
+                changed.push(path_to_string(path));
+                write_agent_bytes(path, bytes, direct_write_path)
+            }
+            None if current.is_some() => {
+                changed.push(path_to_string(path));
+                fs::remove_file(path)
+                    .map_err(|error| format!("删除配置失败 {}: {error}", path_to_string(path)))
+            }
+            None => Ok(()),
+        };
+        if let Err(error) = result {
+            let rollback = restore_snapshots_with_direct_path(&snapshots, direct_write_path);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(rollback_error) => format!("{error}；回滚失败: {rollback_error}"),
+            });
+        }
+    }
+    Ok(changed)
+}
+
+#[cfg(test)]
+fn restore_codex_agent_record_files(
+    record: &AgentModificationRecord,
+) -> Result<Vec<String>, String> {
+    let config_file = record
+        .files
+        .first()
+        .ok_or_else(|| "Codex 配置状态缺少 config.toml".to_string())?;
+    let current_config = read_agent_bytes(&config_file.path)?
+        .map(|bytes| {
+            String::from_utf8(bytes).map_err(|_| {
+                format!(
+                    "当前 Codex 配置不是 UTF-8 文本: {}",
+                    path_to_string(&config_file.path)
+                )
+            })
+        })
+        .transpose()?;
+    let original_config = read_agent_original_text(config_file)?;
+    let restored_config =
+        build_restored_codex_agent_config(current_config.as_deref(), original_config.as_deref())?;
+
+    let mut replacements = vec![(
+        config_file.path.clone(),
+        restored_config.map(String::into_bytes),
+    )];
+    for file in record.files.iter().skip(1) {
+        replacements.push((file.path.clone(), read_agent_original_bytes(file)?));
+    }
+    apply_agent_file_replacements(&replacements, Some(&config_file.path))
+}
+
+#[cfg(test)]
+fn apply_agent_updates(
+    client: AgentClient,
+    updates: &[AgentFileUpdate],
+) -> Result<Vec<String>, String> {
+    let direct_write_path = if client == AgentClient::Codex {
+        updates.first().map(|update| update.path.as_path())
+    } else {
+        None
+    };
+    let snapshots = updates
+        .iter()
+        .map(|update| Ok((update.path.clone(), read_agent_bytes(&update.path)?)))
+        .collect::<Result<Vec<_>, String>>()?;
+    let mut changed = Vec::new();
+    for update in updates {
+        let next = update.after.as_bytes();
+        if read_agent_bytes(&update.path)?.as_deref() == Some(next) {
+            continue;
+        }
+        if let Err(error) = write_agent_bytes(&update.path, next, direct_write_path) {
+            let rollback = restore_snapshots_with_direct_path(&snapshots, direct_write_path);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(rollback_error) => format!("{error}；回滚失败: {rollback_error}"),
+            });
+        }
+        changed.push(path_to_string(&update.path));
+    }
+    Ok(changed)
+}
+
+fn restore_agent_snapshots_direct(snapshots: &[FileSnapshot]) -> Result<(), String> {
+    let mut errors = Vec::new();
+    for (path, content) in snapshots.iter().rev() {
+        let result = match content {
+            Some(content) => write_bytes_directly(path, content),
+            None if path.exists() => fs::remove_file(path)
+                .map_err(|error| format!("删除新建配置失败 {}: {error}", path_to_string(path))),
+            None => Ok(()),
+        };
+        if let Err(error) = result {
+            errors.push(error);
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("；"))
+    }
+}
+
+fn dated_agent_backup_path(path: &Path) -> Result<PathBuf, String> {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| format!("智能体配置文件名无效: {}", path_to_string(path)))?;
+    let date = chrono::Local::now().format("%y-%m-%d");
+    Ok(path.with_file_name(format!("{file_name}.{date}.bak")))
+}
+
+fn prepare_agent_session_backups(
+    updates: &[AgentFileUpdate],
+) -> Result<Vec<AgentAppliedBackupFile>, String> {
+    let mut backups = Vec::with_capacity(updates.len());
+    let mut renamed = Vec::new();
+    for update in updates {
+        let existed_before = update.path.is_file();
+        let backup_path = dated_agent_backup_path(&update.path)?;
+        if existed_before {
+            if backup_path.exists() {
+                for (path, backup) in renamed.iter().rev() {
+                    let _ = fs::rename(backup, path);
+                }
+                return Err(format!(
+                    "智能体备份文件已存在，无法覆盖: {}",
+                    path_to_string(&backup_path)
+                ));
+            }
+            fs::rename(&update.path, &backup_path).map_err(|error| {
+                format!(
+                    "重命名原智能体配置为备份失败 {}: {error}",
+                    path_to_string(&update.path)
+                )
+            })?;
+            renamed.push((update.path.clone(), backup_path.clone()));
+        }
+        backups.push(AgentAppliedBackupFile {
+            path: update.path.clone(),
+            backup_path,
+            existed_before,
+        });
+    }
+    Ok(backups)
+}
+
+fn restore_agent_session_configuration(client: AgentClient, home: &Path) -> Result<(), String> {
+    let paths = agent_config_paths(client, home);
+    let state_path = agent_state_path(&paths)?;
+    let Some(state) = load_agent_applied_state(client, home)? else {
+        return Ok(());
+    };
+    restore_agent_applied_state_configuration(client, &paths, &state_path, &state)
+}
+
+fn restore_agent_applied_state_configuration(
+    client: AgentClient,
+    paths: &[PathBuf],
+    state_path: &Path,
+    state: &AgentAppliedState,
+) -> Result<(), String> {
+    validate_agent_applied_state(client, paths, state)?;
+    if state.backup_files.is_empty() {
+        if agent_has_managed_marker(client, paths)? {
+            remove_agent_managed_configuration(client, paths)?;
+        }
+    } else {
+        let originals = state
+            .backup_files
+            .iter()
+            .map(|file| {
+                if file.existed_before {
+                    fs::read(&file.backup_path).map(Some).map_err(|error| {
+                        format!(
+                            "读取智能体备份失败 {}: {error}",
+                            path_to_string(&file.backup_path)
+                        )
+                    })
+                } else {
+                    Ok(None)
+                }
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let snapshots = state
+            .backup_files
+            .iter()
+            .map(|file| Ok((file.path.clone(), read_agent_bytes(&file.path)?)))
+            .collect::<Result<Vec<_>, String>>()?;
+        let replacements = state
+            .backup_files
+            .iter()
+            .zip(&originals)
+            .zip(&snapshots)
+            .map(|((file, original), (_, current))| {
+                build_agent_session_restored_bytes(
+                    client,
+                    paths,
+                    &file.path,
+                    current.as_deref(),
+                    original.as_deref(),
+                )
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let restore_result = (|| -> Result<(), String> {
+            for (file, replacement) in state.backup_files.iter().zip(&replacements).rev() {
+                if let Some(replacement) = replacement {
+                    write_bytes_directly(&file.path, replacement)?;
+                } else if file.path.exists() {
+                    fs::remove_file(&file.path).map_err(|error| {
+                        format!(
+                            "删除临时智能体配置失败 {}: {error}",
+                            path_to_string(&file.path)
+                        )
+                    })?;
+                }
+            }
+            Ok(())
+        })();
+        if let Err(error) = restore_result {
+            return match restore_agent_snapshots_direct(&snapshots) {
+                Ok(()) => Err(error),
+                Err(rollback_error) => Err(format!("{error}；回滚恢复操作失败: {rollback_error}")),
+            };
+        }
+        for file in &state.backup_files {
+            if file.existed_before && file.backup_path.is_file() {
+                fs::remove_file(&file.backup_path).map_err(|error| {
+                    format!(
+                        "清理智能体备份失败 {}: {error}",
+                        path_to_string(&file.backup_path)
+                    )
+                })?;
+            }
+        }
+    }
+    if client == AgentClient::Codex {
+        clear_codex_applied_state(state_path)?;
+    }
+    if state_path.is_file() {
+        fs::remove_file(state_path).map_err(|error| {
+            format!(
+                "清理智能体应用状态失败 {}: {error}",
+                path_to_string(state_path)
+            )
+        })?;
+    }
+    Ok(())
+}
+
+fn agent_clients_restored_on_exit() -> [AgentClient; 4] {
+    [
+        AgentClient::Codex,
+        AgentClient::OpenCode,
+        AgentClient::OpenClaw,
+        AgentClient::Hermes,
+    ]
+}
+
+fn restore_all_agent_session_configurations(home: &Path) {
+    for client in agent_clients_restored_on_exit() {
+        if let Err(error) = restore_agent_session_configuration(client, home) {
+            eprintln!("关闭时恢复 {} 配置失败: {error}", client.name());
+        }
+    }
+}
+
+fn commit_agent_configuration(
+    client: AgentClient,
+    home: &Path,
+    model: &str,
+    updates: &[AgentFileUpdate],
+    outcome: &str,
+    claude_desktop_model_mappings: Option<&ClaudeDesktopModelMappings>,
+) -> Result<AgentConfigActionResult, String> {
+    let base_paths = agent_config_paths(client, home);
+    let state_path = agent_state_path(&base_paths)?;
+    let existing_state = load_agent_applied_state(client, home)?;
+    let previous_state = read_agent_bytes(&state_path)?;
+    let mut legacy_backups = previous_state
+        .as_deref()
+        .and_then(|content| std::str::from_utf8(content).ok())
+        .map(legacy_agent_backup_paths)
+        .unwrap_or_default();
+    legacy_backups.extend(
+        expected_agent_record_paths(client, &base_paths)
+            .iter()
+            .filter_map(|path| agent_backup_path(path).ok()),
+    );
+    legacy_backups.sort();
+    legacy_backups.dedup();
+
+    let mut snapshots = updates
+        .iter()
+        .map(|update| Ok((update.path.clone(), read_agent_bytes(&update.path)?)))
+        .collect::<Result<Vec<_>, String>>()?;
+    snapshots.push((state_path.clone(), previous_state));
+
+    let created_session_backups = existing_state
+        .as_ref()
+        .is_none_or(|state| state.backup_files.is_empty());
+    let backup_files =
+        if let Some(state) = existing_state.filter(|state| !state.backup_files.is_empty()) {
+            state.backup_files
+        } else {
+            prepare_agent_session_backups(updates)?
+        };
+
+    let transaction = (|| -> Result<Vec<String>, String> {
+        let mut changed = Vec::new();
+        for update in updates {
+            let next = update.after.as_bytes();
+            if read_agent_bytes(&update.path)?.as_deref() == Some(next) {
+                continue;
+            }
+            write_bytes_directly(&update.path, next)?;
+            changed.push(path_to_string(&update.path));
+        }
+        let state = AgentAppliedState {
+            version: AGENT_APPLIED_STATE_VERSION,
+            client: client.id().to_string(),
+            model: model.to_string(),
+            claude_desktop_model_mappings: (client == AgentClient::ClaudeDesktop)
+                .then(|| claude_desktop_model_mappings.cloned())
+                .flatten(),
+            backup_files: backup_files.clone(),
+            updated_at_unix: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        };
+        write_agent_applied_state(&state_path, &state)?;
+        Ok(changed)
+    })();
+
+    match transaction {
+        Ok(changed) => {
+            for backup_path in legacy_backups {
+                if backup_path.is_file() {
+                    let _ = fs::remove_file(backup_path);
+                }
+            }
+            Ok(action_result(
+                outcome,
+                true,
+                Some(model.to_string()),
+                changed,
+                Vec::new(),
+            ))
+        }
+        Err(error) => {
+            let rollback = restore_agent_snapshots_direct(&snapshots);
+            if created_session_backups {
+                for backup in &backup_files {
+                    if backup.existed_before && backup.backup_path.is_file() {
+                        let _ = fs::remove_file(&backup.backup_path);
+                    }
+                }
+            }
+            match rollback {
+                Ok(()) => Err(error),
+                Err(rollback_error) => Err(format!("{error}；回滚配置失败: {rollback_error}")),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+fn apply_agent_configuration(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    api_key: &str,
+    model: &str,
+    models: &[AgentModelOption],
+    codex_catalog: Option<&str>,
+) -> Result<AgentConfigActionResult, String> {
+    apply_agent_configuration_with_oauth(
+        client,
+        home,
+        port,
+        api_key,
+        model,
+        AgentConfigurationOptions {
+            models,
+            codex_catalog,
+            oauth_configuration: false,
+            claude_code_model_mappings: None,
+            claude_desktop_model_mappings: None,
+        },
+    )
+}
+
+fn apply_agent_configuration_with_oauth(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    api_key: &str,
+    model: &str,
+    options: AgentConfigurationOptions<'_>,
+) -> Result<AgentConfigActionResult, String> {
+    let claude_desktop_model_mappings = options.claude_desktop_model_mappings;
+    let updates = build_agent_updates_with_oauth(client, home, port, api_key, model, options)?;
+    commit_agent_configuration(
+        client,
+        home,
+        model,
+        &updates,
+        "applied",
+        claude_desktop_model_mappings,
+    )
+}
+
+#[cfg(test)]
+fn reset_agent_configuration_to_default(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    api_key: &str,
+    model: &str,
+    codex_catalog: Option<&str>,
+) -> Result<AgentConfigActionResult, String> {
+    reset_agent_configuration_to_default_with_oauth(AgentDefaultConfiguration {
+        client,
+        home,
+        port,
+        api_key,
+        model,
+        models: &[AgentModelOption {
+            name: model.to_string(),
+            alias: None,
+            is_alias: false,
+            context_window: Some(200_000),
+        }],
+        codex_catalog,
+        oauth_configuration: false,
+        claude_code_model_mappings: None,
+        claude_desktop_model_mappings: None,
+    })
+}
+
+struct AgentDefaultConfiguration<'a> {
+    client: AgentClient,
+    home: &'a Path,
+    port: u16,
+    api_key: &'a str,
+    model: &'a str,
+    models: &'a [AgentModelOption],
+    codex_catalog: Option<&'a str>,
+    oauth_configuration: bool,
+    claude_code_model_mappings: Option<&'a ClaudeDesktopModelMappings>,
+    claude_desktop_model_mappings: Option<&'a ClaudeDesktopModelMappings>,
+}
+
+fn reset_agent_configuration_to_default_with_oauth(
+    request: AgentDefaultConfiguration<'_>,
+) -> Result<AgentConfigActionResult, String> {
+    let AgentDefaultConfiguration {
+        client,
+        home,
+        port,
+        api_key,
+        model,
+        models,
+        codex_catalog,
+        oauth_configuration,
+        claude_code_model_mappings,
+        claude_desktop_model_mappings,
+    } = request;
+    let paths = agent_config_paths(client, home);
+    let contents = fresh_agent_contents_with_oauth(
+        client,
+        port,
+        api_key,
+        model,
+        AgentConfigurationOptions {
+            models,
+            codex_catalog,
+            oauth_configuration,
+            claude_code_model_mappings,
+            claude_desktop_model_mappings,
+        },
+    )?;
+    if paths.len() != contents.len() {
+        return Err("智能体默认配置文件数量不匹配".to_string());
+    }
+    let mut updates = paths
+        .into_iter()
+        .zip(contents)
+        .map(|(path, after)| AgentFileUpdate { path, after })
+        .collect::<Vec<_>>();
+    if client == AgentClient::Codex {
+        let catalog = codex_catalog.ok_or_else(|| "无法生成 Codex 模型目录".to_string())?;
+        validate_codex_catalog(catalog, model)?;
+        updates.push(AgentFileUpdate {
+            path: codex_model_catalog_path(home),
+            after: catalog.to_string(),
+        });
+    }
+    commit_agent_configuration(
+        client,
+        home,
+        model,
+        &updates,
+        "default",
+        claude_desktop_model_mappings,
+    )
+}
+
+#[cfg(test)]
+fn restore_agent_record_files(
+    client: AgentClient,
+    record: &AgentModificationRecord,
+) -> Result<Vec<String>, String> {
+    let direct_write_path = if client == AgentClient::Codex {
+        record.files.first().map(|file| file.path.as_path())
+    } else {
+        None
+    };
+    let snapshots = record
+        .files
+        .iter()
+        .map(|file| Ok((file.path.clone(), read_agent_bytes(&file.path)?)))
+        .collect::<Result<Vec<_>, String>>()?;
+    let mut changed = Vec::new();
+    for file in &record.files {
+        let result = if file.existed_before {
+            let backup = fs::read(&file.backup_path).map_err(|error| {
+                format!(
+                    "读取原配置备份失败 {}: {error}",
+                    path_to_string(&file.backup_path)
+                )
+            })?;
+            if Some(sha256_bytes(&backup)) != file.original_sha256 {
+                return Err(format!(
+                    "原配置备份校验失败: {}",
+                    path_to_string(&file.backup_path)
+                ));
+            }
+            if read_agent_bytes(&file.path)?.as_deref() == Some(backup.as_slice()) {
+                Ok(())
+            } else {
+                changed.push(path_to_string(&file.path));
+                write_agent_bytes(&file.path, &backup, direct_write_path)
+            }
+        } else if file.path.exists() {
+            changed.push(path_to_string(&file.path));
+            fs::remove_file(&file.path).map_err(|error| {
+                format!("删除智能体配置失败 {}: {error}", path_to_string(&file.path))
+            })
+        } else {
+            Ok(())
+        };
+        if let Err(error) = result {
+            let rollback = restore_snapshots_with_direct_path(&snapshots, direct_write_path);
+            return Err(match rollback {
+                Ok(()) => error,
+                Err(rollback_error) => format!("{error}；回滚失败: {rollback_error}"),
+            });
+        }
+    }
+    Ok(changed)
+}
+
+#[cfg(test)]
+fn discard_prepared_agent_backups(record: &AgentModificationRecord) -> Result<(), String> {
+    let mut errors = Vec::new();
+    for file in &record.files {
+        if file.backup_path.exists() {
+            if let Err(error) = fs::remove_file(&file.backup_path) {
+                errors.push(format!(
+                    "删除未启用的智能体备份失败 {}: {error}",
+                    path_to_string(&file.backup_path)
+                ));
+            }
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("；"))
+    }
+}
+
+#[cfg(test)]
+fn cleanup_agent_record(state_path: &Path, record: &AgentModificationRecord) -> Result<(), String> {
+    if state_path.exists() {
+        fs::remove_file(state_path).map_err(|error| {
+            format!(
+                "删除智能体备份状态失败 {}: {error}",
+                path_to_string(state_path)
+            )
+        })?;
+    }
+    for file in &record.files {
+        if file.backup_path.exists() {
+            if let Err(error) = fs::remove_file(&file.backup_path) {
+                eprintln!(
+                    "清理智能体备份失败 {}: {error}",
+                    path_to_string(&file.backup_path)
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+fn action_result(
+    outcome: &str,
+    enabled: bool,
+    model: Option<String>,
+    changed_files: Vec<String>,
+    conflict_files: Vec<String>,
+) -> AgentConfigActionResult {
+    AgentConfigActionResult {
+        outcome: outcome.to_string(),
+        enabled,
+        model,
+        changed_files,
+        conflict_files,
+    }
+}
+
+#[cfg(test)]
+fn enable_agent_modification(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    model: &str,
+    models: &[AgentModelOption],
+    codex_catalog: Option<&str>,
+) -> Result<AgentConfigActionResult, String> {
+    let paths = agent_config_paths(client, home);
+    let state_path = agent_state_path(&paths)?;
+    if let Some(record) = load_agent_record(client, &paths)? {
+        write_agent_state(&state_path, &record)?;
+        return Ok(action_result(
+            "enabled",
+            true,
+            Some(record.model),
+            Vec::new(),
+            Vec::new(),
+        ));
+    }
+    let (_, current_model, _) =
+        inspect_agent_managed_config(client, &paths, port, DEFAULT_API_KEY)?;
+    if agent_has_managed_marker(client, &paths)? {
+        if let Some(current_model) = current_model.as_deref() {
+            if let Some(record) = build_legacy_agent_record(client, home, port, current_model)? {
+                write_agent_state(&state_path, &record)?;
+                return Ok(action_result(
+                    "enabled",
+                    true,
+                    Some(record.model),
+                    Vec::new(),
+                    Vec::new(),
+                ));
+            }
+        }
+        return Err(
+            "检测到 CPA 配置，但缺少可安全恢复的原始备份；请先手动恢复客户端配置".to_string(),
+        );
+    }
+
+    let updates = build_agent_updates(
+        client,
+        home,
+        port,
+        DEFAULT_API_KEY,
+        model,
+        models,
+        codex_catalog,
+    )?;
+    let update_paths = updates
+        .iter()
+        .map(|update| update.path.clone())
+        .collect::<Vec<_>>();
+    let mut record = prepare_agent_record(client, &update_paths, model, &updates)?;
+    if let Err(error) = write_agent_state(&state_path, &record) {
+        let cleanup = discard_prepared_agent_backups(&record);
+        return Err(match cleanup {
+            Ok(()) => error,
+            Err(cleanup_error) => format!("{error}；{cleanup_error}"),
+        });
+    }
+    match apply_agent_updates(client, &updates) {
+        Ok(changed) => {
+            record.phase = AGENT_PHASE_ACTIVE.to_string();
+            write_agent_state(&state_path, &record)?;
+            Ok(action_result(
+                "enabled",
+                true,
+                Some(model.to_string()),
+                changed,
+                Vec::new(),
+            ))
+        }
+        Err(error) => match restore_agent_record_files(client, &record) {
+            Ok(_) => {
+                let _ = cleanup_agent_record(&state_path, &record);
+                Err(error)
+            }
+            Err(restore_error) => {
+                record.phase = AGENT_PHASE_RECOVERY.to_string();
+                let _ = write_agent_state(&state_path, &record);
+                Err(format!("{error}；恢复原配置失败: {restore_error}"))
+            }
+        },
+    }
+}
+
+#[cfg(test)]
+fn disable_agent_modification(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    force_restore: bool,
+) -> Result<AgentConfigActionResult, String> {
+    let paths = agent_config_paths(client, home);
+    let state_path = agent_state_path(&paths)?;
+    let mut record = match load_agent_record(client, &paths)? {
+        Some(record) => record,
+        None => {
+            let (_, model, _) =
+                inspect_agent_managed_config(client, &paths, port, DEFAULT_API_KEY)?;
+            if !agent_has_managed_marker(client, &paths)? {
+                return Ok(action_result(
+                    "disabled",
+                    false,
+                    None,
+                    Vec::new(),
+                    Vec::new(),
+                ));
+            }
+            let model = model.ok_or_else(|| "无法识别当前 CPA 模型".to_string())?;
+            let record = build_legacy_agent_record(client, home, port, &model)?
+                .ok_or_else(|| "检测到 CPA 配置，但缺少可安全恢复的原始备份".to_string())?;
+            write_agent_state(&state_path, &record)?;
+            record
+        }
+    };
+
+    if client == AgentClient::Codex {
+        record.phase = AGENT_PHASE_RESTORING.to_string();
+        write_agent_state(&state_path, &record)?;
+        return match restore_codex_agent_record_files(&record) {
+            Ok(changed) => {
+                cleanup_agent_record(&state_path, &record)?;
+                Ok(action_result("disabled", false, None, changed, Vec::new()))
+            }
+            Err(error) => {
+                record.phase = AGENT_PHASE_RECOVERY.to_string();
+                let _ = write_agent_state(&state_path, &record);
+                Err(format!("恢复原配置失败: {error}"))
+            }
+        };
+    }
+
+    if record_matches_original(&record)? {
+        cleanup_agent_record(&state_path, &record)?;
+        return Ok(action_result(
+            "disabled",
+            false,
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+    }
+
+    let conflicts = record_restore_conflict_files(&record)?;
+    if !conflicts.is_empty() && !force_restore {
+        return Ok(action_result(
+            "restore-conflict",
+            true,
+            Some(record.model),
+            Vec::new(),
+            conflicts,
+        ));
+    }
+
+    record.phase = AGENT_PHASE_RESTORING.to_string();
+    write_agent_state(&state_path, &record)?;
+    match restore_agent_record_files(client, &record) {
+        Ok(changed) => {
+            cleanup_agent_record(&state_path, &record)?;
+            Ok(action_result("disabled", false, None, changed, Vec::new()))
+        }
+        Err(error) => {
+            record.phase = AGENT_PHASE_RECOVERY.to_string();
+            let _ = write_agent_state(&state_path, &record);
+            Err(format!("恢复原配置失败: {error}"))
+        }
+    }
+}
+
+#[cfg(test)]
+fn update_agent_modification(
+    client: AgentClient,
+    home: &Path,
+    port: u16,
+    model: &str,
+    models: &[AgentModelOption],
+    codex_catalog: Option<&str>,
+) -> Result<AgentConfigActionResult, String> {
+    let paths = agent_config_paths(client, home);
+    let state_path = agent_state_path(&paths)?;
+    let record = match load_agent_record(client, &paths)? {
+        Some(record) => record,
+        None => {
+            let (_, current_model, _) =
+                inspect_agent_managed_config(client, &paths, port, DEFAULT_API_KEY)?;
+            if !agent_has_managed_marker(client, &paths)? {
+                return Err("请先应用配置修改".to_string());
+            }
+            let current_model = current_model.ok_or_else(|| "无法识别当前 CPA 模型".to_string())?;
+            let record = build_legacy_agent_record(client, home, port, &current_model)?
+                .ok_or_else(|| "缺少原配置备份，无法安全更新".to_string())?;
+            write_agent_state(&state_path, &record)?;
+            record
+        }
+    };
+    if record.phase != AGENT_PHASE_ACTIVE {
+        return Err("上次配置操作尚未完整结束，请先使用“清除修改”恢复原配置".to_string());
+    }
+    if client != AgentClient::Codex {
+        let conflicts = record_conflict_files(&record)?;
+        if !conflicts.is_empty() {
+            return Err(format!(
+                "配置已被其他程序修改，无法更新: {}",
+                conflicts.join("、")
+            ));
+        }
+    }
+
+    let updates = build_agent_updates(
+        client,
+        home,
+        port,
+        DEFAULT_API_KEY,
+        model,
+        models,
+        codex_catalog,
+    )?;
+    let (mut next, backup_snapshots) = extend_agent_record_for_updates(&record, &updates)?;
+    next.phase = AGENT_PHASE_APPLYING.to_string();
+    next.model = model.to_string();
+    for (file, update) in next.files.iter_mut().zip(&updates) {
+        if file.path != update.path {
+            return Err("智能体配置更新路径不匹配".to_string());
+        }
+        file.managed_sha256 = sha256_bytes(update.after.as_bytes());
+    }
+    if let Err(error) = write_agent_state(&state_path, &next) {
+        let rollback = restore_snapshots(&backup_snapshots);
+        return Err(match rollback {
+            Ok(()) => error,
+            Err(rollback_error) => format!("{error}；恢复模型目录备份失败: {rollback_error}"),
+        });
+    }
+    match apply_agent_updates(client, &updates) {
+        Ok(changed) => {
+            next.phase = AGENT_PHASE_ACTIVE.to_string();
+            write_agent_state(&state_path, &next)?;
+            Ok(action_result(
+                "updated",
+                true,
+                Some(model.to_string()),
+                changed,
+                Vec::new(),
+            ))
+        }
+        Err(error) => {
+            let state_rollback = write_agent_state(&state_path, &record).err();
+            let backup_rollback = restore_snapshots(&backup_snapshots).err();
+            let mut errors = vec![error];
+            if let Some(rollback_error) = state_rollback {
+                errors.push(format!("恢复原状态失败: {rollback_error}"));
+            }
+            if let Some(rollback_error) = backup_rollback {
+                errors.push(format!("恢复模型目录备份失败: {rollback_error}"));
+            }
+            Err(errors.join("；"))
+        }
+    }
+}
+
+#[tauri::command]
+fn get_lan_ipv4() -> Option<String> {
+    detect_lan_ipv4().map(|address| address.to_string())
+}
+
+fn detect_lan_ipv4() -> Option<Ipv4Addr> {
+    for target in ["192.0.2.1:80", "8.8.8.8:80"] {
+        let Ok(socket) = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)) else {
+            continue;
+        };
+        if socket.connect(target).is_err() {
+            continue;
+        }
+        let Ok(local_address) = socket.local_addr() else {
+            continue;
+        };
+        let IpAddr::V4(address) = local_address.ip() else {
+            continue;
+        };
+        if !address.is_unspecified() && !address.is_loopback() {
+            return Some(address);
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn save_gui_settings(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    cache: tauri::State<'_, AgentConfigStatusCache>,
+    settings: GuiNetworkSettings,
+) -> Result<GuiSettings, String> {
+    if settings.port == 0 {
+        return Err("端口必须在 1 到 65535 之间".to_string());
+    }
+
+    let _refresh_guard = cache
+        .refresh_lock
+        .lock()
+        .map_err(|_| "智能体配置状态刷新锁已损坏".to_string())?;
+    let previous = gui_config_state.snapshot()?;
+    let mut next = previous.clone();
+    next.port = settings.port;
+    next.allow_lan = settings.allow_lan;
+    next.host = if settings.allow_lan {
+        "0.0.0.0"
+    } else {
+        "127.0.0.1"
+    }
+    .to_string();
+    patch_core_network_settings(&next)?;
+    let config = match gui_config_state.update_network(settings.port, settings.allow_lan) {
+        Ok(config) => config,
+        Err(error) => {
+            let rollback_error = patch_core_network_settings(&previous).err();
+            return Err(match rollback_error {
+                Some(rollback_error) => {
+                    format!("{error}；回滚内核网络配置也失败: {rollback_error}")
+                }
+                None => error,
+            });
+        }
+    };
+
+    if config.port != previous.port {
+        if let Err(error) = cache.clear() {
+            eprintln!("清空智能体配置状态缓存失败: {error}");
+        }
+    }
+
+    Ok(GuiSettings::from(&config))
+}
+
+#[tauri::command]
+fn save_network_routing_settings(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    cache: tauri::State<'_, AgentConfigStatusCache>,
+    settings: GuiNetworkRoutingSettings,
+) -> Result<CoreConfigView, String> {
+    if settings.port == 0 {
+        return Err("端口必须在 1 到 65535 之间".to_string());
+    }
+    let proxy_url = normalize_optional_config_string(settings.proxy_url, "代理 URL")?;
+    let routing_session_affinity_ttl =
+        normalize_optional_config_string(settings.routing_session_affinity_ttl, "会话粘性 TTL")?;
+
+    let _refresh_guard = cache
+        .refresh_lock
+        .lock()
+        .map_err(|_| "智能体配置状态刷新锁已损坏".to_string())?;
+    let previous = gui_config_state.snapshot()?;
+    let mut next = previous.clone();
+    next.port = settings.port;
+    next.allow_lan = settings.allow_lan;
+    next.host = if settings.allow_lan {
+        "0.0.0.0"
+    } else {
+        "127.0.0.1"
+    }
+    .to_string();
+    next.proxy_url = proxy_url.clone();
+    next.routing_session_affinity = settings.routing_session_affinity;
+    next.routing_session_affinity_ttl = routing_session_affinity_ttl.clone();
+    validate_gui_config(&next)?;
+
+    patch_core_network_routing_settings(&next)?;
+    let config = match gui_config_state.update_network_routing(
+        settings.port,
+        settings.allow_lan,
+        &proxy_url,
+        settings.routing_session_affinity,
+        &routing_session_affinity_ttl,
+    ) {
+        Ok(config) => config,
+        Err(error) => {
+            let rollback_error = patch_core_network_routing_settings(&previous).err();
+            return Err(config_update_error_with_rollback(error, rollback_error));
+        }
+    };
+
+    if config.port != previous.port {
+        if let Err(error) = cache.clear() {
+            eprintln!("清空智能体配置状态缓存失败: {error}");
+        }
+    }
+
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn get_core_config_settings(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<CoreConfigView, String> {
+    let settings = current_core_config_settings(gui_config_state.inner())?;
+    let config = gui_config_state.sync_core_settings(&settings)?;
+    let api_keys = gui_api_key_values(&config.api_keys);
+    if api_keys != settings.api_keys {
+        patch_core_api_keys(&api_keys)?;
+    }
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn add_core_api_key(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    api_key: String,
+    remark: String,
+) -> Result<CoreConfigView, String> {
+    let api_key = api_key.trim().to_string();
+    let remark = remark.trim().to_string();
+    validate_core_api_key(&api_key)?;
+    validate_api_key_remark(&remark)?;
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    if settings
+        .api_keys
+        .iter()
+        .any(|existing| existing == &api_key)
+    {
+        return Err("该鉴权密钥已经存在".to_string());
+    }
+    settings.api_keys.push(api_key);
+    patch_core_api_keys(&settings.api_keys)?;
+    let added_api_key = settings.api_keys.last().map(|key| GuiApiKeyEntry {
+        key: key.clone(),
+        remark,
+    });
+    let config = gui_config_state.sync_core_settings_with_api_key(&settings, added_api_key)?;
+    Ok(CoreConfigView::from(&config))
+}
+
+fn replace_core_api_key_value(
+    api_keys: &mut [String],
+    original_api_key: &str,
+    replacement_api_key: String,
+) -> Result<(), String> {
+    let index = api_keys
+        .iter()
+        .position(|existing| existing == original_api_key)
+        .ok_or_else(|| "要编辑的鉴权密钥不存在，请刷新后重试".to_string())?;
+    if replacement_api_key != original_api_key
+        && api_keys
+            .iter()
+            .any(|existing| existing == &replacement_api_key)
+    {
+        return Err("该鉴权密钥已经存在".to_string());
+    }
+    api_keys[index] = replacement_api_key;
+    Ok(())
+}
+
+fn remove_core_api_key_value(api_keys: &mut Vec<String>, api_key: &str) -> Result<(), String> {
+    let index = api_keys
+        .iter()
+        .position(|existing| existing == api_key)
+        .ok_or_else(|| "要删除的鉴权密钥不存在，请刷新后重试".to_string())?;
+    api_keys.remove(index);
+    Ok(())
+}
+
+#[tauri::command]
+fn update_core_api_key(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    original_api_key: String,
+    api_key: String,
+    remark: String,
+) -> Result<CoreConfigView, String> {
+    let original_api_key = original_api_key.trim();
+    let api_key = api_key.trim().to_string();
+    let remark = remark.trim().to_string();
+    if original_api_key.is_empty() {
+        return Err("要编辑的鉴权密钥不能为空".to_string());
+    }
+    validate_core_api_key(&api_key)?;
+    validate_api_key_remark(&remark)?;
+
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    replace_core_api_key_value(&mut settings.api_keys, original_api_key, api_key.clone())?;
+    patch_core_api_keys(&settings.api_keys)?;
+    let config = gui_config_state.sync_core_settings_with_api_key(
+        &settings,
+        Some(GuiApiKeyEntry {
+            key: api_key,
+            remark,
+        }),
+    )?;
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn delete_core_api_key(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    api_key: String,
+) -> Result<CoreConfigView, String> {
+    let api_key = api_key.trim();
+    if api_key.is_empty() {
+        return Err("要删除的鉴权密钥不能为空".to_string());
+    }
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    remove_core_api_key_value(&mut settings.api_keys, api_key)?;
+    patch_core_api_keys(&settings.api_keys)?;
+    let config = gui_config_state.sync_core_settings(&settings)?;
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn set_core_management_secret_key(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    secret_key: String,
+) -> Result<CoreConfigView, String> {
+    let secret_key = normalize_management_secret_key(secret_key)?;
+    let previous = gui_config_state.snapshot()?;
+    patch_core_management_secret_key(&secret_key)?;
+    let config = match gui_config_state.set_management_secret_key(secret_key) {
+        Ok(config) => config,
+        Err(error) => {
+            let rollback_error =
+                patch_core_management_secret_key(&previous.management_secret_key).err();
+            return Err(config_update_error_with_rollback(error, rollback_error));
+        }
+    };
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn clear_core_management_secret_key(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<CoreConfigView, String> {
+    let previous = gui_config_state.snapshot()?;
+    patch_core_management_secret_key("")?;
+    let config = match gui_config_state.set_management_secret_key(String::new()) {
+        Ok(config) => config,
+        Err(error) => {
+            let rollback_error =
+                patch_core_management_secret_key(&previous.management_secret_key).err();
+            return Err(config_update_error_with_rollback(error, rollback_error));
+        }
+    };
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn set_core_plugins_enabled(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    enabled: bool,
+) -> Result<CoreConfigView, String> {
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    settings.plugins_enabled = enabled;
+    patch_core_plugins_enabled(settings.plugins_enabled)?;
+    let config = gui_config_state.sync_core_settings(&settings)?;
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn set_core_routing_strategy(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    strategy: String,
+) -> Result<CoreConfigView, String> {
+    validate_routing_strategy(&strategy)?;
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    settings.routing_strategy = strategy;
+    patch_core_routing_strategy(&settings.routing_strategy)?;
+    let config = gui_config_state.sync_core_settings(&settings)?;
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn set_core_proxy_url(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    proxy_url: String,
+) -> Result<CoreConfigView, String> {
+    let proxy_url = normalize_optional_config_string(proxy_url, "代理 URL")?;
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    let previous_proxy_url = settings.proxy_url.clone();
+    settings.proxy_url = proxy_url;
+    patch_core_proxy_url(&settings.proxy_url)?;
+    let config = match gui_config_state.sync_core_settings(&settings) {
+        Ok(config) => config,
+        Err(error) => {
+            let rollback_error = patch_core_proxy_url(&previous_proxy_url).err();
+            return Err(config_update_error_with_rollback(error, rollback_error));
+        }
+    };
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn set_core_session_affinity(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    enabled: bool,
+) -> Result<CoreConfigView, String> {
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    let previous_enabled = settings.routing_session_affinity;
+    settings.routing_session_affinity = enabled;
+    patch_core_session_affinity(settings.routing_session_affinity)?;
+    let config = match gui_config_state.sync_core_settings(&settings) {
+        Ok(config) => config,
+        Err(error) => {
+            let rollback_error = patch_core_session_affinity(previous_enabled).err();
+            return Err(config_update_error_with_rollback(error, rollback_error));
+        }
+    };
+    Ok(CoreConfigView::from(&config))
+}
+
+#[tauri::command]
+fn set_core_session_affinity_ttl(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    ttl: String,
+) -> Result<CoreConfigView, String> {
+    let ttl = normalize_optional_config_string(ttl, "会话粘性 TTL")?;
+    let mut settings = current_core_config_settings(gui_config_state.inner())?;
+    let previous_ttl = settings.routing_session_affinity_ttl.clone();
+    settings.routing_session_affinity_ttl = ttl;
+    patch_core_session_affinity_ttl(&settings.routing_session_affinity_ttl)?;
+    let config = match gui_config_state.sync_core_settings(&settings) {
+        Ok(config) => config,
+        Err(error) => {
+            let rollback_error = patch_core_session_affinity_ttl(&previous_ttl).err();
+            return Err(config_update_error_with_rollback(error, rollback_error));
+        }
+    };
+    Ok(CoreConfigView::from(&config))
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OAuthStartResult {
+    url: String,
+    state: Option<String>,
+    opened: bool,
+    open_error: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OAuthStatusResult {
+    status: String,
+    error: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct OAuthStartApiResponse {
+    url: Option<String>,
+    state: Option<String>,
+    error: Option<String>,
+    #[serde(rename = "error_message")]
+    error_message: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct OAuthStatusApiResponse {
+    status: Option<String>,
+    error: Option<String>,
+    #[serde(rename = "error_message")]
+    error_message: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ManagementRequest {
+    method: String,
+    path: String,
+    query: Option<std::collections::HashMap<String, String>>,
+    body: Option<serde_json::Value>,
+    #[serde(rename = "timeoutMs")]
+    timeout_ms: Option<u64>,
+}
+
+#[tauri::command]
+async fn management_request(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    request: ManagementRequest,
+) -> Result<serde_json::Value, String> {
+    let config = gui_config_state.snapshot()?;
+    let method = match request.method.trim().to_ascii_uppercase().as_str() {
+        "GET" => reqwest::Method::GET,
+        "POST" => reqwest::Method::POST,
+        "PUT" => reqwest::Method::PUT,
+        "PATCH" => reqwest::Method::PATCH,
+        "DELETE" => reqwest::Method::DELETE,
+        _ => return Err("不支持的管理 API 请求方法".to_string()),
+    };
+    let path = request.path.trim();
+    if path.is_empty() || path.contains("://") || path.contains("..") {
+        return Err("无效的管理 API 路径".to_string());
+    }
+
+    let client = management_http_client()?;
+    let mut builder = client
+        .request(method, management_endpoint(&config, path)?)
+        .header("Authorization", management_authorization(&config)?);
+    if let Some(timeout_ms) = request.timeout_ms {
+        builder = builder.timeout(Duration::from_millis(timeout_ms.clamp(1_000, 120_000)));
+    }
+    if let Some(query) = request.query {
+        builder = builder.query(&query);
+    }
+    if let Some(body) = request.body {
+        builder = builder.json(&body);
+    }
+
+    let response = builder
+        .send()
+        .await
+        .map_err(|err| format!("请求管理 API 失败: {err}"))?;
+    read_management_value(response).await
+}
+
+const MAX_PROVIDER_HEALTH_STREAM_BYTES: usize = 256 * 1024;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderHealthProbeRequest {
+    url: String,
+    header: std::collections::HashMap<String, String>,
+    data: String,
+    protocol: String,
+    timeout_ms: Option<u64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderHealthProbeResponse {
+    first_token_latency_ms: u64,
+}
+
+fn provider_health_value_has_text(value: Option<&serde_json::Value>) -> bool {
+    match value {
+        Some(serde_json::Value::String(text)) => !text.trim().is_empty(),
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .any(|item| provider_health_value_has_text(Some(item))),
+        Some(serde_json::Value::Object(object)) => ["text", "content"]
+            .iter()
+            .any(|key| provider_health_value_has_text(object.get(*key))),
+        _ => false,
+    }
+}
+
+fn provider_health_json_has_text(protocol: &str, value: &serde_json::Value) -> bool {
+    match protocol {
+        "openai-chat" => value
+            .get("choices")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|choices| {
+                choices.iter().any(|choice| {
+                    provider_health_value_has_text(choice.pointer("/delta/content"))
+                        || provider_health_value_has_text(
+                            choice.pointer("/delta/reasoning_content"),
+                        )
+                        || provider_health_value_has_text(choice.pointer("/delta/reasoning"))
+                        || provider_health_value_has_text(choice.pointer("/delta/thinking"))
+                        || provider_health_value_has_text(choice.pointer("/message/content"))
+                })
+            }),
+        "openai-responses" => {
+            (matches!(
+                value.get("type").and_then(serde_json::Value::as_str),
+                Some(
+                    "response.output_text.delta"
+                        | "response.reasoning_text.delta"
+                        | "response.reasoning_summary_text.delta"
+                )
+            ) && provider_health_value_has_text(value.get("delta")))
+                || value
+                    .get("output")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|output| {
+                        output.iter().any(|item| {
+                            item.get("content")
+                                .and_then(serde_json::Value::as_array)
+                                .is_some_and(|content| {
+                                    content.iter().any(|part| {
+                                        provider_health_value_has_text(part.get("text"))
+                                    })
+                                })
+                        })
+                    })
+        }
+        "claude" => {
+            provider_health_value_has_text(value.pointer("/delta/text"))
+                || provider_health_value_has_text(value.pointer("/delta/thinking"))
+                || value
+                    .get("content")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|content| {
+                        content
+                            .iter()
+                            .any(|part| provider_health_value_has_text(part.get("text")))
+                    })
+        }
+        "gemini" => value
+            .get("candidates")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|candidates| {
+                candidates.iter().any(|candidate| {
+                    candidate
+                        .pointer("/content/parts")
+                        .and_then(serde_json::Value::as_array)
+                        .is_some_and(|parts| {
+                            parts
+                                .iter()
+                                .any(|part| provider_health_value_has_text(part.get("text")))
+                        })
+                })
+            }),
+        _ => false,
+    }
+}
+
+fn provider_health_stream_has_text(protocol: &str, bytes: &[u8]) -> bool {
+    let text = String::from_utf8_lossy(bytes);
+    text.lines().any(|line| {
+        let line = line.trim();
+        let data = line.strip_prefix("data:").map(str::trim).unwrap_or(line);
+        if data.is_empty() || data == "[DONE]" {
+            return false;
+        }
+        serde_json::from_str::<serde_json::Value>(data)
+            .ok()
+            .is_some_and(|value| provider_health_json_has_text(protocol, &value))
+    })
+}
+
+fn provider_health_content_type_is_streaming(content_type: &str) -> bool {
+    let content_type = content_type.to_ascii_lowercase();
+    content_type.contains("text/event-stream")
+        || content_type.contains("application/x-ndjson")
+        || content_type.contains("application/json-seq")
+}
+
+#[tauri::command]
+async fn provider_health_probe(
+    request: ProviderHealthProbeRequest,
+) -> Result<ProviderHealthProbeResponse, String> {
+    let url = reqwest::Url::parse(request.url.trim())
+        .map_err(|error| format!("健康检测地址无效: {error}"))?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err("健康检测仅支持 HTTP 或 HTTPS 地址".to_string());
+    }
+    if !matches!(
+        request.protocol.as_str(),
+        "openai-chat" | "openai-responses" | "claude" | "gemini"
+    ) {
+        return Err("不支持的健康检测协议".to_string());
+    }
+    if request.data.len() > 64 * 1024 {
+        return Err("健康检测请求体过大".to_string());
+    }
+
+    let timeout = Duration::from_millis(request.timeout_ms.unwrap_or(15_000).clamp(1_000, 120_000));
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(timeout)
+        .build()
+        .map_err(|error| format!("创建健康检测客户端失败: {error}"))?;
+    let mut headers = reqwest::header::HeaderMap::new();
+    for (name, value) in request.header {
+        let name = reqwest::header::HeaderName::from_bytes(name.as_bytes())
+            .map_err(|error| format!("健康检测请求头名称无效: {error}"))?;
+        let value = reqwest::header::HeaderValue::from_str(&value)
+            .map_err(|error| format!("健康检测请求头值无效: {error}"))?;
+        headers.insert(name, value);
+    }
+    if !headers.contains_key(reqwest::header::USER_AGENT) {
+        headers.insert(
+            reqwest::header::USER_AGENT,
+            reqwest::header::HeaderValue::from_static(APP_USER_AGENT),
+        );
+    }
+
+    let started_at = Instant::now();
+    let response = client
+        .post(url)
+        .headers(headers)
+        .body(request.data)
+        .send()
+        .await
+        .map_err(|error| format!("健康检测请求失败: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let detail = response.text().await.unwrap_or_default();
+        let detail = detail.trim();
+        return Err(if detail.is_empty() {
+            format!("上游返回 HTTP {}", status.as_u16())
+        } else {
+            format!("上游返回 HTTP {}: {}", status.as_u16(), detail)
+        });
+    }
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !provider_health_content_type_is_streaming(&content_type) {
+        return Err("上游未返回流式响应，无法测量首字延迟".to_string());
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut received = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| format!("读取健康检测流失败: {error}"))?;
+        if received.len().saturating_add(chunk.len()) > MAX_PROVIDER_HEALTH_STREAM_BYTES {
+            return Err("健康检测在限制范围内未收到模型首字".to_string());
+        }
+        received.extend_from_slice(&chunk);
+        if provider_health_stream_has_text(&request.protocol, &received) {
+            return Ok(ProviderHealthProbeResponse {
+                first_token_latency_ms: started_at.elapsed().as_millis().max(1) as u64,
+            });
+        }
+    }
+    Err("健康检测未收到模型首字".to_string())
+}
+
+#[tauri::command]
+async fn upload_auth_file(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    name: String,
+    data: Vec<u8>,
+) -> Result<serde_json::Value, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() || !name.to_ascii_lowercase().ends_with(".json") {
+        return Err("认证文件名必须以 .json 结尾".to_string());
+    }
+
+    let config = gui_config_state.snapshot()?;
+    let client = management_http_client()?;
+    let mut query = std::collections::HashMap::new();
+    query.insert("name".to_string(), name);
+    let response = client
+        .post(management_endpoint(&config, "auth-files")?)
+        .header("Authorization", management_authorization(&config)?)
+        .query(&query)
+        .header("Content-Type", "application/json")
+        .body(data)
+        .send()
+        .await
+        .map_err(|err| format!("上传认证文件失败: {err}"))?;
+    read_management_value(response).await
+}
+
+#[tauri::command]
+fn open_auth_files_directory(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<(), String> {
+    let config = gui_config_state.snapshot()?;
+    let install_dir = core_install_dir()?;
+    let auth_dir = auth_dir_path_for_core(&config.auth_dir, &install_dir);
+    fs::create_dir_all(&auth_dir)
+        .map_err(|error| format!("创建凭证目录失败 {}: {error}", path_to_string(&auth_dir)))?;
+    open_directory_in_file_manager(&auth_dir)
+}
+
+fn open_directory_in_file_manager(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let mut command = Command::new(windows_explorer_executable());
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("open");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = Command::new("xdg-open");
+
+    command.arg(path);
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    configure_background_command(&mut command);
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("打开凭证目录失败 {}: {error}", path_to_string(path)))
+}
+
+#[tauri::command]
+async fn start_oauth_login(
+    app: tauri::AppHandle,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    provider: String,
+) -> Result<OAuthStartResult, String> {
+    let config = gui_config_state.snapshot()?;
+    let provider_key = normalize_management_oauth_provider(&provider)?;
+    let client = management_http_client()?;
+    let mut request = client
+        .get(management_endpoint(
+            &config,
+            &format!("{provider_key}-auth-url"),
+        )?)
+        .header("Authorization", management_authorization(&config)?);
+    if management_oauth_uses_webui_callback(&provider_key) {
+        request = request.query(&[("is_webui", "true")]);
+    }
+    let response = request
+        .send()
+        .await
+        .map_err(|err| format!("请求 OAuth 登录链接失败: {err}"))?;
+    let payload = read_management_json::<OAuthStartApiResponse>(response).await?;
+    if let Some(error) = payload
+        .error
+        .or(payload.error_message)
+        .filter(|value| !value.trim().is_empty())
+    {
+        return Err(error);
+    }
+    let url = payload
+        .url
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "内核未返回 OAuth 登录链接".to_string())?;
+    let state = payload
+        .state
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    let (opened, open_error) = match open_external_url_inner(&app, &url) {
+        Ok(()) => (true, None),
+        Err(error) => (false, Some(error)),
+    };
+
+    Ok(OAuthStartResult {
+        url,
+        state,
+        opened,
+        open_error,
+    })
+}
+
+#[tauri::command]
+async fn get_oauth_status(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    state: String,
+) -> Result<OAuthStatusResult, String> {
+    let state = state.trim().to_string();
+    if state.is_empty() {
+        return Err("OAuth state 不能为空".to_string());
+    }
+    let config = gui_config_state.snapshot()?;
+    let client = management_http_client()?;
+    let response = client
+        .get(management_endpoint(&config, "get-auth-status")?)
+        .header("Authorization", management_authorization(&config)?)
+        .query(&[("state", state)])
+        .send()
+        .await
+        .map_err(|err| format!("查询 OAuth 状态失败: {err}"))?;
+    let payload = read_management_json::<OAuthStatusApiResponse>(response).await?;
+    let status = payload
+        .status
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "wait".to_string());
+    Ok(OAuthStatusResult {
+        status,
+        error: payload
+            .error
+            .or(payload.error_message)
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+    })
+}
+
+#[tauri::command]
+async fn submit_oauth_callback(
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+    provider: String,
+    redirect_url: String,
+) -> Result<(), String> {
+    let redirect_url = redirect_url.trim().to_string();
+    if redirect_url.is_empty() {
+        return Err("回调链接不能为空".to_string());
+    }
+    let config = gui_config_state.snapshot()?;
+    let provider_key = normalize_management_oauth_provider(&provider)?;
+    let client = management_http_client()?;
+    let body = serde_json::json!({
+        "provider": provider_key,
+        "redirect_url": redirect_url,
+    });
+    let response = client
+        .post(management_endpoint(&config, "oauth-callback")?)
+        .header("Authorization", management_authorization(&config)?)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|err| format!("提交 OAuth 回调失败: {err}"))?;
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|err| format!("读取 OAuth 回调响应失败: {err}"))?;
+    if !status.is_success() {
+        return Err(format_management_error(status.as_u16(), &text));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn open_external_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    open_external_url_inner(&app, &url)
+}
+
+#[tauri::command]
+async fn check_app_update(
+    state: tauri::State<'_, AppUpdateState>,
+) -> Result<AppUpdateInfo, String> {
+    let client = reqwest::Client::builder()
+        .redirect(release_https_redirect_policy())
+        .connect_timeout(Duration::from_secs(8))
+        .read_timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|error| format!("创建版本检查客户端失败: {error}"))?;
+    let manifest = fetch_portable_update_manifest(&client).await?;
+    let latest_version = normalize_version(&manifest.version);
+    let current_version = normalize_version(env!("CARGO_PKG_VERSION"));
+    let update_available = is_app_update_available(&current_version, &latest_version)?;
+    let target = portable_update_target();
+    let asset_catalog = manifest.full_assets.as_ref().unwrap_or(&manifest.assets);
+    let asset = target.and_then(|(key, _)| asset_catalog.get(key)).cloned();
+    let portable_support = target
+        .map(|(_, arch)| validate_local_portable_app_manifest(arch))
+        .transpose()?;
+    let auto_update_supported = cfg!(windows) && portable_support == Some(true) && asset.is_some();
+    let unsupported_reason = if auto_update_supported {
+        None
+    } else if !cfg!(windows) {
+        Some("应用内自动升级当前仅支持 Windows 便携版".to_string())
+    } else if portable_support != Some(true) {
+        Some("当前程序不是支持自动升级的便携版，请手动下载首个支持版本".to_string())
+    } else {
+        Some("更新清单不包含当前 Windows 架构".to_string())
+    };
+
+    let pending = if update_available && auto_update_supported {
+        let (_, arch) = target.expect("portable target checked above");
+        Some(PendingAppUpdate {
+            version: latest_version.clone(),
+            asset: asset.clone().expect("portable asset checked above"),
+            arch: arch.to_string(),
+        })
+    } else {
+        None
+    };
+    state.set_pending(
+        pending,
+        AppUpdateTask {
+            phase: if update_available {
+                "available".to_string()
+            } else {
+                "idle".to_string()
+            },
+            target_version: update_available.then(|| latest_version.clone()),
+            total_bytes: asset.as_ref().map(|value| value.size_bytes),
+            ..AppUpdateTask::default()
+        },
+    );
+
+    Ok(AppUpdateInfo {
+        current_version,
+        latest_version,
+        update_available,
+        release_url: manifest.release_url,
+        auto_update_supported,
+        download_size_bytes: asset.map(|value| value.size_bytes),
+        unsupported_reason,
+    })
+}
+
+async fn fetch_portable_update_manifest(
+    client: &reqwest::Client,
+) -> Result<PortableUpdateManifest, String> {
+    match fetch_portable_update_manifest_url(client, APP_UPDATE_MANIFEST_URL).await {
+        Ok(manifest) => Ok(manifest),
+        Err(github_error) => {
+            let Some(repository) = configured_gitcode_gui_repository() else {
+                return Err(github_error);
+            };
+            let fallback = async {
+                let release_url =
+                    format!("https://api.gitcode.com/api/v5/repos/{repository}/releases/latest");
+                let release = client
+                    .get(release_url)
+                    .header(reqwest::header::ACCEPT, "application/json")
+                    .header(reqwest::header::USER_AGENT, APP_USER_AGENT)
+                    .send()
+                    .await
+                    .map_err(|error| format!("query GitCode latest release: {error}"))?
+                    .error_for_status()
+                    .map_err(|error| format!("read GitCode latest release: {error}"))?
+                    .json::<GitcodeRelease>()
+                    .await
+                    .map_err(|error| format!("parse GitCode latest release: {error}"))?;
+                validate_release_tag(&release.tag_name)?;
+                let manifest_url = gitcode_release_attachment_url(
+                    repository,
+                    &release.tag_name,
+                    APP_UPDATE_MANIFEST_NAME,
+                );
+                fetch_portable_update_manifest_url(client, &manifest_url).await
+            }
+            .await;
+            fallback.map_err(|gitcode_error| {
+                format!(
+                    "GitHub update source failed: {github_error}; GitCode fallback failed: {gitcode_error}"
+                )
+            })
+        }
+    }
+}
+
+async fn fetch_portable_update_manifest_url(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<PortableUpdateManifest, String> {
+    let manifest = client
+        .get(url)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .header(reqwest::header::USER_AGENT, APP_USER_AGENT)
+        .send()
+        .await
+        .map_err(|error| format!("request update manifest: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("read update manifest: {error}"))?
+        .json::<PortableUpdateManifest>()
+        .await
+        .map_err(|error| format!("parse update manifest: {error}"))?;
+    validate_portable_update_manifest(&manifest)?;
+    Ok(manifest)
+}
+
+fn configured_gitcode_gui_repository() -> Option<&'static str> {
+    configured_gitcode_repository(option_env!("GITCODE_GUI_REPOSITORY"))
+}
+
+fn configured_gitcode_core_repository() -> Option<&'static str> {
+    configured_gitcode_repository(option_env!("GITCODE_CORE_REPOSITORY"))
+}
+
+fn configured_gitcode_repository(repository: Option<&'static str>) -> Option<&'static str> {
+    let repository = repository?.trim();
+    let mut parts = repository.split('/');
+    let valid_part = |part: &str| {
+        !part.is_empty()
+            && part
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'-'))
+    };
+    match (parts.next(), parts.next(), parts.next()) {
+        (Some(owner), Some(repo), None) if valid_part(owner) && valid_part(repo) => {
+            Some(repository)
+        }
+        _ => None,
+    }
+}
+
+fn validate_release_tag(tag: &str) -> Result<(), String> {
+    semver::Version::parse(tag.strip_prefix('v').unwrap_or(tag))
+        .map(|_| ())
+        .map_err(|error| format!("invalid release tag {tag}: {error}"))
+}
+
+fn gitcode_release_attachment_url(repository: &str, tag: &str, filename: &str) -> String {
+    format!(
+        "https://api.gitcode.com/api/v5/repos/{repository}/releases/{tag}/attach_files/{filename}/download"
+    )
+}
+
+fn release_https_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        let url = attempt.url();
+        let trusted_host = matches!(
+            url.host_str(),
+            Some(
+                "github.com"
+                    | "objects.githubusercontent.com"
+                    | "release-assets.githubusercontent.com"
+                    | "api.gitcode.com"
+                    | "gitcode.com"
+                    | "file-cdn.gitcode.com"
+            )
+        );
+        if url.scheme() == "https"
+            && url.port().is_none()
+            && url.username().is_empty()
+            && url.password().is_none()
+            && trusted_host
+        {
+            attempt.follow()
+        } else {
+            attempt.stop()
+        }
+    })
+}
+
+fn github_https_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        let url = attempt.url();
+        let trusted_host = matches!(
+            url.host_str(),
+            Some(
+                "github.com"
+                    | "raw.githubusercontent.com"
+                    | "objects.githubusercontent.com"
+                    | "release-assets.githubusercontent.com"
+            )
+        );
+        if url.scheme() == "https"
+            && url.port().is_none()
+            && url.username().is_empty()
+            && url.password().is_none()
+            && trusted_host
+        {
+            attempt.follow()
+        } else {
+            attempt.stop()
+        }
+    })
+}
+
+fn validate_portable_update_manifest(manifest: &PortableUpdateManifest) -> Result<(), String> {
+    if manifest.schema_version != 1 {
+        return Err(format!(
+            "不支持的软件更新清单版本: {}",
+            manifest.schema_version
+        ));
+    }
+    semver::Version::parse(manifest.version.trim().trim_start_matches('v'))
+        .map_err(|error| format!("软件更新版本无效: {error}"))?;
+    chrono::DateTime::parse_from_rfc3339(manifest.published_at.trim())
+        .map_err(|error| format!("软件更新发布时间无效: {error}"))?;
+    let release_url = reqwest::Url::parse(&manifest.release_url)
+        .map_err(|_| "软件更新发布地址无效".to_string())?;
+    if release_url.scheme() != "https"
+        || release_url.host_str() != Some("github.com")
+        || release_url.port().is_some()
+        || !release_url.username().is_empty()
+        || release_url.password().is_some()
+        || release_url.query().is_some()
+        || release_url.fragment().is_some()
+        || !release_url
+            .path()
+            .starts_with("/router-for-me/EasyCLIProxyAPI/releases/tag/v")
+    {
+        return Err("软件更新发布地址不受信任".to_string());
+    }
+    if manifest.assets.len() != 2 {
+        return Err("软件更新清单必须包含两个 Windows 架构".to_string());
+    }
+    for (key, arch) in [("windows-amd64", "amd64"), ("windows-aarch64", "aarch64")] {
+        let asset = manifest
+            .assets
+            .get(key)
+            .ok_or_else(|| format!("软件更新清单缺少 {key}"))?;
+        validate_portable_update_asset(asset)?;
+        let full_package_name = format!(
+            "EasyCLIProxyAPI-v{}-Windows-{arch}.zip",
+            manifest.version.trim().trim_start_matches('v')
+        );
+        let full_package_url = format!(
+            "{APP_RELEASE_DOWNLOAD_PREFIX}v{}/{}",
+            manifest.version.trim().trim_start_matches('v'),
+            full_package_name
+        );
+        let legacy_package_name = format!(
+            "EasyCLIProxyAPI-update-v{}-Windows-{arch}.zip",
+            manifest.version.trim().trim_start_matches('v')
+        );
+        let legacy_package_url = format!(
+            "{APP_RELEASE_DOWNLOAD_PREFIX}v{}/{}",
+            manifest.version.trim().trim_start_matches('v'),
+            legacy_package_name
+        );
+        if asset.url != full_package_url && asset.url != legacy_package_url {
+            return Err(format!("软件更新资产名称与 {key} 不匹配"));
+        }
+        validate_portable_update_asset_fallbacks(
+            asset,
+            &format!("v{}", manifest.version.trim().trim_start_matches('v')),
+            &[&full_package_name, &legacy_package_name],
+        )?;
+    }
+    if let Some(full_assets) = &manifest.full_assets {
+        if full_assets.len() != 2 {
+            return Err(
+                "Full update asset catalog must contain both Windows architectures".to_string(),
+            );
+        }
+        for (key, arch) in [("windows-amd64", "amd64"), ("windows-aarch64", "aarch64")] {
+            let asset = full_assets
+                .get(key)
+                .ok_or_else(|| format!("Full update asset catalog is missing {key}"))?;
+            validate_portable_update_asset(asset)?;
+            let package_name = format!(
+                "EasyCLIProxyAPI-v{}-Windows-{arch}.zip",
+                manifest.version.trim().trim_start_matches('v')
+            );
+            let expected_url = format!(
+                "{APP_RELEASE_DOWNLOAD_PREFIX}v{}/{}",
+                manifest.version.trim().trim_start_matches('v'),
+                package_name
+            );
+            if asset.url != expected_url {
+                return Err(format!("Full update asset name does not match {key}"));
+            }
+            validate_portable_update_asset_fallbacks(
+                asset,
+                &format!("v{}", manifest.version.trim().trim_start_matches('v')),
+                &[&package_name],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_portable_update_asset(asset: &PortableUpdateAsset) -> Result<(), String> {
+    let url = reqwest::Url::parse(&asset.url).map_err(|_| "软件更新下载地址无效".to_string())?;
+    if url.scheme() != "https"
+        || url.host_str() != Some("github.com")
+        || url.port().is_some()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !asset.url.starts_with(APP_RELEASE_DOWNLOAD_PREFIX)
+    {
+        return Err("软件更新下载地址不受信任".to_string());
+    }
+    if asset.size_bytes == 0 || asset.size_bytes > 512 * 1024 * 1024 {
+        return Err("软件更新包大小无效".to_string());
+    }
+    let digest = asset.sha256.trim().to_ascii_lowercase();
+    if digest.len() != 64 || !digest.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("软件更新 SHA-256 无效".to_string());
+    }
+    Ok(())
+}
+
+fn validate_portable_update_asset_fallbacks(
+    asset: &PortableUpdateAsset,
+    tag: &str,
+    expected_filenames: &[&str],
+) -> Result<(), String> {
+    validate_portable_update_asset_fallbacks_for_repository(
+        asset,
+        tag,
+        expected_filenames,
+        configured_gitcode_gui_repository(),
+    )
+}
+
+fn validate_portable_update_asset_fallbacks_for_repository(
+    asset: &PortableUpdateAsset,
+    tag: &str,
+    expected_filenames: &[&str],
+    repository: Option<&str>,
+) -> Result<(), String> {
+    if asset.fallback_urls.is_empty() {
+        return Ok(());
+    }
+    let repository = repository
+        .ok_or_else(|| "GitCode fallback is not configured for this build".to_string())?;
+    if asset.fallback_urls.len() != 1 {
+        return Err("Software update assets may define only one fallback URL".to_string());
+    }
+    let fallback = &asset.fallback_urls[0];
+    let trusted = expected_filenames
+        .iter()
+        .any(|filename| fallback == &gitcode_release_attachment_url(repository, tag, filename));
+    if !trusted {
+        return Err("Software update fallback URL is not trusted".to_string());
+    }
+    Ok(())
+}
+
+fn portable_update_target() -> Option<(&'static str, &'static str)> {
+    if !cfg!(windows) {
+        return None;
+    }
+    match env::consts::ARCH {
+        "x86_64" => Some(("windows-amd64", "amd64")),
+        "aarch64" => Some(("windows-aarch64", "aarch64")),
+        _ => None,
+    }
+}
+
+fn validate_local_portable_app_manifest(expected_arch: &str) -> Result<bool, String> {
+    let path = executable_dir()?.join(PORTABLE_APP_MANIFEST_FILE);
+    if !path.is_file() {
+        return Ok(false);
+    }
+    let contents =
+        fs::read_to_string(&path).map_err(|error| format!("读取便携版标识失败: {error}"))?;
+    let manifest = serde_json::from_str::<PortableAppManifest>(&contents)
+        .map_err(|error| format!("解析便携版标识失败: {error}"))?;
+    Ok(manifest.schema_version == 1
+        && manifest.application == "EasyCLIProxyAPI"
+        && manifest.platform == "windows"
+        && manifest.arch == expected_arch
+        && manifest.auto_update
+        && normalize_version(&manifest.version) == normalize_version(env!("CARGO_PKG_VERSION")))
+}
+
+#[tauri::command]
+fn get_app_update_task(state: tauri::State<'_, AppUpdateState>) -> AppUpdateTask {
+    state.snapshot()
+}
+
+#[tauri::command]
+fn cancel_app_update(state: tauri::State<'_, AppUpdateState>) -> Result<(), String> {
+    let task = state.snapshot();
+    if !task.running || !task.cancellable {
+        return Err("当前应用更新阶段无法取消".to_string());
+    }
+    state.cancel();
+    Ok(())
+}
+
+#[tauri::command]
+async fn start_app_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppUpdateState>,
+) -> Result<(), String> {
+    if !cfg!(windows) {
+        return Err("应用内自动升级当前仅支持 Windows 便携版".to_string());
+    }
+    let token = CancellationToken::new();
+    let pending = state.start(token.clone())?;
+    let task = state.snapshot();
+    let _ = app.emit(APP_UPDATE_PROGRESS_EVENT, task);
+    let update_app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let outcome = download_and_stage_portable_app_update(&update_app, &pending, &token).await;
+        if let Err(error) = outcome {
+            let state = update_app.state::<AppUpdateState>();
+            let cancelled = token.is_cancelled();
+            let task = state.finish(
+                if cancelled { "cancelled" } else { "failed" },
+                Some(if cancelled {
+                    "应用更新下载已取消".to_string()
+                } else {
+                    error
+                }),
+            );
+            let _ = update_app.emit(APP_UPDATE_PROGRESS_EVENT, task);
+        }
+    });
+    Ok(())
+}
+
+async fn download_and_stage_portable_app_update(
+    app: &tauri::AppHandle,
+    pending: &PendingAppUpdate,
+    token: &CancellationToken,
+) -> Result<(), String> {
+    #[cfg(not(windows))]
+    {
+        let _ = (app, pending, token);
+        Err("应用内自动升级当前仅支持 Windows 便携版".to_string())
+    }
+
+    #[cfg(windows)]
+    {
+        validate_portable_update_asset(&pending.asset)?;
+        let work_dir = env::temp_dir().join(format!(
+            "EasyCLIProxyAPI-update-{}-{}-{}",
+            pending.version,
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&work_dir)
+            .map_err(|error| format!("创建应用更新临时目录失败: {error}"))?;
+        let archive_path = work_dir.join("update.zip");
+        let result = async {
+            download_portable_update_archive(app, pending, token, &archive_path).await?;
+            if token.is_cancelled() {
+                return Err("应用更新下载已取消".to_string());
+            }
+
+            update_app_task(app, |task| {
+                task.cancellable = false;
+                task.phase = "verifying".to_string();
+                task.message = Some("正在校验应用更新包".to_string());
+            });
+            let actual_sha256 = sha256_file(&archive_path)?;
+            if actual_sha256 != pending.asset.sha256.trim().to_ascii_lowercase() {
+                return Err("应用更新包 SHA-256 校验失败".to_string());
+            }
+
+            update_app_task(app, |task| {
+                task.phase = "staging".to_string();
+                task.message = Some("正在准备应用更新".to_string());
+            });
+            let staging_dir = work_dir.join("staging");
+            let package = extract_portable_update_archive(&archive_path, &staging_dir)?;
+            if normalize_version(&package.manifest.version) != normalize_version(&pending.version)
+                || package.manifest.platform != "windows"
+                || package.manifest.arch != pending.arch
+            {
+                return Err("应用更新包版本或架构不匹配".to_string());
+            }
+
+            let current_exe =
+                env::current_exe().map_err(|error| format!("读取当前程序路径失败: {error}"))?;
+            let app_dir = current_exe
+                .parent()
+                .ok_or_else(|| "当前程序路径没有父目录".to_string())?;
+            preflight_portable_update_directory(app_dir)?;
+            let core_archive_name = match package.core_archive_name {
+                Some(name) => name,
+                None => stage_current_portable_core_payload(app_dir, &staging_dir, &pending.arch)?,
+            };
+            let helper_path = work_dir.join("EasyCLIProxyAPI-updater.exe");
+            fs::copy(&current_exe, &helper_path)
+                .map_err(|error| format!("准备应用更新助手失败: {error}"))?;
+
+            let descriptor = PortableUpdateDescriptor {
+                parent_pid: std::process::id(),
+                current_exe: current_exe.clone(),
+                staged_exe: staging_dir.join(PORTABLE_APP_BINARY),
+                current_manifest: app_dir.join(PORTABLE_APP_MANIFEST_FILE),
+                staged_manifest: staging_dir.join(PORTABLE_APP_MANIFEST_FILE),
+                backup_exe: app_dir.join(".EasyCLIProxyAPI.exe.update-backup"),
+                backup_manifest: app_dir.join(".portable-app.json.update-backup"),
+                current_core_version: app_dir.join(CORE_VERSION_FILE),
+                staged_core_version: staging_dir.join(CORE_VERSION_FILE),
+                backup_core_version: app_dir.join(".core-version.txt.update-backup"),
+                staged_core_archive: staging_dir.join("cpa-core").join(&core_archive_name),
+                target_core_archive: app_dir.join("cpa-core").join(&core_archive_name),
+                install_core_archive: !app_dir.join("cpa-core").join(&core_archive_name).is_file(),
+                ack_path: work_dir.join("update-started.ack"),
+                work_dir: work_dir.clone(),
+                target_version: pending.version.clone(),
+            };
+            let descriptor_path = work_dir.join("update-descriptor.json");
+            fs::write(
+                &descriptor_path,
+                serde_json::to_vec_pretty(&descriptor)
+                    .map_err(|error| format!("序列化应用更新描述失败: {error}"))?,
+            )
+            .map_err(|error| format!("写入应用更新描述失败: {error}"))?;
+
+            let mut command = Command::new(&helper_path);
+            command
+                .arg("--portable-update-helper")
+                .arg(&descriptor_path)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            configure_background_command(&mut command);
+            command
+                .spawn()
+                .map_err(|error| format!("启动应用更新助手失败: {error}"))?;
+
+            update_app_task(app, |task| {
+                task.cancellable = false;
+                task.phase = "restarting".to_string();
+                task.message = Some("更新已准备完成，应用即将重启".to_string());
+            });
+            tokio::time::sleep(Duration::from_millis(350)).await;
+            app.exit(0);
+            Ok(())
+        }
+        .await;
+
+        if result.is_err() {
+            let _ = fs::remove_dir_all(&work_dir);
+        }
+        result
+    }
+}
+
+#[cfg(windows)]
+async fn download_portable_update_archive(
+    app: &tauri::AppHandle,
+    pending: &PendingAppUpdate,
+    token: &CancellationToken,
+    destination: &Path,
+) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .redirect(release_https_redirect_policy())
+        .connect_timeout(Duration::from_secs(15))
+        .read_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(15 * 60))
+        .build()
+        .map_err(|error| format!("创建应用更新下载客户端失败: {error}"))?;
+    let urls = std::iter::once(&pending.asset.url)
+        .chain(pending.asset.fallback_urls.iter())
+        .collect::<Vec<_>>();
+    let mut failures = Vec::new();
+    for (index, url) in urls.iter().enumerate() {
+        update_app_task(app, |task| {
+            task.downloaded_bytes = 0;
+            task.percent = Some(0.0);
+            if index > 0 {
+                task.message = Some("GitHub 下载失败，正在切换到 GitCode".to_string());
+            }
+        });
+        match download_portable_update_archive_url(app, pending, token, destination, &client, url)
+            .await
+        {
+            Ok(()) => return Ok(()),
+            Err(error) if token.is_cancelled() => return Err(error),
+            Err(error) => failures.push(error),
+        }
+    }
+    Err(format!("所有应用更新下载源均失败: {}", failures.join("; ")))
+}
+
+#[cfg(windows)]
+async fn download_portable_update_archive_url(
+    app: &tauri::AppHandle,
+    pending: &PendingAppUpdate,
+    token: &CancellationToken,
+    destination: &Path,
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<(), String> {
+    let response = client
+        .get(url)
+        .header(reqwest::header::ACCEPT, "application/octet-stream")
+        .header(reqwest::header::USER_AGENT, APP_USER_AGENT)
+        .send()
+        .await
+        .map_err(|error| format!("下载应用更新失败: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("下载应用更新失败: {error}"))?;
+    let mut stream = response.bytes_stream();
+    let mut file =
+        File::create(destination).map_err(|error| format!("创建应用更新临时文件失败: {error}"))?;
+    let mut downloaded = 0_u64;
+    while let Some(chunk) = stream.next().await {
+        if token.is_cancelled() {
+            return Err("应用更新下载已取消".to_string());
+        }
+        let chunk = chunk.map_err(|error| format!("读取应用更新下载数据失败: {error}"))?;
+        file.write_all(&chunk)
+            .map_err(|error| format!("写入应用更新临时文件失败: {error}"))?;
+        downloaded = downloaded.saturating_add(chunk.len() as u64);
+        if downloaded > pending.asset.size_bytes {
+            return Err("应用更新包超过清单声明大小".to_string());
+        }
+        update_app_task(app, |task| {
+            task.downloaded_bytes = downloaded;
+            task.total_bytes = Some(pending.asset.size_bytes);
+            task.percent = Some((downloaded as f64 / pending.asset.size_bytes as f64) * 100.0);
+            task.message = Some(format!(
+                "{} / {}",
+                format_byte_count(downloaded),
+                format_byte_count(pending.asset.size_bytes)
+            ));
+        });
+    }
+    file.flush()
+        .map_err(|error| format!("保存应用更新临时文件失败: {error}"))?;
+    if downloaded != pending.asset.size_bytes {
+        return Err(format!(
+            "应用更新包大小不匹配: 预期 {}，实际 {}",
+            pending.asset.size_bytes, downloaded
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn update_app_task<F>(app: &tauri::AppHandle, update: F)
+where
+    F: FnOnce(&mut AppUpdateTask),
+{
+    let state = app.state::<AppUpdateState>();
+    let task = state.update_task(update);
+    let _ = app.emit(APP_UPDATE_PROGRESS_EVENT, task);
+}
+
+#[cfg(windows)]
+fn format_byte_count(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
+    let mut value = bytes as f64;
+    let mut unit = 0_usize;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} {}", UNITS[unit])
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
+}
+
+#[cfg(windows)]
+fn extract_portable_update_archive(
+    archive_path: &Path,
+    staging_dir: &Path,
+) -> Result<PortablePackagePayload, String> {
+    fs::create_dir_all(staging_dir)
+        .map_err(|error| format!("创建应用更新暂存目录失败: {error}"))?;
+    let file = File::open(archive_path).map_err(|error| format!("打开应用更新包失败: {error}"))?;
+    let mut archive =
+        ZipArchive::new(file).map_err(|error| format!("读取应用更新 ZIP 失败: {error}"))?;
+    let archive_names = archive
+        .file_names()
+        .map(|name| name.replace('\\', "/"))
+        .collect::<Vec<_>>();
+    let legacy_layout = archive_names.len() == 2
+        && archive_names.iter().any(|name| name == PORTABLE_APP_BINARY)
+        && archive_names
+            .iter()
+            .any(|name| name == PORTABLE_APP_MANIFEST_FILE);
+    let mut package_root = None::<String>;
+    let mut seen_binary = false;
+    let mut seen_manifest = false;
+    let mut seen_core_version = false;
+    let mut core_archive_name = None::<String>;
+    let mut regular_file_count = 0_u32;
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| format!("读取应用更新 ZIP 条目失败: {error}"))?;
+        let name = entry.name().replace('\\', "/");
+        if entry.enclosed_name().is_none() {
+            return Err("应用更新包包含不安全路径".to_string());
+        }
+        if entry
+            .unix_mode()
+            .is_some_and(|mode| mode & 0o170000 == 0o120000)
+        {
+            return Err("应用更新包不能包含符号链接".to_string());
+        }
+        if entry.is_dir() {
+            continue;
+        }
+        regular_file_count = regular_file_count.saturating_add(1);
+        let relative;
+        let relative_name;
+        if legacy_layout {
+            relative = Vec::new();
+            relative_name = name.clone();
+        } else {
+            let mut components = name.split('/');
+            let root = components
+                .next()
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| "应用更新包缺少顶层目录".to_string())?;
+            relative = components.collect::<Vec<_>>();
+            if relative.is_empty() || relative.iter().any(|value| value.is_empty()) {
+                return Err("应用更新包目录结构无效".to_string());
+            }
+            if package_root.as_deref().is_some_and(|value| value != root) {
+                return Err("应用更新包必须只包含一个顶层目录".to_string());
+            }
+            package_root.get_or_insert_with(|| root.to_string());
+            relative_name = relative.join("/");
+        }
+        let destination = match relative_name.as_str() {
+            PORTABLE_APP_BINARY if !seen_binary => {
+                if entry.size() == 0 || entry.size() > 256 * 1024 * 1024 {
+                    return Err("应用更新程序大小异常".to_string());
+                }
+                seen_binary = true;
+                staging_dir.join(PORTABLE_APP_BINARY)
+            }
+            PORTABLE_APP_MANIFEST_FILE if !seen_manifest => {
+                if entry.size() == 0 || entry.size() > 64 * 1024 {
+                    return Err("应用更新标识大小异常".to_string());
+                }
+                seen_manifest = true;
+                staging_dir.join(PORTABLE_APP_MANIFEST_FILE)
+            }
+            CORE_VERSION_FILE if !seen_core_version => {
+                if entry.size() == 0 || entry.size() > 1024 {
+                    return Err("应用更新包内核版本文件大小异常".to_string());
+                }
+                seen_core_version = true;
+                staging_dir.join(CORE_VERSION_FILE)
+            }
+            _ if relative.len() == 2
+                && relative[0] == "cpa-core"
+                && core_archive_name.is_none() =>
+            {
+                let filename = relative[1];
+                if !filename.starts_with("CLIProxyAPI_")
+                    || !filename.ends_with(".zip")
+                    || filename.contains("_no-plugin")
+                    || entry.size() == 0
+                    || entry.size() > 512 * 1024 * 1024
+                {
+                    return Err("应用更新包内置内核压缩包无效".to_string());
+                }
+                core_archive_name = Some(filename.to_string());
+                let core_staging_dir = staging_dir.join("cpa-core");
+                fs::create_dir_all(&core_staging_dir)
+                    .map_err(|error| format!("创建内置内核暂存目录失败: {error}"))?;
+                core_staging_dir.join(filename)
+            }
+            _ => return Err(format!("应用更新包包含未知文件: {name}")),
+        };
+        let mut output = File::create(&destination)
+            .map_err(|error| format!("创建应用更新暂存文件失败: {error}"))?;
+        io::copy(&mut entry, &mut output)
+            .map_err(|error| format!("解压应用更新文件失败: {error}"))?;
+        output
+            .flush()
+            .map_err(|error| format!("保存应用更新暂存文件失败: {error}"))?;
+    }
+    let required_files_present = if legacy_layout {
+        regular_file_count == 2 && seen_binary && seen_manifest
+    } else {
+        regular_file_count == 4 && seen_binary && seen_manifest && seen_core_version
+    };
+    if !required_files_present {
+        return Err("应用更新包缺少必要文件".to_string());
+    }
+    let manifest = fs::read_to_string(staging_dir.join(PORTABLE_APP_MANIFEST_FILE))
+        .map_err(|error| format!("读取应用更新标识失败: {error}"))?;
+    let manifest = serde_json::from_str::<PortableAppManifest>(&manifest)
+        .map_err(|error| format!("解析应用更新标识失败: {error}"))?;
+    if manifest.schema_version != 1
+        || manifest.application != "EasyCLIProxyAPI"
+        || !manifest.auto_update
+    {
+        return Err("应用更新标识无效".to_string());
+    }
+    if !legacy_layout {
+        let expected_root = format!(
+            "EasyCLIProxyAPI-v{}-Windows-{}",
+            manifest.version.trim().trim_start_matches('v'),
+            manifest.arch
+        );
+        if package_root.as_deref() != Some(expected_root.as_str()) {
+            return Err("应用更新包顶层目录与版本或架构不匹配".to_string());
+        }
+        let core_version = fs::read_to_string(staging_dir.join(CORE_VERSION_FILE))
+            .map_err(|error| format!("读取内置内核版本失败: {error}"))?;
+        let core_version = core_version.trim().trim_start_matches('v');
+        if core_version.is_empty()
+            || !core_version.split('.').all(|segment| {
+                !segment.is_empty() && segment.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        {
+            return Err("应用更新包内置内核版本无效".to_string());
+        }
+        let expected_core_archive =
+            format!("CLIProxyAPI_{core_version}_windows_{}.zip", manifest.arch);
+        if core_archive_name.as_deref() != Some(expected_core_archive.as_str()) {
+            return Err("应用更新包内置内核版本或架构不匹配".to_string());
+        }
+    }
+    Ok(PortablePackagePayload {
+        manifest,
+        core_archive_name,
+    })
+}
+
+#[cfg(windows)]
+fn stage_current_portable_core_payload(
+    app_dir: &Path,
+    staging_dir: &Path,
+    arch: &str,
+) -> Result<String, String> {
+    let current_core_version = app_dir.join(CORE_VERSION_FILE);
+    let core_version = fs::read_to_string(&current_core_version)
+        .map_err(|error| format!("读取当前内置内核版本失败: {error}"))?;
+    let core_version = core_version.trim().trim_start_matches('v');
+    if core_version.is_empty()
+        || !core_version
+            .split('.')
+            .all(|segment| !segment.is_empty() && segment.bytes().all(|byte| byte.is_ascii_digit()))
+    {
+        return Err("当前内置内核版本无效，无法兼容旧版更新包".to_string());
+    }
+    let core_archive_name = format!("CLIProxyAPI_{core_version}_windows_{arch}.zip");
+    let current_core_archive = app_dir.join("cpa-core").join(&core_archive_name);
+    if !current_core_archive.is_file() {
+        return Err(format!(
+            "当前便携版缺少内置内核压缩包 {core_archive_name}，无法兼容旧版更新包"
+        ));
+    }
+    let staged_core_dir = staging_dir.join("cpa-core");
+    fs::create_dir_all(&staged_core_dir)
+        .map_err(|error| format!("创建旧版更新兼容暂存目录失败: {error}"))?;
+    fs::copy(&current_core_version, staging_dir.join(CORE_VERSION_FILE))
+        .map_err(|error| format!("暂存当前内核版本文件失败: {error}"))?;
+    fs::copy(
+        current_core_archive,
+        staged_core_dir.join(&core_archive_name),
+    )
+    .map_err(|error| format!("暂存当前内置内核压缩包失败: {error}"))?;
+    Ok(core_archive_name)
+}
+
+#[cfg(windows)]
+fn preflight_portable_update_directory(app_dir: &Path) -> Result<(), String> {
+    if !app_dir.join(CORE_VERSION_FILE).is_file() || !app_dir.join("cpa-core").is_dir() {
+        return Err("当前便携版目录不完整，请下载最新版完整包覆盖升级".to_string());
+    }
+    let probe = app_dir.join(format!(
+        ".easycliproxy-update-write-test-{}",
+        std::process::id()
+    ));
+    fs::write(&probe, b"update-write-test")
+        .map_err(|error| format!("应用目录不可写，无法自动升级: {error}"))?;
+    fs::remove_file(&probe).map_err(|error| format!("清理应用更新写入测试失败: {error}"))?;
+    let core_probe = app_dir.join("cpa-core").join(format!(
+        ".easycliproxy-update-write-test-{}",
+        std::process::id()
+    ));
+    fs::write(&core_probe, b"update-write-test")
+        .map_err(|error| format!("内置内核目录不可写，无法自动升级: {error}"))?;
+    fs::remove_file(&core_probe)
+        .map_err(|error| format!("清理内置内核更新写入测试失败: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn check_latest_core() -> Result<CoreLatest, String> {
+    let platform = current_core_platform()?;
+    let client = http_client()?;
+    let release = fetch_release(&client, None).await?;
+    let asset = select_release_asset(&release, &platform)?;
+
+    Ok(CoreLatest {
+        version: normalize_version(&release.tag_name),
+        asset_name: asset.name.clone(),
+    })
+}
+
+#[tauri::command]
+fn detect_bundled_core() -> Result<Option<BundledCoreInfo>, String> {
+    bundled_core_archive().map(|value| value.map(|(info, _)| info))
+}
+
+#[tauri::command]
+fn install_bundled_core(
+    window: tauri::Window,
+    state: tauri::State<'_, CoreDownloadState>,
+) -> Result<CoreInstallResult, String> {
+    let (info, archive_path) = bundled_core_archive()?
+        .ok_or_else(|| "当前发行包没有匹配此系统架构的内置内核".to_string())?;
+    let token = CancellationToken::new();
+    state.start(token, Some(info.version.clone()))?;
+    let result = install_bundled_core_inner(&window, state.inner(), &info, &archive_path);
+    if result.is_err() {
+        let _ = cleanup_core_work_dirs();
+    }
+    state.finish(&window, result.clone());
+    result
+}
+
+fn core_needs_bundled_bootstrap(install_dir: &Path) -> bool {
+    find_core_binary(install_dir).is_none()
+}
+
+fn auto_install_bundled_core_if_missing(app: &tauri::AppHandle) -> Result<bool, String> {
+    let install_dir = core_install_dir()?;
+    if !core_needs_bundled_bootstrap(&install_dir) {
+        return Ok(false);
+    }
+
+    let (info, archive_path) = bundled_core_archive()?
+        .ok_or_else(|| "未检测到 CPA 内核，且当前发行包没有匹配的离线内核".to_string())?;
+    let window = app
+        .get_webview_window("main")
+        .map(|webview| webview.as_ref().window())
+        .ok_or_else(|| "无法获取主窗口，不能自动安装离线内核".to_string())?;
+    let state = app.state::<CoreDownloadState>();
+    state.start(CancellationToken::new(), Some(info.version.clone()))?;
+    let result = install_bundled_core_inner(&window, state.inner(), &info, &archive_path);
+    if result.is_err() {
+        let _ = cleanup_core_work_dirs();
+    }
+    state.finish(&window, result.clone());
+    result?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn cancel_core_install(state: tauri::State<'_, CoreDownloadState>) {
+    state.cancel();
+}
+
+#[tauri::command]
+fn get_core_install_task(state: tauri::State<'_, CoreDownloadState>) -> CoreInstallTask {
+    state.snapshot()
+}
+
+#[tauri::command]
+async fn install_core_version(
+    window: tauri::Window,
+    state: tauri::State<'_, CoreDownloadState>,
+    version: Option<String>,
+) -> Result<CoreInstallResult, String> {
+    let token = CancellationToken::new();
+    state.start(token.clone(), version.clone())?;
+    let result = install_core_version_inner(&window, state.inner(), token, version).await;
+    if result.is_err() {
+        let _ = cleanup_core_work_dirs();
+    }
+    state.finish(&window, result.clone());
+
+    result
+}
+
+#[tauri::command]
+fn start_core_process(
+    app: tauri::AppHandle,
+    process_state: tauri::State<'_, CoreProcessState>,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<CoreStatus, String> {
+    let status = start_core_process_with_state(process_state.inner(), gui_config_state.inner())?;
+    emit_core_status(&app, &status);
+    Ok(status)
+}
+
+fn start_core_process_with_state(
+    process_state: &CoreProcessState,
+    gui_config_state: &GuiConfigState,
+) -> Result<CoreStatus, String> {
+    let config = gui_config_state.snapshot()?;
+    start_core_process_inner(process_state, &config)?;
+    if let Err(error) = gui_config_state.set_run_on_startup(true) {
+        let _ = stop_core_process_inner(process_state);
+        return Err(error);
+    }
+    current_core_status(Some(process_state), Some(config.port))
+}
+
+#[tauri::command]
+fn stop_core_process(
+    app: tauri::AppHandle,
+    process_state: tauri::State<'_, CoreProcessState>,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<CoreStatus, String> {
+    let status = stop_core_process_with_state(process_state.inner(), gui_config_state.inner())?;
+    emit_core_status(&app, &status);
+    Ok(status)
+}
+
+fn stop_core_process_with_state(
+    process_state: &CoreProcessState,
+    gui_config_state: &GuiConfigState,
+) -> Result<CoreStatus, String> {
+    stop_core_process_inner(process_state)?;
+    let config = gui_config_state.set_run_on_startup(false)?;
+    current_core_status(Some(process_state), Some(config.port))
+}
+
+#[tauri::command]
+fn restart_core_process(
+    app: tauri::AppHandle,
+    process_state: tauri::State<'_, CoreProcessState>,
+    gui_config_state: tauri::State<'_, GuiConfigState>,
+) -> Result<CoreStatus, String> {
+    let status = restart_core_process_with_state(process_state.inner(), gui_config_state.inner())?;
+    emit_core_status(&app, &status);
+    Ok(status)
+}
+
+fn restart_core_process_with_state(
+    process_state: &CoreProcessState,
+    gui_config_state: &GuiConfigState,
+) -> Result<CoreStatus, String> {
+    let config = gui_config_state.snapshot()?;
+    let _ = stop_core_process_inner(process_state);
+    start_core_process_inner(process_state, &config)?;
+    if let Err(error) = gui_config_state.set_run_on_startup(true) {
+        let _ = stop_core_process_inner(process_state);
+        return Err(error);
+    }
+    current_core_status(Some(process_state), Some(config.port))
+}
+
+async fn install_core_version_inner(
+    window: &tauri::Window,
+    state: &CoreDownloadState,
+    token: CancellationToken,
+    version: Option<String>,
+) -> Result<CoreInstallResult, String> {
+    let platform = current_core_platform()?;
+    let client = http_client()?;
+    state.progress(window, "检查版本", 0, None, true);
+    let release = fetch_release_cancelable(&client, version.as_deref(), &token).await?;
+    let asset = select_release_asset(&release, &platform)?;
+
+    let install_dir = core_install_dir()?;
+    let base_dir = core_base_dir()?;
+    let staging_dir = base_dir.join("cpa-core.staging");
+    let backup_dir = base_dir.join("cpa-core.backup");
+    let download_dir = base_dir.join("cpa-core.download");
+
+    if current_core_status(None, None)?.running {
+        return Err("CPA 内核正在运行，请先停止后再安装或更新".to_string());
+    }
+
+    reset_dir(&staging_dir)?;
+    reset_dir(&download_dir)?;
+
+    let archive_file_name = Path::new(&asset.name)
+        .file_name()
+        .and_then(|file_name| file_name.to_str())
+        .ok_or_else(|| format!("非法 asset 文件名: {}", asset.name))?;
+    let archive_path = download_dir.join(archive_file_name);
+
+    let downloaded = download_asset(&client, asset, &archive_path, window, state, &token).await?;
+    validate_downloaded_asset(asset, &downloaded)?;
+
+    ensure_not_cancelled(&token, Some(&archive_path))?;
+    state.progress(
+        window,
+        "解压中",
+        downloaded.size,
+        Some(downloaded.size),
+        false,
+    );
+    match platform.archive_kind.as_str() {
+        "tar.gz" => extract_tar_gz(&archive_path, &staging_dir)?,
+        "zip" => extract_zip(&archive_path, &staging_dir)?,
+        other => return Err(format!("不支持的压缩包类型: {other}")),
+    }
+    ensure_not_cancelled(&token, Some(&archive_path))?;
+
+    let binary_path = find_core_binary(&staging_dir)
+        .ok_or_else(|| "解压后未找到 CPA 内核二进制文件".to_string())?;
+    let binary_relative_path = binary_path
+        .strip_prefix(&staging_dir)
+        .map_err(|err| format!("计算内核二进制相对路径失败: {err}"))?
+        .to_path_buf();
+    migrate_core_config_for_update(&install_dir, &staging_dir)?;
+    preserve_bundled_core_assets(&install_dir, &staging_dir)?;
+    write_core_metadata(
+        &staging_dir,
+        &CoreMetadata {
+            version: normalize_version(&release.tag_name),
+            asset_name: asset.name.clone(),
+            installed_at_unix: unix_now(),
+        },
+    )?;
+
+    replace_install_dir(&install_dir, &staging_dir, &backup_dir)?;
+    let _ = fs::remove_dir_all(&download_dir);
+
+    Ok(CoreInstallResult {
+        version: normalize_version(&release.tag_name),
+        asset_name: asset.name.clone(),
+        install_dir: path_to_string(&install_dir),
+        binary_path: Some(path_to_string(&install_dir.join(binary_relative_path))),
+    })
+}
+
+fn install_bundled_core_inner(
+    window: &tauri::Window,
+    state: &CoreDownloadState,
+    info: &BundledCoreInfo,
+    archive_path: &Path,
+) -> Result<CoreInstallResult, String> {
+    let platform = current_core_platform()?;
+    let install_dir = core_install_dir()?;
+    let base_dir = core_base_dir()?;
+    let staging_dir = base_dir.join("cpa-core.staging");
+    let backup_dir = base_dir.join("cpa-core.backup");
+
+    if current_core_status(None, None)?.running {
+        return Err("CPA 内核正在运行，请先停止后再使用内置内核".to_string());
+    }
+
+    let archive_size = fs::metadata(archive_path)
+        .map_err(|error| format!("读取内置内核压缩包失败: {error}"))?
+        .len();
+    state.progress(window, "校验内置内核", 0, Some(archive_size), false);
+    validate_bundled_core_checksum(archive_path)?;
+    reset_dir(&staging_dir)?;
+    state.progress(
+        window,
+        "解压内置内核",
+        archive_size,
+        Some(archive_size),
+        false,
+    );
+    match platform.archive_kind.as_str() {
+        "tar.gz" => extract_tar_gz(archive_path, &staging_dir)?,
+        "zip" => extract_zip(archive_path, &staging_dir)?,
+        other => return Err(format!("不支持的内置压缩包类型: {other}")),
+    }
+
+    let binary_path = find_core_binary(&staging_dir)
+        .ok_or_else(|| "内置压缩包中没有 CPA 内核二进制文件".to_string())?;
+    let binary_relative_path = binary_path
+        .strip_prefix(&staging_dir)
+        .map_err(|error| format!("计算内置内核二进制路径失败: {error}"))?
+        .to_path_buf();
+    migrate_core_config_for_update(&install_dir, &staging_dir)?;
+    preserve_bundled_core_assets(&install_dir, &staging_dir)?;
+    preserve_selected_bundled_core_asset(archive_path, &staging_dir)?;
+    write_core_metadata(
+        &staging_dir,
+        &CoreMetadata {
+            version: info.version.clone(),
+            asset_name: info.asset_name.clone(),
+            installed_at_unix: unix_now(),
+        },
+    )?;
+    replace_install_dir(&install_dir, &staging_dir, &backup_dir)?;
+
+    Ok(CoreInstallResult {
+        version: info.version.clone(),
+        asset_name: info.asset_name.clone(),
+        install_dir: path_to_string(&install_dir),
+        binary_path: Some(path_to_string(&install_dir.join(binary_relative_path))),
+    })
+}
+
+async fn fetch_release(
+    client: &reqwest::Client,
+    version: Option<&str>,
+) -> Result<GithubRelease, String> {
+    if let Some(version) = version {
+        return Ok(release_from_tag(version));
+    }
+    let atom_result = fetch_release_from_atom(client).await;
+    let github_result = match atom_result {
+        Ok(release) => Ok(release),
+        Err(atom_error) => fetch_release_from_page(client).await.map_err(|page_error| {
+            format!("GitHub 发布源请求失败: {atom_error}；release 页面请求失败: {page_error}")
+        }),
+    };
+    match github_result {
+        Ok(release) => Ok(release),
+        Err(github_error) => {
+            let Some(repository) = configured_gitcode_core_repository() else {
+                return Err(github_error);
+            };
+            fetch_release_from_gitcode(client, repository)
+                .await
+                .map_err(|gitcode_error| {
+                    format!(
+                        "GitHub 内核发布源失败: {github_error}；GitCode 回退源失败: {gitcode_error}"
+                    )
+                })
+        }
+    }
+}
+
+async fn fetch_release_from_gitcode(
+    client: &reqwest::Client,
+    repository: &str,
+) -> Result<GithubRelease, String> {
+    let release_url = format!("https://api.gitcode.com/api/v5/repos/{repository}/releases/latest");
+    let release = client
+        .get(release_url)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .header(reqwest::header::USER_AGENT, USER_AGENT)
+        .send()
+        .await
+        .map_err(|error| format!("查询 GitCode 最新内核发行版失败: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("读取 GitCode 最新内核发行版失败: {error}"))?
+        .json::<GitcodeRelease>()
+        .await
+        .map_err(|error| format!("解析 GitCode 最新内核发行版失败: {error}"))?;
+    validate_release_tag(&release.tag_name)?;
+    Ok(release_from_gitcode_tag(&release.tag_name, repository))
+}
+
+async fn fetch_release_from_page(client: &reqwest::Client) -> Result<GithubRelease, String> {
+    let response = client
+        .get(RELEASE_PAGE_URL)
+        .header(reqwest::header::ACCEPT, "text/html,application/xhtml+xml")
+        .header(reqwest::header::USER_AGENT, USER_AGENT)
+        .send()
+        .await
+        .map_err(|err| format!("GitHub release 页面请求失败: {err}"))?;
+    let status = response.status();
+    let final_url = response.url().clone();
+    if !status.is_success() {
+        let body = response
+            .text()
+            .await
+            .map_err(|err| format!("读取 GitHub release 页面失败: {err}"))?;
+        return Err(format_github_error(status.as_u16(), &body));
+    }
+
+    let tag = release_tag_from_url(&final_url)
+        .ok_or_else(|| "GitHub release 页面没有返回版本标签".to_string())?;
+    Ok(release_from_tag(&tag))
+}
+
+async fn fetch_release_from_atom(client: &reqwest::Client) -> Result<GithubRelease, String> {
+    let response = client
+        .get(RELEASE_ATOM_URL)
+        .header(
+            reqwest::header::ACCEPT,
+            "application/atom+xml,application/xml,text/xml",
+        )
+        .header(reqwest::header::USER_AGENT, USER_AGENT)
+        .send()
+        .await
+        .map_err(|err| format!("GitHub Atom feed 请求失败: {err}"))?;
+    let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|err| format!("读取 GitHub Atom feed 失败: {err}"))?;
+    if !status.is_success() {
+        return Err(format_github_error(status.as_u16(), &body));
+    }
+    let tag = release_tag_from_atom(&body)
+        .ok_or_else(|| "GitHub Atom feed 没有返回版本标签".to_string())?;
+    Ok(release_from_tag(&tag))
+}
+
+fn release_tag_from_atom(xml: &str) -> Option<String> {
+    let entry = xml.split_once("<entry>")?.1;
+    if let Some(tag_path) = entry.split_once("/releases/tag/").map(|(_, value)| value) {
+        let tag = tag_path
+            .split(['\"', '<', '?', '#'])
+            .next()
+            .unwrap_or_default()
+            .trim_matches('/');
+        if !tag.is_empty() {
+            return Some(normalize_version(tag));
+        }
+    }
+    let title = entry
+        .split_once("<title>")?
+        .1
+        .split_once("</title>")?
+        .0
+        .trim();
+    (!title.is_empty()).then(|| normalize_version(title))
+}
+
+fn release_from_tag(tag: &str) -> GithubRelease {
+    release_from_tag_for_repositories(tag, configured_gitcode_core_repository(), false)
+}
+
+fn release_from_gitcode_tag(tag: &str, repository: &str) -> GithubRelease {
+    release_from_tag_for_repositories(tag, Some(repository), true)
+}
+
+fn release_from_tag_for_repositories(
+    tag: &str,
+    gitcode_repository: Option<&str>,
+    prefer_gitcode: bool,
+) -> GithubRelease {
+    let tag = normalize_version(tag);
+    let version = tag.trim_start_matches('v');
+    let assets = [
+        ("linux", "amd64", "tar.gz"),
+        ("linux", "aarch64", "tar.gz"),
+        ("darwin", "amd64", "tar.gz"),
+        ("darwin", "aarch64", "tar.gz"),
+        ("windows", "amd64", "zip"),
+        ("windows", "aarch64", "zip"),
+    ]
+    .into_iter()
+    .map(|(os, arch, extension)| {
+        let name = format!("CLIProxyAPI_{version}_{os}_{arch}.{extension}");
+        let github_url = format!("{RELEASE_DOWNLOAD_PREFIX}{tag}/{name}");
+        let gitcode_url = gitcode_repository
+            .map(|repository| gitcode_release_attachment_url(repository, &tag, &name));
+        let (browser_download_url, fallback_download_urls) = if prefer_gitcode {
+            (
+                gitcode_url.unwrap_or_else(|| github_url.clone()),
+                Vec::new(),
+            )
+        } else {
+            (github_url, gitcode_url.into_iter().collect())
+        };
+        GithubAsset {
+            browser_download_url,
+            fallback_download_urls,
+            name,
+            size: None,
+            digest: None,
+        }
+    })
+    .collect();
+    GithubRelease {
+        tag_name: tag,
+        assets,
+    }
+}
+
+fn release_tag_from_url(url: &reqwest::Url) -> Option<String> {
+    let mut segments = url.path_segments()?;
+    let tag = segments.next_back()?.trim();
+    if tag.is_empty() || tag == "latest" {
+        None
+    } else {
+        Some(tag.to_string())
+    }
+}
+
+fn is_app_update_available(current: &str, latest: &str) -> Result<bool, String> {
+    let parse = |value: &str| {
+        semver::Version::parse(value.trim().trim_start_matches('v'))
+            .map_err(|error| format!("无法解析版本号 {value}: {error}"))
+    };
+    Ok(parse(latest)? > parse(current)?)
+}
+
+#[cfg(test)]
+fn parse_release_assets(html: &str) -> Vec<GithubAsset> {
+    let mut assets = Vec::new();
+    let mut cursor = 0;
+
+    while let Some(relative_start) = html[cursor..].find("releases/download/") {
+        let download_start = cursor + relative_start;
+        let Some(href_start) = html[..download_start].rfind("href=\"") else {
+            cursor = download_start + "releases/download/".len();
+            continue;
+        };
+        let href_start = href_start + "href=\"".len();
+        let Some(relative_end) = html[download_start..].find('"') else {
+            break;
+        };
+        let href_end = download_start + relative_end;
+        let href = &html[href_start..href_end];
+        let Some(name) = href.rsplit('/').next().filter(|name| !name.is_empty()) else {
+            cursor = href_end + 1;
+            continue;
+        };
+        let item_end = html[href_end..]
+            .find("</li>")
+            .map(|offset| href_end + offset)
+            .unwrap_or(html.len());
+        let item = &html[href_start..item_end];
+        let digest = item.find("sha256:").and_then(|offset| {
+            let value = &item[offset + "sha256:".len()..];
+            let hash: String = value
+                .chars()
+                .take_while(|character| character.is_ascii_hexdigit())
+                .collect();
+            (hash.len() == 64).then(|| format!("sha256:{hash}"))
+        });
+        let browser_download_url = if href.starts_with("http://") || href.starts_with("https://") {
+            href.to_string()
+        } else {
+            format!("https://github.com{href}")
+        };
+
+        if !assets.iter().any(|asset: &GithubAsset| asset.name == name) {
+            assets.push(GithubAsset {
+                name: name.to_string(),
+                browser_download_url,
+                fallback_download_urls: Vec::new(),
+                size: None,
+                digest,
+            });
+        }
+        cursor = href_end + 1;
+    }
+
+    assets
+}
+
+fn format_github_error(status: u16, body: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
+        if let Some(message) = value.get("message").and_then(|item| item.as_str()) {
+            return format!("GitHub 返回错误 ({status}): {}", message.trim());
+        }
+    }
+    let body = body.trim();
+    if body.is_empty() {
+        format!("GitHub 返回错误 ({status})")
+    } else {
+        format!("GitHub 返回错误 ({status}): {}", truncate_for_error(body))
+    }
+}
+
+async fn fetch_release_cancelable(
+    client: &reqwest::Client,
+    version: Option<&str>,
+    token: &CancellationToken,
+) -> Result<GithubRelease, String> {
+    tokio::select! {
+        result = fetch_release(client, version) => result,
+        _ = token.cancelled() => Err("已取消下载".to_string()),
+    }
+}
+
+fn http_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .redirect(release_https_redirect_policy())
+        .connect_timeout(Duration::from_secs(15))
+        .read_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(600))
+        .build()
+        .map_err(|err| format!("创建 HTTP 客户端失败: {err}"))
+}
+
+fn select_release_asset<'a>(
+    release: &'a GithubRelease,
+    platform: &CorePlatform,
+) -> Result<&'a GithubAsset, String> {
+    let expected_name = core_release_asset_name(&release.tag_name, platform);
+    let mut matches = release
+        .assets
+        .iter()
+        .filter(|asset| asset.name == expected_name && !asset.name.contains("_no-plugin"));
+    let asset = matches
+        .next()
+        .ok_or_else(|| format!("未找到匹配当前平台的 release asset: {expected_name}"))?;
+
+    if matches.next().is_some() {
+        return Err(format!("找到多个匹配的 release asset: {expected_name}"));
+    }
+
+    Ok(asset)
+}
+
+fn core_release_asset_name(version: &str, platform: &CorePlatform) -> String {
+    let version = normalize_version(version);
+    let version = version.trim_start_matches('v');
+    format!(
+        "CLIProxyAPI_{}_{}_{}.{}",
+        version, platform.asset_os, platform.asset_arch, platform.archive_kind
+    )
+}
+
+// Download progress and cancellation require the complete transfer context here.
+#[allow(clippy::too_many_arguments)]
+async fn download_asset(
+    client: &reqwest::Client,
+    asset: &GithubAsset,
+    archive_path: &Path,
+    window: &tauri::Window,
+    state: &CoreDownloadState,
+    token: &CancellationToken,
+) -> Result<DownloadedArchive, String> {
+    let urls =
+        std::iter::once(&asset.browser_download_url).chain(asset.fallback_download_urls.iter());
+    let mut failures = Vec::new();
+    for (index, url) in urls.enumerate() {
+        if index > 0 {
+            state.progress(
+                window,
+                "GitHub 下载失败，正在切换到 GitCode",
+                0,
+                asset.size,
+                true,
+            );
+        }
+        let result = download_asset_inner(
+            client,
+            url,
+            archive_path,
+            asset.size,
+            asset.digest.as_deref(),
+            window,
+            state,
+            token,
+        )
+        .await;
+        match result {
+            Ok(downloaded) => return Ok(downloaded),
+            Err(error) if token.is_cancelled() => {
+                let _ = fs::remove_file(archive_path);
+                return Err(error);
+            }
+            Err(error) => {
+                let _ = fs::remove_file(archive_path);
+                failures.push(error);
+            }
+        }
+    }
+    if failures.is_empty() {
+        let _ = fs::remove_file(archive_path);
+        return Err("内核发行版没有可用的下载地址".to_string());
+    }
+    Err(format!("所有内核下载源均失败: {}", failures.join("；")))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn download_asset_inner(
+    client: &reqwest::Client,
+    url: &str,
+    archive_path: &Path,
+    expected_total: Option<u64>,
+    expected_digest: Option<&str>,
+    window: &tauri::Window,
+    state: &CoreDownloadState,
+    token: &CancellationToken,
+) -> Result<DownloadedArchive, String> {
+    state.progress(window, "准备下载", 0, expected_total, true);
+    ensure_not_cancelled(token, Some(archive_path))?;
+
+    let request = client
+        .get(url)
+        .header(reqwest::header::USER_AGENT, USER_AGENT)
+        .send();
+    let response = tokio::select! {
+        response = request => response.map_err(|err| format!("下载内核压缩包失败: {err}"))?,
+        _ = token.cancelled() => return Err("已取消下载".to_string()),
+    }
+    .error_for_status()
+    .map_err(|err| format!("下载地址返回错误状态: {err}"))?;
+    let total = expected_total.or_else(|| response.content_length());
+    let mut stream = response.bytes_stream();
+    let mut file =
+        File::create(archive_path).map_err(|err| format!("创建内核压缩包失败: {err}"))?;
+    let mut downloaded = 0_u64;
+    let mut hasher = Sha256::new();
+
+    while let Some(chunk) = tokio::select! {
+        chunk = stream.next() => chunk,
+        _ = token.cancelled() => return Err("已取消下载".to_string()),
+    } {
+        ensure_not_cancelled(token, Some(archive_path))?;
+
+        let chunk = chunk.map_err(|err| format!("读取下载数据失败: {err}"))?;
+        file.write_all(&chunk)
+            .map_err(|err| format!("保存下载数据失败: {err}"))?;
+        hasher.update(&chunk);
+        downloaded += chunk.len() as u64;
+        state.progress(window, "下载中", downloaded, total, true);
+    }
+
+    file.flush()
+        .map_err(|err| format!("刷新内核压缩包失败: {err}"))?;
+    ensure_not_cancelled(token, Some(archive_path))?;
+
+    let sha256 = format!("{:x}", hasher.finalize());
+    validate_download_metadata(downloaded, expected_total, &sha256, expected_digest)?;
+
+    Ok(DownloadedArchive {
+        size: downloaded,
+        sha256,
+    })
+}
+
+fn ensure_not_cancelled(
+    token: &CancellationToken,
+    archive_path: Option<&Path>,
+) -> Result<(), String> {
+    if token.is_cancelled() {
+        if let Some(archive_path) = archive_path {
+            let _ = fs::remove_file(archive_path);
+        }
+
+        return Err("已取消下载".to_string());
+    }
+
+    Ok(())
+}
+
+fn current_core_platform() -> Result<CorePlatform, String> {
+    let os = env::consts::OS;
+    let arch = env::consts::ARCH;
+
+    let (asset_os, archive_kind) = match os {
+        "linux" => ("linux", "tar.gz"),
+        "macos" => ("darwin", "tar.gz"),
+        "windows" => ("windows", "zip"),
+        other => return Err(format!("不支持的操作系统: {other}")),
+    };
+
+    let asset_arch = match arch {
+        "x86_64" => "amd64",
+        "aarch64" => "aarch64",
+        other => return Err(format!("不支持的 CPU 架构: {other}")),
+    };
+
+    Ok(CorePlatform {
+        os: os.to_string(),
+        arch: arch.to_string(),
+        asset_os: asset_os.to_string(),
+        asset_arch: asset_arch.to_string(),
+        archive_kind: archive_kind.to_string(),
+    })
+}
+
+fn current_core_status(
+    process_state: Option<&CoreProcessState>,
+    management_port: Option<u16>,
+) -> Result<CoreStatus, String> {
+    let install_dir = core_install_dir()?;
+    let binary_path = find_core_binary(&install_dir);
+    let installed = binary_path.is_some();
+    let managed_pid = process_state.and_then(|state| state.managed_pid());
+    let management_port_open = management_port.map(is_management_port_open);
+    let process_id = match managed_pid {
+        Some(process_id) => Some(process_id),
+        None if management_port_open.unwrap_or(true) => binary_path
+            .as_ref()
+            .and_then(|path| find_core_process_ids(path).first().copied()),
+        None => None,
+    };
+    let running = process_id.is_some() && management_port_open.unwrap_or(true);
+    let current_version = read_core_metadata(&install_dir).map(|metadata| metadata.version);
+
+    let message = if !installed {
+        "未安装 CPA 内核，请先安装最新版".to_string()
+    } else if running {
+        "CPA 内核正在运行".to_string()
+    } else {
+        "CPA 内核已安装，当前未运行".to_string()
+    };
+
+    Ok(CoreStatus {
+        installed,
+        running,
+        managed: managed_pid.is_some(),
+        process_id,
+        current_version,
+        install_dir: path_to_string(&install_dir),
+        binary_path: binary_path.map(|path| path_to_string(&path)),
+        message,
+    })
+}
+
+fn is_management_port_open(port: u16) -> bool {
+    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
+    TcpStream::connect_timeout(&address, Duration::from_millis(150)).is_ok()
+}
+
+fn start_core_process_inner(
+    process_state: &CoreProcessState,
+    gui_config: &GuiConfigFile,
+) -> Result<(), String> {
+    let install_dir = core_install_dir()?;
+    if !gui_config.auth_dir.trim().is_empty() {
+        let auth_dir = auth_dir_path_for_core(&gui_config.auth_dir, &install_dir);
+        fs::create_dir_all(&auth_dir)
+            .map_err(|error| format!("创建凭证目录失败 {}: {error}", path_to_string(&auth_dir)))?;
+    }
+    let binary_path = find_core_binary(&install_dir)
+        .ok_or_else(|| "未安装 CPA 内核，请先安装最新版".to_string())?;
+
+    if process_state.managed_pid().is_some() || is_core_running(&binary_path) {
+        return Err("CPA 内核已经在运行".to_string());
+    }
+    let management_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), gui_config.port);
+    if TcpStream::connect_timeout(&management_address, Duration::from_millis(250)).is_ok() {
+        return Err(format!(
+            "端口 {} 已被其他程序占用，请更换端口后重试",
+            gui_config.port
+        ));
+    }
+
+    let config_path = merge_core_config_for_start(&install_dir, gui_config)?;
+    let config_path = path_to_string(&config_path);
+    let mut command = Command::new(&binary_path);
+    command
+        .args(["-config", &config_path])
+        .current_dir(&install_dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    configure_background_command(&mut command);
+    configure_child_lifetime(&mut command);
+
+    let mut child = command
+        .spawn()
+        .map_err(|err| format!("启动 CPA 内核失败: {err}"))?;
+
+    if let Err(error) = wait_for_core_management_port(&mut child, management_address) {
+        let _ = terminate_child(&mut child);
+        return Err(error);
+    }
+
+    process_state.store_child(child)?;
+
+    Ok(())
+}
+
+fn wait_for_core_management_port(child: &mut Child, address: SocketAddr) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(status) = child
+            .try_wait()
+            .map_err(|err| format!("检查 CPA 内核启动状态失败: {err}"))?
+        {
+            return Err(format!("CPA 内核启动后立即退出: {status}"));
+        }
+        if TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_ok() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "CPA 内核启动超时：10 秒内未监听管理端口 {}",
+                address.port()
+            ));
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn configure_child_lifetime(command: &mut Command) {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+
+        let parent_process_id = unsafe { libc::getpid() };
+        unsafe {
+            command.pre_exec(move || {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM) == -1 {
+                    return Err(io::Error::last_os_error());
+                }
+
+                if libc::getppid() != parent_process_id {
+                    return Err(io::Error::other(
+                        "EasyCLIProxyAPI exited before the core process started",
+                    ));
+                }
+
+                Ok(())
+            });
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    let _ = command;
+}
+
+fn configure_background_command(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    #[cfg(not(windows))]
+    let _ = command;
+}
+
+fn merge_core_config_for_start(
+    install_dir: &Path,
+    gui_config: &GuiConfigFile,
+) -> Result<PathBuf, String> {
+    let _config_guard = lock_core_config_file()?;
+    let config_path = install_dir.join(CORE_CONFIG_FILE);
+    let example_config_path = install_dir.join(CORE_EXAMPLE_CONFIG_FILE);
+    if !example_config_path.is_file() {
+        return Err(format!(
+            "未找到内核配置模板: {}",
+            path_to_string(&example_config_path)
+        ));
+    }
+
+    let template = fs::read_to_string(&example_config_path).map_err(|err| {
+        format!(
+            "读取内核配置模板失败 {}: {err}",
+            path_to_string(&example_config_path)
+        )
+    })?;
+    let current = if config_path.is_file() {
+        Some(fs::read_to_string(&config_path).map_err(|err| {
+            format!(
+                "读取现有内核配置失败 {}: {err}",
+                path_to_string(&config_path)
+            )
+        })?)
+    } else {
+        None
+    };
+    let merged = merge_core_config_yaml(&template, current.as_deref(), gui_config)?;
+    write_yaml_if_changed(&config_path, &merged)?;
+
+    Ok(config_path)
+}
+
+fn patch_core_network_settings(config: &GuiConfigFile) -> Result<(), String> {
+    let _config_guard = lock_core_config_file()?;
+    let install_dir = core_install_dir()?;
+    let config_path = install_dir.join(CORE_CONFIG_FILE);
+    if !config_path.is_file() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&config_path)
+        .map_err(|err| format!("读取内核配置失败 {}: {err}", path_to_string(&config_path)))?;
+    let Some(updated) = patch_core_network_yaml(&content, config)? else {
+        return Ok(());
+    };
+    write_yaml_if_changed(&config_path, &updated).map(|_| ())
+}
+
+fn patch_core_network_routing_settings(config: &GuiConfigFile) -> Result<(), String> {
+    let _config_guard = lock_core_config_file()?;
+    let config_path = core_install_dir()?.join(CORE_CONFIG_FILE);
+    if !config_path.is_file() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&config_path)
+        .map_err(|err| format!("读取内核配置失败 {}: {err}", path_to_string(&config_path)))?;
+    let Some(updated) = patch_core_network_routing_yaml(&content, config)? else {
+        return Ok(());
+    };
+    write_yaml_if_changed(&config_path, &updated).map(|_| ())
+}
+
+fn lock_core_config_file() -> Result<std::sync::MutexGuard<'static, ()>, String> {
+    CORE_CONFIG_FILE_LOCK
+        .lock()
+        .map_err(|_| "内核配置文件锁已损坏".to_string())
+}
+
+fn read_installed_core_config_settings() -> Result<CoreConfigSettings, String> {
+    let _config_guard = lock_core_config_file()?;
+    let (_, document) = read_core_config_document()?;
+    core_config_settings_from_value(document.get())
+}
+
+fn current_core_config_settings(
+    gui_config_state: &GuiConfigState,
+) -> Result<CoreConfigSettings, String> {
+    let config_path = core_install_dir()?.join(CORE_CONFIG_FILE);
+    if config_path.is_file() {
+        read_installed_core_config_settings()
+    } else {
+        let config = gui_config_state.snapshot()?;
+        Ok(CoreConfigSettings::from(&config))
+    }
+}
+
+fn patch_core_api_keys(api_keys: &[String]) -> Result<(), String> {
+    let _config_guard = lock_core_config_file()?;
+    let config_path = core_install_dir()?.join(CORE_CONFIG_FILE);
+    if !config_path.is_file() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&config_path)
+        .map_err(|err| format!("读取内核配置失败 {}: {err}", path_to_string(&config_path)))?;
+    let updated = patch_core_api_keys_yaml(&content, api_keys)?;
+    write_yaml_if_changed(&config_path, &updated)?;
+    Ok(())
+}
+
+fn patch_core_management_secret_key(secret_key: &str) -> Result<(), String> {
+    let secret_key = secret_key.to_string();
+    patch_existing_core_config(move |document| {
+        set_core_yaml_nested_value(
+            document,
+            "remote-management",
+            "secret-key",
+            serde_norway::Value::String(secret_key),
+        )
+    })
+}
+
+fn patch_core_plugins_enabled(enabled: bool) -> Result<(), String> {
+    patch_existing_core_config(|document| {
+        set_core_yaml_nested_value(
+            document,
+            "plugins",
+            "enabled",
+            serde_norway::Value::Bool(enabled),
+        )
+    })
+}
+
+fn patch_core_routing_strategy(strategy: &str) -> Result<(), String> {
+    let strategy = strategy.to_string();
+    patch_existing_core_config(move |document| {
+        set_core_yaml_nested_value(
+            document,
+            "routing",
+            "strategy",
+            serde_norway::Value::String(strategy),
+        )
+    })
+}
+
+fn patch_core_proxy_url(proxy_url: &str) -> Result<(), String> {
+    let proxy_url = proxy_url.to_string();
+    patch_existing_core_config(move |document| {
+        set_core_yaml_top_level_value(
+            document,
+            "proxy-url",
+            serde_norway::Value::String(proxy_url),
+        )
+    })
+}
+
+fn patch_core_session_affinity(enabled: bool) -> Result<(), String> {
+    patch_existing_core_config(move |document| {
+        set_core_yaml_nested_value(
+            document,
+            "routing",
+            "session-affinity",
+            serde_norway::Value::Bool(enabled),
+        )
+    })
+}
+
+fn patch_core_session_affinity_ttl(ttl: &str) -> Result<(), String> {
+    let ttl = ttl.to_string();
+    patch_existing_core_config(move |document| {
+        set_core_yaml_nested_value(
+            document,
+            "routing",
+            "session-affinity-ttl",
+            serde_norway::Value::String(ttl),
+        )
+    })
+}
+
+fn patch_existing_core_config<F>(update: F) -> Result<(), String>
+where
+    F: FnOnce(&mut serde_norway::Value) -> Result<bool, String>,
+{
+    let _config_guard = lock_core_config_file()?;
+    let config_path = core_install_dir()?.join(CORE_CONFIG_FILE);
+    if !config_path.is_file() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&config_path)
+        .map_err(|err| format!("读取内核配置失败 {}: {err}", path_to_string(&config_path)))?;
+    let Some(updated) = patch_core_yaml_document(&content, update)? else {
+        return Ok(());
+    };
+
+    write_yaml_if_changed(&config_path, &updated)?;
+
+    Ok(())
+}
+
+fn patch_core_yaml_document<F>(content: &str, update: F) -> Result<Option<String>, String>
+where
+    F: FnOnce(&mut serde_norway::Value) -> Result<bool, String>,
+{
+    let original = serde_norway::from_str::<serde_norway::Value>(content)
+        .map_err(|err| format!("解析内核配置失败: {err}"))?;
+    let mut updated = original.clone();
+    if !update(&mut updated)? {
+        return Ok(None);
+    }
+    render_yaml_value_changes(content, &original, &updated).map(Some)
+}
+
+struct YamlValueChange {
+    path: Vec<String>,
+    value: serde_norway::Value,
+}
+
+fn render_yaml_value_changes(
+    content: &str,
+    original: &serde_norway::Value,
+    updated: &serde_norway::Value,
+) -> Result<String, String> {
+    if original == updated {
+        return Ok(content.to_string());
+    }
+    let mut editable_content = normalize_nested_yaml_comment_indentation(content);
+    let mut changes = Vec::new();
+    collect_yaml_value_changes(original, updated, &mut Vec::new(), &mut changes)?;
+    let mut remaining_changes = Vec::new();
+    for change in changes {
+        let sequence_length_changed = matches!(
+            (yaml_value_at_path(original, &change.path), &change.value),
+            (
+                Some(serde_norway::Value::Sequence(original_values)),
+                serde_norway::Value::Sequence(updated_values)
+            ) if original_values.len() != updated_values.len()
+        );
+        if sequence_length_changed {
+            editable_content =
+                replace_yaml_sequence_value(&editable_content, &change.path, &change.value)?;
+        } else {
+            remaining_changes.push(change);
+        }
+    }
+    let mut missing_nested_groups: Vec<(String, Vec<(String, serde_norway::Value)>)> = Vec::new();
+    for change in &remaining_changes {
+        if change.path.len() != 2
+            || yaml_value_at_path(original, &change.path).is_some()
+            || yaml_value_at_path(original, &change.path[..1])
+                .and_then(serde_norway::Value::as_mapping)
+                .is_none()
+        {
+            continue;
+        }
+        let section = change.path[0].clone();
+        let entry = (change.path[1].clone(), change.value.clone());
+        if let Some((_, entries)) = missing_nested_groups
+            .iter_mut()
+            .find(|(existing, _)| existing == &section)
+        {
+            entries.push(entry);
+        } else {
+            missing_nested_groups.push((section, vec![entry]));
+        }
+    }
+    for (section, entries) in missing_nested_groups {
+        if let Some(updated_content) =
+            insert_yaml_block_mapping_values(&editable_content, &section, &entries)?
+        {
+            editable_content = updated_content;
+        }
+    }
+    let file = editable_content
+        .parse::<yaml_edit::YamlFile>()
+        .map_err(|err| format!("解析可编辑内核配置失败: {err}"))?;
+    let document = file
+        .document()
+        .ok_or_else(|| "内核配置没有 YAML 文档".to_string())?;
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    for change in remaining_changes {
+        set_yaml_edit_mapping_path(&root, &change.path, &change.value)?;
+    }
+    let rendered = file.to_string();
+    let validated = serde_norway::from_str::<serde_norway::Value>(&rendered)
+        .map_err(|err| format!("验证更新后的内核配置失败: {err}"))?;
+    if validated != *updated {
+        return Err("更新后的内核配置与预期值不一致，已拒绝写入".to_string());
+    }
+    Ok(rendered)
+}
+
+fn normalize_nested_yaml_comment_indentation(content: &str) -> String {
+    let lines = content.split_inclusive('\n').collect::<Vec<_>>();
+    let mut normalized = String::with_capacity(content.len());
+    for (index, line) in lines.iter().enumerate() {
+        let body = line.trim_end_matches(['\r', '\n']);
+        let ending = &line[body.len()..];
+        let trimmed = body.trim_start_matches([' ', '\t']);
+        let current_indent = body.len().saturating_sub(trimmed.len());
+        if !trimmed.starts_with('#') {
+            normalized.push_str(line);
+            continue;
+        }
+        let next = lines.iter().skip(index + 1).find_map(|candidate| {
+            let candidate = candidate.trim_end_matches(['\r', '\n']);
+            let trimmed = candidate.trim_start_matches([' ', '\t']);
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                None
+            } else {
+                Some((candidate.len().saturating_sub(trimmed.len()), trimmed))
+            }
+        });
+        let Some((next_indent, _)) = next else {
+            normalized.push_str(line);
+            continue;
+        };
+        let belongs_to_nested_mapping = current_indent < next_indent
+            && lines[..index].iter().rev().any(|candidate| {
+                let candidate = candidate.trim_end_matches(['\r', '\n']);
+                let trimmed = candidate.trim_start_matches([' ', '\t']);
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    return false;
+                }
+                let indent = candidate.len().saturating_sub(trimmed.len());
+                indent < next_indent && trimmed.ends_with(':')
+            });
+        if belongs_to_nested_mapping {
+            normalized.push_str(&" ".repeat(next_indent));
+            normalized.push_str(trimmed);
+            normalized.push_str(ending);
+        } else {
+            normalized.push_str(line);
+        }
+    }
+    normalized
+}
+
+fn collect_yaml_value_changes(
+    original: &serde_norway::Value,
+    updated: &serde_norway::Value,
+    path: &mut Vec<String>,
+    changes: &mut Vec<YamlValueChange>,
+) -> Result<(), String> {
+    if original == updated {
+        return Ok(());
+    }
+    match (original, updated) {
+        (
+            serde_norway::Value::Mapping(original_mapping),
+            serde_norway::Value::Mapping(updated_mapping),
+        ) => {
+            for key in original_mapping.keys() {
+                if !updated_mapping.contains_key(key) {
+                    return Err("当前内核配置更新不支持删除任意 YAML 字段".to_string());
+                }
+            }
+            for (key, updated_value) in updated_mapping {
+                let key = key
+                    .as_str()
+                    .ok_or_else(|| "内核配置映射键必须是字符串".to_string())?;
+                path.push(key.to_string());
+                if let Some(original_value) = original_mapping.get(yaml_key(key)) {
+                    collect_yaml_value_changes(original_value, updated_value, path, changes)?;
+                } else {
+                    changes.push(YamlValueChange {
+                        path: path.clone(),
+                        value: updated_value.clone(),
+                    });
+                }
+                path.pop();
+            }
+            Ok(())
+        }
+        _ if path.is_empty() => Err("内核配置顶层必须保持为 YAML 映射".to_string()),
+        _ => {
+            changes.push(YamlValueChange {
+                path: path.clone(),
+                value: updated.clone(),
+            });
+            Ok(())
+        }
+    }
+}
+
+fn yaml_value_at_path<'a>(
+    root: &'a serde_norway::Value,
+    path: &[String],
+) -> Option<&'a serde_norway::Value> {
+    path.iter().try_fold(root, |current, key| {
+        current.as_mapping()?.get(yaml_key(key))
+    })
+}
+
+fn insert_yaml_block_mapping_values(
+    content: &str,
+    section: &str,
+    entries: &[(String, serde_norway::Value)],
+) -> Result<Option<String>, String> {
+    let mut offset = 0;
+    let mut section_end = None;
+    let mut child_indent = None;
+    for line in content.split_inclusive('\n') {
+        let body = line.trim_end_matches(['\r', '\n']);
+        let trimmed = body.trim_start_matches([' ', '\t']);
+        let indent = body.len().saturating_sub(trimmed.len());
+        if section_end.is_none() {
+            let section_header = trimmed
+                .split_once('#')
+                .map(|(value, _)| value)
+                .unwrap_or(trimmed)
+                .trim_end();
+            if indent == 0 && section_header == format!("{section}:") {
+                section_end = Some(offset + line.len());
+            }
+        } else if !trimmed.is_empty() && !trimmed.starts_with('#') {
+            if indent == 0 {
+                break;
+            }
+            child_indent.get_or_insert(indent);
+        }
+        offset += line.len();
+    }
+    let Some(section_end) = section_end else {
+        return Ok(None);
+    };
+    let newline = if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let indent = " ".repeat(child_indent.unwrap_or(2));
+    let mut insertion = String::new();
+    for (key, value) in entries {
+        let value = serde_json::to_string(value)
+            .map_err(|error| format!("序列化内核配置值失败: {error}"))?;
+        insertion.push_str(&indent);
+        insertion.push_str(key);
+        insertion.push_str(": ");
+        insertion.push_str(&value);
+        insertion.push_str(newline);
+    }
+    let mut updated = String::with_capacity(content.len() + insertion.len());
+    updated.push_str(&content[..section_end]);
+    updated.push_str(&insertion);
+    updated.push_str(&content[section_end..]);
+    Ok(Some(updated))
+}
+
+fn replace_yaml_sequence_value(
+    content: &str,
+    path: &[String],
+    value: &serde_norway::Value,
+) -> Result<String, String> {
+    let file = content
+        .parse::<yaml_edit::YamlFile>()
+        .map_err(|err| format!("解析可编辑内核配置失败: {err}"))?;
+    let document = file
+        .document()
+        .ok_or_else(|| "内核配置没有 YAML 文档".to_string())?;
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let node = yaml_edit_node_at_path(&root, path)
+        .ok_or_else(|| format!("未找到内核配置序列 {}", path.join(".")))?;
+    let sequence = node
+        .as_sequence()
+        .ok_or_else(|| format!("内核配置字段 {} 必须是 YAML 序列", path.join(".")))?;
+    let range = sequence.byte_range();
+    let start = range.start as usize;
+    let end = range.end as usize;
+    let line_start = content[..start]
+        .rfind('\n')
+        .map(|index| index + 1)
+        .unwrap_or(0);
+    let prefix = &content[line_start..start];
+    let original = &content[start..end];
+    let trimmed_end = original.trim_end_matches(char::is_whitespace).len();
+    let trailing = &original[trimmed_end..];
+
+    let serialized = if prefix.trim().is_empty() {
+        let serialized = serde_norway::to_string(value)
+            .map_err(|err| format!("序列化内核配置序列失败: {err}"))?;
+        let serialized = serialized.trim_end_matches(['\r', '\n']);
+        let mut indented = String::with_capacity(serialized.len() + prefix.len() * 2);
+        for (index, line) in serialized.split('\n').enumerate() {
+            if index > 0 {
+                indented.push('\n');
+                indented.push_str(prefix);
+            }
+            indented.push_str(line);
+        }
+        indented
+    } else {
+        serde_json::to_string(value).map_err(|err| format!("序列化内核配置序列失败: {err}"))?
+    };
+
+    Ok(format!(
+        "{}{}{}{}",
+        &content[..start],
+        serialized,
+        trailing,
+        &content[end..]
+    ))
+}
+
+fn yaml_edit_node_at_path(
+    mapping: &yaml_edit::Mapping,
+    path: &[String],
+) -> Option<yaml_edit::YamlNode> {
+    let (key, remaining) = path.split_first()?;
+    let node = mapping.get(key.as_str())?;
+    if remaining.is_empty() {
+        return Some(node);
+    }
+    let child = node.as_mapping()?;
+    yaml_edit_node_at_path(child, remaining)
+}
+
+fn set_yaml_edit_mapping_path(
+    mapping: &yaml_edit::Mapping,
+    path: &[String],
+    value: &serde_norway::Value,
+) -> Result<(), String> {
+    let Some((key, remaining)) = path.split_first() else {
+        return Err("内核配置更新路径不能为空".to_string());
+    };
+    if remaining.is_empty() {
+        return set_yaml_edit_mapping_value(mapping, key, value);
+    }
+    if let Some(child) = mapping.get(key.as_str()) {
+        let child = child
+            .as_mapping()
+            .ok_or_else(|| format!("内核配置区段 {key} 必须是 YAML 映射"))?;
+        return set_yaml_edit_mapping_path(child, remaining, value);
+    }
+    let nested_value = nested_yaml_value_for_path(remaining, value.clone());
+    set_yaml_edit_mapping_value(mapping, key, &nested_value)
+}
+
+fn set_yaml_edit_mapping_value(
+    mapping: &yaml_edit::Mapping,
+    key: &str,
+    value: &serde_norway::Value,
+) -> Result<(), String> {
+    match value {
+        serde_norway::Value::String(value) => {
+            mapping.set(key, value.as_str());
+            return Ok(());
+        }
+        serde_norway::Value::Bool(value) => {
+            mapping.set(key, *value);
+            return Ok(());
+        }
+        serde_norway::Value::Number(value) => {
+            if let Some(value) = value.as_i64() {
+                mapping.set(key, value);
+                return Ok(());
+            }
+            if let Some(value) = value.as_u64() {
+                mapping.set(key, value);
+                return Ok(());
+            }
+            if let Some(value) = value.as_f64() {
+                mapping.set(key, value);
+                return Ok(());
+            }
+        }
+        _ => {}
+    }
+    if let serde_norway::Value::Sequence(values) = value {
+        if let Some(node) = mapping.get(key) {
+            if let Some(sequence) = node.as_sequence() {
+                if sequence.len() != values.len() {
+                    return Err(format!("内核配置序列 {key} 长度变化未被预处理"));
+                }
+                for (index, value) in values.iter().enumerate() {
+                    let value = yaml_edit_node_from_value(value)?;
+                    if !sequence.set(index, value) {
+                        return Err(format!("更新内核配置序列 {key}[{index}] 失败"));
+                    }
+                }
+                return Ok(());
+            }
+        }
+    }
+    match yaml_edit_node_from_value(value)? {
+        yaml_edit::YamlNode::Scalar(node) => mapping.set(key, node),
+        yaml_edit::YamlNode::Sequence(node) => mapping.set(key, node),
+        yaml_edit::YamlNode::Mapping(node) => mapping.set(key, node),
+        yaml_edit::YamlNode::Alias(node) => mapping.set(key, node),
+        yaml_edit::YamlNode::TaggedNode(node) => mapping.set(key, node),
+    }
+    Ok(())
+}
+
+fn nested_yaml_value_for_path(path: &[String], value: serde_norway::Value) -> serde_norway::Value {
+    path.iter().rev().fold(value, |nested, key| {
+        let mut mapping = serde_norway::Mapping::new();
+        mapping.insert(yaml_key(key), nested);
+        serde_norway::Value::Mapping(mapping)
+    })
+}
+
+fn yaml_edit_node_from_value(value: &serde_norway::Value) -> Result<yaml_edit::YamlNode, String> {
+    const WRAPPER_KEY: &str = "__cpa_gui_value__";
+    let value =
+        serde_json::to_string(value).map_err(|err| format!("序列化内核配置值失败: {err}"))?;
+    let serialized = format!("{WRAPPER_KEY}: {value}\n");
+    let file = serialized
+        .parse::<yaml_edit::YamlFile>()
+        .map_err(|err| format!("解析内核配置值失败: {err}"))?;
+    file.document()
+        .and_then(|document| document.get(WRAPPER_KEY))
+        .ok_or_else(|| "无法构造内核配置值".to_string())
+}
+
+fn set_core_yaml_top_level_value(
+    document: &mut serde_norway::Value,
+    key: &str,
+    value: serde_norway::Value,
+) -> Result<bool, String> {
+    let root = document
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let key = yaml_key(key);
+    if root.get(&key) == Some(&value) {
+        return Ok(false);
+    }
+    root.insert(key, value);
+    Ok(true)
+}
+
+fn set_core_yaml_nested_value(
+    document: &mut serde_norway::Value,
+    section: &str,
+    key: &str,
+    value: serde_norway::Value,
+) -> Result<bool, String> {
+    let root = document
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let section = root
+        .entry(yaml_key(section))
+        .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置区段必须是 YAML 映射".to_string())?;
+    let key = yaml_key(key);
+    if section.get(&key) == Some(&value) {
+        return Ok(false);
+    }
+    section.insert(key, value);
+    Ok(true)
+}
+
+fn patch_core_api_keys_yaml(content: &str, api_keys: &[String]) -> Result<String, String> {
+    let parsed = serde_norway::from_str::<serde_norway::Value>(content)
+        .map_err(|err| format!("解析内核配置失败: {err}"))?;
+    let root = parsed
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let has_legacy_api_keys = nested_yaml_value(
+        root,
+        &["auth", "providers", "config-api-key", "api-key-entries"],
+    )
+    .is_some()
+        || nested_yaml_value(root, &["auth", "providers", "config-api-key", "api-keys"]).is_some();
+    let content = if has_legacy_api_keys {
+        let file = content
+            .parse::<yaml_edit::YamlFile>()
+            .map_err(|err| format!("解析内核配置失败: {err}"))?;
+        let document = file
+            .document()
+            .ok_or_else(|| "内核配置没有 YAML 文档".to_string())?;
+        clear_legacy_api_key_paths(&document);
+        file.to_string()
+    } else {
+        content.to_string()
+    };
+    let block = render_core_api_keys_yaml(api_keys)?;
+    let updated = replace_top_level_yaml_block(&content, "api-keys", &block);
+    serde_norway::from_str::<serde_norway::Value>(&updated)
+        .map_err(|err| format!("验证更新后的内核配置失败: {err}"))?;
+    Ok(updated)
+}
+
+fn render_core_api_keys_yaml(api_keys: &[String]) -> Result<String, String> {
+    if api_keys.is_empty() {
+        return Ok(String::new());
+    }
+
+    let sequence = serde_norway::Value::Sequence(
+        api_keys
+            .iter()
+            .cloned()
+            .map(serde_norway::Value::String)
+            .collect(),
+    );
+    let serialized = serde_norway::to_string(&sequence)
+        .map_err(|err| format!("生成内核鉴权密钥配置失败: {err}"))?;
+    let mut block = String::from("api-keys:\n");
+    for line in serialized.lines() {
+        block.push_str("  ");
+        block.push_str(line);
+        block.push('\n');
+    }
+    Ok(block)
+}
+
+fn replace_top_level_yaml_block(content: &str, key: &str, block: &str) -> String {
+    let lines = yaml_line_ranges(content);
+    let key_prefix = format!("{key}:");
+
+    if let Some((line_index, (start, end))) =
+        lines.iter().copied().enumerate().find(|(_, range)| {
+            let line = yaml_line_content(content, *range);
+            !line.chars().next().is_some_and(char::is_whitespace) && line.starts_with(&key_prefix)
+        })
+    {
+        let line = yaml_line_content(content, (start, end));
+        let value = line[key_prefix.len()..].trim();
+        let mut replace_end = end;
+        if value.is_empty() || value.starts_with('#') {
+            for (next_start, next_end) in lines.iter().copied().skip(line_index + 1) {
+                let next = yaml_line_content(content, (next_start, next_end));
+                if next.chars().next().is_some_and(char::is_whitespace)
+                    || is_indentationless_yaml_sequence_item(next)
+                {
+                    replace_end = next_end;
+                } else {
+                    break;
+                }
+            }
+        }
+        return replace_yaml_range(content, start, replace_end, block);
+    }
+
+    let insertion = lines
+        .iter()
+        .copied()
+        .find(|range| yaml_line_content(content, *range).trim() == "# API keys for authentication")
+        .map(|(_, end)| end)
+        .or_else(|| {
+            lines
+                .iter()
+                .copied()
+                .find(|range| {
+                    let line = yaml_line_content(content, *range);
+                    !line.chars().next().is_some_and(char::is_whitespace)
+                        && line.starts_with("auth-dir:")
+                })
+                .map(|(_, end)| end)
+        })
+        .unwrap_or(0);
+    replace_yaml_range(content, insertion, insertion, block)
+}
+
+fn is_indentationless_yaml_sequence_item(line: &str) -> bool {
+    let Some(rest) = line.strip_prefix('-') else {
+        return false;
+    };
+    rest.is_empty() || rest.chars().next().is_some_and(char::is_whitespace)
+}
+
+fn yaml_line_ranges(content: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    for (index, character) in content.char_indices() {
+        if character == '\n' {
+            ranges.push((start, index + 1));
+            start = index + 1;
+        }
+    }
+    if start < content.len() {
+        ranges.push((start, content.len()));
+    }
+    ranges
+}
+
+fn yaml_line_content(content: &str, (start, end): (usize, usize)) -> &str {
+    content[start..end].trim_end_matches(['\r', '\n'])
+}
+
+fn replace_yaml_range(content: &str, start: usize, end: usize, block: &str) -> String {
+    let mut result = String::with_capacity(content.len() + block.len());
+    result.push_str(&content[..start]);
+    if !block.is_empty() {
+        result.push_str(block);
+        if !block.ends_with('\n') && (end < content.len() || content.ends_with('\n')) {
+            result.push('\n');
+        }
+    }
+    result.push_str(&content[end..]);
+    result
+}
+
+fn clear_legacy_api_key_paths(document: &yaml_edit::Document) {
+    use yaml_edit::path::YamlPath;
+
+    document.remove_path("auth.providers.config-api-key.api-key-entries");
+    document.remove_path("auth.providers.config-api-key.api-keys");
+}
+
+#[cfg(test)]
+fn set_yaml_edit_nested_value(
+    document: &yaml_edit::Document,
+    section: &str,
+    key: &str,
+    value: impl yaml_edit::AsYaml,
+) -> bool {
+    if let Some(node) = document.get(section) {
+        if let Some(mapping) = node.as_mapping() {
+            mapping.set(key, value);
+            return true;
+        }
+    }
+    false
+}
+
+fn read_core_config_document() -> Result<(PathBuf, yaml_serde_edit::YamlValue), String> {
+    let config_path = core_install_dir()?.join(CORE_CONFIG_FILE);
+    if !config_path.is_file() {
+        return Err("内核配置尚未生成，请先启动 CPA 内核".to_string());
+    }
+
+    let content = fs::read_to_string(&config_path)
+        .map_err(|err| format!("读取内核配置失败 {}: {err}", path_to_string(&config_path)))?;
+    let document = yaml_serde_edit::YamlValue::parse(&content)
+        .map_err(|err| format!("解析内核配置失败: {err}"))?;
+    Ok((config_path, document))
+}
+
+fn core_config_settings_from_value(
+    document: &serde_norway::Value,
+) -> Result<CoreConfigSettings, String> {
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let host = yaml_mapping_value(root, "host")
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| "host 必须是字符串".to_string())
+        })
+        .transpose()?
+        .unwrap_or_else(|| "127.0.0.1".to_string());
+    let port = yaml_mapping_value(root, "port")
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|value| u16::try_from(value).ok())
+                .filter(|value| *value != 0)
+                .ok_or_else(|| "port 必须是 1 到 65535 之间的整数".to_string())
+        })
+        .transpose()?
+        .unwrap_or(8317);
+    let auth_dir = yaml_mapping_value(root, "auth-dir")
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| "auth-dir 必须是字符串".to_string())
+        })
+        .transpose()?
+        .unwrap_or_else(|| OAUTH_DIR_NAME.to_string());
+    let usage_statistics_enabled = yaml_mapping_value(root, "usage-statistics-enabled")
+        .map(|value| {
+            value
+                .as_bool()
+                .ok_or_else(|| "usage-statistics-enabled 必须是布尔值".to_string())
+        })
+        .transpose()?
+        .unwrap_or(true);
+    let api_keys = extract_core_api_keys(root)?
+        .into_iter()
+        .filter(|api_key| !is_example_core_api_key(api_key))
+        .collect();
+    let management_secret_key = extract_core_management_secret_key(root)?;
+    let plugins_enabled = nested_yaml_value(root, &["plugins", "enabled"])
+        .map(|value| {
+            value
+                .as_bool()
+                .ok_or_else(|| "plugins.enabled 必须是布尔值".to_string())
+        })
+        .transpose()?
+        .unwrap_or(false);
+    let routing_strategy = nested_yaml_value(root, &["routing", "strategy"])
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| "routing.strategy 必须是字符串".to_string())
+        })
+        .transpose()?
+        .unwrap_or_else(|| "round-robin".to_string());
+    let proxy_url = yaml_mapping_value(root, "proxy-url")
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| "proxy-url 必须是字符串".to_string())
+        })
+        .transpose()?
+        .unwrap_or_default();
+    let routing_session_affinity = nested_yaml_value(root, &["routing", "session-affinity"])
+        .or_else(|| nested_yaml_value(root, &["routing", "sessionAffinity"]))
+        .map(|value| {
+            value
+                .as_bool()
+                .ok_or_else(|| "routing.session-affinity 必须是布尔值".to_string())
+        })
+        .transpose()?
+        .unwrap_or(false);
+    let routing_session_affinity_ttl =
+        nested_yaml_value(root, &["routing", "session-affinity-ttl"])
+            .or_else(|| nested_yaml_value(root, &["routing", "sessionAffinityTTL"]))
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(str::to_string)
+                    .ok_or_else(|| "routing.session-affinity-ttl 必须是字符串".to_string())
+            })
+            .transpose()?
+            .unwrap_or_default();
+
+    Ok(CoreConfigSettings {
+        host,
+        port,
+        auth_dir,
+        api_keys,
+        management_secret_configured: management_secret_key
+            .as_deref()
+            .is_some_and(|value| !value.is_empty()),
+        usage_statistics_enabled,
+        plugins_enabled,
+        routing_strategy,
+        proxy_url,
+        routing_session_affinity,
+        routing_session_affinity_ttl,
+        management_secret_key,
+    })
+}
+
+fn extract_core_api_keys(root: &serde_norway::Mapping) -> Result<Vec<String>, String> {
+    if let Some(value) = yaml_mapping_value(root, "api-keys") {
+        return extract_api_key_sequence(value, "api-keys");
+    }
+
+    let legacy = nested_yaml_value(root, &["auth", "providers", "config-api-key"])
+        .and_then(serde_norway::Value::as_mapping);
+    let Some(legacy) = legacy else {
+        return Ok(Vec::new());
+    };
+    let value = yaml_mapping_value(legacy, "api-key-entries")
+        .or_else(|| yaml_mapping_value(legacy, "api-keys"));
+    value
+        .map(|value| extract_api_key_sequence(value, "auth.providers.config-api-key"))
+        .transpose()
+        .map(Option::unwrap_or_default)
+}
+
+fn extract_api_key_sequence(
+    value: &serde_norway::Value,
+    field_name: &str,
+) -> Result<Vec<String>, String> {
+    if value.is_null() {
+        return Ok(Vec::new());
+    }
+
+    let sequence = value
+        .as_sequence()
+        .ok_or_else(|| format!("{field_name} 必须是数组"))?;
+    sequence
+        .iter()
+        .filter_map(extract_api_key_value)
+        .collect::<Result<Vec<_>, _>>()
+}
+
+fn extract_api_key_value(value: &serde_norway::Value) -> Option<Result<String, String>> {
+    if let Some(value) = value.as_str() {
+        let value = value.trim();
+        return (!value.is_empty()).then(|| Ok(value.to_string()));
+    }
+
+    let mapping = value.as_mapping()?;
+    for key in ["api-key", "apiKey", "key", "Key"] {
+        if let Some(value) = yaml_mapping_value(mapping, key).and_then(serde_norway::Value::as_str)
+        {
+            let value = value.trim();
+            if !value.is_empty() {
+                return Some(Ok(value.to_string()));
+            }
+        }
+    }
+
+    Some(Err(
+        "鉴权密钥条目必须是字符串或包含 key 字段的映射".to_string()
+    ))
+}
+
+fn extract_core_management_secret_key(
+    root: &serde_norway::Mapping,
+) -> Result<Option<String>, String> {
+    let Some(value) = nested_yaml_value(root, &["remote-management", "secret-key"]) else {
+        return Ok(None);
+    };
+    let value = value
+        .as_str()
+        .ok_or_else(|| "remote-management.secret-key 必须是字符串".to_string())?
+        .trim()
+        .to_string();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(value))
+}
+
+#[cfg(test)]
+fn set_core_api_keys(
+    document: &mut serde_norway::Value,
+    api_keys: Vec<String>,
+) -> Result<(), String> {
+    let root = document
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    root.insert(
+        yaml_key("api-keys"),
+        serde_norway::Value::Sequence(
+            api_keys
+                .into_iter()
+                .map(serde_norway::Value::String)
+                .collect(),
+        ),
+    );
+    remove_legacy_api_keys(root);
+    Ok(())
+}
+
+#[cfg(test)]
+fn remove_legacy_api_keys(root: &mut serde_norway::Mapping) {
+    let Some(auth) =
+        yaml_mapping_value_mut(root, "auth").and_then(serde_norway::Value::as_mapping_mut)
+    else {
+        return;
+    };
+    let Some(providers) =
+        yaml_mapping_value_mut(auth, "providers").and_then(serde_norway::Value::as_mapping_mut)
+    else {
+        return;
+    };
+    let Some(provider) = yaml_mapping_value_mut(providers, "config-api-key")
+        .and_then(serde_norway::Value::as_mapping_mut)
+    else {
+        return;
+    };
+    provider.remove(yaml_key("api-key-entries"));
+    provider.remove(yaml_key("api-keys"));
+}
+
+#[cfg(test)]
+fn set_nested_yaml_value<T>(
+    document: &mut serde_norway::Value,
+    path: &[&str],
+    value: T,
+) -> Result<(), String>
+where
+    T: Into<serde_norway::Value>,
+{
+    if path.len() != 2 {
+        return Err("内核配置路径无效".to_string());
+    }
+
+    let root = document
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let section = root
+        .entry(yaml_key(path[0]))
+        .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()));
+    let section = section
+        .as_mapping_mut()
+        .ok_or_else(|| format!("{} 必须是 YAML 映射", path[0]))?;
+    section.insert(yaml_key(path[1]), value.into());
+    Ok(())
+}
+
+fn nested_yaml_value<'a>(
+    root: &'a serde_norway::Mapping,
+    path: &[&str],
+) -> Option<&'a serde_norway::Value> {
+    let (first, rest) = path.split_first()?;
+    let mut value = yaml_mapping_value(root, first)?;
+    for key in rest {
+        value = yaml_mapping_value(value.as_mapping()?, key)?;
+    }
+    Some(value)
+}
+
+fn yaml_mapping_value<'a>(
+    mapping: &'a serde_norway::Mapping,
+    key: &str,
+) -> Option<&'a serde_norway::Value> {
+    mapping.get(yaml_key(key))
+}
+
+fn yaml_mapping_value_mut<'a>(
+    mapping: &'a mut serde_norway::Mapping,
+    key: &str,
+) -> Option<&'a mut serde_norway::Value> {
+    mapping.get_mut(yaml_key(key))
+}
+
+fn yaml_key(key: &str) -> serde_norway::Value {
+    serde_norway::Value::String(key.to_string())
+}
+
+fn validate_thinking_alias_model_id(value: &str, label: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(format!("{label}不能为空"));
+    }
+    if value.len() > 240
+        || value
+            .chars()
+            .any(|character| character.is_whitespace() || character.is_control())
+    {
+        return Err(format!("{label}格式无效，不能包含空白字符"));
+    }
+    Ok(value.to_string())
+}
+
+fn validate_thinking_alias_effort(value: &str) -> Result<String, String> {
+    let effort = value.trim().to_ascii_lowercase();
+    if effort.is_empty() {
+        return Err("思考强度不能为空".to_string());
+    }
+    if effort.chars().all(|character| character.is_ascii_digit()) {
+        return Err("固定思考别名不支持纯数字预算，请输入思考等级名称".to_string());
+    }
+    if effort.len() > 64
+        || !effort.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        })
+    {
+        return Err("思考强度格式无效，仅支持字母、数字、短横线、下划线和点".to_string());
+    }
+    Ok(effort)
+}
+
+async fn fetch_management_config_yaml(config: &GuiConfigFile) -> Result<String, String> {
+    let client = management_http_client()?;
+    let response = client
+        .get(management_endpoint(config, "config.yaml")?)
+        .header("Authorization", management_authorization(config)?)
+        .header(
+            reqwest::header::ACCEPT,
+            "application/yaml,text/yaml,text/plain",
+        )
+        .send()
+        .await
+        .map_err(|error| format!("读取内核 YAML 配置失败: {error}"))?;
+    read_management_text(response).await
+}
+
+async fn put_management_config_yaml(config: &GuiConfigFile, content: &str) -> Result<(), String> {
+    let client = management_http_client()?;
+    let response = client
+        .put(management_endpoint(config, "config.yaml")?)
+        .header("Authorization", management_authorization(config)?)
+        .header(reqwest::header::CONTENT_TYPE, "application/yaml")
+        .body(content.to_string())
+        .send()
+        .await
+        .map_err(|error| format!("保存内核 YAML 配置失败: {error}"))?;
+    read_management_value(response).await.map(|_| ())
+}
+
+async fn ensure_claude_desktop_model_aliases(
+    config: &GuiConfigFile,
+    mappings: &ClaudeDesktopModelMappings,
+    models: &[AgentModelOption],
+) -> Result<(), String> {
+    let content = fetch_management_config_yaml(config).await?;
+    let updated = ensure_claude_desktop_model_aliases_in_yaml(&content, mappings, models)?;
+    if updated != content {
+        put_management_config_yaml(config, &updated).await?;
+    }
+    Ok(())
+}
+
+async fn remove_managed_claude_model_aliases(config: &GuiConfigFile) -> Result<(), String> {
+    let content = fetch_management_config_yaml(config).await?;
+    let updated = remove_managed_claude_model_aliases_in_yaml(&content)?;
+    if updated != content {
+        put_management_config_yaml(config, &updated).await?;
+    }
+    Ok(())
+}
+
+fn ensure_claude_desktop_model_aliases_in_yaml(
+    content: &str,
+    mappings: &ClaudeDesktopModelMappings,
+    models: &[AgentModelOption],
+) -> Result<String, String> {
+    let mut document = yaml_serde_edit::YamlValue::parse(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+
+    for (alias, source_model) in [
+        (CLAUDE_DESKTOP_OPUS_MODEL_ID, mappings.opus.as_str()),
+        (CLAUDE_DESKTOP_SONNET_MODEL_ID, mappings.sonnet.as_str()),
+        (CLAUDE_DESKTOP_HAIKU_MODEL_ID, mappings.haiku.as_str()),
+    ] {
+        let direct_alias = models
+            .iter()
+            .any(|model| model.name.eq_ignore_ascii_case(source_model) && model.is_alias);
+        if direct_alias {
+            if !source_model.eq_ignore_ascii_case(alias) {
+                remove_managed_claude_model_alias(root, alias)?;
+            }
+        } else {
+            ensure_claude_desktop_model_alias(root, source_model, alias)?;
+        }
+    }
+    render_updated_core_yaml(&mut document, updated)
+}
+
+fn remove_managed_claude_model_aliases_in_yaml(content: &str) -> Result<String, String> {
+    let mut document = yaml_serde_edit::YamlValue::parse(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let mut changed = false;
+    for alias in [
+        CLAUDE_DESKTOP_OPUS_MODEL_ID,
+        CLAUDE_DESKTOP_SONNET_MODEL_ID,
+        CLAUDE_DESKTOP_HAIKU_MODEL_ID,
+    ] {
+        changed |= remove_managed_claude_model_alias(root, alias)?;
+    }
+    if !changed {
+        return Ok(content.to_string());
+    }
+    render_updated_core_yaml(&mut document, updated)
+}
+
+fn remove_managed_claude_model_alias(
+    root: &mut serde_norway::Mapping,
+    alias: &str,
+) -> Result<bool, String> {
+    let mut changed = false;
+    for section in MODEL_ALIAS_CONFIG_SECTIONS {
+        let Some(providers) = yaml_mapping_value_mut(root, section) else {
+            continue;
+        };
+        let providers = providers
+            .as_sequence_mut()
+            .ok_or_else(|| format!("{section} 必须是数组"))?;
+        for provider in providers {
+            let Some(provider) = provider.as_mapping_mut() else {
+                continue;
+            };
+            let Some(models) = yaml_mapping_value_mut(provider, "models") else {
+                continue;
+            };
+            let models = models
+                .as_sequence_mut()
+                .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+            let before = models.len();
+            models.retain(|model| !is_managed_claude_model_alias(model, alias));
+            changed |= models.len() != before;
+        }
+    }
+    Ok(changed)
+}
+
+fn remove_existing_claude_model_alias(
+    root: &mut serde_norway::Mapping,
+    alias: &str,
+) -> Result<bool, String> {
+    let mut changed = false;
+    for section in MODEL_ALIAS_CONFIG_SECTIONS {
+        let Some(providers) = yaml_mapping_value_mut(root, section) else {
+            continue;
+        };
+        let providers = providers
+            .as_sequence_mut()
+            .ok_or_else(|| format!("{section} 必须是数组"))?;
+        for provider in providers {
+            let Some(provider) = provider.as_mapping_mut() else {
+                continue;
+            };
+            let Some(models) = yaml_mapping_value_mut(provider, "models") else {
+                continue;
+            };
+            let models = models
+                .as_sequence_mut()
+                .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+            let before = models.len();
+            models.retain(|model| {
+                configured_model_identity(model)
+                    .is_none_or(|(_, client_model, _)| !client_model.eq_ignore_ascii_case(alias))
+            });
+            changed |= models.len() != before;
+        }
+    }
+    Ok(changed)
+}
+
+fn managed_claude_alias_display_name(alias: &str) -> Option<&'static str> {
+    if alias.eq_ignore_ascii_case(CLAUDE_DESKTOP_OPUS_MODEL_ID) {
+        Some(MANAGED_CLAUDE_OPUS_ALIAS_DISPLAY_NAME)
+    } else if alias.eq_ignore_ascii_case(CLAUDE_DESKTOP_SONNET_MODEL_ID) {
+        Some(MANAGED_CLAUDE_SONNET_ALIAS_DISPLAY_NAME)
+    } else if alias.eq_ignore_ascii_case(CLAUDE_DESKTOP_HAIKU_MODEL_ID) {
+        Some(MANAGED_CLAUDE_HAIKU_ALIAS_DISPLAY_NAME)
+    } else {
+        None
+    }
+}
+
+fn is_managed_claude_model_alias(model: &serde_norway::Value, alias: &str) -> bool {
+    let Some(expected_display_name) = managed_claude_alias_display_name(alias) else {
+        return false;
+    };
+    let Some((_, client_model, display_name)) = configured_model_identity(model) else {
+        return false;
+    };
+    client_model.eq_ignore_ascii_case(alias)
+        && display_name
+            .as_deref()
+            .is_some_and(|value| value == expected_display_name)
+}
+
+fn configured_managed_claude_alias_exists(root: &serde_norway::Mapping, alias: &str) -> bool {
+    MODEL_ALIAS_CONFIG_SECTIONS.iter().any(|section| {
+        yaml_mapping_value(root, section)
+            .and_then(serde_norway::Value::as_sequence)
+            .into_iter()
+            .flatten()
+            .filter_map(serde_norway::Value::as_mapping)
+            .filter_map(|provider| yaml_mapping_value(provider, "models"))
+            .filter_map(serde_norway::Value::as_sequence)
+            .flatten()
+            .any(|model| is_managed_claude_model_alias(model, alias))
+    })
+}
+
+fn ensure_claude_desktop_model_alias(
+    root: &mut serde_norway::Mapping,
+    source_model: &str,
+    alias: &str,
+) -> Result<(), String> {
+    if let Some((existing_source, _)) = configured_model_client_identity(root, alias) {
+        if existing_source.eq_ignore_ascii_case(source_model)
+            && configured_managed_claude_alias_exists(root, alias)
+        {
+            return Ok(());
+        }
+        remove_existing_claude_model_alias(root, alias)?;
+    }
+    if append_claude_desktop_model_alias(root, source_model, alias)? {
+        return Ok(());
+    }
+    Err(format!(
+        "无法确定模型 {source_model} 的 CPA 配置来源，无法创建 Claude Desktop 别名 {alias}"
+    ))
+}
+
+fn configured_model_client_identity(
+    root: &serde_norway::Mapping,
+    client_model: &str,
+) -> Option<(String, String)> {
+    for section in MODEL_ALIAS_CONFIG_SECTIONS {
+        let Some(providers) =
+            yaml_mapping_value(root, section).and_then(serde_norway::Value::as_sequence)
+        else {
+            continue;
+        };
+        for provider in providers {
+            let Some(provider) = provider.as_mapping() else {
+                continue;
+            };
+            let Some(models) =
+                yaml_mapping_value(provider, "models").and_then(serde_norway::Value::as_sequence)
+            else {
+                continue;
+            };
+            for model in models {
+                let Some((source, configured_client_model, _)) = configured_model_identity(model)
+                else {
+                    continue;
+                };
+                if configured_client_model.eq_ignore_ascii_case(client_model) {
+                    return Some((source, configured_client_model));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn append_claude_desktop_model_alias(
+    root: &mut serde_norway::Mapping,
+    source_model: &str,
+    alias: &str,
+) -> Result<bool, String> {
+    for section in MODEL_ALIAS_CONFIG_SECTIONS {
+        let Some(providers) = yaml_mapping_value_mut(root, section) else {
+            continue;
+        };
+        let providers = providers
+            .as_sequence_mut()
+            .ok_or_else(|| format!("{section} 必须是数组"))?;
+        for provider in providers {
+            let Some(provider) = provider.as_mapping_mut() else {
+                continue;
+            };
+            let Some(models) = yaml_mapping_value_mut(provider, "models") else {
+                continue;
+            };
+            let models = models
+                .as_sequence_mut()
+                .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+            let Some(source) = models.iter().find_map(|model| {
+                let (upstream_model, client_model, _) = configured_model_identity(model)?;
+                client_model
+                    .eq_ignore_ascii_case(source_model)
+                    .then(|| (model.clone(), upstream_model))
+            }) else {
+                continue;
+            };
+            let (source, upstream_model) = source;
+            let mut alias_model = source.as_mapping().cloned().unwrap_or_else(|| {
+                let mut mapping = serde_norway::Mapping::new();
+                mapping.insert(
+                    yaml_key("name"),
+                    serde_norway::Value::String(upstream_model.clone()),
+                );
+                mapping
+            });
+            alias_model.insert(
+                yaml_key("name"),
+                serde_norway::Value::String(upstream_model),
+            );
+            alias_model.insert(
+                yaml_key("alias"),
+                serde_norway::Value::String(alias.to_string()),
+            );
+            let display_name = managed_claude_alias_display_name(alias)
+                .ok_or_else(|| format!("不支持的 Claude 托管别名: {alias}"))?;
+            alias_model.insert(
+                yaml_key("display-name"),
+                serde_norway::Value::String(display_name.to_string()),
+            );
+            models.push(serde_norway::Value::Mapping(alias_model));
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+async fn fetch_codex_model_definitions(
+    config: &GuiConfigFile,
+) -> Result<Vec<CodexModelDefinition>, String> {
+    let client = management_http_client()?;
+    let response = client
+        .get(management_endpoint(config, "model-definitions/codex")?)
+        .header("Authorization", management_authorization(config)?)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .await
+        .map_err(|error| format!("读取 Codex OAuth 模型定义失败: {error}"))?;
+    let payload = read_management_value(response).await?;
+    parse_codex_model_definitions(&payload)
+}
+
+fn resolved_thinking_alias_sources(
+    content: &str,
+    definitions: &[CodexModelDefinition],
+    available_models: &[AgentModelOption],
+) -> Result<Vec<ResolvedThinkingAliasSource>, String> {
+    resolved_alias_sources(content, definitions, available_models, true)
+}
+
+fn resolved_speed_alias_sources(
+    content: &str,
+    definitions: &[CodexModelDefinition],
+    available_models: &[AgentModelOption],
+) -> Result<Vec<ResolvedThinkingAliasSource>, String> {
+    resolved_alias_sources(content, definitions, available_models, false)
+}
+
+fn resolved_alias_sources(
+    content: &str,
+    definitions: &[CodexModelDefinition],
+    available_models: &[AgentModelOption],
+    require_reasoning_levels: bool,
+) -> Result<Vec<ResolvedThinkingAliasSource>, String> {
+    let document = serde_norway::from_str::<serde_norway::Value>(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    // A configured API-key model must win over a catalog entry with the same
+    // name. `model-definitions/codex` describes the OAuth channel's capabilities;
+    // it is not evidence that a model returned by /v1/models is using OAuth.
+    // Otherwise a Codex API alias would be written to oauth-model-alias, which
+    // CPA deliberately does not apply to codex-api-key credentials.
+    let mut sources = Vec::new();
+    collect_config_thinking_alias_sources(
+        root,
+        "codex-api-key",
+        "Codex API",
+        "codex-api",
+        "codex",
+        available_models,
+        &mut sources,
+    )?;
+    collect_config_thinking_alias_sources(
+        root,
+        "openai-compatibility",
+        "OpenAI 兼容",
+        "openai-compatible",
+        "openai",
+        available_models,
+        &mut sources,
+    )?;
+    let configured_codex_api_models = sources
+        .iter()
+        .filter(|source| source.source.kind == "codex-api")
+        .map(|source| source.source.model.to_ascii_lowercase())
+        .collect::<std::collections::HashSet<_>>();
+    sources.extend(
+        definitions
+            .iter()
+            .filter(|definition| {
+                (!require_reasoning_levels || !definition.reasoning_levels.is_empty())
+                    && thinking_alias_model_is_available(available_models, &definition.id)
+                    && !configured_codex_api_models.contains(&definition.id.to_ascii_lowercase())
+            })
+            .map(|definition| ResolvedThinkingAliasSource {
+                source: ThinkingAliasSource {
+                    id: format!("codex-oauth:{}", definition.id),
+                    model: definition.id.clone(),
+                    display_name: definition.display_name.clone(),
+                    provider: "Codex OAuth".to_string(),
+                    kind: "codex-oauth".to_string(),
+                    protocol: "codex".to_string(),
+                },
+                location: ThinkingAliasSourceLocation::CodexOauth,
+            }),
+    );
+    Ok(sources)
+}
+
+fn thinking_alias_model_is_available(available_models: &[AgentModelOption], model: &str) -> bool {
+    available_models
+        .iter()
+        .any(|available| available.name.eq_ignore_ascii_case(model))
+}
+
+fn collect_config_thinking_alias_sources(
+    root: &serde_norway::Mapping,
+    section: &'static str,
+    fallback_provider: &str,
+    kind: &str,
+    protocol: &str,
+    available_models: &[AgentModelOption],
+    sources: &mut Vec<ResolvedThinkingAliasSource>,
+) -> Result<(), String> {
+    let Some(providers) = yaml_mapping_value(root, section) else {
+        return Ok(());
+    };
+    let providers = providers
+        .as_sequence()
+        .ok_or_else(|| format!("{section} 必须是数组"))?;
+    for (provider_index, provider) in providers.iter().enumerate() {
+        let Some(provider) = provider.as_mapping() else {
+            continue;
+        };
+        if matches!(
+            yaml_mapping_value(provider, "disabled"),
+            Some(serde_norway::Value::Bool(true))
+        ) {
+            continue;
+        }
+        let provider_name =
+            thinking_alias_provider_name(provider, fallback_provider, provider_index);
+        let Some(models) = yaml_mapping_value(provider, "models") else {
+            continue;
+        };
+        let models = models
+            .as_sequence()
+            .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+        for (model_index, model) in models.iter().enumerate() {
+            let Some((upstream_model, client_model, display_name)) =
+                configured_model_identity(model)
+            else {
+                continue;
+            };
+            if !thinking_alias_model_is_available(available_models, &client_model) {
+                continue;
+            }
+            if client_model != upstream_model
+                && find_thinking_alias_effort(root, &client_model, protocol).is_some()
+            {
+                continue;
+            }
+            sources.push(ResolvedThinkingAliasSource {
+                source: ThinkingAliasSource {
+                    id: format!("{section}:{provider_index}:{model_index}"),
+                    model: client_model,
+                    display_name,
+                    provider: provider_name.clone(),
+                    kind: kind.to_string(),
+                    protocol: protocol.to_string(),
+                },
+                location: ThinkingAliasSourceLocation::ConfigModel {
+                    section,
+                    provider_index,
+                    model_index,
+                },
+            });
+        }
+    }
+    Ok(())
+}
+
+fn thinking_alias_provider_name(
+    provider: &serde_norway::Mapping,
+    fallback: &str,
+    index: usize,
+) -> String {
+    yaml_mapping_value(provider, "name")
+        .or_else(|| yaml_mapping_value(provider, "base-url"))
+        .and_then(serde_norway::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{fallback} {}", index + 1))
+}
+
+fn configured_model_identity(
+    model: &serde_norway::Value,
+) -> Option<(String, String, Option<String>)> {
+    if let Some(name) = model
+        .as_str()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+    {
+        return Some((name.to_string(), name.to_string(), None));
+    }
+    let model = model.as_mapping()?;
+    let name = yaml_mapping_value(model, "name")
+        .and_then(serde_norway::Value::as_str)
+        .map(str::trim)
+        .filter(|name| !name.is_empty())?;
+    let alias = yaml_mapping_value(model, "alias")
+        .and_then(serde_norway::Value::as_str)
+        .map(str::trim)
+        .filter(|alias| !alias.is_empty());
+    let display_name = yaml_mapping_value(model, "display-name")
+        .or_else(|| yaml_mapping_value(model, "display_name"))
+        .and_then(serde_norway::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    Some((
+        name.to_string(),
+        alias.unwrap_or(name).to_string(),
+        display_name,
+    ))
+}
+
+fn thinking_aliases_from_yaml(content: &str) -> Result<Vec<ThinkingAliasEntry>, String> {
+    let document = serde_norway::from_str::<serde_norway::Value>(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    thinking_aliases_from_value(&document)
+}
+
+fn thinking_aliases_from_value(
+    document: &serde_norway::Value,
+) -> Result<Vec<ThinkingAliasEntry>, String> {
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let mut entries = Vec::new();
+    if let Some(oauth_aliases) = yaml_mapping_value(root, "oauth-model-alias") {
+        let oauth_aliases = oauth_aliases
+            .as_mapping()
+            .ok_or_else(|| "oauth-model-alias 必须是 YAML 映射".to_string())?;
+        if let Some(codex_aliases) = yaml_mapping_value(oauth_aliases, "codex") {
+            let codex_aliases = codex_aliases
+                .as_sequence()
+                .ok_or_else(|| "oauth-model-alias.codex 必须是数组".to_string())?;
+            for entry in codex_aliases {
+                let Some(mapping) = entry.as_mapping() else {
+                    continue;
+                };
+                if !matches!(
+                    yaml_mapping_value(mapping, "fork"),
+                    Some(serde_norway::Value::Bool(true))
+                ) {
+                    continue;
+                }
+                let Some(source_model) = yaml_mapping_value(mapping, "name")
+                    .and_then(serde_norway::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                else {
+                    continue;
+                };
+                let Some(alias) = yaml_mapping_value(mapping, "alias")
+                    .and_then(serde_norway::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                else {
+                    continue;
+                };
+                entries.push(ThinkingAliasEntry {
+                    source_model: source_model.to_string(),
+                    alias: alias.to_string(),
+                    effort: find_thinking_alias_effort(root, alias, "codex"),
+                    provider: "Codex OAuth".to_string(),
+                    kind: "codex-oauth".to_string(),
+                });
+            }
+        }
+    }
+    collect_config_thinking_alias_entries(
+        root,
+        "codex-api-key",
+        "Codex API",
+        "codex-api",
+        "codex",
+        &mut entries,
+    )?;
+    collect_config_thinking_alias_entries(
+        root,
+        "openai-compatibility",
+        "OpenAI 兼容",
+        "openai-compatible",
+        "openai",
+        &mut entries,
+    )?;
+    entries.sort_by(|left, right| {
+        left.provider
+            .to_ascii_lowercase()
+            .cmp(&right.provider.to_ascii_lowercase())
+            .then_with(|| {
+                left.alias
+                    .to_ascii_lowercase()
+                    .cmp(&right.alias.to_ascii_lowercase())
+            })
+    });
+    Ok(entries)
+}
+
+fn speed_aliases_from_yaml(content: &str) -> Result<Vec<SpeedAliasEntry>, String> {
+    let document = serde_norway::from_str::<serde_norway::Value>(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    speed_aliases_from_value(&document)
+}
+
+fn speed_aliases_from_value(
+    document: &serde_norway::Value,
+) -> Result<Vec<SpeedAliasEntry>, String> {
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let mut entries = Vec::new();
+    if let Some(oauth_aliases) = yaml_mapping_value(root, "oauth-model-alias") {
+        let oauth_aliases = oauth_aliases
+            .as_mapping()
+            .ok_or_else(|| "oauth-model-alias 必须是 YAML 映射".to_string())?;
+        if let Some(codex_aliases) = yaml_mapping_value(oauth_aliases, "codex") {
+            let codex_aliases = codex_aliases
+                .as_sequence()
+                .ok_or_else(|| "oauth-model-alias.codex 必须是数组".to_string())?;
+            for entry in codex_aliases {
+                let Some(mapping) = entry.as_mapping() else {
+                    continue;
+                };
+                if !matches!(
+                    yaml_mapping_value(mapping, "fork"),
+                    Some(serde_norway::Value::Bool(true))
+                ) {
+                    continue;
+                }
+                let Some(source_model) = yaml_mapping_value(mapping, "name")
+                    .and_then(serde_norway::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                else {
+                    continue;
+                };
+                let Some(alias) = yaml_mapping_value(mapping, "alias")
+                    .and_then(serde_norway::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                else {
+                    continue;
+                };
+                let Some(service_tier) = find_speed_alias_service_tier(root, alias, "codex") else {
+                    continue;
+                };
+                entries.push(SpeedAliasEntry {
+                    source_model: source_model.to_string(),
+                    alias: alias.to_string(),
+                    service_tier,
+                    provider: "Codex OAuth".to_string(),
+                    kind: "codex-oauth".to_string(),
+                });
+            }
+        }
+    }
+    collect_config_speed_alias_entries(
+        root,
+        "codex-api-key",
+        "Codex API",
+        "codex-api",
+        "codex",
+        &mut entries,
+    )?;
+    collect_config_speed_alias_entries(
+        root,
+        "openai-compatibility",
+        "OpenAI 兼容",
+        "openai-compatible",
+        "openai",
+        &mut entries,
+    )?;
+    entries.sort_by(|left, right| {
+        left.provider
+            .to_ascii_lowercase()
+            .cmp(&right.provider.to_ascii_lowercase())
+            .then_with(|| {
+                left.alias
+                    .to_ascii_lowercase()
+                    .cmp(&right.alias.to_ascii_lowercase())
+            })
+    });
+    Ok(entries)
+}
+
+fn collect_config_thinking_alias_entries(
+    root: &serde_norway::Mapping,
+    section: &str,
+    fallback_provider: &str,
+    kind: &str,
+    protocol: &str,
+    entries: &mut Vec<ThinkingAliasEntry>,
+) -> Result<(), String> {
+    let Some(providers) = yaml_mapping_value(root, section) else {
+        return Ok(());
+    };
+    let providers = providers
+        .as_sequence()
+        .ok_or_else(|| format!("{section} 必须是数组"))?;
+    for (provider_index, provider) in providers.iter().enumerate() {
+        let Some(provider) = provider.as_mapping() else {
+            continue;
+        };
+        let provider_name =
+            thinking_alias_provider_name(provider, fallback_provider, provider_index);
+        let Some(models) = yaml_mapping_value(provider, "models") else {
+            continue;
+        };
+        let models = models
+            .as_sequence()
+            .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+        for model in models {
+            let Some((source_model, alias, _)) = configured_model_identity(model) else {
+                continue;
+            };
+            if source_model == alias {
+                continue;
+            }
+            let Some(effort) = find_thinking_alias_effort(root, &alias, protocol) else {
+                continue;
+            };
+            entries.push(ThinkingAliasEntry {
+                source_model,
+                alias,
+                effort: Some(effort),
+                provider: provider_name.clone(),
+                kind: kind.to_string(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn collect_config_speed_alias_entries(
+    root: &serde_norway::Mapping,
+    section: &str,
+    fallback_provider: &str,
+    kind: &str,
+    protocol: &str,
+    entries: &mut Vec<SpeedAliasEntry>,
+) -> Result<(), String> {
+    let Some(providers) = yaml_mapping_value(root, section) else {
+        return Ok(());
+    };
+    let providers = providers
+        .as_sequence()
+        .ok_or_else(|| format!("{section} 必须是数组"))?;
+    for (provider_index, provider) in providers.iter().enumerate() {
+        let Some(provider) = provider.as_mapping() else {
+            continue;
+        };
+        let provider_name =
+            thinking_alias_provider_name(provider, fallback_provider, provider_index);
+        let Some(models) = yaml_mapping_value(provider, "models") else {
+            continue;
+        };
+        let models = models
+            .as_sequence()
+            .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+        for model in models {
+            let Some((source_model, alias, _)) = configured_model_identity(model) else {
+                continue;
+            };
+            if source_model == alias {
+                continue;
+            }
+            let Some(service_tier) = find_speed_alias_service_tier(root, &alias, protocol) else {
+                continue;
+            };
+            entries.push(SpeedAliasEntry {
+                source_model,
+                alias,
+                service_tier,
+                provider: provider_name.clone(),
+                kind: kind.to_string(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn find_thinking_alias_effort(
+    root: &serde_norway::Mapping,
+    alias: &str,
+    protocol: &str,
+) -> Option<String> {
+    let rules = nested_yaml_value(root, &["payload", "override"])?.as_sequence()?;
+    for rule in rules {
+        let Some(rule) = rule.as_mapping() else {
+            continue;
+        };
+        let effort = yaml_mapping_value(rule, "params")
+            .and_then(serde_norway::Value::as_mapping)
+            .and_then(|params| {
+                if protocol.eq_ignore_ascii_case("openai") {
+                    yaml_mapping_value(params, "reasoning_effort")
+                        .or_else(|| yaml_mapping_value(params, "reasoning.effort"))
+                } else {
+                    yaml_mapping_value(params, "reasoning.effort")
+                }
+            })
+            .and_then(serde_norway::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let Some(effort) = effort else {
+            continue;
+        };
+        let Some(models) =
+            yaml_mapping_value(rule, "models").and_then(serde_norway::Value::as_sequence)
+        else {
+            continue;
+        };
+        if models
+            .iter()
+            .any(|model| thinking_payload_model_matches(model, alias, protocol))
+        {
+            return Some(effort.to_ascii_lowercase());
+        }
+    }
+    None
+}
+
+fn find_speed_alias_service_tier(
+    root: &serde_norway::Mapping,
+    alias: &str,
+    protocol: &str,
+) -> Option<String> {
+    let rules = nested_yaml_value(root, &["payload", "override"])?.as_sequence()?;
+    for rule in rules {
+        let Some(rule) = rule.as_mapping() else {
+            continue;
+        };
+        let service_tier = yaml_mapping_value(rule, "params")
+            .and_then(serde_norway::Value::as_mapping)
+            .and_then(|params| yaml_mapping_value(params, "service_tier"))
+            .and_then(serde_norway::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let Some(service_tier) = service_tier else {
+            continue;
+        };
+        let Some(models) =
+            yaml_mapping_value(rule, "models").and_then(serde_norway::Value::as_sequence)
+        else {
+            continue;
+        };
+        if models
+            .iter()
+            .any(|model| thinking_payload_model_matches(model, alias, protocol))
+        {
+            return Some(service_tier.to_ascii_lowercase());
+        }
+    }
+    None
+}
+
+fn thinking_payload_model_matches(
+    model: &serde_norway::Value,
+    alias: &str,
+    protocol: &str,
+) -> bool {
+    let Some(model) = model.as_mapping() else {
+        return false;
+    };
+    let name_matches = yaml_mapping_value(model, "name")
+        .and_then(serde_norway::Value::as_str)
+        .is_some_and(|name| name.trim().eq_ignore_ascii_case(alias));
+    let protocol_matches = yaml_mapping_value(model, "protocol")
+        .and_then(serde_norway::Value::as_str)
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case(protocol));
+    name_matches && protocol_matches
+}
+
+fn add_model_alias_to_yaml(
+    content: &str,
+    source: &ResolvedThinkingAliasSource,
+    alias: &str,
+    effort: &str,
+    fast: bool,
+) -> Result<String, String> {
+    let mut document = yaml_serde_edit::YamlValue::parse(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+
+    if configured_model_alias_exists(root, alias) {
+        return Err(format!("别名模型 {alias} 已存在"));
+    }
+
+    match &source.location {
+        ThinkingAliasSourceLocation::CodexOauth => {
+            append_codex_oauth_model_alias(root, &source.source.model, alias)?;
+        }
+        ThinkingAliasSourceLocation::ConfigModel {
+            section,
+            provider_index,
+            model_index,
+        } => append_config_thinking_alias(
+            root,
+            section,
+            *provider_index,
+            *model_index,
+            &source.source.model,
+            alias,
+            effort,
+        )?,
+    }
+
+    remove_thinking_payload_model(root, alias)?;
+    let payload = root
+        .entry(yaml_key("payload"))
+        .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
+        .as_mapping_mut()
+        .ok_or_else(|| "payload 必须是 YAML 映射".to_string())?;
+    let override_rules = payload
+        .entry(yaml_key("override"))
+        .or_insert_with(|| serde_norway::Value::Sequence(Vec::new()))
+        .as_sequence_mut()
+        .ok_or_else(|| "payload.override 必须是数组".to_string())?;
+
+    let mut model_mapping = serde_norway::Mapping::new();
+    model_mapping.insert(
+        yaml_key("name"),
+        serde_norway::Value::String(alias.to_string()),
+    );
+    model_mapping.insert(
+        yaml_key("protocol"),
+        serde_norway::Value::String(source.source.protocol.clone()),
+    );
+    let mut params_mapping = serde_norway::Mapping::new();
+    params_mapping.insert(
+        yaml_key(if source.source.protocol == "openai" {
+            "reasoning_effort"
+        } else {
+            "reasoning.effort"
+        }),
+        serde_norway::Value::String(effort.to_string()),
+    );
+    if fast {
+        params_mapping.insert(
+            yaml_key("service_tier"),
+            serde_norway::Value::String("priority".to_string()),
+        );
+    }
+    if source.source.protocol == "openai"
+        && source
+            .source
+            .model
+            .to_ascii_lowercase()
+            .starts_with("deepseek")
+    {
+        params_mapping.insert(
+            yaml_key("thinking.type"),
+            serde_norway::Value::String("enabled".to_string()),
+        );
+    }
+    let mut rule_mapping = serde_norway::Mapping::new();
+    rule_mapping.insert(
+        yaml_key("models"),
+        serde_norway::Value::Sequence(vec![serde_norway::Value::Mapping(model_mapping)]),
+    );
+    rule_mapping.insert(
+        yaml_key("params"),
+        serde_norway::Value::Mapping(params_mapping),
+    );
+    override_rules.push(serde_norway::Value::Mapping(rule_mapping));
+
+    render_updated_core_yaml(&mut document, updated)
+}
+
+fn add_speed_alias_to_yaml(
+    content: &str,
+    source: &ResolvedThinkingAliasSource,
+    alias: &str,
+) -> Result<String, String> {
+    let mut document = yaml_serde_edit::YamlValue::parse(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+
+    if configured_model_alias_exists(root, alias) {
+        return Err(format!("别名模型 {alias} 已存在"));
+    }
+
+    match &source.location {
+        ThinkingAliasSourceLocation::CodexOauth => {
+            append_codex_oauth_model_alias(root, &source.source.model, alias)?;
+        }
+        ThinkingAliasSourceLocation::ConfigModel {
+            section,
+            provider_index,
+            model_index,
+        } => append_config_speed_alias(
+            root,
+            section,
+            *provider_index,
+            *model_index,
+            &source.source.model,
+            alias,
+        )?,
+    }
+
+    remove_speed_payload_model(root, alias)?;
+    let payload = root
+        .entry(yaml_key("payload"))
+        .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
+        .as_mapping_mut()
+        .ok_or_else(|| "payload 必须是 YAML 映射".to_string())?;
+    let override_rules = payload
+        .entry(yaml_key("override"))
+        .or_insert_with(|| serde_norway::Value::Sequence(Vec::new()))
+        .as_sequence_mut()
+        .ok_or_else(|| "payload.override 必须是数组".to_string())?;
+
+    let mut model_mapping = serde_norway::Mapping::new();
+    model_mapping.insert(
+        yaml_key("name"),
+        serde_norway::Value::String(alias.to_string()),
+    );
+    model_mapping.insert(
+        yaml_key("protocol"),
+        serde_norway::Value::String(source.source.protocol.clone()),
+    );
+    let mut params_mapping = serde_norway::Mapping::new();
+    params_mapping.insert(
+        yaml_key("service_tier"),
+        serde_norway::Value::String("priority".to_string()),
+    );
+    let mut rule_mapping = serde_norway::Mapping::new();
+    rule_mapping.insert(
+        yaml_key("models"),
+        serde_norway::Value::Sequence(vec![serde_norway::Value::Mapping(model_mapping)]),
+    );
+    rule_mapping.insert(
+        yaml_key("params"),
+        serde_norway::Value::Mapping(params_mapping),
+    );
+    override_rules.push(serde_norway::Value::Mapping(rule_mapping));
+
+    render_updated_core_yaml(&mut document, updated)
+}
+
+fn append_codex_oauth_model_alias(
+    root: &mut serde_norway::Mapping,
+    source_model: &str,
+    alias: &str,
+) -> Result<(), String> {
+    let oauth_aliases = root
+        .entry(yaml_key("oauth-model-alias"))
+        .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
+        .as_mapping_mut()
+        .ok_or_else(|| "oauth-model-alias 必须是 YAML 映射".to_string())?;
+    let codex_aliases = oauth_aliases
+        .entry(yaml_key("codex"))
+        .or_insert_with(|| serde_norway::Value::Sequence(Vec::new()))
+        .as_sequence_mut()
+        .ok_or_else(|| "oauth-model-alias.codex 必须是数组".to_string())?;
+    let mut alias_mapping = serde_norway::Mapping::new();
+    alias_mapping.insert(
+        yaml_key("name"),
+        serde_norway::Value::String(source_model.to_string()),
+    );
+    alias_mapping.insert(
+        yaml_key("alias"),
+        serde_norway::Value::String(alias.to_string()),
+    );
+    alias_mapping.insert(yaml_key("fork"), serde_norway::Value::Bool(true));
+    codex_aliases.push(serde_norway::Value::Mapping(alias_mapping));
+    Ok(())
+}
+
+fn append_config_thinking_alias(
+    root: &mut serde_norway::Mapping,
+    section: &str,
+    provider_index: usize,
+    model_index: usize,
+    expected_model: &str,
+    alias: &str,
+    effort: &str,
+) -> Result<(), String> {
+    let providers = yaml_mapping_value_mut(root, section)
+        .and_then(serde_norway::Value::as_sequence_mut)
+        .ok_or_else(|| format!("{section} 必须是数组"))?;
+    let provider = providers
+        .get_mut(provider_index)
+        .and_then(serde_norway::Value::as_mapping_mut)
+        .ok_or_else(|| "模型提供商已经变化，请刷新后重试".to_string())?;
+    let models = yaml_mapping_value_mut(provider, "models")
+        .and_then(serde_norway::Value::as_sequence_mut)
+        .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+    let source = models
+        .get(model_index)
+        .cloned()
+        .ok_or_else(|| "原模型已经变化，请刷新后重试".to_string())?;
+    let (_, current_model, _) =
+        configured_model_identity(&source).ok_or_else(|| "原模型配置格式无效".to_string())?;
+    if !current_model.eq_ignore_ascii_case(expected_model) {
+        return Err("原模型已经变化，请刷新后重试".to_string());
+    }
+    let mut alias_model = source.as_mapping().cloned().unwrap_or_else(|| {
+        let mut mapping = serde_norway::Mapping::new();
+        if let Some(name) = source.as_str() {
+            mapping.insert(
+                yaml_key("name"),
+                serde_norway::Value::String(name.to_string()),
+            );
+        }
+        mapping
+    });
+    alias_model.insert(
+        yaml_key("alias"),
+        serde_norway::Value::String(alias.to_string()),
+    );
+    if let Some(display_name) = yaml_mapping_value(&alias_model, "display-name")
+        .and_then(serde_norway::Value::as_str)
+        .map(str::to_string)
+    {
+        alias_model.insert(
+            yaml_key("display-name"),
+            serde_norway::Value::String(format!("{display_name} ({effort})")),
+        );
+    }
+    let thinking = alias_model
+        .entry(yaml_key("thinking"))
+        .or_insert_with(|| serde_norway::Value::Mapping(serde_norway::Mapping::new()))
+        .as_mapping_mut()
+        .ok_or_else(|| "模型 thinking 必须是映射".to_string())?;
+    thinking.insert(
+        yaml_key("levels"),
+        serde_norway::Value::Sequence(vec![serde_norway::Value::String(effort.to_string())]),
+    );
+    models.push(serde_norway::Value::Mapping(alias_model));
+    Ok(())
+}
+
+fn append_config_speed_alias(
+    root: &mut serde_norway::Mapping,
+    section: &str,
+    provider_index: usize,
+    model_index: usize,
+    expected_model: &str,
+    alias: &str,
+) -> Result<(), String> {
+    let providers = yaml_mapping_value_mut(root, section)
+        .and_then(serde_norway::Value::as_sequence_mut)
+        .ok_or_else(|| format!("{section} 必须是数组"))?;
+    let provider = providers
+        .get_mut(provider_index)
+        .and_then(serde_norway::Value::as_mapping_mut)
+        .ok_or_else(|| "模型提供商已经变化，请刷新后重试".to_string())?;
+    let models = yaml_mapping_value_mut(provider, "models")
+        .and_then(serde_norway::Value::as_sequence_mut)
+        .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+    let source = models
+        .get(model_index)
+        .cloned()
+        .ok_or_else(|| "原模型已经变化，请刷新后重试".to_string())?;
+    let (_, current_model, _) =
+        configured_model_identity(&source).ok_or_else(|| "原模型配置格式无效".to_string())?;
+    if !current_model.eq_ignore_ascii_case(expected_model) {
+        return Err("原模型已经变化，请刷新后重试".to_string());
+    }
+    let mut alias_model = source.as_mapping().cloned().unwrap_or_else(|| {
+        let mut mapping = serde_norway::Mapping::new();
+        if let Some(name) = source.as_str() {
+            mapping.insert(
+                yaml_key("name"),
+                serde_norway::Value::String(name.to_string()),
+            );
+        }
+        mapping
+    });
+    alias_model.insert(
+        yaml_key("alias"),
+        serde_norway::Value::String(alias.to_string()),
+    );
+    if let Some(display_name) = yaml_mapping_value(&alias_model, "display-name")
+        .and_then(serde_norway::Value::as_str)
+        .map(str::to_string)
+    {
+        alias_model.insert(
+            yaml_key("display-name"),
+            serde_norway::Value::String(format!("{display_name} (Fast)")),
+        );
+    }
+    models.push(serde_norway::Value::Mapping(alias_model));
+    Ok(())
+}
+
+fn remove_thinking_alias_from_yaml(content: &str, alias: &str) -> Result<String, String> {
+    let mut document = yaml_serde_edit::YamlValue::parse(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let mut removed = false;
+    let mut remove_oauth_section = false;
+    if let Some(oauth_aliases) = yaml_mapping_value_mut(root, "oauth-model-alias") {
+        let oauth_aliases = oauth_aliases
+            .as_mapping_mut()
+            .ok_or_else(|| "oauth-model-alias 必须是 YAML 映射".to_string())?;
+        if let Some(codex_aliases) = yaml_mapping_value_mut(oauth_aliases, "codex") {
+            let codex_aliases = codex_aliases
+                .as_sequence_mut()
+                .ok_or_else(|| "oauth-model-alias.codex 必须是数组".to_string())?;
+            codex_aliases.retain(|entry| {
+                let matches = entry
+                    .as_mapping()
+                    .and_then(|mapping| yaml_mapping_value(mapping, "alias"))
+                    .and_then(serde_norway::Value::as_str)
+                    .is_some_and(|value| value.trim().eq_ignore_ascii_case(alias));
+                if matches {
+                    removed = true;
+                }
+                !matches
+            });
+            if codex_aliases.is_empty() {
+                oauth_aliases.remove(yaml_key("codex"));
+            }
+        }
+        remove_oauth_section = oauth_aliases.is_empty();
+    }
+    removed |= remove_config_thinking_alias(root, "codex-api-key", "codex", alias)?;
+    removed |= remove_config_thinking_alias(root, "openai-compatibility", "openai", alias)?;
+    if !removed {
+        return Err(format!("别名模型 {alias} 不存在，请刷新后重试"));
+    }
+    if remove_oauth_section {
+        root.remove(yaml_key("oauth-model-alias"));
+    }
+    remove_thinking_payload_model(root, alias)?;
+    remove_speed_payload_model(root, alias)?;
+    render_updated_core_yaml(&mut document, updated)
+}
+
+fn remove_speed_alias_from_yaml(content: &str, alias: &str) -> Result<String, String> {
+    let mut document = yaml_serde_edit::YamlValue::parse(content)
+        .map_err(|error| format!("解析内核 YAML 配置失败: {error}"))?;
+    let mut updated = document.get().clone();
+    let root = updated
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let mut removed = false;
+    let mut remove_oauth_section = false;
+    if let Some(oauth_aliases) = yaml_mapping_value_mut(root, "oauth-model-alias") {
+        let oauth_aliases = oauth_aliases
+            .as_mapping_mut()
+            .ok_or_else(|| "oauth-model-alias 必须是 YAML 映射".to_string())?;
+        if let Some(codex_aliases) = yaml_mapping_value_mut(oauth_aliases, "codex") {
+            let codex_aliases = codex_aliases
+                .as_sequence_mut()
+                .ok_or_else(|| "oauth-model-alias.codex 必须是数组".to_string())?;
+            codex_aliases.retain(|entry| {
+                let matches = entry
+                    .as_mapping()
+                    .and_then(|mapping| yaml_mapping_value(mapping, "alias"))
+                    .and_then(serde_norway::Value::as_str)
+                    .is_some_and(|value| value.trim().eq_ignore_ascii_case(alias));
+                if matches {
+                    removed = true;
+                }
+                !matches
+            });
+            if codex_aliases.is_empty() {
+                oauth_aliases.remove(yaml_key("codex"));
+            }
+        }
+        remove_oauth_section = oauth_aliases.is_empty();
+    }
+    removed |= remove_config_speed_alias(root, "codex-api-key", "codex", alias)?;
+    removed |= remove_config_speed_alias(root, "openai-compatibility", "openai", alias)?;
+    if !removed {
+        return Err(format!("别名模型 {alias} 不存在，请刷新后重试"));
+    }
+    if remove_oauth_section {
+        root.remove(yaml_key("oauth-model-alias"));
+    }
+    remove_speed_payload_model(root, alias)?;
+    render_updated_core_yaml(&mut document, updated)
+}
+
+fn configured_model_alias_exists(root: &serde_norway::Mapping, alias: &str) -> bool {
+    let oauth_exists = yaml_mapping_value(root, "oauth-model-alias")
+        .and_then(serde_norway::Value::as_mapping)
+        .is_some_and(|channels| {
+            channels.values().any(|entries| {
+                entries.as_sequence().is_some_and(|entries| {
+                    entries.iter().any(|entry| {
+                        entry
+                            .as_mapping()
+                            .and_then(|mapping| yaml_mapping_value(mapping, "alias"))
+                            .and_then(serde_norway::Value::as_str)
+                            .is_some_and(|value| value.trim().eq_ignore_ascii_case(alias))
+                    })
+                })
+            })
+        });
+    oauth_exists
+        || ["codex-api-key", "openai-compatibility"]
+            .into_iter()
+            .filter_map(|section| yaml_mapping_value(root, section))
+            .filter_map(serde_norway::Value::as_sequence)
+            .flatten()
+            .filter_map(serde_norway::Value::as_mapping)
+            .filter_map(|provider| yaml_mapping_value(provider, "models"))
+            .filter_map(serde_norway::Value::as_sequence)
+            .flatten()
+            .filter_map(|model| configured_model_identity(model).map(|(_, alias, _)| alias))
+            .any(|value| value.eq_ignore_ascii_case(alias))
+}
+
+fn remove_config_thinking_alias(
+    root: &mut serde_norway::Mapping,
+    section: &str,
+    protocol: &str,
+    alias: &str,
+) -> Result<bool, String> {
+    if find_thinking_alias_effort(root, alias, protocol).is_none() {
+        return Ok(false);
+    }
+    let Some(providers) = yaml_mapping_value_mut(root, section) else {
+        return Ok(false);
+    };
+    let providers = providers
+        .as_sequence_mut()
+        .ok_or_else(|| format!("{section} 必须是数组"))?;
+    let mut removed = false;
+    for provider in providers {
+        let Some(provider) = provider.as_mapping_mut() else {
+            continue;
+        };
+        let Some(models) = yaml_mapping_value_mut(provider, "models") else {
+            continue;
+        };
+        let models = models
+            .as_sequence_mut()
+            .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+        models.retain(|model| {
+            let matches = configured_model_identity(model)
+                .map(|(source, model_alias, _)| {
+                    source != model_alias && model_alias.eq_ignore_ascii_case(alias)
+                })
+                .unwrap_or(false);
+            removed |= matches;
+            !matches
+        });
+    }
+    Ok(removed)
+}
+
+fn remove_config_speed_alias(
+    root: &mut serde_norway::Mapping,
+    section: &str,
+    protocol: &str,
+    alias: &str,
+) -> Result<bool, String> {
+    if find_speed_alias_service_tier(root, alias, protocol).is_none() {
+        return Ok(false);
+    }
+    let Some(providers) = yaml_mapping_value_mut(root, section) else {
+        return Ok(false);
+    };
+    let providers = providers
+        .as_sequence_mut()
+        .ok_or_else(|| format!("{section} 必须是数组"))?;
+    let mut removed = false;
+    for provider in providers {
+        let Some(provider) = provider.as_mapping_mut() else {
+            continue;
+        };
+        let Some(models) = yaml_mapping_value_mut(provider, "models") else {
+            continue;
+        };
+        let models = models
+            .as_sequence_mut()
+            .ok_or_else(|| format!("{section}.models 必须是数组"))?;
+        models.retain(|model| {
+            let matches = configured_model_identity(model)
+                .map(|(source, model_alias, _)| {
+                    source != model_alias && model_alias.eq_ignore_ascii_case(alias)
+                })
+                .unwrap_or(false);
+            removed |= matches;
+            !matches
+        });
+    }
+    Ok(removed)
+}
+
+fn remove_thinking_payload_model(
+    root: &mut serde_norway::Mapping,
+    alias: &str,
+) -> Result<(), String> {
+    let mut remove_payload_section = false;
+    if let Some(payload) = yaml_mapping_value_mut(root, "payload") {
+        let payload = payload
+            .as_mapping_mut()
+            .ok_or_else(|| "payload 必须是 YAML 映射".to_string())?;
+        if let Some(override_rules) = yaml_mapping_value_mut(payload, "override") {
+            let override_rules = override_rules
+                .as_sequence_mut()
+                .ok_or_else(|| "payload.override 必须是数组".to_string())?;
+            let mut next_rules = Vec::with_capacity(override_rules.len());
+            for mut rule in std::mem::take(override_rules) {
+                let mut removed_from_rule = false;
+                let mut models_empty = false;
+                if let Some(rule_mapping) = rule.as_mapping_mut() {
+                    let has_effort = yaml_mapping_value(rule_mapping, "params")
+                        .and_then(serde_norway::Value::as_mapping)
+                        .is_some_and(|params| {
+                            yaml_mapping_value(params, "reasoning.effort").is_some()
+                                || yaml_mapping_value(params, "reasoning_effort").is_some()
+                        });
+                    if has_effort {
+                        if let Some(models) = yaml_mapping_value_mut(rule_mapping, "models") {
+                            let models = models
+                                .as_sequence_mut()
+                                .ok_or_else(|| "payload.override.models 必须是数组".to_string())?;
+                            let before = models.len();
+                            models.retain(|model| {
+                                !thinking_payload_model_matches(model, alias, "codex")
+                                    && !thinking_payload_model_matches(model, alias, "openai")
+                            });
+                            removed_from_rule = models.len() != before;
+                            models_empty = models.is_empty();
+                        }
+                    }
+                }
+                if !(removed_from_rule && models_empty) {
+                    next_rules.push(rule);
+                }
+            }
+            *override_rules = next_rules;
+            if override_rules.is_empty() {
+                payload.remove(yaml_key("override"));
+            }
+        }
+        remove_payload_section = payload.is_empty();
+    }
+    if remove_payload_section {
+        root.remove(yaml_key("payload"));
+    }
+    Ok(())
+}
+
+fn remove_speed_payload_model(root: &mut serde_norway::Mapping, alias: &str) -> Result<(), String> {
+    let mut remove_payload_section = false;
+    if let Some(payload) = yaml_mapping_value_mut(root, "payload") {
+        let payload = payload
+            .as_mapping_mut()
+            .ok_or_else(|| "payload 必须是 YAML 映射".to_string())?;
+        if let Some(override_rules) = yaml_mapping_value_mut(payload, "override") {
+            let override_rules = override_rules
+                .as_sequence_mut()
+                .ok_or_else(|| "payload.override 必须是数组".to_string())?;
+            let mut next_rules = Vec::with_capacity(override_rules.len());
+            for mut rule in std::mem::take(override_rules) {
+                let mut removed_from_rule = false;
+                let mut models_empty = false;
+                if let Some(rule_mapping) = rule.as_mapping_mut() {
+                    let has_speed = yaml_mapping_value(rule_mapping, "params")
+                        .and_then(serde_norway::Value::as_mapping)
+                        .is_some_and(|params| yaml_mapping_value(params, "service_tier").is_some());
+                    if has_speed {
+                        if let Some(models) = yaml_mapping_value_mut(rule_mapping, "models") {
+                            let models = models
+                                .as_sequence_mut()
+                                .ok_or_else(|| "payload.override.models 必须是数组".to_string())?;
+                            let before = models.len();
+                            models.retain(|model| {
+                                !thinking_payload_model_matches(model, alias, "codex")
+                                    && !thinking_payload_model_matches(model, alias, "openai")
+                            });
+                            removed_from_rule = models.len() != before;
+                            models_empty = models.is_empty();
+                        }
+                    }
+                }
+                if !(removed_from_rule && models_empty) {
+                    next_rules.push(rule);
+                }
+            }
+            *override_rules = next_rules;
+            if override_rules.is_empty() {
+                payload.remove(yaml_key("override"));
+            }
+        }
+        remove_payload_section = payload.is_empty();
+    }
+    if remove_payload_section {
+        root.remove(yaml_key("payload"));
+    }
+    Ok(())
+}
+
+fn render_updated_core_yaml(
+    document: &mut yaml_serde_edit::YamlValue,
+    updated: serde_norway::Value,
+) -> Result<String, String> {
+    document.set(updated);
+    let rendered = expand_top_level_flow_style_collections(&document.get_string(), document.get())?;
+    let rendered = indent_indentationless_yaml_sequences(&rendered);
+    serde_norway::from_str::<serde_norway::Value>(&rendered)
+        .map_err(|error| format!("验证更新后的内核配置失败: {error}"))?;
+    Ok(rendered)
+}
+
+fn expand_top_level_flow_style_collections(
+    content: &str,
+    document: &serde_norway::Value,
+) -> Result<String, String> {
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+    let mut rendered = content.to_string();
+    for (key, value) in root {
+        let Some(key) = key.as_str() else {
+            continue;
+        };
+        let is_non_empty_collection = match value {
+            serde_norway::Value::Mapping(mapping) => !mapping.is_empty(),
+            serde_norway::Value::Sequence(sequence) => !sequence.is_empty(),
+            _ => false,
+        };
+        if !is_non_empty_collection || !top_level_yaml_entry_uses_flow_style(&rendered, key) {
+            continue;
+        }
+        let mut wrapper = serde_norway::Mapping::new();
+        wrapper.insert(yaml_key(key), value.clone());
+        let block = serde_norway::to_string(&serde_norway::Value::Mapping(wrapper))
+            .map_err(|error| format!("格式化内核 YAML 配置失败: {error}"))?;
+        rendered = replace_top_level_yaml_block(&rendered, key, &block);
+    }
+    Ok(rendered)
+}
+
+fn top_level_yaml_entry_uses_flow_style(content: &str, key: &str) -> bool {
+    let prefix = format!("{key}:");
+    yaml_line_ranges(content).into_iter().any(|range| {
+        let line = yaml_line_content(content, range);
+        if line.chars().next().is_some_and(char::is_whitespace) {
+            return false;
+        }
+        line.strip_prefix(&prefix)
+            .map(str::trim_start)
+            .is_some_and(|value| value.starts_with('[') || value.starts_with('{'))
+    })
+}
+
+fn indent_indentationless_yaml_sequences(content: &str) -> String {
+    let mut lines = content
+        .split_inclusive('\n')
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if !content.is_empty() && !content.ends_with('\n') && lines.is_empty() {
+        lines.push(content.to_string());
+    }
+
+    loop {
+        let mut range_to_indent = None;
+        for key_index in 0..lines.len() {
+            let key_line = lines[key_index].trim_end_matches(['\r', '\n']);
+            let key_trimmed = key_line.trim_start_matches(' ');
+            if key_trimmed.is_empty()
+                || key_trimmed.starts_with('#')
+                || key_trimmed.starts_with('-')
+                || !key_trimmed.ends_with(':')
+            {
+                continue;
+            }
+            let parent_indent = key_line.len() - key_trimmed.len();
+            let Some(first_item) = ((key_index + 1)..lines.len()).find(|index| {
+                let line = lines[*index].trim_end_matches(['\r', '\n']).trim();
+                !line.is_empty() && !line.starts_with('#')
+            }) else {
+                continue;
+            };
+            let first_line = lines[first_item].trim_end_matches(['\r', '\n']);
+            let first_trimmed = first_line.trim_start_matches(' ');
+            let first_indent = first_line.len() - first_trimmed.len();
+            if first_indent != parent_indent
+                || !is_indentationless_yaml_sequence_item(first_trimmed)
+            {
+                continue;
+            }
+
+            let mut end = first_item;
+            while end < lines.len() {
+                let line = lines[end].trim_end_matches(['\r', '\n']);
+                let trimmed = line.trim_start_matches(' ');
+                if !trimmed.is_empty() {
+                    let indent = line.len() - trimmed.len();
+                    if indent < parent_indent
+                        || (indent == parent_indent
+                            && !is_indentationless_yaml_sequence_item(trimmed))
+                    {
+                        break;
+                    }
+                }
+                end += 1;
+            }
+            range_to_indent = Some((first_item, end));
+            break;
+        }
+
+        let Some((start, end)) = range_to_indent else {
+            break;
+        };
+        for line in &mut lines[start..end] {
+            if !line.trim().is_empty() {
+                line.insert_str(0, "  ");
+            }
+        }
+    }
+    lines.concat()
+}
+
+fn management_http_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|err| format!("创建管理 API 客户端失败: {err}"))
+}
+
+fn management_authorization(config: &GuiConfigFile) -> Result<String, String> {
+    let secret_key = config.management_secret_key.trim();
+    if secret_key.is_empty() || is_hashed_management_secret_key(secret_key) {
+        return Err("管理接口不可用：没有可用的明文管理密钥".to_string());
+    }
+    Ok(format!("Bearer {secret_key}"))
+}
+
+fn management_endpoint(config: &GuiConfigFile, path: &str) -> Result<String, String> {
+    if config.port == 0 {
+        return Err("内核端口无效".to_string());
+    }
+    let path = path.trim_start_matches('/');
+    Ok(format!(
+        "http://127.0.0.1:{}/v0/management/{path}",
+        config.port
+    ))
+}
+
+fn normalize_management_oauth_provider(provider: &str) -> Result<String, String> {
+    let key = provider.trim().to_ascii_lowercase().replace('_', "-");
+    let key = match key.as_str() {
+        "claude" | "anthropic" => "anthropic".to_string(),
+        "anti-gravity" => "antigravity".to_string(),
+        "grok" | "x-ai" | "x.ai" => "xai".to_string(),
+        other => other.to_string(),
+    };
+    if key.is_empty()
+        || !key
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err("无效的 OAuth 提供商".to_string());
+    }
+    Ok(key)
+}
+
+fn management_oauth_uses_webui_callback(provider_key: &str) -> bool {
+    matches!(provider_key, "codex" | "anthropic" | "antigravity" | "xai")
+}
+
+async fn read_management_json<T>(response: reqwest::Response) -> Result<T, String>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|err| format!("读取管理 API 响应失败: {err}"))?;
+    if !status.is_success() {
+        return Err(format_management_error(status.as_u16(), &text));
+    }
+    if text.trim().is_empty() {
+        return Err("管理 API 返回了空响应".to_string());
+    }
+    serde_json::from_str::<T>(&text).map_err(|err| {
+        format!(
+            "解析管理 API 响应失败: {err}; body={}",
+            truncate_for_error(&text)
+        )
+    })
+}
+
+async fn read_management_value(response: reqwest::Response) -> Result<serde_json::Value, String> {
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|err| format!("读取管理 API 响应失败: {err}"))?;
+    if !status.is_success() {
+        return Err(format_management_error(status.as_u16(), &text));
+    }
+    if text.trim().is_empty() {
+        return Ok(serde_json::Value::Null);
+    }
+    match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(value) => Ok(value),
+        Err(_) => Ok(serde_json::Value::String(text)),
+    }
+}
+
+async fn read_management_text(response: reqwest::Response) -> Result<String, String> {
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|err| format!("读取管理 API 响应失败: {err}"))?;
+    if !status.is_success() {
+        return Err(format_management_error(status.as_u16(), &text));
+    }
+    Ok(text)
+}
+
+fn format_management_error(status: u16, body: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
+        if let Some(message) = value
+            .get("error")
+            .and_then(|item| item.as_str())
+            .or_else(|| value.get("message").and_then(|item| item.as_str()))
+        {
+            let message = message.trim();
+            if !message.is_empty() {
+                return format!("管理 API 错误 ({status}): {message}");
+            }
+        }
+    }
+    let body = body.trim();
+    if body.is_empty() {
+        format!("管理 API 错误 ({status})")
+    } else {
+        format!("管理 API 错误 ({status}): {}", truncate_for_error(body))
+    }
+}
+
+fn truncate_for_error(value: &str) -> String {
+    const LIMIT: usize = 240;
+    let trimmed = value.trim();
+    if trimmed.chars().count() <= LIMIT {
+        return trimmed.to_string();
+    }
+    let shortened: String = trimmed.chars().take(LIMIT).collect();
+    format!("{shortened}…")
+}
+
+fn open_external_url_inner(app: &tauri::AppHandle, url: &str) -> Result<(), String> {
+    let url = url.trim();
+    if url.is_empty() {
+        return Err("链接为空".to_string());
+    }
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Err("只允许打开 http/https 链接".to_string());
+    }
+
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|err| format!("打开浏览器失败: {err}"))
+}
+
+fn validate_core_api_key(api_key: &str) -> Result<(), String> {
+    if api_key.is_empty() {
+        return Err("鉴权密钥不能为空".to_string());
+    }
+    if !api_key.bytes().all(|byte| (0x21..=0x7e).contains(&byte)) {
+        return Err("鉴权密钥只能包含 ASCII 可见字符，且不能包含空格".to_string());
+    }
+    if is_example_core_api_key(api_key) {
+        return Err("不能使用内核模板里的示例鉴权密钥".to_string());
+    }
+    Ok(())
+}
+
+fn validate_api_key_remark(remark: &str) -> Result<(), String> {
+    if remark.chars().count() > 80 {
+        return Err("密钥备注不能超过 80 个字符".to_string());
+    }
+    if remark.chars().any(char::is_control) {
+        return Err("密钥备注不能包含换行或控制字符".to_string());
+    }
+    Ok(())
+}
+
+fn validate_api_access_provider_section(section: &str) -> Result<(), String> {
+    if matches!(
+        section,
+        "gemini-api-key" | "codex-api-key" | "claude-api-key" | "openai-compatibility"
+    ) {
+        Ok(())
+    } else {
+        Err("API 接入类型无效".to_string())
+    }
+}
+
+fn api_access_key_hash(value: &str) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()).then(|| sha256_bytes(value.as_bytes()))
+}
+
+fn usage_provider_section(provider: &str) -> Option<&'static str> {
+    match provider.trim().to_ascii_lowercase().as_str() {
+        "codex" => Some("codex-api-key"),
+        "claude" => Some("claude-api-key"),
+        "gemini" | "aistudio" => Some("gemini-api-key"),
+        "openai" | "openai-compatibility" => Some("openai-compatibility"),
+        _ => None,
+    }
+}
+
+impl GuiConfigFile {
+    fn api_access_remark_for_source(&self, provider: &str, source: &str) -> Option<&str> {
+        let hash = api_access_key_hash(source)?;
+        let preferred_section = usage_provider_section(provider);
+        self.api_access_remarks
+            .iter()
+            .find(|entry| {
+                preferred_section == Some(entry.provider_section.as_str())
+                    && entry.api_key_hash == hash
+                    && !entry.remark.is_empty()
+            })
+            .or_else(|| {
+                self.api_access_remarks
+                    .iter()
+                    .find(|entry| entry.api_key_hash == hash && !entry.remark.is_empty())
+            })
+            .map(|entry| entry.remark.as_str())
+    }
+}
+
+fn validate_management_secret_key(secret_key: &str) -> Result<(), String> {
+    if secret_key.chars().count() > 512 {
+        return Err("管理密钥不能超过 512 个字符".to_string());
+    }
+    if secret_key.chars().any(char::is_control) {
+        return Err("管理密钥不能包含控制字符".to_string());
+    }
+    Ok(())
+}
+
+fn validate_strong_management_secret_key(secret_key: &str) -> Result<(), String> {
+    validate_management_secret_key(secret_key)?;
+    if secret_key.trim().is_empty() {
+        return Err("WebUI 密钥不能为空".to_string());
+    }
+    if secret_key.trim() == LEGACY_DEFAULT_MANAGEMENT_SECRET_KEY {
+        return Err("不能继续使用旧版默认 WebUI 密钥 123456".to_string());
+    }
+    if is_hashed_management_secret_key(secret_key) {
+        return Err("GUI 配置必须保存可用于管理接口认证的明文 WebUI 密钥".to_string());
+    }
+    Ok(())
+}
+
+fn generate_management_secret_key() -> Result<String, String> {
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+
+    let mut random = [0_u8; 32];
+    getrandom::fill(&mut random).map_err(|error| format!("生成 WebUI 安全密钥失败: {error}"))?;
+    Ok(format!("wui-Aa9_{}", URL_SAFE_NO_PAD.encode(random)))
+}
+
+fn management_secret_requires_rotation(secret_key: &str) -> bool {
+    let secret_key = secret_key.trim();
+    secret_key.is_empty()
+        || secret_key == LEGACY_DEFAULT_MANAGEMENT_SECRET_KEY
+        || is_hashed_management_secret_key(secret_key)
+}
+
+fn ensure_strong_management_secret(config: &mut GuiConfigFile) -> Result<bool, String> {
+    if !management_secret_requires_rotation(&config.management_secret_key) {
+        return Ok(false);
+    }
+    config.management_secret_key = generate_management_secret_key()?;
+    Ok(true)
+}
+
+fn normalize_management_secret_key(secret_key: String) -> Result<String, String> {
+    let secret_key = secret_key.trim().to_string();
+    validate_strong_management_secret_key(&secret_key)?;
+    Ok(secret_key)
+}
+
+fn is_example_core_api_key(api_key: &str) -> bool {
+    let value = api_key.trim();
+    value == "your-api-key" || value.starts_with("your-api-key-")
+}
+
+fn is_hashed_management_secret_key(secret_key: &str) -> bool {
+    let value = secret_key.trim();
+    value.starts_with("$2a$")
+        || value.starts_with("$2b$")
+        || value.starts_with("$2y$")
+        || value.starts_with("$argon2")
+        || value.starts_with("$scrypt$")
+        || value.starts_with("bcrypt:")
+        || value.starts_with("argon2:")
+        || value.starts_with("argon2id:")
+        || value.starts_with("sha256:")
+        || value.starts_with("sha512:")
+}
+
+fn validate_routing_strategy(strategy: &str) -> Result<(), String> {
+    if matches!(strategy, "round-robin" | "fill-first") {
+        return Ok(());
+    }
+    Err("路由策略只支持 round-robin 或 fill-first".to_string())
+}
+
+fn normalize_optional_config_string(value: String, field_name: &str) -> Result<String, String> {
+    let value = value.trim().to_string();
+    if value.chars().any(char::is_control) {
+        return Err(format!("{field_name} 不能包含控制字符"));
+    }
+    Ok(value)
+}
+
+fn config_update_error_with_rollback(error: String, rollback_error: Option<String>) -> String {
+    match rollback_error {
+        Some(rollback_error) => format!("{error}；回滚内核配置也失败: {rollback_error}"),
+        None => error,
+    }
+}
+
+fn merge_core_config_yaml(
+    template: &str,
+    current: Option<&str>,
+    config: &GuiConfigFile,
+) -> Result<String, String> {
+    let merged = merge_core_config_fields(template, current)?;
+    apply_gui_managed_settings(&merged, config)
+}
+
+fn merge_core_config_fields(template: &str, current: Option<&str>) -> Result<String, String> {
+    let current_value = current
+        .map(|current| {
+            let current = serde_norway::from_str::<serde_norway::Value>(current)
+                .map_err(|err| format!("解析现有内核配置失败，为避免配置丢失已停止写入: {err}"))?;
+            if !current.is_mapping() {
+                return Err("现有内核配置根节点必须是 YAML 映射，已停止写入".to_string());
+            }
+            Ok(current)
+        })
+        .transpose()?;
+    merge_core_config_value(template, current_value)
+}
+
+fn merge_core_config_fields_tolerant(template: &str, current: &str) -> Result<String, String> {
+    let current = match serde_norway::from_str::<serde_norway::Value>(current) {
+        Ok(current) if current.is_mapping() => current,
+        _ => recover_parseable_top_level_yaml_fields(current),
+    };
+    merge_core_config_value(template, Some(current))
+}
+
+fn merge_core_config_value(
+    template: &str,
+    current: Option<serde_norway::Value>,
+) -> Result<String, String> {
+    let template_value = serde_norway::from_str::<serde_norway::Value>(template)
+        .map_err(|err| format!("解析内核配置模板失败: {err}"))?;
+    if !template_value.is_mapping() {
+        return Err("内核配置模板根节点必须是 YAML 映射".to_string());
+    }
+    let mut merged = template_value.clone();
+
+    if let Some(current) = current {
+        merge_yaml_values(&mut merged, current);
+    }
+
+    let rendered = render_yaml_value_changes(template, &template_value, &merged)?;
+    let rendered_value = serde_norway::from_str::<serde_norway::Value>(&rendered)
+        .map_err(|err| format!("验证迁移后的内核配置失败: {err}"))?;
+    if !rendered_value.is_mapping() {
+        return Err("迁移后的内核配置根节点必须是 YAML 映射".to_string());
+    }
+    Ok(rendered)
+}
+
+fn recover_parseable_top_level_yaml_fields(content: &str) -> serde_norway::Value {
+    let lines = yaml_line_ranges(content);
+    let boundaries = lines
+        .iter()
+        .copied()
+        .filter(|range| is_top_level_yaml_boundary(yaml_line_content(content, *range)))
+        .collect::<Vec<_>>();
+    let mut recovered = serde_norway::Mapping::new();
+
+    for (index, (start, _)) in boundaries.iter().copied().enumerate() {
+        let line = yaml_line_content(content, boundaries[index]);
+        if !is_top_level_yaml_mapping_field(line) {
+            continue;
+        }
+        let end = boundaries
+            .get(index + 1)
+            .map(|(next_start, _)| *next_start)
+            .unwrap_or(content.len());
+        let Ok(value) = serde_norway::from_str::<serde_norway::Value>(&content[start..end]) else {
+            continue;
+        };
+        let Some(mapping) = value.as_mapping() else {
+            continue;
+        };
+        for (key, value) in mapping {
+            recovered.insert(key.clone(), value.clone());
+        }
+    }
+
+    serde_norway::Value::Mapping(recovered)
+}
+
+fn is_top_level_yaml_boundary(line: &str) -> bool {
+    if line.is_empty()
+        || line.chars().next().is_some_and(char::is_whitespace)
+        || line.starts_with('#')
+        || is_indentationless_yaml_sequence_item(line)
+    {
+        return false;
+    }
+    !matches!(line.trim(), "---" | "...") && !line.starts_with('%')
+}
+
+fn is_top_level_yaml_mapping_field(line: &str) -> bool {
+    let mut single_quoted = false;
+    let mut double_quoted = false;
+    let mut escaped = false;
+    for (index, character) in line.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if double_quoted && character == '\\' {
+            escaped = true;
+            continue;
+        }
+        match character {
+            '\'' if !double_quoted => single_quoted = !single_quoted,
+            '"' if !single_quoted => double_quoted = !double_quoted,
+            ':' if !single_quoted && !double_quoted => {
+                let rest = &line[index + character.len_utf8()..];
+                return rest.is_empty() || rest.chars().next().is_some_and(char::is_whitespace);
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn patch_core_network_yaml(
+    content: &str,
+    config: &GuiConfigFile,
+) -> Result<Option<String>, String> {
+    patch_core_yaml_document(content, |document| {
+        let original = document.clone();
+        apply_network_settings(document, config)?;
+        Ok(*document != original)
+    })
+}
+
+fn patch_core_network_routing_yaml(
+    content: &str,
+    config: &GuiConfigFile,
+) -> Result<Option<String>, String> {
+    patch_core_yaml_document(content, |document| {
+        let original = document.clone();
+        apply_network_settings(document, config)?;
+        set_core_yaml_top_level_value(
+            document,
+            "proxy-url",
+            serde_norway::Value::String(config.proxy_url.clone()),
+        )?;
+        set_core_yaml_nested_value(
+            document,
+            "routing",
+            "session-affinity",
+            serde_norway::Value::Bool(config.routing_session_affinity),
+        )?;
+        set_core_yaml_nested_value(
+            document,
+            "routing",
+            "session-affinity-ttl",
+            serde_norway::Value::String(config.routing_session_affinity_ttl.clone()),
+        )?;
+        Ok(*document != original)
+    })
+}
+
+fn merge_yaml_values(base: &mut serde_norway::Value, current: serde_norway::Value) {
+    match (base, current) {
+        (
+            serde_norway::Value::Mapping(base_mapping),
+            serde_norway::Value::Mapping(current_mapping),
+        ) => {
+            for (key, current_value) in current_mapping {
+                if let Some(base_value) = base_mapping.get_mut(&key) {
+                    merge_yaml_values(base_value, current_value);
+                } else {
+                    base_mapping.insert(key, current_value);
+                }
+            }
+        }
+        (base, current) => *base = current,
+    }
+}
+
+fn apply_network_settings(
+    document: &mut serde_norway::Value,
+    config: &GuiConfigFile,
+) -> Result<(), String> {
+    let mapping = document
+        .as_mapping_mut()
+        .ok_or_else(|| "内核配置顶层必须是 YAML 映射".to_string())?;
+
+    let host = config.host.trim();
+    mapping.insert(
+        serde_norway::Value::String("host".to_string()),
+        serde_norway::Value::String(host.to_string()),
+    );
+    mapping.insert(
+        serde_norway::Value::String("port".to_string()),
+        serde_norway::to_value(config.port).map_err(|err| format!("序列化内核端口失败: {err}"))?,
+    );
+    Ok(())
+}
+
+fn apply_gui_managed_settings(content: &str, config: &GuiConfigFile) -> Result<String, String> {
+    let host = config.host.trim();
+    let updated = patch_core_yaml_document(content, |document| {
+        let mut changed = false;
+        changed |= set_core_yaml_top_level_value(
+            document,
+            "host",
+            serde_norway::Value::String(host.to_string()),
+        )?;
+        changed |= set_core_yaml_top_level_value(
+            document,
+            "port",
+            serde_norway::to_value(config.port)
+                .map_err(|err| format!("序列化内核端口失败: {err}"))?,
+        )?;
+        changed |= set_core_yaml_top_level_value(
+            document,
+            "auth-dir",
+            serde_norway::Value::String(config.auth_dir.clone()),
+        )?;
+        changed |= set_core_yaml_top_level_value(
+            document,
+            "usage-statistics-enabled",
+            serde_norway::Value::Bool(config.usage_statistics_enabled),
+        )?;
+        changed |= set_core_yaml_nested_value(
+            document,
+            "remote-management",
+            "secret-key",
+            serde_norway::Value::String(config.management_secret_key.clone()),
+        )?;
+        changed |= set_core_yaml_nested_value(
+            document,
+            "plugins",
+            "enabled",
+            serde_norway::Value::Bool(config.plugins_enabled),
+        )?;
+        changed |= set_core_yaml_nested_value(
+            document,
+            "routing",
+            "strategy",
+            serde_norway::Value::String(config.routing_strategy.clone()),
+        )?;
+        changed |= set_core_yaml_top_level_value(
+            document,
+            "proxy-url",
+            serde_norway::Value::String(config.proxy_url.clone()),
+        )?;
+        changed |= set_core_yaml_nested_value(
+            document,
+            "routing",
+            "session-affinity",
+            serde_norway::Value::Bool(config.routing_session_affinity),
+        )?;
+        changed |= set_core_yaml_nested_value(
+            document,
+            "routing",
+            "session-affinity-ttl",
+            serde_norway::Value::String(config.routing_session_affinity_ttl.clone()),
+        )?;
+        Ok(changed)
+    })?
+    .unwrap_or_else(|| content.to_string());
+
+    let updated = patch_core_api_keys_yaml(&updated, &gui_api_key_values(&config.api_keys))?;
+    serde_norway::from_str::<serde_norway::Value>(&updated)
+        .map_err(|err| format!("验证启动内核配置失败: {err}"))?;
+    Ok(updated)
+}
+
+fn write_bytes_directly(path: &Path, content: &[u8]) -> Result<(), String> {
+    let directory = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(directory)
+        .map_err(|error| format!("创建配置目录失败 {}: {error}", path_to_string(directory)))?;
+
+    let write_result = (|| -> io::Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false)
+            .open(path)?;
+        file.seek(SeekFrom::Start(0))?;
+        file.write_all(content)?;
+        file.set_len(content.len() as u64)?;
+        file.sync_all()
+    })();
+
+    write_result.map_err(|error| format!("直接写入配置失败 {}: {error}", path_to_string(path)))?;
+    remember_software_write(path, content);
+    Ok(())
+}
+
+fn write_bytes_atomically(path: &Path, content: &[u8]) -> Result<(), String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let directory = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(directory)
+        .map_err(|error| format!("创建配置目录失败 {}: {error}", path_to_string(directory)))?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("config.yaml");
+    let temporary_path = directory.join(format!(
+        ".{file_name}.tmp.{}.{}",
+        std::process::id(),
+        SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    ));
+
+    let write_result = (|| -> io::Result<()> {
+        let mut file = File::create(&temporary_path)?;
+        file.write_all(content)?;
+        file.sync_all()?;
+        // ReplaceFileW requires the replacement file handle to be closed.
+        // Unix rename permits replacing an open file, so this otherwise only
+        // surfaces on Windows as ERROR_SHARING_VIOLATION (os error 32).
+        drop(file);
+        replace_file_atomically(&temporary_path, path)
+    })();
+
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(format!(
+            "原子写入配置失败 {}: {error}",
+            path_to_string(path)
+        ));
+    }
+
+    remember_software_write(path, content);
+
+    Ok(())
+}
+
+fn normalized_config_path(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn remember_software_write(path: &Path, content: &[u8]) {
+    if let Ok(mut hashes) = CONFIG_WRITE_HASHES.lock() {
+        hashes.insert(normalized_config_path(path), sha256_bytes(content));
+    }
+}
+
+fn consume_software_write(path: &Path) -> bool {
+    let Ok(content) = fs::read(path) else {
+        return false;
+    };
+    let key = normalized_config_path(path);
+    let hash = sha256_bytes(&content);
+    let Ok(mut hashes) = CONFIG_WRITE_HASHES.lock() else {
+        return false;
+    };
+    hashes
+        .remove(&key)
+        .is_some_and(|expected_hash| expected_hash == hash)
+}
+
+fn write_yaml_if_changed(path: &Path, content: &str) -> Result<bool, String> {
+    if fs::read_to_string(path).ok().as_deref() == Some(content) {
+        return Ok(false);
+    }
+
+    write_bytes_atomically(path, content.as_bytes())?;
+
+    Ok(true)
+}
+
+#[cfg(not(windows))]
+fn replace_file_atomically(temporary_path: &Path, destination_path: &Path) -> io::Result<()> {
+    fs::rename(temporary_path, destination_path)
+}
+
+#[cfg(windows)]
+fn replace_file_atomically(temporary_path: &Path, destination_path: &Path) -> io::Result<()> {
+    if !destination_path.exists() {
+        return fs::rename(temporary_path, destination_path);
+    }
+
+    use std::{os::windows::ffi::OsStrExt, ptr};
+    use windows_sys::Win32::Storage::FileSystem::ReplaceFileW;
+
+    let destination = destination_path
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect::<Vec<_>>();
+    let replacement = temporary_path
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect::<Vec<_>>();
+    let replaced = unsafe {
+        ReplaceFileW(
+            destination.as_ptr(),
+            replacement.as_ptr(),
+            ptr::null(),
+            0,
+            ptr::null(),
+            ptr::null(),
+        )
+    };
+
+    if replaced == 0 {
+        return Err(io::Error::last_os_error());
+    }
+
+    Ok(())
+}
+
+fn fixed_oauth_dir() -> Result<PathBuf, String> {
+    Ok(core_base_dir()?.join(OAUTH_DIR_NAME))
+}
+
+fn auth_dir_path_for_core(auth_dir: &str, install_dir: &Path) -> PathBuf {
+    if auth_dir.trim() == DEFAULT_AUTH_DIR {
+        return install_dir
+            .parent()
+            .map(|parent| parent.join(OAUTH_DIR_NAME))
+            .unwrap_or_else(|| install_dir.join(auth_dir));
+    }
+    let auth_dir = PathBuf::from(auth_dir);
+    if auth_dir.is_absolute() {
+        auth_dir
+    } else {
+        install_dir.join(auth_dir)
+    }
+}
+
+fn should_import_core_api_keys(had_existing_gui_config: bool, core_api_keys: &[String]) -> bool {
+    had_existing_gui_config || !core_api_keys.is_empty()
+}
+
+fn file_modified_time(path: &Path) -> Option<SystemTime> {
+    fs::metadata(path).ok()?.modified().ok()
+}
+
+fn load_or_create_gui_config() -> Result<GuiConfigFile, String> {
+    let config_path = gui_config_path()?;
+    let legacy_config_path = legacy_gui_config_path()?;
+    let gui_config_exists = config_path.is_file();
+    let legacy_config_exists = legacy_config_path.is_file();
+    let had_existing_gui_config = gui_config_exists || legacy_config_exists;
+
+    let (mut config, presence, mut changed, gui_parse_failed) = if gui_config_exists {
+        let content = fs::read_to_string(&config_path)
+            .map_err(|err| format!("读取 GUI 配置失败 {}: {err}", path_to_string(&config_path)))?;
+        match (
+            toml::from_str::<GuiConfigFile>(&content),
+            toml::from_str::<GuiConfigPresence>(&content),
+        ) {
+            (Ok(config), Ok(presence)) => (config, presence, false, false),
+            _ => (
+                GuiConfigFile::default(),
+                GuiConfigPresence::default(),
+                true,
+                true,
+            ),
+        }
+    } else if legacy_config_exists {
+        let content = fs::read_to_string(&legacy_config_path).map_err(|err| {
+            format!(
+                "读取旧 GUI 配置失败 {}: {err}",
+                path_to_string(&legacy_config_path)
+            )
+        })?;
+        let config = serde_yaml::from_str::<GuiConfigFile>(&content)
+            .map_err(|err| format!("解析旧 GUI 配置失败: {err}"))?;
+        let presence = serde_yaml::from_str::<GuiConfigPresence>(&content)
+            .map_err(|err| format!("解析旧 GUI 配置字段失败: {err}"))?;
+        (config, presence, true, false)
+    } else {
+        (
+            GuiConfigFile::default(),
+            GuiConfigPresence::default(),
+            true,
+            false,
+        )
+    };
+
+    let core_config_path = core_install_dir()?.join(CORE_CONFIG_FILE);
+    let core_is_newer = file_modified_time(&core_config_path)
+        .zip(file_modified_time(&config_path))
+        .is_some_and(|(core, gui)| core > gui);
+    if core_is_newer && !gui_parse_failed {
+        if let Ok(core_settings) = read_installed_core_config_settings() {
+            apply_core_settings_to_gui_config(&mut config, &core_settings);
+            changed = true;
+        }
+    }
+
+    let missing_core_settings = presence.host.is_none()
+        || presence.port.is_none()
+        || presence.auth_dir.is_none()
+        || presence.api_keys.is_none()
+        || presence.management_secret_key.is_none()
+        || presence.usage_statistics_enabled.is_none()
+        || presence.plugins_enabled.is_none()
+        || presence.routing_strategy.is_none()
+        || presence.proxy_url.is_none()
+        || presence.routing_session_affinity.is_none()
+        || presence.routing_session_affinity_ttl.is_none();
+    if missing_core_settings && !gui_parse_failed {
+        if let Ok(core_settings) = read_installed_core_config_settings() {
+            if presence.host.is_none() {
+                config.host = core_settings.host.clone();
+                config.allow_lan = !is_loopback_host(&config.host);
+            }
+            if presence.port.is_none() {
+                config.port = core_settings.port;
+            }
+            if presence.auth_dir.is_none() {
+                config.auth_dir = core_settings.auth_dir.clone();
+            }
+            if presence.api_keys.is_none()
+                && should_import_core_api_keys(had_existing_gui_config, &core_settings.api_keys)
+            {
+                config.api_keys = merge_core_api_keys_with_gui_metadata(
+                    &config.api_keys,
+                    &core_settings.api_keys,
+                    None,
+                );
+            }
+            if presence.plugins_enabled.is_none() {
+                config.plugins_enabled = core_settings.plugins_enabled;
+            }
+            if presence.usage_statistics_enabled.is_none() {
+                config.usage_statistics_enabled = core_settings.usage_statistics_enabled;
+            }
+            if presence.management_secret_key.is_none() {
+                config.management_secret_key = core_settings
+                    .management_secret_key
+                    .as_deref()
+                    .filter(|secret_key| !is_hashed_management_secret_key(secret_key))
+                    .unwrap_or_default()
+                    .to_string();
+            }
+            if presence.routing_strategy.is_none() {
+                config.routing_strategy = core_settings.routing_strategy;
+            }
+            if presence.proxy_url.is_none() {
+                config.proxy_url = core_settings.proxy_url;
+            }
+            if presence.routing_session_affinity.is_none() {
+                config.routing_session_affinity = core_settings.routing_session_affinity;
+            }
+            if presence.routing_session_affinity_ttl.is_none() {
+                config.routing_session_affinity_ttl = core_settings.routing_session_affinity_ttl;
+            }
+        }
+        changed = true;
+    }
+    if presence.management_secret_key.is_none()
+        && (had_existing_gui_config || core_config_path.is_file())
+    {
+        config.management_secret_key = read_installed_core_config_settings()
+            .ok()
+            .and_then(|settings| settings.management_secret_key)
+            .filter(|secret_key| !is_hashed_management_secret_key(secret_key))
+            .unwrap_or_default();
+        changed = true;
+    }
+    if presence.host.is_none() || presence.auth_dir.is_none() {
+        changed = true;
+    }
+    if presence.locale.is_none() {
+        changed = true;
+    }
+    if presence.close_behavior.is_none() {
+        changed = true;
+    }
+    if presence.codex_session_repair_on_launch.is_none() {
+        changed = true;
+    }
+    if presence.claude_code_working_directory.is_none()
+        || presence
+            .claude_code_working_directory_prompt_disabled
+            .is_none()
+    {
+        changed = true;
+    }
+    let management_secret_rotated = ensure_strong_management_secret(&mut config)?;
+    changed |= management_secret_rotated;
+    changed |= sanitize_gui_config(&mut config)?;
+    validate_gui_config(&config)?;
+    if changed {
+        write_gui_config(&config)?;
+    }
+    if management_secret_rotated {
+        if let Err(error) = patch_core_management_secret_key(&config.management_secret_key) {
+            eprintln!("更新旧版 CPA WebUI 密钥失败，将在下次启动内核时重试: {error}");
+        }
+    }
+    if !config.auth_dir.trim().is_empty() {
+        let install_dir = core_install_dir()?;
+        let auth_dir = auth_dir_path_for_core(&config.auth_dir, &install_dir);
+        fs::create_dir_all(&auth_dir)
+            .map_err(|error| format!("创建凭证目录失败 {}: {error}", path_to_string(&auth_dir)))?;
+    }
+    Ok(config)
+}
+
+fn apply_core_settings_to_gui_config(
+    config: &mut GuiConfigFile,
+    core_settings: &CoreConfigSettings,
+) {
+    config.host = core_settings.host.clone();
+    config.port = core_settings.port;
+    config.allow_lan = !is_loopback_host(&core_settings.host);
+    config.auth_dir = core_settings.auth_dir.clone();
+    config.api_keys =
+        merge_core_api_keys_with_gui_metadata(&config.api_keys, &core_settings.api_keys, None);
+    if let Some(secret_key) = core_settings
+        .management_secret_key
+        .as_deref()
+        .filter(|secret_key| !is_hashed_management_secret_key(secret_key))
+    {
+        config.management_secret_key = secret_key.to_string();
+    }
+    config.usage_statistics_enabled = core_settings.usage_statistics_enabled;
+    config.plugins_enabled = core_settings.plugins_enabled;
+    config.routing_strategy = core_settings.routing_strategy.clone();
+    config.proxy_url = core_settings.proxy_url.clone();
+    config.routing_session_affinity = core_settings.routing_session_affinity;
+    config.routing_session_affinity_ttl = core_settings.routing_session_affinity_ttl.clone();
+}
+
+fn default_api_key_entry() -> GuiApiKeyEntry {
+    GuiApiKeyEntry {
+        key: DEFAULT_API_KEY.to_string(),
+        remark: DEFAULT_API_KEY_INITIAL_REMARK.to_string(),
+    }
+}
+
+fn gui_api_key_values(entries: &[GuiApiKeyEntry]) -> Vec<String> {
+    entries.iter().map(|entry| entry.key.clone()).collect()
+}
+
+fn effective_agent_api_key(config: &GuiConfigFile) -> &str {
+    config
+        .api_keys
+        .iter()
+        .map(|entry| entry.key.trim())
+        .find(|key| !key.is_empty())
+        .unwrap_or(DEFAULT_API_KEY)
+}
+
+fn merge_core_api_keys_with_gui_metadata(
+    existing: &[GuiApiKeyEntry],
+    core_api_keys: &[String],
+    added_api_key: Option<&GuiApiKeyEntry>,
+) -> Vec<GuiApiKeyEntry> {
+    let mut merged: Vec<GuiApiKeyEntry> = Vec::new();
+
+    for api_key in core_api_keys {
+        let api_key = api_key.trim();
+        if api_key.is_empty() || is_example_core_api_key(api_key) {
+            continue;
+        }
+        if merged.iter().any(|entry| entry.key == api_key) {
+            continue;
+        }
+
+        let remark = added_api_key
+            .filter(|entry| entry.key == api_key)
+            .map(|entry| entry.remark.clone())
+            .or_else(|| {
+                existing
+                    .iter()
+                    .find(|entry| entry.key == api_key)
+                    .map(|entry| entry.remark.clone())
+            })
+            .unwrap_or_default();
+        merged.push(GuiApiKeyEntry {
+            key: api_key.to_string(),
+            remark,
+        });
+    }
+
+    merged
+}
+
+fn normalized_saved_window_size(width: u32, height: u32) -> SavedWindowSize {
+    SavedWindowSize {
+        width: width.clamp(MIN_MAIN_WINDOW_WIDTH, MAX_SAVED_WINDOW_DIMENSION),
+        height: height.clamp(MIN_MAIN_WINDOW_HEIGHT, MAX_SAVED_WINDOW_DIMENSION),
+    }
+}
+
+fn configured_window_size(config: &GuiConfigFile) -> Option<SavedWindowSize> {
+    match (config.window_width, config.window_height) {
+        (Some(width), Some(height)) => Some(normalized_saved_window_size(width, height)),
+        _ => None,
+    }
+}
+
+fn logical_window_size_from_physical(
+    physical_size: &tauri::PhysicalSize<u32>,
+    scale_factor: f64,
+) -> Option<SavedWindowSize> {
+    if !scale_factor.is_finite() || scale_factor <= 0.0 {
+        return None;
+    }
+
+    let width = (f64::from(physical_size.width) / scale_factor).round() as u32;
+    let height = (f64::from(physical_size.height) / scale_factor).round() as u32;
+    if width < MIN_MAIN_WINDOW_WIDTH || height < MIN_MAIN_WINDOW_HEIGHT {
+        return None;
+    }
+
+    Some(normalized_saved_window_size(width, height))
+}
+
+fn fit_window_size_to_current_monitor<R: tauri::Runtime>(
+    window: &tauri::WebviewWindow<R>,
+    saved_size: SavedWindowSize,
+) -> SavedWindowSize {
+    let monitor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| window.primary_monitor().ok().flatten());
+    let Some(monitor) = monitor else {
+        return saved_size;
+    };
+
+    let scale_factor = monitor.scale_factor();
+    if !scale_factor.is_finite() || scale_factor <= 0.0 {
+        return saved_size;
+    }
+
+    let (frame_width, frame_height) = window
+        .outer_size()
+        .ok()
+        .zip(window.inner_size().ok())
+        .map(|(outer, inner)| {
+            (
+                outer.width.saturating_sub(inner.width),
+                outer.height.saturating_sub(inner.height),
+            )
+        })
+        .unwrap_or_default();
+    let work_area = monitor.work_area();
+    let max_width =
+        (f64::from(work_area.size.width.saturating_sub(frame_width)) / scale_factor).floor() as u32;
+    let max_height = (f64::from(work_area.size.height.saturating_sub(frame_height)) / scale_factor)
+        .floor() as u32;
+
+    SavedWindowSize {
+        width: saved_size.width.min(max_width.max(MIN_MAIN_WINDOW_WIDTH)),
+        height: saved_size
+            .height
+            .min(max_height.max(MIN_MAIN_WINDOW_HEIGHT)),
+    }
+}
+
+fn restore_main_window_size(app: &tauri::AppHandle) -> Result<(), String> {
+    let window_size_state = app.state::<MainWindowSizeState>();
+    let Some(saved_size) = window_size_state.snapshot()? else {
+        return Ok(());
+    };
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "主窗口不存在，无法恢复窗口尺寸".to_string())?;
+    let restored_size = fit_window_size_to_current_monitor(&window, saved_size);
+
+    window
+        .set_size(LogicalSize::new(
+            f64::from(restored_size.width),
+            f64::from(restored_size.height),
+        ))
+        .map_err(|error| format!("恢复主窗口尺寸失败: {error}"))?;
+    window_size_state.replace(restored_size)
+}
+
+fn persist_main_window_size(app: &tauri::AppHandle) -> Result<(), String> {
+    let window_size_state = app.state::<MainWindowSizeState>();
+    let saved_size = match window_size_state.snapshot()? {
+        Some(size) => size,
+        None => {
+            let window = app
+                .get_webview_window("main")
+                .ok_or_else(|| "主窗口不存在，无法保存窗口尺寸".to_string())?;
+            let physical_size = window
+                .inner_size()
+                .map_err(|error| format!("读取主窗口尺寸失败: {error}"))?;
+            let scale_factor = window
+                .scale_factor()
+                .map_err(|error| format!("读取主窗口缩放比例失败: {error}"))?;
+            logical_window_size_from_physical(&physical_size, scale_factor)
+                .ok_or_else(|| "主窗口尺寸无效，已跳过保存".to_string())?
+        }
+    };
+
+    app.state::<GuiConfigState>()
+        .set_window_size(saved_size)
+        .map(|_| ())
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    matches!(host.trim(), "127.0.0.1" | "localhost" | "::1")
+}
+
+fn sanitize_gui_config(config: &mut GuiConfigFile) -> Result<bool, String> {
+    let mut changed = false;
+    let normalized_locale = normalize_app_locale(&config.locale);
+    if config.locale != normalized_locale {
+        config.locale = normalized_locale.to_string();
+        changed = true;
+    }
+    let host = config.host.trim();
+    let host = if host.is_empty() {
+        if config.allow_lan {
+            "0.0.0.0"
+        } else {
+            "127.0.0.1"
+        }
+    } else {
+        host
+    };
+    if config.host != host {
+        config.host = host.to_string();
+        changed = true;
+    }
+    let allow_lan = !is_loopback_host(&config.host);
+    if config.allow_lan != allow_lan {
+        config.allow_lan = allow_lan;
+        changed = true;
+    }
+    let legacy_default_auth_dir = fixed_oauth_dir()?;
+    if config.auth_dir.trim().is_empty()
+        || Path::new(config.auth_dir.trim()) == legacy_default_auth_dir
+    {
+        config.auth_dir = DEFAULT_AUTH_DIR.to_string();
+        changed = true;
+    }
+    let original_api_keys = config.api_keys.clone();
+    let configured_keys = config
+        .api_keys
+        .iter()
+        .map(|entry| entry.key.trim().to_string())
+        .collect::<Vec<_>>();
+    config.api_keys =
+        merge_core_api_keys_with_gui_metadata(&config.api_keys, &configured_keys, None);
+    for entry in &mut config.api_keys {
+        entry.key = entry.key.trim().to_string();
+        entry.remark = entry.remark.trim().to_string();
+    }
+    if config.api_keys != original_api_keys {
+        changed = true;
+    }
+    let proxy_url = config.proxy_url.trim().to_string();
+    if config.proxy_url != proxy_url {
+        config.proxy_url = proxy_url;
+        changed = true;
+    }
+    let routing_session_affinity_ttl = config.routing_session_affinity_ttl.trim().to_string();
+    if config.routing_session_affinity_ttl != routing_session_affinity_ttl {
+        config.routing_session_affinity_ttl = routing_session_affinity_ttl;
+        changed = true;
+    }
+    let claude_code_working_directory = config.claude_code_working_directory.trim().to_string();
+    if config.claude_code_working_directory != claude_code_working_directory {
+        config.claude_code_working_directory = claude_code_working_directory;
+        changed = true;
+    }
+    let window_size = configured_window_size(config);
+    let normalized_width = window_size.map(|size| size.width);
+    let normalized_height = window_size.map(|size| size.height);
+    if config.window_width != normalized_width || config.window_height != normalized_height {
+        config.window_width = normalized_width;
+        config.window_height = normalized_height;
+        changed = true;
+    }
+    Ok(changed)
+}
+
+#[allow(dead_code)]
+fn write_gui_config_legacy(config: &GuiConfigFile) -> Result<(), String> {
+    validate_gui_config(config)?;
+    let config_path = gui_config_path()?;
+    let content =
+        toml::to_string_pretty(config).map_err(|err| format!("序列化 GUI 配置失败: {err}"))?;
+    write_yaml_if_changed(&config_path, &content).map(|_| ())
+}
+
+fn write_gui_config(config: &GuiConfigFile) -> Result<(), String> {
+    write_gui_config_to_path(config, &gui_config_path()?)
+}
+
+fn write_gui_config_to_path(config: &GuiConfigFile, config_path: &Path) -> Result<(), String> {
+    use toml_edit::{value, Array, Document, InlineTable, Item, Value};
+
+    validate_gui_config(config)?;
+    let existing = fs::read_to_string(config_path).ok();
+    let mut document = existing
+        .as_deref()
+        .filter(|content| !content.trim().is_empty())
+        .and_then(|content| content.parse::<Document>().ok())
+        .unwrap_or_default();
+    let root = document.as_table_mut();
+    for (key, item) in [
+        ("locale", value(config.locale.as_str())),
+        ("port", value(i64::from(config.port))),
+        ("allow-lan", value(config.allow_lan)),
+        ("host", value(config.host.as_str())),
+        ("run-on-startup", value(config.run_on_startup)),
+        ("close-behavior", value(config.close_behavior.as_str())),
+        ("auth-dir", value(config.auth_dir.as_str())),
+        (
+            "management-secret-key",
+            value(config.management_secret_key.as_str()),
+        ),
+        (
+            "usage-statistics-enabled",
+            value(config.usage_statistics_enabled),
+        ),
+        ("plugins-enabled", value(config.plugins_enabled)),
+        ("routing-strategy", value(config.routing_strategy.as_str())),
+        ("proxy-url", value(config.proxy_url.as_str())),
+        (
+            "routing-session-affinity",
+            value(config.routing_session_affinity),
+        ),
+        (
+            "routing-session-affinity-ttl",
+            value(config.routing_session_affinity_ttl.as_str()),
+        ),
+        (
+            "codex-session-repair-on-launch",
+            value(config.codex_session_repair_on_launch),
+        ),
+        (
+            "claude-code-working-directory",
+            value(config.claude_code_working_directory.as_str()),
+        ),
+        (
+            "claude-code-working-directory-prompt-disabled",
+            value(config.claude_code_working_directory_prompt_disabled),
+        ),
+    ] {
+        set_codex_table_item(root, key, item);
+    }
+    for (key, dimension) in [
+        ("window-width", config.window_width),
+        ("window-height", config.window_height),
+    ] {
+        if let Some(dimension) = dimension {
+            set_codex_table_item(root, key, value(i64::from(dimension)));
+        } else {
+            root.remove(key);
+        }
+    }
+    let mut api_keys = Array::new();
+    for entry in &config.api_keys {
+        let mut table = InlineTable::new();
+        table.insert("key", Value::from(entry.key.as_str()));
+        table.insert("remark", Value::from(entry.remark.as_str()));
+        api_keys.push(Value::InlineTable(table));
+    }
+    set_codex_table_item(root, "api-keys", Item::Value(Value::Array(api_keys)));
+    let mut api_access_remarks = Array::new();
+    for entry in &config.api_access_remarks {
+        let mut table = InlineTable::new();
+        table.insert(
+            "provider-section",
+            Value::from(entry.provider_section.as_str()),
+        );
+        table.insert("api-key-hash", Value::from(entry.api_key_hash.as_str()));
+        table.insert("remark", Value::from(entry.remark.as_str()));
+        api_access_remarks.push(Value::InlineTable(table));
+    }
+    set_codex_table_item(
+        root,
+        "api-access-remarks",
+        Item::Value(Value::Array(api_access_remarks)),
+    );
+
+    let content = document.to_string();
+    toml::from_str::<GuiConfigFile>(&content)
+        .map_err(|error| format!("验证 GUI 配置失败: {error}"))?;
+    if existing.as_deref() == Some(content.as_str()) {
+        return Ok(());
+    }
+    write_bytes_directly(config_path, content.as_bytes())
+}
+
+fn validate_gui_config(config: &GuiConfigFile) -> Result<(), String> {
+    if config.port == 0 {
+        return Err("GUI 配置端口必须在 1 到 65535 之间".to_string());
+    }
+    if config.host.trim().is_empty() || config.host.chars().any(char::is_control) {
+        return Err("GUI 配置 host 无效".to_string());
+    }
+    if config.auth_dir.trim().is_empty() || config.auth_dir.chars().any(char::is_control) {
+        return Err("凭证目录不能为空或包含控制字符".to_string());
+    }
+    for entry in &config.api_keys {
+        validate_core_api_key(&entry.key)?;
+        validate_api_key_remark(&entry.remark)?;
+    }
+    for entry in &config.api_access_remarks {
+        validate_api_access_provider_section(&entry.provider_section)?;
+        if entry.api_key_hash.len() != 64
+            || !entry
+                .api_key_hash
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+        {
+            return Err("API 接入备注的密钥指纹无效".to_string());
+        }
+        validate_api_key_remark(&entry.remark)?;
+    }
+    validate_strong_management_secret_key(&config.management_secret_key)?;
+    validate_routing_strategy(config.routing_strategy.trim())?;
+    if config.proxy_url.chars().any(char::is_control) {
+        return Err("代理 URL 不能包含控制字符".to_string());
+    }
+    if config
+        .routing_session_affinity_ttl
+        .chars()
+        .any(char::is_control)
+    {
+        return Err("会话粘性 TTL 不能包含控制字符".to_string());
+    }
+    if config
+        .claude_code_working_directory
+        .chars()
+        .any(char::is_control)
+    {
+        return Err("Claude Code working directory cannot contain control characters".to_string());
+    }
+    Ok(())
+}
+
+fn gui_config_path() -> Result<PathBuf, String> {
+    Ok(core_base_dir()?.join(GUI_CONFIG_FILE))
+}
+
+fn legacy_gui_config_path() -> Result<PathBuf, String> {
+    Ok(core_base_dir()?.join(LEGACY_GUI_CONFIG_FILE))
+}
+
+fn stop_core_process_inner(process_state: &CoreProcessState) -> Result<(), String> {
+    if let Some(mut child) = process_state.take_child() {
+        terminate_child(&mut child)?;
+        process_state.clear_lifetime_guard();
+        return Ok(());
+    }
+
+    let install_dir = core_install_dir()?;
+    let binary_path = find_core_binary(&install_dir)
+        .ok_or_else(|| "未安装 CPA 内核，请先安装最新版".to_string())?;
+    let process_ids = find_core_process_ids(&binary_path);
+
+    if process_ids.is_empty() {
+        return Err("CPA 内核当前未运行".to_string());
+    }
+
+    for process_id in process_ids {
+        terminate_process_id(process_id)?;
+    }
+
+    Ok(())
+}
+
+fn core_install_dir() -> Result<PathBuf, String> {
+    Ok(core_base_dir()?.join("cpa-core"))
+}
+
+fn executable_dir() -> Result<PathBuf, String> {
+    let exe_path = env::current_exe().map_err(|err| format!("读取当前程序路径失败: {err}"))?;
+    exe_path
+        .parent()
+        .map(|path| path.to_path_buf())
+        .ok_or_else(|| format!("当前程序路径没有父目录: {}", path_to_string(&exe_path)))
+}
+
+fn macos_app_resources_dir(executable_dir: &Path) -> Option<PathBuf> {
+    if executable_dir.file_name().and_then(|name| name.to_str()) != Some("MacOS") {
+        return None;
+    }
+    let contents_dir = executable_dir.parent()?;
+    if contents_dir.file_name().and_then(|name| name.to_str()) != Some("Contents") {
+        return None;
+    }
+    let app_dir = contents_dir.parent()?;
+    if app_dir.extension().and_then(|extension| extension.to_str()) != Some("app") {
+        return None;
+    }
+    Some(contents_dir.join("Resources"))
+}
+
+fn core_base_dir() -> Result<PathBuf, String> {
+    let executable_dir = executable_dir()?;
+    #[cfg(target_os = "macos")]
+    if macos_app_resources_dir(&executable_dir).is_some() {
+        let home_dir = env::var_os("HOME")
+            .map(PathBuf::from)
+            .ok_or_else(|| "无法确定 macOS 用户目录".to_string())?;
+        return Ok(home_dir
+            .join("Library")
+            .join("Application Support")
+            .join("com.cpa.gui"));
+    }
+    Ok(executable_dir)
+}
+
+fn bundled_core_locations(base_dir: &Path, executable_dir: &Path) -> Vec<(PathBuf, PathBuf)> {
+    let mut locations = vec![(base_dir.join(CORE_VERSION_FILE), base_dir.join("cpa-core"))];
+    if let Some(resources_dir) = macos_app_resources_dir(executable_dir) {
+        locations.push((
+            resources_dir.join(CORE_VERSION_FILE),
+            resources_dir.join("cpa-core"),
+        ));
+    }
+    if let Some(project_root) = source_project_root(executable_dir) {
+        if project_root != base_dir {
+            locations.push((
+                project_root.join(CORE_VERSION_FILE),
+                project_root.join("cpa-core"),
+            ));
+        }
+    }
+    locations
+}
+
+fn bundled_core_archive() -> Result<Option<(BundledCoreInfo, PathBuf)>, String> {
+    let platform = current_core_platform()?;
+    let base_dir = core_base_dir()?;
+    let executable_dir = executable_dir()?;
+    let locations = bundled_core_locations(&base_dir, &executable_dir);
+
+    let configured_version = locations.iter().find_map(|(version_path, _)| {
+        fs::read_to_string(version_path)
+            .ok()
+            .map(|value| normalize_version(value.trim()))
+            .filter(|value| value != "v")
+    });
+    if let Some(version) = configured_version {
+        let asset_name = core_release_asset_name(&version, &platform);
+        for (_, archive_dir) in &locations {
+            let archive_path = archive_dir.join(&asset_name);
+            if !archive_path.is_file() {
+                continue;
+            }
+            let size_bytes = fs::metadata(&archive_path)
+                .map_err(|error| format!("读取内置内核信息失败: {error}"))?
+                .len();
+            return Ok(Some((
+                BundledCoreInfo {
+                    version,
+                    asset_name,
+                    size_bytes,
+                },
+                archive_path,
+            )));
+        }
+        return Ok(None);
+    }
+
+    let suffix = format!(
+        "_{}_{}.{}",
+        platform.asset_os, platform.asset_arch, platform.archive_kind
+    );
+    let mut matches = Vec::new();
+    for (_, archive_dir) in &locations {
+        if !archive_dir.is_dir() {
+            continue;
+        }
+        for entry in fs::read_dir(archive_dir)
+            .map_err(|error| format!("读取内置内核目录失败: {error}"))?
+            .filter_map(Result::ok)
+        {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !entry.path().is_file()
+                || !name.starts_with("CLIProxyAPI_")
+                || !name.ends_with(&suffix)
+                || name.contains("_no-plugin")
+            {
+                continue;
+            }
+            let Some(version) = name
+                .strip_prefix("CLIProxyAPI_")
+                .and_then(|value| value.strip_suffix(&suffix))
+            else {
+                continue;
+            };
+            let version = normalize_version(version);
+            if matches.iter().any(|(existing, _, _)| existing == &version) {
+                continue;
+            }
+            matches.push((version, name, entry.path()));
+        }
+    }
+    matches.sort_by(|left, right| left.0.cmp(&right.0));
+    if matches.len() > 1 {
+        return Err(format!(
+            "发现多个匹配当前平台的内置内核，请在 {} 中指定发行版本",
+            CORE_VERSION_FILE
+        ));
+    }
+    let Some((version, asset_name, archive_path)) = matches.pop() else {
+        return Ok(None);
+    };
+    let size_bytes = fs::metadata(&archive_path)
+        .map_err(|error| format!("读取内置内核信息失败: {error}"))?
+        .len();
+    Ok(Some((
+        BundledCoreInfo {
+            version,
+            asset_name,
+            size_bytes,
+        },
+        archive_path,
+    )))
+}
+
+fn source_project_root(start: &Path) -> Option<PathBuf> {
+    start.ancestors().find_map(|directory| {
+        (directory.join("package.json").is_file() && directory.join("src-tauri").is_dir())
+            .then(|| directory.to_path_buf())
+    })
+}
+
+fn preserve_bundled_core_assets(source_dir: &Path, target_dir: &Path) -> Result<(), String> {
+    if !source_dir.is_dir() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(source_dir)
+        .map_err(|error| format!("读取内置内核文件失败: {error}"))?
+        .filter_map(Result::ok)
+    {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let is_archive = name.starts_with("CLIProxyAPI_")
+            && (name.ends_with(".tar.gz") || name.ends_with(".zip"))
+            && !name.contains("_no-plugin");
+        if !is_archive && name != CORE_CHECKSUMS_FILE {
+            continue;
+        }
+        fs::copy(&path, target_dir.join(&name))
+            .map_err(|error| format!("保留内置内核文件 {name} 失败: {error}"))?;
+    }
+    Ok(())
+}
+
+fn preserve_selected_bundled_core_asset(
+    archive_path: &Path,
+    target_dir: &Path,
+) -> Result<(), String> {
+    let archive_name = archive_path
+        .file_name()
+        .ok_or_else(|| "内置内核压缩包文件名无效".to_string())?;
+    fs::copy(archive_path, target_dir.join(archive_name))
+        .map_err(|error| format!("保留所选内置内核压缩包失败: {error}"))?;
+    if let Some(source_dir) = archive_path.parent() {
+        let checksums = source_dir.join(CORE_CHECKSUMS_FILE);
+        if checksums.is_file() {
+            fs::copy(&checksums, target_dir.join(CORE_CHECKSUMS_FILE))
+                .map_err(|error| format!("保留内置内核校验文件失败: {error}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn migrate_core_config_for_update(source_dir: &Path, target_dir: &Path) -> Result<(), String> {
+    if !source_dir.is_dir() {
+        return Ok(());
+    }
+    let old_config_path = source_dir.join(CORE_CONFIG_FILE);
+    if !old_config_path.is_file() {
+        return Ok(());
+    }
+
+    let template_path = target_dir.join(CORE_EXAMPLE_CONFIG_FILE);
+    if !template_path.is_file() {
+        return Err(format!(
+            "新版内核缺少配置模板，已取消更新: {}",
+            path_to_string(&template_path)
+        ));
+    }
+    let old_config = match fs::read(&old_config_path) {
+        Ok(content) => String::from_utf8_lossy(&content).into_owned(),
+        Err(error) => {
+            eprintln!(
+                "读取旧版内核配置失败，将使用新版默认配置继续更新 {}: {error}",
+                path_to_string(&old_config_path)
+            );
+            String::new()
+        }
+    };
+    let template = fs::read_to_string(&template_path).map_err(|error| {
+        format!(
+            "读取新版内核配置模板失败 {}: {error}",
+            path_to_string(&template_path)
+        )
+    })?;
+    let migrated = merge_core_config_fields_tolerant(&template, &old_config)?;
+    let config_path = target_dir.join(CORE_CONFIG_FILE);
+    fs::write(&config_path, migrated).map_err(|error| {
+        format!(
+            "写入迁移后的新版内核配置失败 {}: {error}",
+            path_to_string(&config_path)
+        )
+    })?;
+    Ok(())
+}
+
+fn validate_bundled_core_checksum(archive_path: &Path) -> Result<(), String> {
+    let Some(directory) = archive_path.parent() else {
+        return Err("内置内核压缩包没有父目录".to_string());
+    };
+    let checksums_path = directory.join(CORE_CHECKSUMS_FILE);
+    if !checksums_path.is_file() {
+        return Ok(());
+    }
+    let archive_name = archive_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| "内置内核压缩包文件名无效".to_string())?;
+    let checksums = fs::read_to_string(&checksums_path)
+        .map_err(|error| format!("读取内置内核校验文件失败: {error}"))?;
+    let expected = checksums.lines().find_map(|line| {
+        let mut fields = line.split_whitespace();
+        let digest = fields.next()?;
+        let name = fields.next()?.trim_start_matches('*');
+        (name == archive_name && digest.len() == 64).then(|| digest.to_ascii_lowercase())
+    });
+    let Some(expected) = expected else {
+        return Err(format!("校验文件中没有 {archive_name} 的 SHA-256"));
+    };
+    let actual = sha256_file(archive_path)?;
+    if actual != expected {
+        return Err("内置内核压缩包 SHA-256 校验失败".to_string());
+    }
+    Ok(())
+}
+
+fn sha256_file(path: &Path) -> Result<String, String> {
+    let mut file = File::open(path).map_err(|error| format!("打开校验文件失败: {error}"))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("读取校验文件失败: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn read_core_metadata(install_dir: &Path) -> Option<CoreMetadata> {
+    let metadata_path = install_dir.join(CORE_METADATA_FILE);
+    let content = fs::read_to_string(metadata_path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+fn write_core_metadata(install_dir: &Path, metadata: &CoreMetadata) -> Result<(), String> {
+    let metadata_path = install_dir.join(CORE_METADATA_FILE);
+    let content = serde_json::to_string_pretty(metadata)
+        .map_err(|err| format!("生成内核元数据失败: {err}"))?;
+    fs::write(metadata_path, content).map_err(|err| format!("写入内核元数据失败: {err}"))
+}
+
+fn validate_downloaded_asset(
+    asset: &GithubAsset,
+    downloaded: &DownloadedArchive,
+) -> Result<(), String> {
+    validate_download_metadata(
+        downloaded.size,
+        asset.size,
+        &downloaded.sha256,
+        asset.digest.as_deref(),
+    )
+}
+
+fn validate_download_metadata(
+    downloaded: u64,
+    expected_total: Option<u64>,
+    sha256: &str,
+    expected_digest: Option<&str>,
+) -> Result<(), String> {
+    if let Some(expected_total) = expected_total {
+        if downloaded != expected_total {
+            return Err(format!(
+                "下载大小校验失败: 实际 {downloaded} 字节，期望 {expected_total} 字节"
+            ));
+        }
+    }
+
+    if let Some(expected_digest) = expected_digest {
+        let expected = expected_digest
+            .strip_prefix("sha256:")
+            .unwrap_or(expected_digest)
+            .to_ascii_lowercase();
+
+        if !expected.is_empty() && sha256 != expected {
+            return Err("下载文件 SHA-256 校验失败".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+fn cleanup_core_work_dirs() -> Result<(), String> {
+    let base_dir = core_base_dir()?;
+    let mut last_error = None;
+
+    for name in ["cpa-core.staging", "cpa-core.download"] {
+        let path = base_dir.join(name);
+        if path.exists() {
+            if let Err(err) = fs::remove_dir_all(&path) {
+                last_error = Some(format!("清理临时目录失败 {}: {err}", path_to_string(&path)));
+            }
+        }
+    }
+
+    if let Some(error) = last_error {
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+fn normalize_version(version: &str) -> String {
+    let version = version.trim();
+
+    if version.starts_with('v') {
+        version.to_string()
+    } else {
+        format!("v{version}")
+    }
+}
+
+fn is_core_running(binary_path: &Path) -> bool {
+    !find_core_process_ids(binary_path).is_empty()
+}
+
+fn find_core_process_ids(binary_path: &Path) -> Vec<u32> {
+    #[cfg(target_os = "linux")]
+    {
+        find_core_process_ids_linux(binary_path)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = binary_path;
+        find_core_process_ids_by_name()
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn find_core_process_ids_linux(binary_path: &Path) -> Vec<u32> {
+    let Ok(expected) = fs::canonicalize(binary_path) else {
+        return Vec::new();
+    };
+    let output = Command::new("pgrep")
+        .args(["-x", core_binary_name()])
+        .output();
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.trim().parse::<u32>().ok())
+        .filter(|pid| {
+            fs::read_link(format!("/proc/{pid}/exe"))
+                .ok()
+                .and_then(|path| fs::canonicalize(path).ok())
+                .map(|path| path == expected)
+                .unwrap_or(false)
+        })
+        .collect()
+}
+
+#[cfg(all(not(target_os = "linux"), target_os = "windows"))]
+fn find_core_process_ids_by_name() -> Vec<u32> {
+    let image_name = core_binary_name();
+    let filter = format!("IMAGENAME eq {image_name}");
+    let mut command = Command::new("tasklist");
+    command.args(["/FI", &filter, "/FO", "CSV", "/NH"]);
+    configure_background_command(&mut command);
+    let output = command.output();
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| {
+            let columns = line
+                .trim()
+                .trim_matches('"')
+                .split("\",\"")
+                .collect::<Vec<_>>();
+            let name = columns.first()?;
+            let pid = columns.get(1)?;
+
+            name.eq_ignore_ascii_case(image_name)
+                .then(|| pid.parse::<u32>().ok())
+                .flatten()
+        })
+        .collect()
+}
+
+#[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
+fn find_core_process_ids_by_name() -> Vec<u32> {
+    Command::new("pgrep")
+        .args(["-x", core_binary_name()])
+        .output()
+        .ok()
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .filter_map(|line| line.trim().parse::<u32>().ok())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn shutdown_managed_core(process_state: &CoreProcessState, gui_config_state: &GuiConfigState) {
+    let was_running = process_state.managed_pid().is_some();
+    let _ = gui_config_state.set_run_on_startup(was_running);
+
+    if let Some(mut child) = process_state.take_child() {
+        let _ = terminate_child(&mut child);
+    }
+    process_state.clear_lifetime_guard();
+}
+
+#[cfg(windows)]
+fn attach_child_to_windows_job(child: &Child) -> Result<isize, String> {
+    use std::{mem, os::windows::io::AsRawHandle, ptr};
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, HANDLE},
+        System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        },
+    };
+
+    unsafe {
+        let job = CreateJobObjectW(ptr::null(), ptr::null());
+        if job.is_null() {
+            return Err(format!(
+                "创建 CPA 内核进程作业失败: {}",
+                io::Error::last_os_error()
+            ));
+        }
+
+        let mut information: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = mem::zeroed();
+        information.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let configured = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &information as *const _ as *const _,
+            mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        if configured == 0 {
+            let error = io::Error::last_os_error();
+            CloseHandle(job);
+            return Err(format!("配置 CPA 内核进程作业失败: {error}"));
+        }
+
+        let process_handle = child.as_raw_handle() as HANDLE;
+        if AssignProcessToJobObject(job, process_handle) == 0 {
+            let error = io::Error::last_os_error();
+            CloseHandle(job);
+            return Err(format!("托管 CPA 内核子进程失败: {error}"));
+        }
+
+        Ok(job as isize)
+    }
+}
+
+#[cfg(windows)]
+fn close_windows_handle(handle: isize) {
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+
+    unsafe {
+        CloseHandle(handle as HANDLE);
+    }
+}
+
+fn terminate_child(child: &mut Child) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        child
+            .kill()
+            .map_err(|err| format!("关闭 CPA 内核进程失败: {err}"))?;
+        child
+            .wait()
+            .map_err(|err| format!("等待 CPA 内核进程退出失败: {err}"))?;
+        Ok(())
+    }
+
+    #[cfg(not(windows))]
+    {
+        let process_id = child.id();
+        send_process_signal(process_id, "TERM")?;
+
+        for _ in 0..20 {
+            match child.try_wait() {
+                Ok(Some(_)) => return Ok(()),
+                Ok(None) => thread::sleep(Duration::from_millis(100)),
+                Err(err) => return Err(format!("检查 CPA 内核进程状态失败: {err}")),
+            }
+        }
+
+        child
+            .kill()
+            .map_err(|err| format!("强制关闭 CPA 内核进程失败: {err}"))?;
+        child
+            .wait()
+            .map_err(|err| format!("等待 CPA 内核进程退出失败: {err}"))?;
+
+        Ok(())
+    }
+}
+
+fn terminate_process_id(process_id: u32) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let process_id = process_id.to_string();
+        let mut command = Command::new("taskkill");
+        command
+            .args(["/PID", &process_id, "/T", "/F"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        configure_background_command(&mut command);
+        let status = command
+            .status()
+            .map_err(|err| format!("关闭 CPA 内核进程失败: {err}"))?;
+
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("关闭 CPA 内核进程失败: PID {process_id}"))
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        send_process_signal(process_id, "TERM")?;
+
+        for _ in 0..20 {
+            if !is_process_alive(process_id) {
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        send_process_signal(process_id, "KILL")
+    }
+}
+
+#[cfg(not(windows))]
+fn send_process_signal(process_id: u32, signal: &str) -> Result<(), String> {
+    let status = Command::new("kill")
+        .args([format!("-{signal}"), process_id.to_string()])
+        .status()
+        .map_err(|err| format!("发送进程信号失败: {err}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("发送进程信号失败: PID {process_id}"))
+    }
+}
+
+#[cfg(not(windows))]
+fn is_process_alive(process_id: u32) -> bool {
+    let process_id = process_id.to_string();
+    Command::new("kill")
+        .args(["-0", &process_id])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn reset_dir(path: &Path) -> Result<(), String> {
+    if path.exists() {
+        fs::remove_dir_all(path)
+            .map_err(|err| format!("清理目录失败 {}: {err}", path_to_string(path)))?;
+    }
+
+    fs::create_dir_all(path).map_err(|err| format!("创建目录失败 {}: {err}", path_to_string(path)))
+}
+
+fn replace_install_dir(
+    install_dir: &Path,
+    staging_dir: &Path,
+    backup_dir: &Path,
+) -> Result<(), String> {
+    if backup_dir.exists() {
+        fs::remove_dir_all(backup_dir).map_err(|err| format!("清理备份目录失败: {err}"))?;
+    }
+
+    if install_dir.exists() {
+        fs::rename(install_dir, backup_dir)
+            .map_err(|err| format!("备份旧内核目录失败，请确认 CPA 内核未运行: {err}"))?;
+    }
+
+    if let Err(err) = fs::rename(staging_dir, install_dir) {
+        if backup_dir.exists() {
+            let _ = fs::rename(backup_dir, install_dir);
+        }
+
+        return Err(format!("切换新内核目录失败: {err}"));
+    }
+
+    if backup_dir.exists() {
+        fs::remove_dir_all(backup_dir).map_err(|err| format!("删除旧内核备份目录失败: {err}"))?;
+    }
+
+    Ok(())
+}
+
+fn extract_tar_gz(archive_path: &Path, install_dir: &Path) -> Result<(), String> {
+    let archive_file =
+        File::open(archive_path).map_err(|err| format!("打开 tar.gz 失败: {err}"))?;
+    let decoder = GzDecoder::new(archive_file);
+    let mut archive = Archive::new(decoder);
+    let entries = archive
+        .entries()
+        .map_err(|err| format!("读取 tar.gz 条目失败: {err}"))?;
+
+    for entry in entries {
+        let mut entry = entry.map_err(|err| format!("读取 tar.gz 条目失败: {err}"))?;
+        let entry_path = entry
+            .path()
+            .map_err(|err| format!("读取 tar.gz 条目路径失败: {err}"))?;
+        let out_path = checked_archive_path(install_dir, entry_path.as_ref())?;
+        let entry_type = entry.header().entry_type();
+
+        if entry_type.is_dir() {
+            fs::create_dir_all(&out_path).map_err(|err| format!("创建目录失败: {err}"))?;
+        } else if entry_type.is_file() {
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent).map_err(|err| format!("创建目录失败: {err}"))?;
+            }
+            entry
+                .unpack(&out_path)
+                .map_err(|err| format!("解压 tar.gz 文件失败: {err}"))?;
+        } else {
+            return Err(format!(
+                "tar.gz 包含不支持的条目类型: {}",
+                path_to_string(&out_path)
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn extract_zip(archive_path: &Path, install_dir: &Path) -> Result<(), String> {
+    let archive_file = File::open(archive_path).map_err(|err| format!("打开 zip 失败: {err}"))?;
+    let mut archive =
+        ZipArchive::new(archive_file).map_err(|err| format!("读取 zip 失败: {err}"))?;
+
+    for index in 0..archive.len() {
+        let mut file = archive
+            .by_index(index)
+            .map_err(|err| format!("读取 zip 条目失败: {err}"))?;
+        let enclosed_name = file
+            .enclosed_name()
+            .ok_or_else(|| format!("zip 条目路径不安全: {}", file.name()))?;
+        let out_path = checked_archive_path(install_dir, &enclosed_name)?;
+
+        if is_zip_symlink(&file) {
+            return Err(format!("zip 包含不支持的符号链接条目: {}", file.name()));
+        }
+
+        if file.is_dir() {
+            fs::create_dir_all(&out_path).map_err(|err| format!("创建目录失败: {err}"))?;
+            continue;
+        }
+
+        if let Some(parent) = out_path.parent() {
+            fs::create_dir_all(parent).map_err(|err| format!("创建目录失败: {err}"))?;
+        }
+
+        let mut out_file = File::create(&out_path).map_err(|err| format!("创建文件失败: {err}"))?;
+        io::copy(&mut file, &mut out_file).map_err(|err| format!("写入文件失败: {err}"))?;
+
+        #[cfg(unix)]
+        if let Some(mode) = file.unix_mode() {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&out_path, fs::Permissions::from_mode(mode))
+                .map_err(|err| format!("设置文件权限失败: {err}"))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn checked_archive_path(base_dir: &Path, entry_path: &Path) -> Result<PathBuf, String> {
+    if entry_path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
+        return Err(format!(
+            "压缩包条目路径不安全: {}",
+            path_to_string(entry_path)
+        ));
+    }
+
+    Ok(base_dir.join(entry_path))
+}
+
+fn is_zip_symlink(file: &zip::read::ZipFile<'_>) -> bool {
+    file.unix_mode()
+        .map(|mode| mode & 0o170000 == 0o120000)
+        .unwrap_or(false)
+}
+
+fn find_core_binary(install_dir: &Path) -> Option<PathBuf> {
+    let binary_path = install_dir.join(core_binary_name());
+    if binary_path.is_file() {
+        return Some(binary_path);
+    }
+
+    let mut dirs = vec![install_dir.to_path_buf()];
+
+    while let Some(dir) = dirs.pop() {
+        let entries = fs::read_dir(dir).ok()?;
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                dirs.push(path);
+            } else if path
+                .file_name()
+                .and_then(|file_name| file_name.to_str())
+                .map(|file_name| file_name == core_binary_name())
+                .unwrap_or(false)
+            {
+                return Some(path);
+            }
+        }
+    }
+
+    None
+}
+
+fn core_binary_name() -> &'static str {
+    if env::consts::OS == "windows" {
+        "cli-proxy-api.exe"
+    } else {
+        "cli-proxy-api"
+    }
+}
+
+fn path_to_string(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
+}
+
+#[cfg(target_os = "macos")]
+const MACOS_TRAY_ID: &str = "macos-tray";
+
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+struct MacosTrayClickState {
+    last_click: Option<Instant>,
+    sequence: u64,
+}
+
+#[cfg(target_os = "macos")]
+fn set_macos_dock_visible(visible: bool) -> bool {
+    let Some(mtm) = MainThreadMarker::new() else {
+        eprintln!("更新 Dock 图标状态必须在主线程执行");
+        return false;
+    };
+    let policy = if visible {
+        NSApplicationActivationPolicy::Regular
+    } else {
+        NSApplicationActivationPolicy::Accessory
+    };
+    if !NSApplication::sharedApplication(mtm).setActivationPolicy(policy) {
+        eprintln!("更新 Dock 图标状态失败");
+        return false;
+    }
+    true
+}
+
+#[cfg(target_os = "macos")]
+fn show_main_window_on_main_thread(app_handle: &tauri::AppHandle) {
+    let Some(window) = app_handle.get_webview_window("main") else {
+        return;
+    };
+    if !set_macos_dock_visible(true) {
+        return;
+    }
+    if let Err(error) = window.show() {
+        eprintln!("显示主窗口失败: {error}");
+        set_macos_dock_visible(false);
+        return;
+    }
+    if window.is_minimized().unwrap_or(false) {
+        if let Err(error) = window.unminimize() {
+            eprintln!("恢复主窗口失败: {error}");
+        }
+    }
+    if let Err(error) = window.set_focus() {
+        eprintln!("聚焦主窗口失败: {error}");
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn show_main_window(app_handle: &tauri::AppHandle) {
+    if MainThreadMarker::new().is_some() {
+        show_main_window_on_main_thread(app_handle);
+        return;
+    }
+
+    let app_handle = app_handle.clone();
+    if let Err(error) = app_handle.clone().run_on_main_thread(move || {
+        show_main_window_on_main_thread(&app_handle);
+    }) {
+        eprintln!("调度主窗口显示失败: {error}");
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn show_macos_tray_menu<R: tauri::Runtime>(tray: &TrayIcon<R>) {
+    let result = tray.with_inner_tray_icon(|tray_icon| {
+        let Some(status_item) = tray_icon.ns_status_item() else {
+            return;
+        };
+        let mtm = MainThreadMarker::new().expect("tray menu must be shown on the main thread");
+        if let Some(menu) = status_item.menu(mtm) {
+            #[allow(deprecated)]
+            status_item.popUpStatusItemMenu(&menu);
+        }
+    });
+
+    if let Err(error) = result {
+        eprintln!("显示托盘菜单失败: {error}");
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn setup_macos_tray(app: &mut tauri::App<tauri::Wry>) -> tauri::Result<()> {
+    let locale = app
+        .state::<GuiConfigState>()
+        .snapshot()
+        .map(|config| config.locale)
+        .unwrap_or_else(|_| "zh-CN".to_string());
+    let open_main_window = MenuItem::with_id(
+        app,
+        "open-main-window",
+        locale_text(&locale, "打开主界面", "Open Main Window"),
+        true,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(
+        app,
+        "quit",
+        locale_text(&locale, "退出", "Quit"),
+        true,
+        None::<&str>,
+    )?;
+    let menu = Menu::with_items(app, &[&open_main_window, &quit])?;
+    let click_state = Arc::new(Mutex::new(MacosTrayClickState::default()));
+    let double_click_interval = Duration::from_secs_f64(NSEvent::doubleClickInterval());
+
+    TrayIconBuilder::with_id(MACOS_TRAY_ID)
+        .icon(
+            app.default_window_icon()
+                .cloned()
+                .expect("application icon is required for the tray"),
+        )
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(move |app_handle, event| match event.id().as_ref() {
+            "open-main-window" => show_main_window(app_handle),
+            "quit" => app_handle.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(move |tray, event| {
+            if !matches!(
+                event,
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                }
+            ) {
+                return;
+            }
+
+            let now = Instant::now();
+            let Ok(mut state) = click_state.lock() else {
+                eprintln!("读取托盘点击状态失败");
+                return;
+            };
+            state.sequence += 1;
+            let sequence = state.sequence;
+
+            if state
+                .last_click
+                .is_some_and(|last_click| now.duration_since(last_click) <= double_click_interval)
+            {
+                state.last_click = None;
+                drop(state);
+                show_main_window(tray.app_handle());
+                return;
+            }
+
+            state.last_click = Some(now);
+            drop(state);
+
+            let app_handle = tray.app_handle().clone();
+            let click_state = Arc::clone(&click_state);
+            let tray_id = tray.id().clone();
+            thread::spawn(move || {
+                thread::sleep(double_click_interval);
+                let should_show_menu = match click_state.lock() {
+                    Ok(mut state) if state.sequence == sequence => {
+                        state.last_click = None;
+                        true
+                    }
+                    Ok(_) => false,
+                    Err(_) => {
+                        eprintln!("读取托盘点击状态失败");
+                        false
+                    }
+                };
+                if !should_show_menu {
+                    return;
+                }
+
+                if let Some(tray) = app_handle.tray_by_id(&tray_id) {
+                    show_macos_tray_menu(&tray);
+                }
+            });
+        })
+        .build(app)?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+const WINDOWS_TRAY_ID: &str = "windows-tray";
+#[cfg(target_os = "windows")]
+const WINDOWS_TRAY_OPEN_MENU_ID: &str = "windows-tray-open-main-window";
+#[cfg(target_os = "windows")]
+const WINDOWS_TRAY_STATUS_MENU_ID: &str = "windows-tray-core-status";
+#[cfg(target_os = "windows")]
+const WINDOWS_TRAY_TOGGLE_CORE_MENU_ID: &str = "windows-tray-toggle-core";
+#[cfg(target_os = "windows")]
+const WINDOWS_TRAY_RESTART_CORE_MENU_ID: &str = "windows-tray-restart-core";
+#[cfg(target_os = "windows")]
+const WINDOWS_TRAY_QUIT_MENU_ID: &str = "windows-tray-quit";
+
+#[cfg(target_os = "windows")]
+#[derive(Clone, Copy)]
+enum WindowsTrayCoreAction {
+    Toggle,
+    Restart,
+}
+
+#[cfg(target_os = "windows")]
+struct WindowsTrayPresentation {
+    status_text: String,
+    toggle_text: String,
+    toggle_enabled: bool,
+    restart_enabled: bool,
+    tooltip: String,
+}
+
+#[cfg(target_os = "windows")]
+fn windows_tray_presentation(
+    status: &CoreStatus,
+    busy: bool,
+    locale: &str,
+) -> WindowsTrayPresentation {
+    let status_text = if busy {
+        locale_text(locale, "内核状态：处理中", "Core status: Working")
+    } else if !status.installed {
+        locale_text(locale, "内核状态：未安装", "Core status: Not installed")
+    } else if status.running {
+        locale_text(locale, "内核状态：运行中", "Core status: Running")
+    } else {
+        locale_text(locale, "内核状态：已停止", "Core status: Stopped")
+    };
+    let toggle_text = if busy {
+        locale_text(locale, "处理中...", "Working...")
+    } else if status.running {
+        locale_text(locale, "停止内核", "Stop Core")
+    } else {
+        locale_text(locale, "启动内核", "Start Core")
+    };
+    let tooltip = if busy {
+        locale_text(
+            locale,
+            "EasyCLIProxyAPI · 内核处理中",
+            "EasyCLIProxyAPI · Core working",
+        )
+    } else if !status.installed {
+        locale_text(
+            locale,
+            "EasyCLIProxyAPI · 内核未安装",
+            "EasyCLIProxyAPI · Core not installed",
+        )
+    } else if status.running {
+        locale_text(
+            locale,
+            "EasyCLIProxyAPI · 内核运行中",
+            "EasyCLIProxyAPI · Core running",
+        )
+    } else {
+        locale_text(
+            locale,
+            "EasyCLIProxyAPI · 内核已停止",
+            "EasyCLIProxyAPI · Core stopped",
+        )
+    };
+
+    WindowsTrayPresentation {
+        status_text: status_text.to_string(),
+        toggle_text: toggle_text.to_string(),
+        toggle_enabled: status.installed && !busy,
+        restart_enabled: status.installed && status.running && !busy,
+        tooltip: tooltip.to_string(),
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct WindowsTrayState {
+    open_main_window: MenuItem<tauri::Wry>,
+    status_item: MenuItem<tauri::Wry>,
+    toggle_core_item: MenuItem<tauri::Wry>,
+    restart_core_item: MenuItem<tauri::Wry>,
+    quit_item: MenuItem<tauri::Wry>,
+    locale: Mutex<String>,
+    busy: AtomicBool,
+}
+
+#[cfg(target_os = "windows")]
+impl WindowsTrayState {
+    fn locale(&self) -> String {
+        self.locale
+            .lock()
+            .map(|locale| locale.clone())
+            .unwrap_or_else(|_| "zh-CN".to_string())
+    }
+
+    fn set_locale(&self, locale: &str) {
+        let normalized = normalize_app_locale(locale);
+        if let Ok(mut current) = self.locale.lock() {
+            *current = normalized.to_string();
+        }
+        let labels = [
+            (
+                &self.open_main_window,
+                locale_text(normalized, "打开主界面", "Open Main Window"),
+            ),
+            (
+                &self.restart_core_item,
+                locale_text(normalized, "重启内核", "Restart Core"),
+            ),
+            (&self.quit_item, locale_text(normalized, "退出", "Quit")),
+        ];
+        for (item, label) in labels {
+            if let Err(error) = item.set_text(label) {
+                eprintln!("更新 Windows 托盘语言失败: {error}");
+            }
+        }
+    }
+
+    fn begin_action(&self) -> bool {
+        if self
+            .busy
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return false;
+        }
+
+        let locale = self.locale();
+        if let Err(error) = self.status_item.set_text(locale_text(
+            &locale,
+            "内核状态：处理中",
+            "Core status: Working",
+        )) {
+            eprintln!("更新 Windows 托盘内核状态失败: {error}");
+        }
+        if let Err(error) =
+            self.toggle_core_item
+                .set_text(locale_text(&locale, "处理中...", "Working..."))
+        {
+            eprintln!("更新 Windows 托盘操作文本失败: {error}");
+        }
+        if let Err(error) = self.toggle_core_item.set_enabled(false) {
+            eprintln!("更新 Windows 托盘操作状态失败: {error}");
+        }
+        if let Err(error) = self.restart_core_item.set_enabled(false) {
+            eprintln!("更新 Windows 托盘重启状态失败: {error}");
+        }
+        true
+    }
+
+    fn finish_action(&self) {
+        self.busy.store(false, Ordering::Release);
+    }
+
+    fn update(&self, status: &CoreStatus) -> String {
+        let presentation =
+            windows_tray_presentation(status, self.busy.load(Ordering::Acquire), &self.locale());
+        if let Err(error) = self.status_item.set_text(presentation.status_text.clone()) {
+            eprintln!("更新 Windows 托盘内核状态失败: {error}");
+        }
+        if let Err(error) = self
+            .toggle_core_item
+            .set_text(presentation.toggle_text.clone())
+        {
+            eprintln!("更新 Windows 托盘操作文本失败: {error}");
+        }
+        if let Err(error) = self
+            .toggle_core_item
+            .set_enabled(presentation.toggle_enabled)
+        {
+            eprintln!("更新 Windows 托盘操作状态失败: {error}");
+        }
+        if let Err(error) = self
+            .restart_core_item
+            .set_enabled(presentation.restart_enabled)
+        {
+            eprintln!("更新 Windows 托盘重启状态失败: {error}");
+        }
+        presentation.tooltip
+    }
+
+    fn show_error(&self, error: &str) {
+        let mut summary = error.chars().take(48).collect::<String>();
+        if error.chars().count() > 48 {
+            summary.push('…');
+        }
+        let text = match normalize_app_locale(&self.locale()) {
+            "en" => format!("Operation failed: {summary}"),
+            "zh-TW" => format!("操作失敗：{summary}"),
+            "ja" => format!("操作に失敗しました：{summary}"),
+            _ => format!("操作失败：{summary}"),
+        };
+        if let Err(update_error) = self.status_item.set_text(text) {
+            eprintln!("更新 Windows 托盘错误状态失败: {update_error}");
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn show_windows_main_window(app_handle: &tauri::AppHandle) {
+    let Some(window) = app_handle.get_webview_window("main") else {
+        return;
+    };
+    if let Err(error) = window.show() {
+        eprintln!("显示主窗口失败: {error}");
+        return;
+    }
+    if window.is_minimized().unwrap_or(false) {
+        if let Err(error) = window.unminimize() {
+            eprintln!("恢复主窗口失败: {error}");
+        }
+    }
+    if let Err(error) = window.set_focus() {
+        eprintln!("聚焦主窗口失败: {error}");
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn update_windows_tray_status(app_handle: &tauri::AppHandle, status: &CoreStatus) {
+    let tooltip = app_handle
+        .try_state::<WindowsTrayState>()
+        .map(|tray_state| tray_state.update(status))
+        .unwrap_or_else(|| windows_tray_presentation(status, false, "zh-CN").tooltip);
+
+    if let Some(tray) = app_handle.tray_by_id(WINDOWS_TRAY_ID) {
+        if let Err(error) = tray.set_tooltip(Some(&tooltip)) {
+            eprintln!("更新 Windows 托盘提示失败: {error}");
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn update_windows_tray_locale(app_handle: &tauri::AppHandle, locale: &str, status: &CoreStatus) {
+    if let Some(tray_state) = app_handle.try_state::<WindowsTrayState>() {
+        tray_state.set_locale(locale);
+    }
+    update_windows_tray_status(app_handle, status);
+}
+
+#[cfg(target_os = "windows")]
+fn show_windows_tray_action_error(app_handle: &tauri::AppHandle, error: &str) {
+    eprintln!("Windows 托盘内核操作失败: {error}");
+    let locale = app_handle
+        .try_state::<WindowsTrayState>()
+        .map(|state| state.locale())
+        .unwrap_or_else(|| "zh-CN".to_string());
+    if let Some(tray_state) = app_handle.try_state::<WindowsTrayState>() {
+        tray_state.show_error(error);
+    }
+    if let Some(tray) = app_handle.tray_by_id(WINDOWS_TRAY_ID) {
+        if let Err(update_error) = tray.set_tooltip(Some(locale_text(
+            &locale,
+            "EasyCLIProxyAPI · 内核操作失败",
+            "EasyCLIProxyAPI · Core operation failed",
+        ))) {
+            eprintln!("更新 Windows 托盘错误提示失败: {update_error}");
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn run_windows_tray_core_action(app_handle: &tauri::AppHandle, action: WindowsTrayCoreAction) {
+    let Some(tray_state) = app_handle.try_state::<WindowsTrayState>() else {
+        return;
+    };
+    if !tray_state.begin_action() {
+        return;
+    }
+    if let Some(tray) = app_handle.tray_by_id(WINDOWS_TRAY_ID) {
+        if let Err(error) = tray.set_tooltip(Some(locale_text(
+            &tray_state.locale(),
+            "EasyCLIProxyAPI · 内核处理中",
+            "EasyCLIProxyAPI · Core working",
+        ))) {
+            eprintln!("更新 Windows 托盘处理中提示失败: {error}");
+        }
+    }
+
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let process_state = app_handle.state::<CoreProcessState>();
+        let gui_config_state = app_handle.state::<GuiConfigState>();
+        let result = (|| -> Result<CoreStatus, String> {
+            match action {
+                WindowsTrayCoreAction::Toggle => {
+                    let config = gui_config_state.snapshot()?;
+                    let status =
+                        current_core_status(Some(process_state.inner()), Some(config.port))?;
+                    if status.running {
+                        stop_core_process_with_state(
+                            process_state.inner(),
+                            gui_config_state.inner(),
+                        )
+                    } else {
+                        start_core_process_with_state(
+                            process_state.inner(),
+                            gui_config_state.inner(),
+                        )
+                    }
+                }
+                WindowsTrayCoreAction::Restart => {
+                    restart_core_process_with_state(process_state.inner(), gui_config_state.inner())
+                }
+            }
+        })();
+
+        if let Some(tray_state) = app_handle.try_state::<WindowsTrayState>() {
+            tray_state.finish_action();
+        }
+
+        match result {
+            Ok(status) => emit_core_status(&app_handle, &status),
+            Err(error) => {
+                if let Ok(config) = gui_config_state.snapshot() {
+                    if let Ok(status) =
+                        current_core_status(Some(process_state.inner()), Some(config.port))
+                    {
+                        emit_core_status(&app_handle, &status);
+                    }
+                }
+                show_windows_tray_action_error(&app_handle, &error);
+            }
+        }
+    });
+}
+
+#[cfg(target_os = "windows")]
+fn setup_windows_tray(app: &mut tauri::App<tauri::Wry>) -> tauri::Result<()> {
+    let locale = app
+        .state::<GuiConfigState>()
+        .snapshot()
+        .map(|config| config.locale)
+        .unwrap_or_else(|_| "zh-CN".to_string());
+    let open_main_window = MenuItem::with_id(
+        app,
+        WINDOWS_TRAY_OPEN_MENU_ID,
+        locale_text(&locale, "打开主界面", "Open Main Window"),
+        true,
+        None::<&str>,
+    )?;
+    let status_item = MenuItem::with_id(
+        app,
+        WINDOWS_TRAY_STATUS_MENU_ID,
+        locale_text(&locale, "内核状态：正在检查", "Core status: Checking"),
+        false,
+        None::<&str>,
+    )?;
+    let toggle_core_item = MenuItem::with_id(
+        app,
+        WINDOWS_TRAY_TOGGLE_CORE_MENU_ID,
+        locale_text(&locale, "启动内核", "Start Core"),
+        false,
+        None::<&str>,
+    )?;
+    let restart_core_item = MenuItem::with_id(
+        app,
+        WINDOWS_TRAY_RESTART_CORE_MENU_ID,
+        locale_text(&locale, "重启内核", "Restart Core"),
+        false,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(
+        app,
+        WINDOWS_TRAY_QUIT_MENU_ID,
+        locale_text(&locale, "退出", "Quit"),
+        true,
+        None::<&str>,
+    )?;
+    let separator_one = PredefinedMenuItem::separator(app)?;
+    let separator_two = PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &open_main_window,
+            &separator_one,
+            &status_item,
+            &toggle_core_item,
+            &restart_core_item,
+            &separator_two,
+            &quit,
+        ],
+    )?;
+
+    TrayIconBuilder::with_id(WINDOWS_TRAY_ID)
+        .icon(
+            app.default_window_icon()
+                .cloned()
+                .expect("application icon is required for the tray"),
+        )
+        .tooltip("EasyCLIProxyAPI")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(move |app_handle, event| match event.id().as_ref() {
+            WINDOWS_TRAY_OPEN_MENU_ID => show_windows_main_window(app_handle),
+            WINDOWS_TRAY_TOGGLE_CORE_MENU_ID => {
+                run_windows_tray_core_action(app_handle, WindowsTrayCoreAction::Toggle)
+            }
+            WINDOWS_TRAY_RESTART_CORE_MENU_ID => {
+                run_windows_tray_core_action(app_handle, WindowsTrayCoreAction::Restart)
+            }
+            WINDOWS_TRAY_QUIT_MENU_ID => app_handle.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(move |tray, event| {
+            if matches!(
+                event,
+                TrayIconEvent::DoubleClick {
+                    button: MouseButton::Left,
+                    ..
+                }
+            ) {
+                show_windows_main_window(tray.app_handle());
+            }
+        })
+        .build(app)?;
+
+    let _ = app.manage(WindowsTrayState {
+        open_main_window,
+        status_item,
+        toggle_core_item,
+        restart_core_item,
+        quit_item: quit,
+        locale: Mutex::new(locale),
+        busy: AtomicBool::new(false),
+    });
+
+    Ok(())
+}
+
+#[cfg(windows)]
+fn wait_for_windows_process_exit(process_id: u32, timeout: Duration) -> Result<(), String> {
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, WAIT_FAILED, WAIT_TIMEOUT},
+        System::Threading::{OpenProcess, WaitForSingleObject},
+    };
+
+    const SYNCHRONIZE_ACCESS: u32 = 0x0010_0000;
+    let handle = unsafe { OpenProcess(SYNCHRONIZE_ACCESS, 0, process_id) };
+    if handle.is_null() {
+        let error = io::Error::last_os_error();
+        if error.raw_os_error() == Some(87) {
+            return Ok(());
+        }
+        return Err(format!("打开旧版应用进程失败: {error}"));
+    }
+    let timeout_ms = timeout.as_millis().min(u32::MAX as u128) as u32;
+    let result = unsafe { WaitForSingleObject(handle, timeout_ms) };
+    unsafe { CloseHandle(handle) };
+    if result == WAIT_TIMEOUT {
+        return Err("等待旧版应用退出超时".to_string());
+    }
+    if result == WAIT_FAILED {
+        return Err(format!(
+            "等待旧版应用退出失败: {}",
+            io::Error::last_os_error()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn validate_portable_update_descriptor(
+    descriptor_path: &Path,
+    descriptor: &PortableUpdateDescriptor,
+) -> Result<(), String> {
+    if descriptor.parent_pid == 0
+        || semver::Version::parse(descriptor.target_version.trim().trim_start_matches('v')).is_err()
+    {
+        return Err("应用更新描述无效".to_string());
+    }
+    let app_dir = descriptor
+        .current_exe
+        .parent()
+        .ok_or_else(|| "应用更新目标路径无效".to_string())?;
+    if !descriptor.current_exe.is_absolute()
+        || descriptor.current_exe != app_dir.join(PORTABLE_APP_BINARY)
+        || descriptor.current_manifest != app_dir.join(PORTABLE_APP_MANIFEST_FILE)
+        || descriptor.backup_exe != app_dir.join(".EasyCLIProxyAPI.exe.update-backup")
+        || descriptor.backup_manifest != app_dir.join(".portable-app.json.update-backup")
+        || descriptor.current_core_version != app_dir.join(CORE_VERSION_FILE)
+        || descriptor.backup_core_version != app_dir.join(".core-version.txt.update-backup")
+    {
+        return Err("应用更新目标路径无效".to_string());
+    }
+    let core_archive_name = descriptor
+        .staged_core_archive
+        .file_name()
+        .ok_or_else(|| "应用更新内置内核文件名无效".to_string())?;
+    if descriptor.target_core_archive != app_dir.join("cpa-core").join(core_archive_name)
+        || !core_archive_name
+            .to_string_lossy()
+            .starts_with("CLIProxyAPI_")
+        || !core_archive_name.to_string_lossy().ends_with(".zip")
+        || descriptor.install_core_archive == descriptor.target_core_archive.is_file()
+    {
+        return Err("应用更新内置内核目标路径无效".to_string());
+    }
+    let canonical_work_dir = fs::canonicalize(&descriptor.work_dir)
+        .map_err(|error| format!("读取应用更新临时目录失败: {error}"))?;
+    let canonical_temp_dir = fs::canonicalize(env::temp_dir())
+        .map_err(|error| format!("读取系统临时目录失败: {error}"))?;
+    if !canonical_work_dir.starts_with(&canonical_temp_dir)
+        || !canonical_work_dir
+            .file_name()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.starts_with("EasyCLIProxyAPI-update-"))
+    {
+        return Err("应用更新工作目录无效".to_string());
+    }
+    let canonical_descriptor = fs::canonicalize(descriptor_path)
+        .map_err(|error| format!("读取应用更新描述路径失败: {error}"))?;
+    if canonical_descriptor.parent() != Some(canonical_work_dir.as_path())
+        || canonical_descriptor
+            .file_name()
+            .and_then(|value| value.to_str())
+            != Some("update-descriptor.json")
+        || descriptor.ack_path != descriptor.work_dir.join("update-started.ack")
+    {
+        return Err("应用更新描述路径越界".to_string());
+    }
+    for staged in [
+        &descriptor.staged_exe,
+        &descriptor.staged_manifest,
+        &descriptor.staged_core_version,
+        &descriptor.staged_core_archive,
+    ] {
+        let canonical = fs::canonicalize(staged)
+            .map_err(|error| format!("读取应用更新暂存文件失败: {error}"))?;
+        if !canonical.starts_with(&canonical_work_dir) {
+            return Err("应用更新暂存路径越界".to_string());
+        }
+    }
+    if descriptor.staged_exe
+        != descriptor
+            .work_dir
+            .join("staging")
+            .join(PORTABLE_APP_BINARY)
+        || descriptor.staged_manifest
+            != descriptor
+                .work_dir
+                .join("staging")
+                .join(PORTABLE_APP_MANIFEST_FILE)
+        || descriptor.staged_core_version
+            != descriptor.work_dir.join("staging").join(CORE_VERSION_FILE)
+        || descriptor.staged_core_archive
+            != descriptor
+                .work_dir
+                .join("staging")
+                .join("cpa-core")
+                .join(core_archive_name)
+    {
+        return Err("应用更新暂存路径无效".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn restore_portable_update_backup(descriptor: &PortableUpdateDescriptor) -> Result<(), String> {
+    if !descriptor.backup_exe.is_file()
+        || !descriptor.backup_manifest.is_file()
+        || !descriptor.backup_core_version.is_file()
+    {
+        return Err("应用更新备份不完整，无法回滚".to_string());
+    }
+    if descriptor.current_exe.exists() {
+        fs::remove_file(&descriptor.current_exe)
+            .map_err(|error| format!("移除新版应用失败: {error}"))?;
+    }
+    fs::rename(&descriptor.backup_exe, &descriptor.current_exe)
+        .map_err(|error| format!("恢复旧版应用失败: {error}"))?;
+    if descriptor.current_manifest.exists() {
+        fs::remove_file(&descriptor.current_manifest)
+            .map_err(|error| format!("移除新版便携版标识失败: {error}"))?;
+    }
+    fs::rename(&descriptor.backup_manifest, &descriptor.current_manifest)
+        .map_err(|error| format!("恢复旧版便携版标识失败: {error}"))?;
+    if descriptor.current_core_version.exists() {
+        fs::remove_file(&descriptor.current_core_version)
+            .map_err(|error| format!("移除新版内核版本文件失败: {error}"))?;
+    }
+    fs::rename(
+        &descriptor.backup_core_version,
+        &descriptor.current_core_version,
+    )
+    .map_err(|error| format!("恢复旧版内核版本文件失败: {error}"))?;
+    if descriptor.install_core_archive && descriptor.target_core_archive.exists() {
+        fs::remove_file(&descriptor.target_core_archive)
+            .map_err(|error| format!("移除新版内置内核压缩包失败: {error}"))?;
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn replace_portable_update_files(descriptor: &PortableUpdateDescriptor) -> Result<(), String> {
+    let app_dir = descriptor
+        .current_exe
+        .parent()
+        .ok_or_else(|| "应用更新目标路径无效".to_string())?;
+    let replacement_exe = app_dir.join(".EasyCLIProxyAPI.exe.update-new");
+    let replacement_manifest = app_dir.join(".portable-app.json.update-new");
+    let replacement_core_version = app_dir.join(".core-version.txt.update-new");
+    let replacement_core_archive = app_dir.join(".cpa-core-archive.update-new");
+    let _ = fs::remove_file(&replacement_exe);
+    let _ = fs::remove_file(&replacement_manifest);
+    let _ = fs::remove_file(&replacement_core_version);
+    let _ = fs::remove_file(&replacement_core_archive);
+    fs::copy(&descriptor.staged_exe, &replacement_exe)
+        .map_err(|error| format!("准备新版应用程序失败: {error}"))?;
+    if let Err(error) = fs::copy(&descriptor.staged_manifest, &replacement_manifest) {
+        let _ = fs::remove_file(&replacement_exe);
+        return Err(format!("准备新版便携版标识失败: {error}"));
+    }
+    if let Err(error) = fs::copy(&descriptor.staged_core_version, &replacement_core_version) {
+        let _ = fs::remove_file(&replacement_exe);
+        let _ = fs::remove_file(&replacement_manifest);
+        return Err(format!("准备新版内核版本文件失败: {error}"));
+    }
+    if descriptor.install_core_archive {
+        if let Err(error) = fs::copy(&descriptor.staged_core_archive, &replacement_core_archive) {
+            let _ = fs::remove_file(&replacement_exe);
+            let _ = fs::remove_file(&replacement_manifest);
+            let _ = fs::remove_file(&replacement_core_version);
+            return Err(format!("准备新版内置内核压缩包失败: {error}"));
+        }
+    }
+
+    let _ = fs::remove_file(&descriptor.backup_exe);
+    let _ = fs::remove_file(&descriptor.backup_manifest);
+    let _ = fs::remove_file(&descriptor.backup_core_version);
+    if let Err(error) = fs::rename(&descriptor.current_exe, &descriptor.backup_exe) {
+        let _ = fs::remove_file(&replacement_exe);
+        let _ = fs::remove_file(&replacement_manifest);
+        let _ = fs::remove_file(&replacement_core_version);
+        let _ = fs::remove_file(&replacement_core_archive);
+        return Err(format!("备份旧版应用失败: {error}"));
+    }
+    if let Err(error) = fs::rename(&descriptor.current_manifest, &descriptor.backup_manifest) {
+        let _ = fs::rename(&descriptor.backup_exe, &descriptor.current_exe);
+        let _ = fs::remove_file(&replacement_exe);
+        let _ = fs::remove_file(&replacement_manifest);
+        let _ = fs::remove_file(&replacement_core_version);
+        let _ = fs::remove_file(&replacement_core_archive);
+        return Err(format!("备份便携版标识失败: {error}"));
+    }
+    if let Err(error) = fs::rename(
+        &descriptor.current_core_version,
+        &descriptor.backup_core_version,
+    ) {
+        let _ = fs::rename(&descriptor.backup_manifest, &descriptor.current_manifest);
+        let _ = fs::rename(&descriptor.backup_exe, &descriptor.current_exe);
+        let _ = fs::remove_file(&replacement_exe);
+        let _ = fs::remove_file(&replacement_manifest);
+        let _ = fs::remove_file(&replacement_core_version);
+        let _ = fs::remove_file(&replacement_core_archive);
+        return Err(format!("备份旧版内核版本文件失败: {error}"));
+    }
+
+    let replace_result = (|| -> Result<(), String> {
+        fs::rename(&replacement_exe, &descriptor.current_exe)
+            .map_err(|error| format!("替换应用程序失败: {error}"))?;
+        fs::rename(&replacement_manifest, &descriptor.current_manifest)
+            .map_err(|error| format!("替换便携版标识失败: {error}"))?;
+        fs::rename(&replacement_core_version, &descriptor.current_core_version)
+            .map_err(|error| format!("替换内核版本文件失败: {error}"))?;
+        if descriptor.install_core_archive {
+            fs::rename(&replacement_core_archive, &descriptor.target_core_archive)
+                .map_err(|error| format!("安装新版内置内核压缩包失败: {error}"))?;
+        }
+        Ok(())
+    })();
+    if let Err(error) = replace_result {
+        let _ = fs::remove_file(&replacement_exe);
+        let _ = fs::remove_file(&replacement_manifest);
+        let _ = fs::remove_file(&replacement_core_version);
+        let _ = fs::remove_file(&replacement_core_archive);
+        restore_portable_update_backup(descriptor)
+            .map_err(|rollback| format!("{error}；{rollback}"))?;
+        return Err(error);
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn cleanup_superseded_bundled_core_archives(descriptor: &PortableUpdateDescriptor) {
+    let Some(core_dir) = descriptor.target_core_archive.parent() else {
+        return;
+    };
+    let Some(current_name) = descriptor
+        .target_core_archive
+        .file_name()
+        .and_then(|value| value.to_str())
+    else {
+        return;
+    };
+    let Ok(entries) = fs::read_dir(core_dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_file()
+            && name != current_name
+            && name.starts_with("CLIProxyAPI_")
+            && name.ends_with(".zip")
+            && !name.contains("_no-plugin")
+        {
+            if let Err(error) = fs::remove_file(&path) {
+                eprintln!(
+                    "清理旧版内置内核压缩包失败 {}: {error}",
+                    path_to_string(&path)
+                );
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+fn cleanup_portable_update_payload(descriptor_path: &Path, descriptor: &PortableUpdateDescriptor) {
+    let _ = fs::remove_file(descriptor.work_dir.join("update.zip"));
+    let _ = fs::remove_dir_all(descriptor.work_dir.join("staging"));
+    let _ = fs::remove_file(&descriptor.ack_path);
+    let _ = fs::remove_file(descriptor_path);
+}
+
+#[cfg(windows)]
+fn run_portable_update_helper(descriptor_path: &Path) -> Result<(), String> {
+    let descriptor = serde_json::from_slice::<PortableUpdateDescriptor>(
+        &fs::read(descriptor_path).map_err(|error| format!("读取应用更新描述失败: {error}"))?,
+    )
+    .map_err(|error| format!("解析应用更新描述失败: {error}"))?;
+    validate_portable_update_descriptor(descriptor_path, &descriptor)?;
+    wait_for_windows_process_exit(descriptor.parent_pid, Duration::from_secs(120))?;
+
+    if let Err(error) = replace_portable_update_files(&descriptor) {
+        let mut rollback = Command::new(&descriptor.current_exe);
+        configure_background_command(&mut rollback);
+        let _ = rollback.spawn();
+        cleanup_portable_update_payload(descriptor_path, &descriptor);
+        return Err(error);
+    }
+
+    let _ = fs::remove_file(&descriptor.ack_path);
+    let mut command = Command::new(&descriptor.current_exe);
+    command
+        .arg("--portable-update-ack")
+        .arg(&descriptor.ack_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    configure_background_command(&mut command);
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            restore_portable_update_backup(&descriptor)?;
+            let mut rollback = Command::new(&descriptor.current_exe);
+            configure_background_command(&mut rollback);
+            let _ = rollback.spawn();
+            cleanup_portable_update_payload(descriptor_path, &descriptor);
+            return Err(format!("启动新版应用失败: {error}"));
+        }
+    };
+
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let mut confirmed = false;
+    while Instant::now() < deadline {
+        if descriptor.ack_path.is_file() {
+            confirmed = true;
+            break;
+        }
+        if child
+            .try_wait()
+            .map_err(|error| format!("检查新版应用状态失败: {error}"))?
+            .is_some()
+        {
+            break;
+        }
+        thread::sleep(Duration::from_millis(200));
+    }
+
+    if confirmed {
+        let _ = fs::remove_file(&descriptor.backup_exe);
+        let _ = fs::remove_file(&descriptor.backup_manifest);
+        let _ = fs::remove_file(&descriptor.backup_core_version);
+        cleanup_superseded_bundled_core_archives(&descriptor);
+        cleanup_portable_update_payload(descriptor_path, &descriptor);
+        return Ok(());
+    }
+
+    let _ = child.kill();
+    let _ = child.wait();
+    restore_portable_update_backup(&descriptor)?;
+    let mut rollback = Command::new(&descriptor.current_exe);
+    configure_background_command(&mut rollback);
+    let _ = rollback.spawn();
+    cleanup_portable_update_payload(descriptor_path, &descriptor);
+    Err(format!(
+        "新版应用 {} 未能在 60 秒内完成启动确认，已回滚",
+        descriptor.target_version
+    ))
+}
+
+fn portable_update_ack_argument() -> Option<PathBuf> {
+    let mut args = env::args_os();
+    while let Some(argument) = args.next() {
+        if argument == "--portable-update-ack" {
+            let path = PathBuf::from(args.next()?);
+            let parent = path.parent()?;
+            let valid_name =
+                path.file_name().and_then(|value| value.to_str()) == Some("update-started.ack");
+            let valid_parent = parent.starts_with(env::temp_dir())
+                && parent
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|value| value.starts_with("EasyCLIProxyAPI-update-"));
+            return (valid_name && valid_parent).then_some(path);
+        }
+    }
+    None
+}
+
+fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
+    left == right || normalized_config_path(left) == normalized_config_path(right)
+}
+
+fn wait_for_config_file_stability(path: &Path) {
+    if !path.is_file() {
+        return;
+    }
+    let mut previous = None;
+    let mut stable_samples = 0;
+    for _ in 0..10 {
+        let current = fs::metadata(path)
+            .ok()
+            .map(|metadata| (metadata.len(), metadata.modified().ok()));
+        if current == previous {
+            stable_samples += 1;
+            if stable_samples >= 2 {
+                return;
+            }
+        } else {
+            stable_samples = 0;
+            previous = current;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn patch_core_from_gui_config_if_valid(config: &GuiConfigFile) -> Result<(), String> {
+    let _guard = lock_core_config_file()?;
+    let path = core_install_dir()?.join(CORE_CONFIG_FILE);
+    if !path.is_file() {
+        return Ok(());
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|error| format!("读取内核配置失败 {}: {error}", path_to_string(&path)))?;
+    let updated = apply_gui_managed_settings(&content, config)?;
+    write_yaml_if_changed(&path, &updated).map(|_| ())
+}
+
+fn tracked_configuration_paths(app: &tauri::AppHandle) -> Result<Vec<PathBuf>, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| format!("无法获取用户目录: {error}"))?;
+    let mut paths = vec![
+        gui_config_path()?,
+        core_install_dir()?.join(CORE_CONFIG_FILE),
+    ];
+    for client in [
+        AgentClient::ClaudeCode,
+        AgentClient::ClaudeDesktop,
+        AgentClient::Codex,
+        AgentClient::OpenCode,
+        AgentClient::OpenClaw,
+        AgentClient::Hermes,
+    ] {
+        paths.extend(agent_managed_paths(client, &home));
+    }
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
+}
+
+fn handle_configuration_file_changes(
+    app: &tauri::AppHandle,
+    changed_paths: Vec<PathBuf>,
+    tracked_paths: &[PathBuf],
+) {
+    let gui_path = gui_config_path().ok();
+    let core_path = core_install_dir()
+        .ok()
+        .map(|path| path.join(CORE_CONFIG_FILE));
+    let gui_state = app.state::<GuiConfigState>();
+    let cache = app.state::<AgentConfigStatusCache>();
+    let mut payload_paths = Vec::new();
+    let mut errors = Vec::new();
+    let mut refresh_agents = false;
+    let mut tracked_changes: Vec<PathBuf> = Vec::new();
+
+    for path in changed_paths {
+        let Some(tracked_path) = tracked_paths
+            .iter()
+            .find(|tracked| paths_refer_to_same_file(&path, tracked))
+            .cloned()
+        else {
+            continue;
+        };
+        if consume_software_write(&tracked_path) {
+            continue;
+        }
+        wait_for_config_file_stability(&tracked_path);
+        tracked_changes.retain(|existing| !paths_refer_to_same_file(existing, &tracked_path));
+        tracked_changes.push(tracked_path);
+    }
+
+    payload_paths.extend(tracked_changes.iter().map(|path| path_to_string(path)));
+    let is_gui_path = |path: &Path| {
+        gui_path
+            .as_deref()
+            .is_some_and(|gui_path| paths_refer_to_same_file(path, gui_path))
+    };
+    let is_core_path = |path: &Path| {
+        core_path
+            .as_deref()
+            .is_some_and(|core_path| paths_refer_to_same_file(path, core_path))
+    };
+
+    if tracked_changes
+        .iter()
+        .any(|path| is_gui_path(path) || is_core_path(path))
+    {
+        refresh_agents = true;
+        let mut preserve_invalid_gui_file = false;
+        let mut preserve_invalid_core_file = false;
+        for tracked_path in tracked_changes.iter().rev() {
+            if is_gui_path(tracked_path) {
+                let parsed = (|| -> Result<GuiConfigFile, String> {
+                    let content = fs::read_to_string(tracked_path).map_err(|error| {
+                        format!(
+                            "读取 GUI 配置失败 {}: {error}",
+                            path_to_string(tracked_path)
+                        )
+                    })?;
+                    let mut config = toml::from_str::<GuiConfigFile>(&content)
+                        .map_err(|error| format!("解析 GUI 配置失败: {error}"))?;
+                    config.allow_lan = !is_loopback_host(&config.host);
+                    validate_gui_config(&config)?;
+                    Ok(config)
+                })();
+                let config = match parsed {
+                    Ok(config) => config,
+                    Err(error) => {
+                        errors.push(error);
+                        preserve_invalid_gui_file = true;
+                        continue;
+                    }
+                };
+                let result = (|| -> Result<(), String> {
+                    gui_state.replace_external(config.clone())?;
+                    if !preserve_invalid_core_file {
+                        patch_core_from_gui_config_if_valid(&config)?;
+                    }
+                    cache.clear()?;
+                    Ok(())
+                })();
+                if let Err(error) = result {
+                    errors.push(error);
+                }
+                break;
+            }
+
+            if is_core_path(tracked_path) {
+                let parsed = (|| -> Result<CoreConfigSettings, String> {
+                    let content = fs::read_to_string(tracked_path).map_err(|error| {
+                        format!("读取内核配置失败 {}: {error}", path_to_string(tracked_path))
+                    })?;
+                    let document = serde_norway::from_str::<serde_norway::Value>(&content)
+                        .map_err(|error| format!("解析内核配置失败: {error}"))?;
+                    core_config_settings_from_value(&document)
+                })();
+                let settings = match parsed {
+                    Ok(settings) => settings,
+                    Err(error) => {
+                        errors.push(error);
+                        preserve_invalid_core_file = true;
+                        continue;
+                    }
+                };
+                let result = (|| -> Result<(), String> {
+                    if preserve_invalid_gui_file {
+                        gui_state.replace_core_settings_external(&settings)?;
+                    } else {
+                        gui_state.sync_core_settings(&settings)?;
+                    }
+                    cache.clear()?;
+                    Ok(())
+                })();
+                if let Err(error) = result {
+                    errors.push(error);
+                }
+                break;
+            }
+        }
+    }
+
+    refresh_agents |= tracked_changes
+        .iter()
+        .any(|path| !is_gui_path(path) && !is_core_path(path));
+
+    if refresh_agents {
+        if let Err(error) = refresh_agent_config_status_cache(app, gui_state.inner(), cache.inner())
+        {
+            errors.push(error);
+        }
+    }
+    if !payload_paths.is_empty() || !errors.is_empty() {
+        let _ = app.emit(
+            CONFIG_FILES_CHANGED_EVENT,
+            ConfigFilesChangedPayload {
+                paths: payload_paths,
+                errors,
+            },
+        );
+    }
+}
+
+fn nearest_existing_watch_directory(path: &Path) -> Option<PathBuf> {
+    let mut directory = path.parent();
+    while let Some(candidate) = directory {
+        if candidate.is_dir() {
+            return Some(candidate.to_path_buf());
+        }
+        directory = candidate.parent();
+    }
+    None
+}
+
+fn ensure_configuration_watch_directories(
+    watcher: &mut RecommendedWatcher,
+    tracked_paths: &[PathBuf],
+    watched_directories: &mut Vec<PathBuf>,
+) -> Result<Vec<PathBuf>, String> {
+    let mut newly_watched = Vec::new();
+    for tracked_path in tracked_paths {
+        let Some(directory) = nearest_existing_watch_directory(tracked_path) else {
+            continue;
+        };
+        let directory = normalized_config_path(&directory);
+        if watched_directories
+            .iter()
+            .any(|watched| watched == &directory)
+        {
+            continue;
+        }
+        watcher
+            .watch(&directory, RecursiveMode::NonRecursive)
+            .map_err(|error| format!("监控配置目录失败 {}: {error}", path_to_string(&directory)))?;
+        watched_directories.push(directory.clone());
+        newly_watched.push(directory);
+    }
+    Ok(newly_watched)
+}
+
+fn start_configuration_file_watcher(app: tauri::AppHandle) -> Result<(), String> {
+    let tracked_paths = tracked_configuration_paths(&app)?;
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let mut watcher: RecommendedWatcher = notify::recommended_watcher(
+        move |event: Result<notify::Event, notify::Error>| match event {
+            Ok(event) if event.kind.is_access() => {}
+            event => {
+                let _ = sender.send(event);
+            }
+        },
+    )
+    .map_err(|error| format!("创建配置文件监控器失败: {error}"))?;
+    let mut watched_directories = Vec::new();
+    ensure_configuration_watch_directories(&mut watcher, &tracked_paths, &mut watched_directories)?;
+
+    thread::spawn(move || {
+        let mut watcher = watcher;
+        loop {
+            let first = match receiver.recv() {
+                Ok(event) => event,
+                Err(_) => return,
+            };
+            let mut paths = Vec::new();
+            let mut append_paths = |event_paths: Vec<PathBuf>| {
+                for path in event_paths {
+                    paths.retain(|existing| existing != &path);
+                    paths.push(path);
+                }
+            };
+            match first {
+                Ok(event) => append_paths(event.paths),
+                Err(error) => eprintln!("配置文件监控错误: {error}"),
+            }
+            while let Ok(event) = receiver.recv_timeout(Duration::from_millis(500)) {
+                match event {
+                    Ok(event) => append_paths(event.paths),
+                    Err(error) => eprintln!("配置文件监控错误: {error}"),
+                }
+            }
+            match ensure_configuration_watch_directories(
+                &mut watcher,
+                &tracked_paths,
+                &mut watched_directories,
+            ) {
+                Ok(new_directories) => {
+                    for tracked_path in &tracked_paths {
+                        let parent = tracked_path.parent().map(normalized_config_path);
+                        if tracked_path.is_file()
+                            && parent.as_ref().is_some_and(|parent| {
+                                new_directories.iter().any(|directory| directory == parent)
+                            })
+                        {
+                            append_paths(vec![tracked_path.clone()]);
+                        }
+                    }
+                }
+                Err(error) => eprintln!("配置目录监控更新失败: {error}"),
+            }
+            handle_configuration_file_changes(&app, paths, &tracked_paths);
+        }
+    });
+    Ok(())
+}
+
+fn main() {
+    #[cfg(windows)]
+    {
+        let mut args = env::args_os();
+        while let Some(argument) = args.next() {
+            if argument == "--portable-update-helper" {
+                let result = args
+                    .next()
+                    .map(PathBuf::from)
+                    .ok_or_else(|| "应用更新助手缺少描述文件".to_string())
+                    .and_then(|path| run_portable_update_helper(&path));
+                if let Err(error) = result {
+                    eprintln!("{error}");
+                }
+                return;
+            }
+        }
+    }
+
+    let portable_update_ack = portable_update_ack_argument();
+    let gui_config = match load_or_create_gui_config() {
+        Ok(config) => config,
+        Err(error) => {
+            eprintln!("{error}");
+            let mut config = GuiConfigFile::default();
+            if let Err(secret_error) = ensure_strong_management_secret(&mut config) {
+                eprintln!("初始化 WebUI 安全密钥失败: {secret_error}");
+                return;
+            }
+            if let Err(sanitize_error) = sanitize_gui_config(&mut config) {
+                eprintln!("初始化固定凭证目录失败: {sanitize_error}");
+            }
+            config
+        }
+    };
+    let initial_window_size = configured_window_size(&gui_config);
+
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
+        .manage(CoreDownloadState::default())
+        .manage(AppUpdateState::default())
+        .manage(CoreProcessState::default())
+        .manage(usage::UsageCollectorState::default())
+        .manage(GuiConfigState::new(gui_config))
+        .manage(MainWindowSizeState::new(initial_window_size))
+        .manage(AgentConfigStatusCache::default());
+
+    let app = app.on_window_event(|window, event| {
+        if window.label() != "main" {
+            return;
+        }
+
+        let observed_size = match event {
+            tauri::WindowEvent::Resized(physical_size) => {
+                window.scale_factor().ok().and_then(|scale_factor| {
+                    logical_window_size_from_physical(physical_size, scale_factor)
+                })
+            }
+            tauri::WindowEvent::ScaleFactorChanged {
+                scale_factor,
+                new_inner_size,
+                ..
+            } => logical_window_size_from_physical(new_inner_size, *scale_factor),
+            _ => None,
+        };
+
+        if let Some(observed_size) = observed_size {
+            let window_size_state = window.state::<MainWindowSizeState>();
+            if let Err(error) = window_size_state.replace(observed_size) {
+                eprintln!("记录主窗口尺寸失败: {error}");
+            }
+        }
+    });
+
+    #[cfg(target_os = "macos")]
+    let app = app.on_window_event(|window, event| {
+        if window.label() == "main" {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if !set_macos_dock_visible(false) {
+                    return;
+                }
+                if let Err(error) = window.hide() {
+                    eprintln!("隐藏主窗口失败: {error}");
+                    set_macos_dock_visible(true);
+                }
+            }
+        }
+    });
+
+    #[cfg(target_os = "windows")]
+    let app = app.on_window_event(|window, event| {
+        if window.label() == "main" {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if let Err(error) = window.emit(WINDOWS_CLOSE_REQUEST_EVENT, ()) {
+                    eprintln!("显示 Windows 关闭确认失败: {error}");
+                }
+            }
+        }
+    });
+
+    let app = app
+        .setup(move |app| {
+            if let Err(error) = codex_catalog::validate_embedded_catalog() {
+                eprintln!("Codex 内置模型目录无效: {error}");
+            }
+            if let Err(error) = load_codex_model_catalog_override(app.handle()) {
+                eprintln!("加载 Codex 模型目录更新文件失败，将使用内置目录: {error}");
+            }
+            let catalog_update_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = update_codex_model_catalog_inner(&catalog_update_app).await {
+                    eprintln!("后台更新 Codex 模型目录失败，继续使用当前目录: {error}");
+                }
+            });
+            if let Err(error) = restore_main_window_size(app.handle()) {
+                eprintln!("{error}");
+            }
+
+            #[cfg(target_os = "macos")]
+            setup_macos_tray(app)?;
+            #[cfg(target_os = "windows")]
+            setup_windows_tray(app)?;
+
+            if let Err(error) = start_configuration_file_watcher(app.handle().clone()) {
+                eprintln!("启动配置文件监控失败: {error}");
+            }
+
+            let usage_app = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                if let Err(error) = usage::initialize_usage_storage() {
+                    eprintln!("初始化使用记录目录失败: {error}");
+                }
+                usage::start_usage_collector(usage_app);
+            });
+
+            let agent_status_app = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let gui_config_state = agent_status_app.state::<GuiConfigState>();
+                let cache = agent_status_app.state::<AgentConfigStatusCache>();
+                if let Err(error) = refresh_agent_config_status_cache(
+                    &agent_status_app,
+                    gui_config_state.inner(),
+                    cache.inner(),
+                ) {
+                    eprintln!("后台刷新智能体配置状态失败: {error}");
+                }
+            });
+
+            let core_app = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let gui_config_state = core_app.state::<GuiConfigState>();
+                let process_state = core_app.state::<CoreProcessState>();
+                let Ok(config) = gui_config_state.snapshot() else {
+                    return;
+                };
+
+                match auto_install_bundled_core_if_missing(&core_app) {
+                    Ok(true) => eprintln!("未检测到 CPA 内核，已自动安装内置离线版本"),
+                    Ok(false) => {}
+                    Err(error) => eprintln!("自动安装 CPA 离线内核失败: {error}"),
+                }
+
+                if config.run_on_startup {
+                    if let Err(error) = start_core_process_inner(process_state.inner(), &config) {
+                        eprintln!("自动启动 CPA 内核失败: {error}");
+                    }
+                }
+
+                if let Ok(status) =
+                    current_core_status(Some(process_state.inner()), Some(config.port))
+                {
+                    emit_core_status(&core_app, &status);
+                }
+            });
+
+            if let Some(ack_path) = portable_update_ack.as_ref() {
+                fs::write(ack_path, env!("CARGO_PKG_VERSION").as_bytes())
+                    .map_err(|error| format!("写入应用更新启动确认失败: {error}"))?;
+            }
+
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            health_check,
+            detect_core_platform,
+            get_core_status,
+            get_gui_settings,
+            resolve_api_access_remarks,
+            save_api_access_remark,
+            set_app_locale,
+            resolve_windows_close_request,
+            save_app_close_behavior,
+            get_agent_config_statuses,
+            refresh_agent_config_statuses,
+            get_agent_models,
+            check_pi_provider_update,
+            install_pi_provider,
+            update_pi_provider,
+            repair_pi_provider,
+            uninstall_pi_provider,
+            check_codex_oauth_login,
+            update_codex_model_catalog,
+            get_thinking_aliases,
+            get_thinking_alias_sources,
+            create_thinking_alias,
+            delete_thinking_alias,
+            get_speed_aliases,
+            get_speed_alias_sources,
+            create_speed_alias,
+            delete_speed_alias,
+            apply_agent_config,
+            close_agent_config_modification,
+            reset_agent_config_to_default,
+            clear_codex_config,
+            set_agent_config_enabled,
+            update_agent_config,
+            launch_agent,
+            get_lan_ipv4,
+            save_gui_settings,
+            save_network_routing_settings,
+            get_core_config_settings,
+            add_core_api_key,
+            update_core_api_key,
+            delete_core_api_key,
+            set_core_management_secret_key,
+            clear_core_management_secret_key,
+            management_request,
+            provider_health_probe,
+            upload_auth_file,
+            open_auth_files_directory,
+            set_core_plugins_enabled,
+            set_core_routing_strategy,
+            set_core_proxy_url,
+            set_core_session_affinity,
+            set_core_session_affinity_ttl,
+            start_oauth_login,
+            get_oauth_status,
+            submit_oauth_callback,
+            open_external_url,
+            check_app_update,
+            get_app_update_task,
+            start_app_update,
+            cancel_app_update,
+            check_latest_core,
+            detect_bundled_core,
+            install_core_version,
+            install_bundled_core,
+            cancel_core_install,
+            get_core_install_task,
+            usage::get_usage_collector_status,
+            usage::get_usage_overview,
+            usage::get_usage_analysis,
+            usage::get_usage_events,
+            usage::get_usage_pricing,
+            usage::save_usage_model_price,
+            usage::delete_usage_model_price,
+            usage::sync_usage_model_prices,
+            start_core_process,
+            stop_core_process,
+            restart_core_process,
+            codex_sessions::list_codex_sessions,
+            codex_sessions::delete_codex_sessions,
+            codex_sessions::repair_codex_session_metadata,
+            codex_sessions::preview_codex_session_index_cleanup,
+            codex_sessions::apply_codex_session_index_cleanup,
+            codex_sessions::get_codex_session_repair_on_launch,
+            codex_sessions::set_codex_session_repair_on_launch,
+            codex_sessions::close_chatgpt_app
+        ])
+        .build(tauri::generate_context!())
+        .expect("failed to build app");
+
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::ExitRequested { .. } => {
+            if let Err(error) = persist_main_window_size(app_handle) {
+                eprintln!("保存主窗口尺寸失败: {error}");
+            }
+        }
+        tauri::RunEvent::Exit => {
+            usage::stop_usage_collector(app_handle);
+            let gui_config_state = app_handle.state::<GuiConfigState>();
+            match gui_config_state.snapshot() {
+                Ok(config) => {
+                    if let Err(error) =
+                        tauri::async_runtime::block_on(remove_managed_claude_model_aliases(&config))
+                    {
+                        eprintln!("退出时清理 EasyCLIProxyAPI 托管的 Claude 模型别名失败: {error}");
+                    }
+                }
+                Err(error) => {
+                    eprintln!("退出时读取 GUI 配置失败，无法清理 Claude 模型别名: {error}");
+                }
+            }
+            if let Ok(home) = app_handle.path().home_dir() {
+                let _guard = AGENT_CONFIG_FILE_LOCK.lock();
+                restore_all_agent_session_configurations(&home);
+            }
+            let process_state = app_handle.state::<CoreProcessState>();
+            shutdown_managed_core(process_state.inner(), gui_config_state.inner());
+        }
+        _ => {}
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pi_provider_config_preserves_existing_fields_and_syncs_cpa_credentials() {
+        let rendered = build_pi_provider_config(
+            Some(r#"{"fast":true,"providerId":"custom","nested":{"keep":1}}"#),
+            "http://127.0.0.1:9527",
+            "agent-key",
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+
+        assert_eq!(value["baseUrl"], "http://127.0.0.1:9527");
+        assert_eq!(value["apiKey"], "agent-key");
+        assert_eq!(value["fast"], true);
+        assert_eq!(value["providerId"], "custom");
+        assert_eq!(value["nested"]["keep"], 1);
+    }
+
+    #[test]
+    fn pi_provider_settings_preserve_user_fields_and_set_cpa_defaults() {
+        let rendered = build_pi_provider_settings(
+            r#"{"theme":"dark","packages":["npm:@router-for-me/pi-cliproxyapi-provider"],"defaultProvider":"other","defaultModel":"old-model"}"#,
+            "new-model",
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+
+        assert_eq!(value["theme"], "dark");
+        assert_eq!(value["packages"][0], PI_CLIPROXYAPI_PACKAGE);
+        assert_eq!(value["defaultProvider"], PI_CLIPROXYAPI_PROVIDER_ID);
+        assert_eq!(value["defaultModel"], "new-model");
+    }
+
+    #[test]
+    fn repairing_pi_provider_updates_credentials_defaults_and_model() {
+        let home = agent_test_home("repair-pi-provider");
+        let settings_path = pi_provider_settings_path(&home);
+        fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+        fs::write(
+            &settings_path,
+            format!(
+                r#"{{"packages":["{PI_CLIPROXYAPI_PACKAGE}"],"defaultProvider":"other","defaultModel":"old-model"}}"#
+            ),
+        )
+        .unwrap();
+
+        let result = repair_pi_provider_inner(&home, 9527, "agent-key", "new-model").unwrap();
+        let provider: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(pi_provider_config_path(&home)).unwrap())
+                .unwrap();
+        let settings: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+
+        assert_eq!(result.model.as_deref(), Some("new-model"));
+        assert_eq!(provider["baseUrl"], "http://127.0.0.1:9527");
+        assert_eq!(provider["apiKey"], "agent-key");
+        assert_eq!(settings["defaultProvider"], PI_CLIPROXYAPI_PROVIDER_ID);
+        assert_eq!(settings["defaultModel"], "new-model");
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn pi_provider_version_reads_installed_package_metadata() {
+        let home = agent_test_home("pi-provider-version");
+        let package_path = pi_provider_package_json_path(&home);
+        fs::create_dir_all(package_path.parent().unwrap()).unwrap();
+        fs::write(&package_path, r#"{"version":"1.4.10"}"#).unwrap();
+
+        assert_eq!(
+            read_pi_provider_version(&home).unwrap().as_deref(),
+            Some("1.4.10")
+        );
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn pi_provider_latest_version_parses_npm_metadata() {
+        assert_eq!(
+            parse_pi_provider_latest_version(&serde_json::json!({ "version": "1.5.0" })).unwrap(),
+            "1.5.0"
+        );
+        assert!(parse_pi_provider_latest_version(&serde_json::json!({})).is_err());
+    }
+
+    #[test]
+    fn pi_provider_update_detection_requires_a_newer_semver() {
+        assert!(pi_provider_update_available("1.4.12", "1.5.0").unwrap());
+        assert!(!pi_provider_update_available("1.4.12", "1.4.12").unwrap());
+        assert!(!pi_provider_update_available("1.4.12", "1.4.11").unwrap());
+    }
+
+    #[test]
+    fn pi_package_source_match_accepts_unpinned_and_pinned_sources() {
+        assert!(pi_package_source_matches(PI_CLIPROXYAPI_PACKAGE));
+        assert!(pi_package_source_matches(
+            "npm:@router-for-me/pi-cliproxyapi-provider@1.4.10"
+        ));
+        assert!(!pi_package_source_matches(
+            "npm:@router-for-me/other-provider"
+        ));
+        assert!(pi_settings_contains_provider(&serde_json::json!({
+            "packages": [{"source": PI_CLIPROXYAPI_PACKAGE}]
+        })));
+    }
+
+    #[test]
+    fn provider_health_stream_detects_only_real_model_text() {
+        assert!(provider_health_content_type_is_streaming(
+            "text/event-stream; charset=utf-8"
+        ));
+        assert!(provider_health_content_type_is_streaming(
+            "application/x-ndjson"
+        ));
+        assert!(!provider_health_content_type_is_streaming(
+            "application/json"
+        ));
+
+        let openai_metadata = br#"data: {"choices":[{"delta":{"role":"assistant","content":""}}]}
+
+"#;
+        let openai_text = br#"data: {"choices":[{"delta":{"content":"H"}}]}
+
+"#;
+        assert!(!provider_health_stream_has_text(
+            "openai-chat",
+            openai_metadata
+        ));
+        assert!(provider_health_stream_has_text("openai-chat", openai_text));
+        let openai_reasoning = br#"data: {"choices":[{"delta":{"reasoning_content":"R"}}]}
+
+"#;
+        assert!(provider_health_stream_has_text(
+            "openai-chat",
+            openai_reasoning
+        ));
+
+        let responses_metadata = br#"event: response.created
+data: {"type":"response.created"}
+
+"#;
+        let responses_text = br#"event: response.output_text.delta
+data: {"type":"response.output_text.delta","delta":"H"}
+
+"#;
+        assert!(!provider_health_stream_has_text(
+            "openai-responses",
+            responses_metadata
+        ));
+        assert!(provider_health_stream_has_text(
+            "openai-responses",
+            responses_text
+        ));
+
+        let claude_metadata = br#"event: message_start
+data: {"type":"message_start"}
+
+"#;
+        let claude_text = br#"event: content_block_delta
+data: {"delta":{"type":"text_delta","text":"H"}}
+
+"#;
+        assert!(!provider_health_stream_has_text("claude", claude_metadata));
+        assert!(provider_health_stream_has_text("claude", claude_text));
+
+        let gemini_text = br#"data: {"candidates":[{"content":{"parts":[{"text":"H"}]}}]}
+
+"#;
+        assert!(provider_health_stream_has_text("gemini", gemini_text));
+    }
+
+    #[test]
+    fn agent_status_cache_requires_matching_port_and_api_key() {
+        let cache = AgentConfigStatusCache::default();
+        cache.replace(8317, "agent-key", Vec::new()).unwrap();
+
+        assert!(cache
+            .get(8317, "agent-key")
+            .unwrap()
+            .is_some_and(|statuses| statuses.is_empty()));
+        assert!(cache.get(8318, "agent-key").unwrap().is_none());
+        assert!(cache.get(8317, "different-key").unwrap().is_none());
+
+        cache.clear().unwrap();
+        assert!(cache.get(8317, "agent-key").unwrap().is_none());
+    }
+
+    #[test]
+    fn agent_api_key_uses_first_configured_key_and_falls_back_when_empty() {
+        let mut config = GuiConfigFile {
+            api_keys: vec![GuiApiKeyEntry {
+                key: "custom-agent-key".to_string(),
+                remark: String::new(),
+            }],
+            ..GuiConfigFile::default()
+        };
+        assert_eq!(effective_agent_api_key(&config), "custom-agent-key");
+
+        config.api_keys.clear();
+        assert_eq!(effective_agent_api_key(&config), DEFAULT_API_KEY);
+    }
+
+    #[test]
+    fn codex_oauth_launch_requires_auth_json_with_tokens() {
+        let home = agent_test_home("codex-oauth-login");
+        let auth_path = home.join("auth.json");
+
+        assert_eq!(
+            validate_codex_oauth_login_at(&auth_path),
+            Err(CODEX_OAUTH_LOGIN_REQUIRED_ERROR.to_string())
+        );
+
+        fs::write(&auth_path, "{ invalid json").unwrap();
+        assert_eq!(
+            validate_codex_oauth_login_at(&auth_path),
+            Err(CODEX_OAUTH_LOGIN_REQUIRED_ERROR.to_string())
+        );
+
+        fs::write(&auth_path, r#"{"OPENAI_API_KEY":"sk-api-key"}"#).unwrap();
+        assert_eq!(
+            validate_codex_oauth_login_at(&auth_path),
+            Err(CODEX_OAUTH_LOGIN_REQUIRED_ERROR.to_string())
+        );
+
+        fs::write(
+            &auth_path,
+            r#"{"tokens":{"access_token":"oauth-access-token"}}"#,
+        )
+        .unwrap();
+        assert!(validate_codex_oauth_login_at(&auth_path).is_ok());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    fn agent_test_home(name: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "cpa-gui-agent-{name}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn test_agent_models(names: &[&str]) -> Vec<AgentModelOption> {
+        names
+            .iter()
+            .map(|name| AgentModelOption {
+                name: (*name).to_string(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(200_000),
+            })
+            .collect()
+    }
+
+    fn test_codex_models(names: &[&str]) -> String {
+        let payload = serde_json::json!({
+            "models": names.iter().map(|name| serde_json::json!({ "id": name })).collect::<Vec<_>>()
+        });
+        let runtime = codex_catalog::parse_runtime_models(&payload).unwrap();
+        codex_catalog::prepare_catalog(&runtime).unwrap().json
+    }
+
+    #[test]
+    fn agent_configuration_is_restored_from_the_dated_session_backup_on_exit() {
+        let home = agent_test_home("session-backup");
+        let path = home.join(".config/opencode/opencode.json");
+        let original = b"{\"provider\":\"original\"}";
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, original).unwrap();
+
+        commit_agent_configuration(
+            AgentClient::OpenCode,
+            &home,
+            "gpt-test",
+            &[AgentFileUpdate {
+                path: path.clone(),
+                after: "{\"provider\":\"managed\"}".to_string(),
+            }],
+            "applied",
+            None,
+        )
+        .unwrap();
+
+        let backup = dated_agent_backup_path(&path).unwrap();
+        assert!(backup.is_file());
+        assert_eq!(fs::read(&backup).unwrap(), original);
+        assert!(fs::read_to_string(&path).unwrap().contains("managed"));
+        let inspection = inspect_agent_application(AgentClient::OpenCode, &home);
+        assert_eq!(inspection.state, "applied");
+        assert!(inspection.backup_available);
+
+        restore_agent_session_configuration(AgentClient::OpenCode, &home).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert!(!backup.exists());
+        assert!(!agent_state_path(std::slice::from_ref(&path))
+            .unwrap()
+            .exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn opencode_runtime_edits_survive_close_and_next_apply_owns_conflicts() {
+        let home = agent_test_home("opencode-runtime-edit-merge");
+        let path = home.join(".config/opencode/opencode.json");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(
+            &path,
+            r#"{"provider":{"other":{"keep":"original"}},"keep":"root"}"#,
+        )
+        .unwrap();
+        let models = test_agent_models(&["gpt-one", "gpt-two"]);
+        apply_agent_configuration(
+            AgentClient::OpenCode,
+            &home,
+            8317,
+            DEFAULT_API_KEY,
+            "gpt-one",
+            &models,
+            None,
+        )
+        .unwrap();
+
+        let mut runtime: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        runtime["agentAdded"] = serde_json::json!({"enabled": true});
+        runtime["provider"]["other"]["runtimeAdded"] = serde_json::json!(42);
+        runtime["provider"][MANAGED_AGENT_PROVIDER_ID]["customAfterApply"] =
+            serde_json::json!("keep-me");
+        runtime["provider"][MANAGED_AGENT_PROVIDER_ID]["options"]["baseURL"] =
+            serde_json::json!("https://agent-overwrite.invalid/v1");
+        runtime["provider"][MANAGED_AGENT_PROVIDER_ID]["options"]["apiKey"] =
+            serde_json::json!("agent-overwrite");
+        runtime["model"] = serde_json::json!("cpa-gui/agent-overwrite");
+        fs::write(&path, serde_json::to_string_pretty(&runtime).unwrap()).unwrap();
+
+        restore_agent_session_configuration(AgentClient::OpenCode, &home).unwrap();
+        let closed: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(closed["keep"], "root");
+        assert_eq!(closed["agentAdded"]["enabled"], true);
+        assert_eq!(closed["provider"]["other"]["keep"], "original");
+        assert_eq!(closed["provider"]["other"]["runtimeAdded"], 42);
+        assert_eq!(
+            closed["provider"][MANAGED_AGENT_PROVIDER_ID]["customAfterApply"],
+            "keep-me"
+        );
+        assert!(closed.get("model").is_none());
+        assert!(closed.get("$schema").is_none());
+        assert!(closed["provider"][MANAGED_AGENT_PROVIDER_ID]
+            .get("options")
+            .is_none());
+
+        apply_agent_configuration(
+            AgentClient::OpenCode,
+            &home,
+            8317,
+            DEFAULT_API_KEY,
+            "gpt-two",
+            &models,
+            None,
+        )
+        .unwrap();
+        let reapplied: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(reapplied["model"], "cpa-gui/gpt-two");
+        assert_eq!(
+            reapplied["provider"][MANAGED_AGENT_PROVIDER_ID]["options"]["baseURL"],
+            "http://127.0.0.1:8317/v1"
+        );
+        assert_eq!(
+            reapplied["provider"][MANAGED_AGENT_PROVIDER_ID]["options"]["apiKey"],
+            DEFAULT_API_KEY
+        );
+        assert_eq!(
+            reapplied["provider"][MANAGED_AGENT_PROVIDER_ID]["customAfterApply"],
+            "keep-me"
+        );
+        assert_eq!(reapplied["agentAdded"]["enabled"], true);
+        assert_eq!(reapplied["provider"]["other"]["runtimeAdded"], 42);
+
+        restore_agent_session_configuration(AgentClient::OpenCode, &home).unwrap();
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn session_merge_preserves_runtime_fields_for_other_agent_formats() {
+        let claude_original = r#"{"env":{"KEEP_ENV":"original"},"keep":"claude"}"#;
+        let claude_managed = build_claude_agent_config(
+            Some(claude_original),
+            "http://127.0.0.1:8317",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &test_agent_models(&["gpt-test"]),
+            None,
+        )
+        .unwrap();
+        let mut claude_current: serde_json::Value = serde_json::from_str(&claude_managed).unwrap();
+        claude_current["runtimeAdded"] = serde_json::json!(true);
+        claude_current["env"]["RUNTIME_ENV"] = serde_json::json!("keep");
+        claude_current["env"]["ANTHROPIC_BASE_URL"] =
+            serde_json::json!("https://agent-overwrite.invalid");
+        let claude_restored = build_restored_claude_code_config(
+            &serde_json::to_string(&claude_current).unwrap(),
+            Some(claude_original),
+        )
+        .unwrap()
+        .unwrap();
+        let claude: serde_json::Value = serde_json::from_str(&claude_restored).unwrap();
+        assert_eq!(claude["runtimeAdded"], true);
+        assert_eq!(claude["env"]["RUNTIME_ENV"], "keep");
+        assert_eq!(claude["env"]["KEEP_ENV"], "original");
+        assert!(claude["env"].get("ANTHROPIC_BASE_URL").is_none());
+        assert!(claude.get("model").is_none());
+
+        let desktop_original = r#"{"keep":"desktop-profile"}"#;
+        let desktop_managed = build_claude_desktop_profile(
+            Some(desktop_original),
+            "http://127.0.0.1:8317",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &[],
+            None,
+        )
+        .unwrap();
+        let mut desktop_current: serde_json::Value =
+            serde_json::from_str(&desktop_managed).unwrap();
+        desktop_current["runtimeAdded"] = serde_json::json!({"keep": true});
+        desktop_current["inferenceGatewayBaseUrl"] =
+            serde_json::json!("https://agent-overwrite.invalid");
+        let desktop_restored = build_restored_claude_desktop_config(
+            2,
+            &serde_json::to_string(&desktop_current).unwrap(),
+            Some(desktop_original),
+        )
+        .unwrap()
+        .unwrap();
+        let desktop: serde_json::Value = serde_json::from_str(&desktop_restored).unwrap();
+        assert_eq!(desktop["keep"], "desktop-profile");
+        assert_eq!(desktop["runtimeAdded"]["keep"], true);
+        assert!(desktop.get("inferenceGatewayBaseUrl").is_none());
+        assert!(desktop.get("inferenceGatewayApiKey").is_none());
+
+        let models = test_agent_models(&["gpt-test"]);
+        let openclaw_original = r#"{
+  "models": {"providers": {"other": {"keep": true}}},
+  "agents": {"defaults": {
+    "model": {"primary": "other/original", "fallback": "other/fallback"},
+    "models": {"other/original": {}}
+  }},
+  "keep": "openclaw"
+}"#;
+        let openclaw_managed = build_openclaw_agent_config(
+            Some(openclaw_original),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &models,
+        )
+        .unwrap();
+        let mut openclaw_current: serde_json::Value = json5::from_str(&openclaw_managed).unwrap();
+        openclaw_current["runtimeAdded"] = serde_json::json!(true);
+        openclaw_current["models"]["providers"][MANAGED_AGENT_PROVIDER_ID]["customAfterApply"] =
+            serde_json::json!("keep");
+        openclaw_current["models"]["providers"][MANAGED_AGENT_PROVIDER_ID]["baseUrl"] =
+            serde_json::json!("https://agent-overwrite.invalid");
+        openclaw_current["agents"]["defaults"]["models"]["other/runtime"] =
+            serde_json::json!({"keep": true});
+        let openclaw_restored = build_restored_openclaw_config(
+            &serde_json::to_string(&openclaw_current).unwrap(),
+            Some(openclaw_original),
+        )
+        .unwrap()
+        .unwrap();
+        let openclaw: serde_json::Value = json5::from_str(&openclaw_restored).unwrap();
+        assert_eq!(openclaw["runtimeAdded"], true);
+        assert_eq!(
+            openclaw["models"]["providers"][MANAGED_AGENT_PROVIDER_ID]["customAfterApply"],
+            "keep"
+        );
+        assert!(openclaw["models"]["providers"][MANAGED_AGENT_PROVIDER_ID]
+            .get("baseUrl")
+            .is_none());
+        assert_eq!(
+            openclaw["agents"]["defaults"]["model"]["primary"],
+            "other/original"
+        );
+        assert!(openclaw["agents"]["defaults"]["models"]
+            .get("cpa-gui/gpt-test")
+            .is_none());
+        assert_eq!(
+            openclaw["agents"]["defaults"]["models"]["other/runtime"]["keep"],
+            true
+        );
+        let generated_openclaw = build_openclaw_agent_config(
+            None,
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &models,
+        )
+        .unwrap();
+        assert!(build_restored_openclaw_config(&generated_openclaw, None)
+            .unwrap()
+            .is_none());
+
+        let hermes_original = r#"keep: hermes
+custom_providers:
+  - name: other
+    keep: true
+model:
+  default: original-model
+  provider: other
+  keep: model
+"#;
+        let hermes_managed = build_hermes_agent_config(
+            Some(hermes_original),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &models,
+        )
+        .unwrap();
+        let mut hermes_current: serde_norway::Value =
+            serde_norway::from_str(&hermes_managed).unwrap();
+        let hermes_root = hermes_current.as_mapping_mut().unwrap();
+        hermes_root.insert(yaml_key("runtimeAdded"), serde_norway::Value::Bool(true));
+        let managed_provider = hermes_root
+            .get_mut(yaml_key("custom_providers"))
+            .and_then(serde_norway::Value::as_sequence_mut)
+            .unwrap()
+            .iter_mut()
+            .find(|provider| {
+                provider.get("name").and_then(serde_norway::Value::as_str)
+                    == Some(MANAGED_AGENT_PROVIDER_ID)
+            })
+            .and_then(serde_norway::Value::as_mapping_mut)
+            .unwrap();
+        managed_provider.insert(
+            yaml_key("custom_after_apply"),
+            serde_norway::Value::String("keep".to_string()),
+        );
+        managed_provider.insert(
+            yaml_key("base_url"),
+            serde_norway::Value::String("https://agent-overwrite.invalid".to_string()),
+        );
+        let hermes_restored = build_restored_hermes_config(
+            &serde_norway::to_string(&hermes_current).unwrap(),
+            Some(hermes_original),
+        )
+        .unwrap()
+        .unwrap();
+        let hermes: serde_norway::Value = serde_norway::from_str(&hermes_restored).unwrap();
+        assert_eq!(hermes["runtimeAdded"], serde_norway::Value::Bool(true));
+        assert_eq!(hermes["model"]["default"].as_str(), Some("original-model"));
+        assert_eq!(hermes["model"]["provider"].as_str(), Some("other"));
+        let hermes_managed_provider = hermes["custom_providers"]
+            .as_sequence()
+            .unwrap()
+            .iter()
+            .find(|provider| {
+                provider.get("name").and_then(serde_norway::Value::as_str)
+                    == Some(MANAGED_AGENT_PROVIDER_ID)
+            })
+            .unwrap();
+        assert_eq!(
+            hermes_managed_provider["custom_after_apply"].as_str(),
+            Some("keep")
+        );
+        assert!(hermes_managed_provider.get("base_url").is_none());
+    }
+
+    #[test]
+    fn legacy_agent_state_migration_preserves_backup_for_restore() {
+        let home = agent_test_home("legacy-state-backup-migration");
+        let path = home.join(".config/opencode/opencode.json");
+        let state_path = agent_state_path(std::slice::from_ref(&path)).unwrap();
+        let backup_path = agent_backup_path(&path).unwrap();
+        let original = b"{\"provider\":\"original\"}";
+        let managed = b"{\"provider\":\"managed\"}";
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, managed).unwrap();
+        fs::write(&backup_path, original).unwrap();
+        write_agent_state(
+            &state_path,
+            &AgentModificationRecord {
+                version: AGENT_MODIFICATION_STATE_VERSION,
+                client: AgentClient::OpenCode.id().to_string(),
+                phase: AGENT_PHASE_ACTIVE.to_string(),
+                model: "gpt-test".to_string(),
+                files: vec![AgentModificationFile {
+                    path: path.clone(),
+                    backup_path: backup_path.clone(),
+                    existed_before: true,
+                    original_sha256: Some(sha256_bytes(original)),
+                    managed_sha256: sha256_bytes(managed),
+                }],
+            },
+        )
+        .unwrap();
+
+        let migrated = load_agent_applied_state(AgentClient::OpenCode, &home)
+            .unwrap()
+            .unwrap();
+        assert_eq!(migrated.version, AGENT_APPLIED_STATE_VERSION);
+        assert_eq!(migrated.backup_files.len(), 1);
+        assert_eq!(migrated.backup_files[0].path, path);
+        assert_eq!(migrated.backup_files[0].backup_path, backup_path);
+        assert!(migrated.backup_files[0].existed_before);
+        assert!(backup_path.is_file());
+
+        restore_agent_session_configuration(AgentClient::OpenCode, &home).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert!(!backup_path.exists());
+        assert!(!state_path.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn legacy_codex_single_file_state_remains_restorable() {
+        let home = agent_test_home("legacy-codex-single-file-state");
+        let path = home.join(".codex/config.toml");
+        let paths = vec![path.clone()];
+        let state_path = agent_state_path(&paths).unwrap();
+        let backup_path = agent_backup_path(&path).unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "model_provider = \"cpa-gui\"\n").unwrap();
+        fs::write(&backup_path, "approval_policy = \"never\"\n").unwrap();
+        fs::write(&state_path, "state").unwrap();
+        let state = AgentAppliedState {
+            version: AGENT_APPLIED_STATE_VERSION,
+            client: AgentClient::Codex.id().to_string(),
+            model: "gpt-test".to_string(),
+            claude_desktop_model_mappings: None,
+            backup_files: vec![AgentAppliedBackupFile {
+                path: path.clone(),
+                backup_path: backup_path.clone(),
+                existed_before: true,
+            }],
+            updated_at_unix: 1,
+        };
+
+        restore_agent_applied_state_configuration(AgentClient::Codex, &paths, &state_path, &state)
+            .unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "approval_policy = \"never\"\n"
+        );
+        assert!(!backup_path.exists());
+        assert!(!state_path.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn claude_desktop_version_three_state_can_be_closed_safely() {
+        let home = agent_test_home("claude-desktop-version-three-restore");
+        let normal = home.join("Claude");
+        let threep = home.join("Claude-3p");
+        let paths = claude_desktop_config_paths_from_directories(normal, threep);
+        let state_path = agent_state_path(&paths).unwrap();
+        for path in &paths {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+        }
+        fs::write(&paths[0], r#"{"deploymentMode":"3p","keep":"normal"}"#).unwrap();
+        fs::write(&paths[1], r#"{"deploymentMode":"3p","keep":"threep"}"#).unwrap();
+        fs::write(
+            &paths[2],
+            r#"{
+  "coworkEgressAllowedHosts": ["127.0.0.1"],
+  "disableDeploymentModeChooser": true,
+  "inferenceGatewayApiKey": "managed-key",
+  "inferenceGatewayAuthScheme": "bearer",
+  "inferenceGatewayBaseUrl": "http://127.0.0.1:8317",
+  "inferenceProvider": "generic-chat-completion-api",
+  "inferenceModels": ["claude-sonnet-4-5"],
+  "keep": "profile"
+}"#,
+        )
+        .unwrap();
+        fs::write(
+            &paths[3],
+            format!(
+                r#"{{
+  "appliedId": "{CLAUDE_DESKTOP_PROFILE_ID}",
+  "entries": [
+    {{"id": "{CLAUDE_DESKTOP_PROFILE_ID}", "name": "CPA"}},
+    {{"id": "other", "name": "Other"}}
+  ],
+  "keep": "meta"
+}}"#
+            ),
+        )
+        .unwrap();
+        let state = AgentAppliedState {
+            version: 3,
+            client: AgentClient::ClaudeDesktop.id().to_string(),
+            model: "gpt-test".to_string(),
+            claude_desktop_model_mappings: None,
+            backup_files: Vec::new(),
+            updated_at_unix: 1,
+        };
+        write_agent_applied_state(&state_path, &state).unwrap();
+
+        restore_agent_applied_state_configuration(
+            AgentClient::ClaudeDesktop,
+            &paths,
+            &state_path,
+            &state,
+        )
+        .unwrap();
+
+        assert!(!state_path.exists());
+        let normal: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&paths[0]).unwrap()).unwrap();
+        let threep: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&paths[1]).unwrap()).unwrap();
+        let profile: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&paths[2]).unwrap()).unwrap();
+        let meta: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&paths[3]).unwrap()).unwrap();
+        assert!(normal.get("deploymentMode").is_none());
+        assert_eq!(normal["keep"], "normal");
+        assert!(threep.get("deploymentMode").is_none());
+        assert_eq!(threep["keep"], "threep");
+        for key in [
+            "coworkEgressAllowedHosts",
+            "disableDeploymentModeChooser",
+            "inferenceGatewayApiKey",
+            "inferenceGatewayAuthScheme",
+            "inferenceGatewayBaseUrl",
+            "inferenceProvider",
+            "inferenceModels",
+        ] {
+            assert!(profile.get(key).is_none(), "managed key remains: {key}");
+        }
+        assert_eq!(profile["keep"], "profile");
+        assert!(meta.get("appliedId").is_none());
+        assert_eq!(meta["keep"], "meta");
+        assert_eq!(meta["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(meta["entries"][0]["id"], "other");
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn opencode_version_three_state_uses_managed_marker_and_closes_safely() {
+        let home = agent_test_home("opencode-version-three-restore");
+        let path = home.join(".config/opencode/opencode.json");
+        let state_path = agent_state_path(std::slice::from_ref(&path)).unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(
+            &path,
+            r#"{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "cpa-gui/gpt-test",
+  "provider": {
+    "cpa-gui": {
+      "options": {"baseURL": "http://127.0.0.1:8317/v1", "apiKey": "secret"}
+    },
+    "other": {"keep": true}
+  },
+  "keep": "root"
+}"#,
+        )
+        .unwrap();
+        fs::write(
+            &state_path,
+            r#"{"version":3,"client":"opencode","model":"gpt-test","updatedAtUnix":1}"#,
+        )
+        .unwrap();
+
+        let before = inspect_agent_application(AgentClient::OpenCode, &home);
+        assert_eq!(before.state, "applied");
+        assert!(!before.backup_available);
+        restore_agent_session_configuration(AgentClient::OpenCode, &home).unwrap();
+
+        let restored: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(restored.get("model").is_none());
+        assert!(restored["provider"]
+            .get(MANAGED_AGENT_PROVIDER_ID)
+            .is_none());
+        assert_eq!(restored["provider"]["other"]["keep"], true);
+        assert_eq!(restored["keep"], "root");
+        assert!(!state_path.exists());
+        assert_eq!(
+            inspect_agent_application(AgentClient::OpenCode, &home).state,
+            "unconfigured"
+        );
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn stale_version_three_state_without_managed_configuration_is_not_applied() {
+        let home = agent_test_home("stale-version-three-state");
+        let path = home.join(".config/opencode/opencode.json");
+        let state_path = agent_state_path(std::slice::from_ref(&path)).unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let original = r#"{"provider":{"other":{"keep":true}}}"#;
+        fs::write(&path, original).unwrap();
+        fs::write(
+            &state_path,
+            r#"{"version":3,"client":"opencode","model":"gpt-test","updatedAtUnix":1}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            inspect_agent_application(AgentClient::OpenCode, &home).state,
+            "unconfigured"
+        );
+        restore_agent_session_configuration(AgentClient::OpenCode, &home).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+        assert!(!state_path.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn applied_state_rejects_backup_paths_outside_the_managed_config_set() {
+        let home = agent_test_home("invalid-applied-backup-path");
+        let path = home.join(".config/opencode/opencode.json");
+        let state_path = agent_state_path(std::slice::from_ref(&path)).unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "{}").unwrap();
+        write_agent_applied_state(
+            &state_path,
+            &AgentAppliedState {
+                version: AGENT_APPLIED_STATE_VERSION,
+                client: AgentClient::OpenCode.id().to_string(),
+                model: "gpt-test".to_string(),
+                claude_desktop_model_mappings: None,
+                backup_files: vec![AgentAppliedBackupFile {
+                    path: path.clone(),
+                    backup_path: home.join("unexpected-location.bak"),
+                    existed_before: true,
+                }],
+                updated_at_unix: 1,
+            },
+        )
+        .unwrap();
+
+        let error = load_agent_applied_state(AgentClient::OpenCode, &home)
+            .err()
+            .unwrap();
+        assert!(error.contains("非预期备份路径"));
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn missing_session_backup_is_detected_before_any_file_is_restored() {
+        let home = agent_test_home("missing-session-backup-preflight");
+        let config_path = home.join(".codex/config.toml");
+        let catalog_path = config_path.with_file_name(CODEX_MODEL_CATALOG_FILE);
+        let paths = vec![config_path.clone()];
+        let state_path = agent_state_path(&paths).unwrap();
+        let config_backup = dated_agent_backup_path(&config_path).unwrap();
+        let catalog_backup = dated_agent_backup_path(&catalog_path).unwrap();
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        fs::write(&config_path, "managed-config").unwrap();
+        fs::write(&catalog_path, "managed-catalog").unwrap();
+        fs::write(&config_backup, "original-config").unwrap();
+        fs::write(&state_path, "state").unwrap();
+        let state = AgentAppliedState {
+            version: AGENT_APPLIED_STATE_VERSION,
+            client: AgentClient::Codex.id().to_string(),
+            model: "gpt-test".to_string(),
+            claude_desktop_model_mappings: None,
+            backup_files: vec![
+                AgentAppliedBackupFile {
+                    path: config_path.clone(),
+                    backup_path: config_backup,
+                    existed_before: true,
+                },
+                AgentAppliedBackupFile {
+                    path: catalog_path.clone(),
+                    backup_path: catalog_backup,
+                    existed_before: true,
+                },
+            ],
+            updated_at_unix: 1,
+        };
+
+        let error = restore_agent_applied_state_configuration(
+            AgentClient::Codex,
+            &paths,
+            &state_path,
+            &state,
+        )
+        .err()
+        .unwrap();
+        assert!(error.contains("读取智能体备份失败"));
+        assert_eq!(fs::read_to_string(&config_path).unwrap(), "managed-config");
+        assert_eq!(
+            fs::read_to_string(&catalog_path).unwrap(),
+            "managed-catalog"
+        );
+        assert!(state_path.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn version_three_cleanup_covers_every_non_desktop_agent_format() {
+        let home = agent_test_home("all-agent-version-three-cleanup");
+        let state = |client: AgentClient| AgentAppliedState {
+            version: 3,
+            client: client.id().to_string(),
+            model: "gpt-test".to_string(),
+            claude_desktop_model_mappings: None,
+            backup_files: Vec::new(),
+            updated_at_unix: 1,
+        };
+
+        let claude_path = home.join("claude/settings.json");
+        fs::create_dir_all(claude_path.parent().unwrap()).unwrap();
+        fs::write(
+            &claude_path,
+            r#"{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8317",
+    "ANTHROPIC_API_KEY": "secret",
+    "ANTHROPIC_AUTH_TOKEN": "secret",
+    "ANTHROPIC_MODEL": "gpt-test",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-test",
+    "KEEP_ENV": "yes"
+  },
+  "model": "gpt-test",
+  "keep": "claude"
+}"#,
+        )
+        .unwrap();
+        let claude_state_path = agent_state_path(std::slice::from_ref(&claude_path)).unwrap();
+        fs::write(&claude_state_path, "state").unwrap();
+        restore_agent_applied_state_configuration(
+            AgentClient::ClaudeCode,
+            std::slice::from_ref(&claude_path),
+            &claude_state_path,
+            &state(AgentClient::ClaudeCode),
+        )
+        .unwrap();
+        let claude: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&claude_path).unwrap()).unwrap();
+        assert!(claude.get("model").is_none());
+        assert!(claude["env"].get("ANTHROPIC_BASE_URL").is_none());
+        assert_eq!(claude["env"]["KEEP_ENV"], "yes");
+        assert_eq!(claude["keep"], "claude");
+
+        let codex_path = home.join("codex/config.toml");
+        let codex_catalog = codex_path.with_file_name(CODEX_MODEL_CATALOG_FILE);
+        fs::create_dir_all(codex_path.parent().unwrap()).unwrap();
+        fs::write(
+            &codex_path,
+            r#"approval_policy = "never"
+model_provider = "cpa-gui"
+model = "gpt-test"
+model_catalog_json = "cpa-gui-model-catalog.json"
+
+[model_providers.cpa-gui]
+name = "EasyCLIProxyAPI"
+base_url = "http://127.0.0.1:8317/v1"
+
+[model_providers.other]
+name = "Other"
+"#,
+        )
+        .unwrap();
+        fs::write(&codex_catalog, "{}").unwrap();
+        let codex_state_path = agent_state_path(std::slice::from_ref(&codex_path)).unwrap();
+        fs::write(&codex_state_path, "state").unwrap();
+        restore_agent_applied_state_configuration(
+            AgentClient::Codex,
+            std::slice::from_ref(&codex_path),
+            &codex_state_path,
+            &state(AgentClient::Codex),
+        )
+        .unwrap();
+        let codex: toml::Value = toml::from_str(&fs::read_to_string(&codex_path).unwrap()).unwrap();
+        assert_eq!(codex["approval_policy"].as_str(), Some("never"));
+        assert!(codex.get("model_provider").is_none());
+        assert!(codex.get("model").is_none());
+        assert!(codex["model_providers"]
+            .get(MANAGED_AGENT_PROVIDER_ID)
+            .is_none());
+        assert_eq!(
+            codex["model_providers"]["other"]["name"].as_str(),
+            Some("Other")
+        );
+        assert!(!codex_catalog.exists());
+
+        let openclaw_path = home.join("openclaw/openclaw.json");
+        fs::create_dir_all(openclaw_path.parent().unwrap()).unwrap();
+        fs::write(
+            &openclaw_path,
+            r#"// keep-comment
+{
+  models: {
+    mode: "merge",
+    providers: {
+      "cpa-gui": {baseUrl: "http://127.0.0.1:8317/v1"},
+      other: {keep: true}
+    }
+  },
+  agents: {defaults: {
+    model: {primary: "cpa-gui/gpt-test", fallback: "other/model"},
+    models: {"cpa-gui/gpt-test": {}, "other/model": {}}
+  }},
+  keep: "openclaw"
+}"#,
+        )
+        .unwrap();
+        let openclaw_state_path = agent_state_path(std::slice::from_ref(&openclaw_path)).unwrap();
+        fs::write(&openclaw_state_path, "state").unwrap();
+        restore_agent_applied_state_configuration(
+            AgentClient::OpenClaw,
+            std::slice::from_ref(&openclaw_path),
+            &openclaw_state_path,
+            &state(AgentClient::OpenClaw),
+        )
+        .unwrap();
+        let openclaw_content = fs::read_to_string(&openclaw_path).unwrap();
+        assert!(openclaw_content.contains("// keep-comment"));
+        let openclaw: serde_json::Value = json5::from_str(&openclaw_content).unwrap();
+        assert!(openclaw["models"]["providers"]
+            .get(MANAGED_AGENT_PROVIDER_ID)
+            .is_none());
+        assert_eq!(openclaw["models"]["providers"]["other"]["keep"], true);
+        assert!(openclaw["agents"]["defaults"]["model"]
+            .get("primary")
+            .is_none());
+        assert_eq!(
+            openclaw["agents"]["defaults"]["model"]["fallback"],
+            "other/model"
+        );
+        assert!(openclaw["agents"]["defaults"]["models"]
+            .get("cpa-gui/gpt-test")
+            .is_none());
+        assert!(openclaw["agents"]["defaults"]["models"]
+            .get("other/model")
+            .is_some());
+
+        let hermes_path = home.join("hermes/config.yaml");
+        fs::create_dir_all(hermes_path.parent().unwrap()).unwrap();
+        fs::write(
+            &hermes_path,
+            r#"keep: hermes
+custom_providers:
+  - name: other
+    keep: true
+  - name: cpa-gui
+    base_url: http://127.0.0.1:8317/v1
+model:
+  default: gpt-test
+  provider: cpa-gui
+  keep: model
+"#,
+        )
+        .unwrap();
+        let hermes_state_path = agent_state_path(std::slice::from_ref(&hermes_path)).unwrap();
+        fs::write(&hermes_state_path, "state").unwrap();
+        restore_agent_applied_state_configuration(
+            AgentClient::Hermes,
+            std::slice::from_ref(&hermes_path),
+            &hermes_state_path,
+            &state(AgentClient::Hermes),
+        )
+        .unwrap();
+        let hermes: serde_norway::Value =
+            serde_norway::from_str(&fs::read_to_string(&hermes_path).unwrap()).unwrap();
+        assert_eq!(hermes["keep"].as_str(), Some("hermes"));
+        assert_eq!(hermes["custom_providers"].as_sequence().unwrap().len(), 1);
+        assert_eq!(
+            hermes["custom_providers"][0]["name"].as_str(),
+            Some("other")
+        );
+        assert!(hermes["model"].get("provider").is_none());
+        assert!(hermes["model"].get("default").is_none());
+        assert_eq!(hermes["model"]["keep"].as_str(), Some("model"));
+
+        for state_path in [
+            claude_state_path,
+            codex_state_path,
+            openclaw_state_path,
+            hermes_state_path,
+        ] {
+            assert!(!state_path.exists());
+        }
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn codex_session_restore_does_not_create_a_state_json_file() {
+        let home = agent_test_home("codex-session-without-state-file");
+        let config_path = home.join(".codex/config.toml");
+        let catalog_path = codex_model_catalog_path(&home);
+        let state_path = agent_state_path(std::slice::from_ref(&config_path)).unwrap();
+        let original = b"approval_policy = \"never\"\n";
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        fs::write(&config_path, original).unwrap();
+
+        commit_agent_configuration(
+            AgentClient::Codex,
+            &home,
+            "gpt-test",
+            &[
+                AgentFileUpdate {
+                    path: config_path.clone(),
+                    after: "model = \"gpt-test\"\n".to_string(),
+                },
+                AgentFileUpdate {
+                    path: catalog_path.clone(),
+                    after: "{\"models\":[]}".to_string(),
+                },
+            ],
+            "applied",
+            None,
+        )
+        .unwrap();
+
+        let backup = dated_agent_backup_path(&config_path).unwrap();
+        assert!(backup.is_file());
+        assert!(!state_path.exists());
+        assert_eq!(
+            inspect_agent_application(AgentClient::Codex, &home).state,
+            "applied"
+        );
+
+        restore_agent_session_configuration(AgentClient::Codex, &home).unwrap();
+        assert_eq!(fs::read(&config_path).unwrap(), original);
+        assert!(!catalog_path.exists());
+        assert!(!backup.exists());
+        assert!(!state_path.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn codex_session_restore_recovers_from_a_dated_backup_without_state_json() {
+        let home = agent_test_home("codex-session-backup-recovery");
+        let config_path = home.join(".codex/config.toml");
+        let catalog_path = codex_model_catalog_path(&home);
+        let state_path = agent_state_path(std::slice::from_ref(&config_path)).unwrap();
+        let backup = dated_agent_backup_path(&config_path).unwrap();
+        let original = b"approval_policy = \"on-request\"\n";
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        fs::write(&backup, original).unwrap();
+        fs::write(&config_path, "model = \"gpt-test\"\n").unwrap();
+        fs::write(&catalog_path, "{\"models\":[]}").unwrap();
+
+        restore_agent_session_configuration(AgentClient::Codex, &home).unwrap();
+
+        assert_eq!(fs::read(&config_path).unwrap(), original);
+        assert!(!catalog_path.exists());
+        assert!(!backup.exists());
+        assert!(!state_path.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn direct_agent_apply_preserves_unrelated_fields_and_default_reset_removes_them() {
+        let home = agent_test_home("direct-apply");
+        let path = home.join(".codex/config.toml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(
+            &path,
+            "# user comment\nuser_setting = \"keep\"\nmodel = \"external\"\nmodel_provider = \"other\"\n\n[model_providers.other]\nname = \"Other\"\nbase_url = \"https://example.com\"\n",
+        )
+        .unwrap();
+        let models = test_agent_models(&["gpt-test"]);
+        let codex_models = test_codex_models(&["gpt-test"]);
+        let api_key = "custom-agent-key";
+
+        let result = apply_agent_configuration(
+            AgentClient::Codex,
+            &home,
+            8317,
+            api_key,
+            "gpt-test",
+            &models,
+            Some(&codex_models),
+        )
+        .unwrap();
+        assert_eq!(result.outcome, "applied");
+        let applied = fs::read_to_string(&path).unwrap();
+        assert!(applied.contains("# user comment"));
+        assert!(applied.contains("user_setting = \"keep\""));
+        assert!(applied.contains("[model_providers.other]"));
+        assert!(applied.contains("model = \"gpt-test\""));
+        assert!(applied.contains("experimental_bearer_token = \"custom-agent-key\""));
+        assert!(!agent_backup_path(&path).unwrap().exists());
+        assert!(!agent_backup_path(&codex_model_catalog_path(&home))
+            .unwrap()
+            .exists());
+        assert_eq!(
+            inspect_agent_application(AgentClient::Codex, &home).state,
+            "applied"
+        );
+
+        let mut document = applied.parse::<toml_edit::Document>().unwrap();
+        document["user_setting"] = toml_edit::value("changed-externally");
+        fs::write(&path, document.to_string()).unwrap();
+        assert_eq!(
+            inspect_agent_application(AgentClient::Codex, &home).state,
+            "applied"
+        );
+
+        document["model"] = toml_edit::value("external-model");
+        fs::write(&path, document.to_string()).unwrap();
+        assert_eq!(
+            inspect_agent_application(AgentClient::Codex, &home).state,
+            "applied"
+        );
+
+        apply_agent_configuration(
+            AgentClient::Codex,
+            &home,
+            8317,
+            api_key,
+            "gpt-test",
+            &models,
+            Some(&codex_models),
+        )
+        .unwrap();
+        let reapplied = fs::read_to_string(&path).unwrap();
+        assert!(reapplied.contains("user_setting = \"changed-externally\""));
+        assert!(reapplied.contains("model = \"gpt-test\""));
+
+        reset_agent_configuration_to_default(
+            AgentClient::Codex,
+            &home,
+            8317,
+            api_key,
+            "gpt-test",
+            Some(&codex_models),
+        )
+        .unwrap();
+        let reset = fs::read_to_string(&path).unwrap();
+        assert!(!reset.contains("user_setting"));
+        assert!(!reset.contains("model_providers.other"));
+        assert!(reset.contains("model = \"gpt-test\""));
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn clear_codex_config_removes_only_requested_config_files_and_application_state() {
+        let home = agent_test_home("clear-codex-config");
+        let codex_dir = home.join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        let auth_path = codex_dir.join("auth.json");
+        let config_path = codex_dir.join("config.toml");
+        let state_path = agent_state_path(std::slice::from_ref(&config_path)).unwrap();
+        let preserved_path = codex_dir.join("history.jsonl");
+        fs::write(&auth_path, "{}").unwrap();
+        fs::write(&config_path, "model = \"gpt-test\"\n").unwrap();
+        fs::write(&state_path, "{}").unwrap();
+        fs::write(&preserved_path, "keep").unwrap();
+
+        let deleted = clear_codex_config_files(&home).unwrap();
+
+        assert_eq!(deleted.len(), 2);
+        assert!(!auth_path.exists());
+        assert!(!config_path.exists());
+        assert!(!state_path.exists());
+        assert_eq!(fs::read_to_string(&preserved_path).unwrap(), "keep");
+        assert!(clear_codex_config_files(&home).unwrap().is_empty());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn direct_agent_apply_rebuilds_an_unparseable_file_without_backup() {
+        let home = agent_test_home("invalid-apply");
+        let path = home.join(".config/opencode/opencode.json");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "{ invalid json").unwrap();
+        let models = test_agent_models(&["model-a"]);
+
+        apply_agent_configuration(
+            AgentClient::OpenCode,
+            &home,
+            8317,
+            DEFAULT_API_KEY,
+            "model-a",
+            &models,
+            None,
+        )
+        .unwrap();
+
+        let root =
+            serde_json::from_str::<serde_json::Value>(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(root["model"], "cpa-gui/model-a");
+        assert!(!agent_backup_path(&path).unwrap().exists());
+        assert_eq!(
+            inspect_agent_application(AgentClient::OpenCode, &home).state,
+            "applied"
+        );
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn agent_builders_repair_wrong_managed_node_types() {
+        let claude = build_claude_agent_config(
+            Some(r#"{"keep":true,"env":"broken"}"#),
+            "http://127.0.0.1:8317",
+            DEFAULT_API_KEY,
+            "model-a",
+            &test_agent_models(&["model-a"]),
+            None,
+        )
+        .unwrap();
+        let claude = serde_json::from_str::<serde_json::Value>(&claude).unwrap();
+        assert_eq!(claude["keep"], true);
+        assert_eq!(claude["env"]["ANTHROPIC_MODEL"], "model-a");
+
+        let codex = build_codex_agent_config(
+            Some("custom = true\nmodel_providers = 7\n"),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "model-a",
+        )
+        .unwrap();
+        let codex = toml::from_str::<toml::Value>(&codex).unwrap();
+        assert_eq!(codex["custom"].as_bool(), Some(true));
+        assert_eq!(
+            codex["model_providers"][MANAGED_AGENT_PROVIDER_ID]["base_url"].as_str(),
+            Some("http://127.0.0.1:8317/v1")
+        );
+
+        let hermes = build_hermes_agent_config(
+            Some("theme: dark\ncustom_providers: broken\nmodel: 1\n"),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "model-a",
+            &test_agent_models(&["model-a"]),
+        )
+        .unwrap();
+        let hermes = serde_norway::from_str::<serde_norway::Value>(&hermes).unwrap();
+        assert_eq!(hermes["theme"], "dark");
+        assert_eq!(hermes["model"]["default"], "model-a");
+        assert!(hermes["custom_providers"].is_sequence());
+    }
+
+    #[test]
+    fn build_agent_updates_rebuilds_invalid_json5_toml_and_yaml() {
+        let home = agent_test_home("invalid-formats");
+        let models = test_agent_models(&["model-a"]);
+        let codex_models = test_codex_models(&["model-a"]);
+        for (client, path) in [
+            (AgentClient::ClaudeCode, home.join(".claude/settings.json")),
+            (AgentClient::Codex, home.join(".codex/config.toml")),
+            (AgentClient::OpenClaw, home.join(".openclaw/openclaw.json")),
+        ] {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, "not valid {{{").unwrap();
+            let updates = build_agent_updates(
+                client,
+                &home,
+                8317,
+                DEFAULT_API_KEY,
+                "model-a",
+                &models,
+                (client == AgentClient::Codex).then_some(codex_models.as_str()),
+            )
+            .unwrap();
+            assert!(!updates[0].after.trim().is_empty());
+        }
+        let hermes = build_hermes_agent_config(
+            Some("not valid {{{"),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "model-a",
+            &models,
+        )
+        .or_else(|_| {
+            build_hermes_agent_config(
+                None,
+                "http://127.0.0.1:8317/v1",
+                DEFAULT_API_KEY,
+                "model-a",
+                &models,
+            )
+        })
+        .unwrap();
+        assert!(!hermes.trim().is_empty());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn gui_field_edit_preserves_comments_and_unknown_configuration() {
+        let home = agent_test_home("gui-field-edit");
+        let path = home.join("config.toml");
+        fs::write(
+            &path,
+            "# keep this comment\ncustom-option = \"keep\"\nport = 7000\n\n[third-party]\nenabled = true\n",
+        )
+        .unwrap();
+        let config = GuiConfigFile {
+            port: 9527,
+            host: "0.0.0.0".to_string(),
+            allow_lan: true,
+            auth_dir: path_to_string(&home.join("custom-auth")),
+            management_secret_key: "custom-secret".to_string(),
+            usage_statistics_enabled: false,
+            codex_session_repair_on_launch: true,
+            claude_code_working_directory: path_to_string(&home),
+            claude_code_working_directory_prompt_disabled: true,
+            ..GuiConfigFile::default()
+        };
+
+        write_gui_config_to_path(&config, &path).unwrap();
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("# keep this comment"));
+        assert!(content.contains("custom-option = \"keep\""));
+        assert!(content.contains("[third-party]"));
+        assert!(content.contains("port = 9527"));
+        assert!(content.contains("host = \"0.0.0.0\""));
+        assert!(content.contains("management-secret-key = \"custom-secret\""));
+        assert!(content.contains("usage-statistics-enabled = false"));
+        assert!(content.contains("codex-session-repair-on-launch = true"));
+        assert!(content.contains("claude-code-working-directory = "));
+        assert!(content.contains("claude-code-working-directory-prompt-disabled = true"));
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn software_write_hash_suppresses_only_the_matching_file_content() {
+        let home = agent_test_home("write-hash");
+        let path = home.join("config.toml");
+        write_bytes_directly(&path, b"port = 8317\n").unwrap();
+        assert!(consume_software_write(&path));
+        assert!(!consume_software_write(&path));
+        write_bytes_directly(&path, b"port = 8317\n").unwrap();
+        fs::write(&path, b"port = 9000\n").unwrap();
+        assert!(!consume_software_write(&path));
+        fs::write(&path, b"port = 8317\n").unwrap();
+        assert!(!consume_software_write(&path));
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn configuration_watcher_uses_the_nearest_existing_parent() {
+        let home = agent_test_home("watch-parent");
+        let target = home.join("nested/client/config.json");
+
+        assert_eq!(
+            nearest_existing_watch_directory(&target),
+            Some(home.clone())
+        );
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        assert_eq!(
+            nearest_existing_watch_directory(&target),
+            target.parent().map(Path::to_path_buf)
+        );
+
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    fn test_codex_oauth_thinking_source(model: &str) -> ResolvedThinkingAliasSource {
+        ResolvedThinkingAliasSource {
+            source: ThinkingAliasSource {
+                id: format!("codex-oauth:{model}"),
+                model: model.to_string(),
+                display_name: None,
+                provider: "Codex OAuth".to_string(),
+                kind: "codex-oauth".to_string(),
+                protocol: "codex".to_string(),
+            },
+            location: ThinkingAliasSourceLocation::CodexOauth,
+        }
+    }
+
+    #[test]
+    fn gui_config_defaults_are_stable() {
+        let config = GuiConfigFile::default();
+        let content = toml::to_string_pretty(&config).unwrap();
+
+        assert!(content.contains("port = 8317"));
+        assert!(content.contains("allow-lan = false"));
+        assert!(content.contains("run-on-startup = false"));
+        assert!(content.contains("close-behavior = \"ask\""));
+        assert!(content.contains("window-width = 1531"));
+        assert!(content.contains("window-height = 891"));
+        assert!(content.contains("auth-dir = \"../oauth\""));
+        assert!(content.contains("[[api-keys]]"));
+        assert!(content.contains("key = \"123456\""));
+        assert!(content.contains("remark = \"默认密钥\""));
+        assert!(content.contains("management-secret-key = \"\""));
+        assert!(content.contains("plugins-enabled = false"));
+        assert!(content.contains("routing-strategy = \"round-robin\""));
+        assert!(content.contains("codex-session-repair-on-launch = false"));
+    }
+
+    #[test]
+    fn gui_window_size_round_trips_through_portable_config() {
+        let config = GuiConfigFile {
+            window_width: Some(1440),
+            window_height: Some(900),
+            ..GuiConfigFile::default()
+        };
+
+        let content = toml::to_string_pretty(&config).unwrap();
+        let restored = toml::from_str::<GuiConfigFile>(&content).unwrap();
+
+        assert!(content.contains("window-width = 1440"));
+        assert!(content.contains("window-height = 900"));
+        assert_eq!(
+            configured_window_size(&restored),
+            Some(SavedWindowSize {
+                width: 1440,
+                height: 900,
+            })
+        );
+    }
+
+    #[test]
+    fn gui_window_size_is_clamped_and_requires_both_dimensions() {
+        let mut config = GuiConfigFile {
+            window_width: Some(320),
+            window_height: Some(30_000),
+            ..GuiConfigFile::default()
+        };
+
+        assert!(sanitize_gui_config(&mut config).unwrap());
+        assert_eq!(config.window_width, Some(MIN_MAIN_WINDOW_WIDTH));
+        assert_eq!(config.window_height, Some(MAX_SAVED_WINDOW_DIMENSION));
+
+        config.window_height = None;
+        assert!(sanitize_gui_config(&mut config).unwrap());
+        assert_eq!(config.window_width, None);
+        assert_eq!(config.window_height, None);
+    }
+
+    #[test]
+    fn physical_window_size_uses_display_scale_and_ignores_minimized_sizes() {
+        let physical_size = tauri::PhysicalSize::new(1500, 1000);
+        assert_eq!(
+            logical_window_size_from_physical(&physical_size, 1.25),
+            Some(SavedWindowSize {
+                width: 1200,
+                height: 800,
+            })
+        );
+        assert!(logical_window_size_from_physical(&tauri::PhysicalSize::new(0, 0), 1.0).is_none());
+        assert!(logical_window_size_from_physical(&physical_size, 0.0).is_none());
+    }
+
+    #[test]
+    fn claude_agent_config_preserves_existing_fields() {
+        let rendered = build_claude_agent_config(
+            Some(
+                r#"{"theme":"dark","env":{"KEEP":"yes","ANTHROPIC_API_KEY":"legacy-key","CLAUDE_CODE_EFFORT_LEVEL":"max"}}"#,
+            ),
+            "http://127.0.0.1:8317",
+            DEFAULT_API_KEY,
+            "claude-test",
+            &test_agent_models(&["claude-test"]),
+            None,
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+
+        assert_eq!(value["theme"], "dark");
+        assert_eq!(value["env"]["KEEP"], "yes");
+        assert!(value["env"].get("ANTHROPIC_API_KEY").is_none());
+        assert_eq!(value["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:8317");
+        assert_eq!(value["env"]["ANTHROPIC_AUTH_TOKEN"], DEFAULT_API_KEY);
+        assert_eq!(value["env"]["ANTHROPIC_MODEL"], "claude-test");
+        assert!(value["env"].get("CLAUDE_CODE_EFFORT_LEVEL").is_none());
+        assert_eq!(value["env"]["CLAUDE_CODE_SUBAGENT_MODEL"], "claude-test");
+        assert_eq!(
+            value["env"]["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"],
+            "claude-test (200K context)"
+        );
+        assert_eq!(value["model"], "claude-test");
+    }
+
+    #[test]
+    fn claude_code_inspection_normalizes_1m_suffix() {
+        let directory = agent_test_home("claude-code-1m-inspection");
+        let path = directory.join("settings.json");
+        fs::write(
+            &path,
+            r#"{
+                "env": {
+                    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8317",
+                    "ANTHROPIC_AUTH_TOKEN": "test-key",
+                    "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+                    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1m]",
+                    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1m]",
+                    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash"
+                },
+                "model": "deepseek-v4-pro[1m]"
+            }"#,
+        )
+        .unwrap();
+
+        let (configured, model) = inspect_claude_agent_config(&path, 8317, "test-key").unwrap();
+        let mappings = inspect_claude_code_model_mappings(&path).unwrap().unwrap();
+
+        assert!(configured);
+        assert_eq!(model.as_deref(), Some("deepseek-v4-pro"));
+        assert_eq!(mappings.opus, "deepseek-v4-pro");
+        assert_eq!(mappings.sonnet, "deepseek-v4-pro");
+        assert_eq!(mappings.haiku, "deepseek-v4-flash");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn claude_code_role_mappings_drive_settings_and_launch_environment() {
+        let mappings = ClaudeDesktopModelMappings {
+            opus: "gpt-opus".to_string(),
+            sonnet: "gpt-sonnet".to_string(),
+            haiku: "gpt-haiku".to_string(),
+        };
+        let models = vec![
+            AgentModelOption {
+                name: "gpt-opus-base".to_string(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+            AgentModelOption {
+                name: mappings.opus.clone(),
+                alias: Some("gpt-opus-base".to_string()),
+                is_alias: true,
+                context_window: Some(128_000),
+            },
+            AgentModelOption {
+                name: mappings.sonnet.clone(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(272_000),
+            },
+            AgentModelOption {
+                name: mappings.haiku.clone(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(128_000),
+            },
+        ];
+        let rendered = build_claude_agent_config(
+            None,
+            "http://127.0.0.1:8317",
+            "test-key",
+            "gpt-sonnet",
+            &models,
+            Some(&mappings),
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        assert_eq!(value["env"]["ANTHROPIC_MODEL"], "gpt-sonnet");
+        assert_eq!(value["env"]["ANTHROPIC_DEFAULT_OPUS_MODEL"], "gpt-opus");
+        assert_eq!(value["env"]["ANTHROPIC_DEFAULT_SONNET_MODEL"], "gpt-sonnet");
+        assert_eq!(value["env"]["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "gpt-haiku");
+        assert_eq!(value["env"][CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV], "272000");
+        assert_eq!(
+            value["env"]["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"],
+            "gpt-sonnet (272K context)"
+        );
+
+        let environment = claude_code_launch_environment(
+            "http://127.0.0.1:8317",
+            "test-key",
+            &mappings,
+            &models,
+            claude_code_max_context_tokens(&mappings, &models).unwrap(),
+        )
+        .unwrap();
+        let read = |key: &str| {
+            environment
+                .iter()
+                .find(|(candidate, _)| candidate == key)
+                .map(|(_, value)| value.as_str())
+        };
+        assert_eq!(read("ANTHROPIC_BASE_URL"), Some("http://127.0.0.1:8317"));
+        assert_eq!(read("ANTHROPIC_AUTH_TOKEN"), Some("test-key"));
+        assert_eq!(read("ANTHROPIC_API_KEY"), None);
+        assert_eq!(read("ANTHROPIC_DEFAULT_OPUS_MODEL"), Some("gpt-opus"));
+        assert_eq!(read("ANTHROPIC_DEFAULT_SONNET_MODEL"), Some("gpt-sonnet"));
+        assert_eq!(read("ANTHROPIC_DEFAULT_HAIKU_MODEL"), Some("gpt-haiku"));
+        assert_eq!(read("CLAUDE_CODE_SUBAGENT_MODEL"), Some("gpt-haiku"));
+        assert_eq!(read("CLAUDE_CODE_EFFORT_LEVEL"), None);
+        assert_eq!(
+            read("ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"),
+            Some("gpt-sonnet (272K context)")
+        );
+        assert_eq!(read(CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV), Some("272000"));
+    }
+
+    #[test]
+    fn claude_code_deepseek_picker_shows_catalog_name_and_1m_context() {
+        let mappings = ClaudeDesktopModelMappings {
+            opus: "deepseek-v4-pro".to_string(),
+            sonnet: "deepseek-v4-pro".to_string(),
+            haiku: "deepseek-v4-flash".to_string(),
+        };
+        let models = vec![
+            AgentModelOption {
+                name: "deepseek-v4-pro".to_string(),
+                alias: Some("DeepSeek V4 Pro".to_string()),
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+            AgentModelOption {
+                name: "deepseek-v4-flash".to_string(),
+                alias: Some("DeepSeek V4 Flash".to_string()),
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+        ];
+        let rendered = build_claude_agent_config(
+            None,
+            "http://127.0.0.1:8317",
+            "test-key",
+            "deepseek-v4-pro",
+            &models,
+            Some(&mappings),
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+
+        assert!(value["env"]
+            .get(CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV)
+            .is_none());
+        assert_eq!(value["env"]["ANTHROPIC_MODEL"], "deepseek-v4-pro[1m]");
+        assert_eq!(
+            value["env"]["ANTHROPIC_DEFAULT_OPUS_MODEL"],
+            "deepseek-v4-pro[1m]"
+        );
+        assert_eq!(
+            value["env"]["ANTHROPIC_DEFAULT_SONNET_MODEL"],
+            "deepseek-v4-pro[1m]"
+        );
+        assert_eq!(
+            value["env"]["ANTHROPIC_DEFAULT_HAIKU_MODEL"],
+            "deepseek-v4-flash"
+        );
+        assert_eq!(
+            value["env"]["ANTHROPIC_DEFAULT_FABLE_MODEL"],
+            "deepseek-v4-pro[1m]"
+        );
+        assert_eq!(
+            value["env"]["CLAUDE_CODE_SUBAGENT_MODEL"],
+            "deepseek-v4-flash"
+        );
+        assert_eq!(value["env"]["CLAUDE_CODE_EFFORT_LEVEL"], "max");
+        assert_eq!(
+            value["env"]["ANTHROPIC_CUSTOM_MODEL_OPTION"],
+            "deepseek-v4-pro[1m]"
+        );
+        assert_eq!(
+            value["env"]["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"],
+            "DeepSeek V4 Pro (1M context)"
+        );
+        assert_eq!(
+            value["env"]["ANTHROPIC_DEFAULT_FABLE_MODEL_NAME"],
+            "DeepSeek V4 Pro (Fable mapping, 1M context)"
+        );
+        assert_eq!(value["model"], "deepseek-v4-pro[1m]");
+
+        let environment = claude_code_launch_environment(
+            "http://127.0.0.1:8317",
+            "test-key",
+            &mappings,
+            &models,
+            claude_code_max_context_tokens(&mappings, &models).unwrap(),
+        )
+        .unwrap();
+        assert!(!environment
+            .iter()
+            .any(|(key, _)| key == CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV));
+    }
+
+    #[test]
+    fn claude_code_1m_suffix_requires_explicit_catalog_support() {
+        let models = vec![
+            AgentModelOption {
+                name: "deepseek-v4-flash".to_string(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+            AgentModelOption {
+                name: "gpt-runtime-1m".to_string(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+        ];
+
+        assert_eq!(
+            claude_code_model_setting(&models, "deepseek-v4-flash", true).unwrap(),
+            "deepseek-v4-flash[1m]"
+        );
+        assert_eq!(
+            claude_code_model_setting(&models, "deepseek-v4-flash", false).unwrap(),
+            "deepseek-v4-flash"
+        );
+        assert_eq!(
+            claude_code_model_setting(&models, "gpt-runtime-1m", true).unwrap(),
+            "gpt-runtime-1m"
+        );
+        assert_eq!(
+            claude_code_max_context_tokens(
+                &ClaudeDesktopModelMappings::all("gpt-runtime-1m"),
+                &models,
+            )
+            .unwrap(),
+            DEFAULT_CLAUDE_CONTEXT_WINDOW
+        );
+    }
+
+    #[test]
+    fn claude_code_context_window_follows_primary_model_alias_source() {
+        let mappings = ClaudeDesktopModelMappings {
+            opus: "small-model".to_string(),
+            sonnet: "primary-alias".to_string(),
+            haiku: "large-model".to_string(),
+        };
+        let models = vec![
+            AgentModelOption {
+                name: mappings.opus.clone(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(128_000),
+            },
+            AgentModelOption {
+                name: "primary-model".to_string(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(372_000),
+            },
+            AgentModelOption {
+                name: mappings.sonnet.clone(),
+                alias: Some("primary-model".to_string()),
+                is_alias: true,
+                context_window: Some(200_000),
+            },
+            AgentModelOption {
+                name: mappings.haiku.clone(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+        ];
+
+        assert_eq!(
+            claude_code_max_context_tokens(&mappings, &models).unwrap(),
+            372_000
+        );
+    }
+
+    #[test]
+    fn claude_code_uses_200k_when_cpa_context_metadata_is_missing() {
+        let mappings = ClaudeDesktopModelMappings::all("custom-model");
+        let models = vec![AgentModelOption {
+            name: "custom-model".to_string(),
+            alias: None,
+            is_alias: false,
+            context_window: None,
+        }];
+
+        assert_eq!(
+            claude_code_max_context_tokens(&mappings, &models).unwrap(),
+            DEFAULT_CLAUDE_CONTEXT_WINDOW
+        );
+    }
+
+    #[test]
+    fn claude_code_launch_migrates_legacy_dual_auth_configuration() {
+        let directory = agent_test_home("claude-code-dual-auth-migration");
+        let path = directory.join("settings.json");
+        fs::write(
+            &path,
+            r#"{"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:8317","ANTHROPIC_API_KEY":"legacy","ANTHROPIC_AUTH_TOKEN":"token"}}"#,
+        )
+        .unwrap();
+
+        assert!(remove_claude_code_conflicting_api_key(&path).unwrap());
+        assert!(update_claude_code_context_window(&path, Some(272_000)).unwrap());
+        assert!(!update_claude_code_context_window(&path, Some(272_000)).unwrap());
+        let value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(value["env"].get("ANTHROPIC_API_KEY").is_none());
+        assert_eq!(value["env"]["ANTHROPIC_AUTH_TOKEN"], "token");
+        assert_eq!(value["env"][CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV], "272000");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn claude_code_1m_variant_removes_global_context_override() {
+        let directory = agent_test_home("claude-code-remove-context-override");
+        let path = directory.join("settings.json");
+        fs::write(
+            &path,
+            r#"{"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:8317","CLAUDE_CODE_MAX_CONTEXT_TOKENS":"1000000"}}"#,
+        )
+        .unwrap();
+
+        assert!(update_claude_code_context_window(&path, None).unwrap());
+        assert!(!update_claude_code_context_window(&path, None).unwrap());
+        let value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(value["env"]
+            .get(CLAUDE_CODE_MAX_CONTEXT_TOKENS_ENV)
+            .is_none());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn claude_code_working_directory_must_be_absolute_and_exist() {
+        let directory = agent_test_home("claude-code-working-directory");
+        assert_eq!(
+            validate_claude_code_working_directory(&path_to_string(&directory)).unwrap(),
+            directory
+        );
+        assert!(validate_claude_code_working_directory("relative/path").is_err());
+        assert!(validate_claude_code_working_directory(&path_to_string(
+            &directory.join("missing")
+        ))
+        .is_err());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn codex_agent_config_uses_managed_provider_without_losing_comments() {
+        let rendered = build_codex_agent_config(
+            Some("# keep this comment\napproval_policy = \"on-request\"\n"),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+        )
+        .unwrap();
+        let value: toml::Value = toml::from_str(&rendered).unwrap();
+
+        assert!(rendered.contains("# keep this comment"));
+        assert_eq!(value["approval_policy"].as_str(), Some("on-request"));
+        assert_eq!(
+            value["model_provider"].as_str(),
+            Some(MANAGED_AGENT_PROVIDER_ID)
+        );
+        assert_eq!(value["model"].as_str(), Some("gpt-test"));
+        assert_eq!(
+            value["model_catalog_json"].as_str(),
+            Some(CODEX_MODEL_CATALOG_FILE)
+        );
+        assert_eq!(
+            value["model_providers"][MANAGED_AGENT_PROVIDER_ID]["base_url"].as_str(),
+            Some("http://127.0.0.1:8317/v1")
+        );
+        assert_eq!(
+            value["model_providers"][MANAGED_AGENT_PROVIDER_ID]["experimental_bearer_token"]
+                .as_str(),
+            Some(DEFAULT_API_KEY)
+        );
+    }
+
+    #[test]
+    fn codex_oauth_configuration_uses_openai_auth_with_bearer_token() {
+        let home = agent_test_home("codex-oauth-configuration");
+        let path = home.join(".codex/config.toml");
+        let rendered = build_codex_agent_config_with_oauth(
+            Some("[model_providers.cpa-gui]\nexperimental_bearer_token = \"old-key\"\n"),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            true,
+        )
+        .unwrap();
+        let value = toml::from_str::<toml::Value>(&rendered).unwrap();
+        let provider = value["model_providers"][MANAGED_AGENT_PROVIDER_ID]
+            .as_table()
+            .unwrap();
+
+        assert_eq!(
+            provider
+                .get("requires_openai_auth")
+                .and_then(toml::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provider
+                .get("experimental_bearer_token")
+                .and_then(toml::Value::as_str),
+            Some(DEFAULT_API_KEY)
+        );
+
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, rendered).unwrap();
+        let (configured, model, oauth_configuration) =
+            inspect_codex_agent_config(&path, 8317, DEFAULT_API_KEY).unwrap();
+        assert!(configured);
+        assert_eq!(model.as_deref(), Some("gpt-test"));
+        assert!(oauth_configuration);
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn codex_api_and_oauth_modes_write_the_same_catalog() {
+        let home = agent_test_home("codex-auth-mode-catalog");
+        let models = test_agent_models(&["gpt-5.5", "third-party-model"]);
+        let catalog = test_codex_models(&["gpt-5.5", "third-party-model"]);
+        let build = |oauth_configuration| {
+            build_agent_updates_with_oauth(
+                AgentClient::Codex,
+                &home,
+                8317,
+                DEFAULT_API_KEY,
+                "gpt-5.5",
+                AgentConfigurationOptions {
+                    models: &models,
+                    codex_catalog: Some(&catalog),
+                    oauth_configuration,
+                    claude_code_model_mappings: None,
+                    claude_desktop_model_mappings: None,
+                },
+            )
+            .unwrap()
+        };
+        let api_updates = build(false);
+        let oauth_updates = build(true);
+
+        assert_eq!(api_updates[1].after, oauth_updates[1].after);
+        assert!(api_updates[0].after.contains("model_catalog_json"));
+        assert!(oauth_updates[0].after.contains("model_catalog_json"));
+        assert!(!api_updates[0].after.contains("service_tier"));
+        assert!(!oauth_updates[0].after.contains("service_tier"));
+        assert!(!api_updates[0].after.contains("requires_openai_auth"));
+        assert!(oauth_updates[0]
+            .after
+            .contains("requires_openai_auth = true"));
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn codex_status_requires_a_valid_catalog_containing_the_default_model() {
+        let home = agent_test_home("codex-catalog-status");
+        let config_path = home.join(".codex/config.toml");
+        let catalog_path = codex_model_catalog_path(&home);
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        fs::write(
+            &config_path,
+            build_codex_agent_config(
+                None,
+                "http://127.0.0.1:8317/v1",
+                DEFAULT_API_KEY,
+                "gpt-test",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        let missing = inspect_agent_config(AgentClient::Codex, &home, 8317, DEFAULT_API_KEY);
+        assert!(!missing.configured);
+        assert!(!missing.config_valid);
+
+        fs::write(&catalog_path, "not json").unwrap();
+        let damaged = inspect_agent_config(AgentClient::Codex, &home, 8317, DEFAULT_API_KEY);
+        assert!(!damaged.configured);
+        assert!(!damaged.config_valid);
+
+        fs::write(&catalog_path, test_codex_models(&["other-model"])).unwrap();
+        let wrong_model = inspect_agent_config(AgentClient::Codex, &home, 8317, DEFAULT_API_KEY);
+        assert!(!wrong_model.configured);
+        assert!(!wrong_model.config_valid);
+
+        fs::write(&catalog_path, test_codex_models(&["gpt-test"])).unwrap();
+        let valid = inspect_agent_config(AgentClient::Codex, &home, 8317, DEFAULT_API_KEY);
+        assert!(valid.configured);
+        assert!(valid.config_valid);
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn invalid_codex_catalog_does_not_partially_update_existing_files() {
+        let home = agent_test_home("invalid-codex-catalog-transaction");
+        let config_path = home.join(".codex/config.toml");
+        let catalog_path = codex_model_catalog_path(&home);
+        fs::create_dir_all(config_path.parent().unwrap()).unwrap();
+        let original_config = "model = \"user-model\"\n";
+        let original_catalog = "{\"models\":[{\"slug\":\"user-model\"}]}\n";
+        fs::write(&config_path, original_config).unwrap();
+        fs::write(&catalog_path, original_catalog).unwrap();
+
+        let result = apply_agent_configuration(
+            AgentClient::Codex,
+            &home,
+            8317,
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &test_agent_models(&["gpt-test"]),
+            Some("{invalid"),
+        );
+        assert!(result.is_err());
+        assert_eq!(fs::read_to_string(&config_path).unwrap(), original_config);
+        assert_eq!(fs::read_to_string(&catalog_path).unwrap(), original_catalog);
+        assert!(!agent_state_path(&[config_path]).unwrap().exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn claude_desktop_config_builds_gateway_profile_and_index() {
+        let profile = build_claude_desktop_profile(
+            Some(r#"{"keep":true,"coworkEgressAllowedHosts":["*"]}"#),
+            "http://127.0.0.1:8317",
+            DEFAULT_API_KEY,
+            "claude-sonnet-test",
+            &[],
+            None,
+        )
+        .unwrap();
+        let meta = build_claude_desktop_meta(Some(
+            &format!(
+                r#"{{"entries":[{{"id":"other","name":"Other"}},{{"id":"{CLAUDE_DESKTOP_PROFILE_ID}","name":"Old","custom":true}},{{"id":"{CLAUDE_DESKTOP_PROFILE_ID}","name":"Duplicate"}},{{"name":"broken"}}]}}"#,
+            ),
+        ))
+        .unwrap();
+        let profile: serde_json::Value = serde_json::from_str(&profile).unwrap();
+        let meta: serde_json::Value = serde_json::from_str(&meta).unwrap();
+
+        assert_eq!(profile["keep"], true);
+        assert!(profile.get("coworkEgressAllowedHosts").is_none());
+        assert_eq!(profile["inferenceGatewayApiKey"], DEFAULT_API_KEY);
+        assert_eq!(profile["inferenceGatewayBaseUrl"], "http://127.0.0.1:8317");
+        assert_eq!(
+            profile["inferenceModels"],
+            serde_json::json!([
+                { "name": CLAUDE_DESKTOP_OPUS_MODEL_ID },
+                { "name": CLAUDE_DESKTOP_SONNET_MODEL_ID },
+                { "name": CLAUDE_DESKTOP_HAIKU_MODEL_ID }
+            ])
+        );
+        assert_eq!(meta["appliedId"], CLAUDE_DESKTOP_PROFILE_ID);
+        assert_eq!(meta["entries"].as_array().unwrap().len(), 2);
+        let managed_entry = meta["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["id"] == CLAUDE_DESKTOP_PROFILE_ID)
+            .unwrap();
+        assert_eq!(managed_entry["custom"], true);
+    }
+
+    #[test]
+    fn claude_desktop_profile_keeps_non_claude_models_internal() {
+        let mappings = ClaudeDesktopModelMappings {
+            opus: "gpt-5.6-sol".to_string(),
+            sonnet: "gpt-5.6".to_string(),
+            haiku: "gpt-5.6-mini".to_string(),
+        };
+        let models = vec![
+            AgentModelOption {
+                name: mappings.opus.clone(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+            AgentModelOption {
+                name: mappings.sonnet.clone(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(272_000),
+            },
+            AgentModelOption {
+                name: mappings.haiku.clone(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+        ];
+        let profile = build_claude_desktop_profile(
+            None,
+            "http://127.0.0.1:8317",
+            DEFAULT_API_KEY,
+            "gpt-5.6-sol",
+            &models,
+            Some(&mappings),
+        )
+        .unwrap();
+        let profile: serde_json::Value = serde_json::from_str(&profile).unwrap();
+
+        assert_eq!(
+            profile["inferenceModels"],
+            serde_json::json!([
+                {
+                    "name": CLAUDE_DESKTOP_OPUS_MODEL_ID,
+                    "contextWindow": 1000000,
+                    "supports1m": true,
+                    "prefer1m": true
+                },
+                { "name": CLAUDE_DESKTOP_SONNET_MODEL_ID, "contextWindow": 272000 },
+                {
+                    "name": CLAUDE_DESKTOP_HAIKU_MODEL_ID,
+                    "contextWindow": 1000000,
+                    "supports1m": true,
+                    "prefer1m": true
+                }
+            ])
+        );
+        assert!(!profile.to_string().contains("gpt-"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn claude_desktop_detects_windows_variant_config_directories() {
+        let home = agent_test_home("claude-desktop-windows-variant-paths");
+        let local_app_data = home.join("AppData/Local");
+        let normal = local_app_data.join("Claude-Canary");
+        let threep = local_app_data.join("Claude-3p-Canary");
+        fs::create_dir_all(&normal).unwrap();
+        fs::create_dir_all(&threep).unwrap();
+
+        let paths = claude_desktop_config_paths_from_local_app_data(&local_app_data);
+
+        assert_eq!(paths.len(), 4);
+        assert_eq!(paths[0], normal.join("claude_desktop_config.json"));
+        assert_eq!(paths[1], threep.join("claude_desktop_config.json"));
+        assert_eq!(
+            paths[2],
+            threep
+                .join("configLibrary")
+                .join(format!("{CLAUDE_DESKTOP_PROFILE_ID}.json"))
+        );
+        assert_eq!(paths[3], threep.join("configLibrary/_meta.json"));
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn claude_desktop_uses_linux_beta_config_paths() {
+        let home = agent_test_home("claude-desktop-linux-paths");
+        let config_home = env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .unwrap_or_else(|| home.join(".config"));
+        let paths = claude_desktop_config_paths(&home);
+
+        assert!(AgentClient::ClaudeDesktop.supported_platform());
+        assert_eq!(paths.len(), 4);
+        assert_eq!(
+            paths[0],
+            config_home.join("Claude/claude_desktop_config.json")
+        );
+        assert_eq!(
+            paths[1],
+            config_home.join("Claude-3p/claude_desktop_config.json")
+        );
+        assert_eq!(
+            paths[2],
+            config_home
+                .join("Claude-3p/configLibrary")
+                .join(format!("{CLAUDE_DESKTOP_PROFILE_ID}.json"))
+        );
+        assert_eq!(
+            paths[3],
+            config_home.join("Claude-3p/configLibrary/_meta.json")
+        );
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn opencode_agent_config_preserves_other_providers() {
+        let models = test_agent_models(&["gpt-test", "deepseek-test"]);
+        let rendered = build_opencode_agent_config(
+            Some(
+                r#"{"theme":"dark","provider":{"other":{"npm":"other"},"cpa-gui":{"custom":"keep","options":{"timeout":30}}}}"#,
+            ),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &models,
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+
+        assert_eq!(value["theme"], "dark");
+        assert_eq!(value["provider"]["other"]["npm"], "other");
+        assert_eq!(
+            value["provider"][MANAGED_AGENT_PROVIDER_ID]["custom"],
+            "keep"
+        );
+        assert_eq!(
+            value["provider"][MANAGED_AGENT_PROVIDER_ID]["options"]["timeout"],
+            30
+        );
+        assert_eq!(
+            value["provider"][MANAGED_AGENT_PROVIDER_ID]["options"]["baseURL"],
+            "http://127.0.0.1:8317/v1"
+        );
+        assert_eq!(value["model"], "cpa-gui/gpt-test");
+        assert!(value["provider"][MANAGED_AGENT_PROVIDER_ID]["models"]["gpt-test"].is_object());
+        assert!(
+            value["provider"][MANAGED_AGENT_PROVIDER_ID]["models"]["deepseek-test"].is_object()
+        );
+    }
+
+    #[test]
+    fn openclaw_agent_config_accepts_json5_and_preserves_unknown_fields() {
+        let models = test_agent_models(&["gpt-test", "deepseek-test"]);
+        let rendered = build_openclaw_agent_config(
+            Some(
+                "// keep this comment\n{ theme: 'dark', models: { mode: 'merge', providers: { 'cpa-gui': { custom: 'keep' } } } }",
+            ),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &models,
+        )
+        .unwrap();
+        let value: serde_json::Value = json5::from_str(&rendered).unwrap();
+
+        assert!(rendered.contains("// keep this comment"));
+        assert_eq!(value["theme"], "dark");
+        assert_eq!(
+            value["models"]["providers"][MANAGED_AGENT_PROVIDER_ID]["custom"],
+            "keep"
+        );
+        assert_eq!(
+            value["models"]["providers"][MANAGED_AGENT_PROVIDER_ID]["api"],
+            "openai-completions"
+        );
+        assert_eq!(
+            value["agents"]["defaults"]["model"]["primary"],
+            "cpa-gui/gpt-test"
+        );
+        assert_eq!(
+            value["models"]["providers"][MANAGED_AGENT_PROVIDER_ID]["models"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(value["agents"]["defaults"]["models"]["cpa-gui/gpt-test"].is_object());
+        assert!(value["agents"]["defaults"]["models"]["cpa-gui/deepseek-test"].is_object());
+    }
+
+    #[test]
+    fn hermes_agent_config_preserves_unknown_fields_and_uses_current_schema() {
+        let models = test_agent_models(&["gpt-test", "deepseek-test"]);
+        let rendered = build_hermes_agent_config(
+            Some("# keep this comment\ntheme: dark\ncustom_providers:\n  - name: other\n    base_url: https://example.com\n  - name: cpa-gui\n    custom: keep\n  - name: cpa-gui\n    duplicate: true\n  - broken: true\n"),
+            "http://127.0.0.1:8317/v1",
+            DEFAULT_API_KEY,
+            "gpt-test",
+            &models,
+        )
+        .unwrap();
+        let value: serde_yaml::Value = serde_yaml::from_str(&rendered).unwrap();
+        let providers = value["custom_providers"].as_sequence().unwrap();
+        let managed = providers
+            .iter()
+            .find(|provider| provider["name"].as_str() == Some(MANAGED_AGENT_PROVIDER_ID))
+            .unwrap();
+
+        assert_eq!(value["theme"].as_str(), Some("dark"));
+        assert!(rendered.contains("# keep this comment"));
+        assert_eq!(providers.len(), 2);
+        assert_eq!(managed["custom"].as_str(), Some("keep"));
+        assert!(managed.get("duplicate").is_none());
+        assert_eq!(managed["api_mode"].as_str(), Some("chat_completions"));
+        assert_eq!(managed["model"].as_str(), Some("gpt-test"));
+        assert!(managed["models"]["gpt-test"].is_mapping());
+        assert!(managed["models"]["deepseek-test"].is_mapping());
+        assert_eq!(
+            value["model"]["provider"].as_str(),
+            Some(MANAGED_AGENT_PROVIDER_ID)
+        );
+    }
+
+    #[test]
+    fn agent_model_list_parser_exposes_aliases_as_selectable_model_ids() {
+        let models = parse_agent_model_options(&serde_json::json!({
+            "object": "list",
+            "data": [
+                {"id": "gpt-5", "display_name": "GPT 5", "context_length": 272000},
+                {"name": "claude-sonnet", "alias": "claude-sonnet-xhigh", "fork": true, "contextLength": "1000000"},
+                {"name": "hidden-original", "alias": "visible-alias", "ContextLength": 128000},
+                "deepseek-chat",
+                {"id": "GPT-5"},
+                {"id": ""}
+            ]
+        }))
+        .unwrap();
+
+        assert_eq!(
+            models,
+            vec![
+                AgentModelOption {
+                    name: "gpt-5".to_string(),
+                    alias: Some("GPT 5".to_string()),
+                    is_alias: false,
+                    context_window: Some(272_000),
+                },
+                AgentModelOption {
+                    name: "claude-sonnet".to_string(),
+                    alias: None,
+                    is_alias: false,
+                    context_window: Some(1_000_000),
+                },
+                AgentModelOption {
+                    name: "claude-sonnet-xhigh".to_string(),
+                    alias: Some("claude-sonnet".to_string()),
+                    is_alias: true,
+                    context_window: Some(1_000_000),
+                },
+                AgentModelOption {
+                    name: "visible-alias".to_string(),
+                    alias: Some("hidden-original".to_string()),
+                    is_alias: true,
+                    context_window: Some(128_000),
+                },
+                AgentModelOption {
+                    name: "deepseek-chat".to_string(),
+                    alias: None,
+                    is_alias: false,
+                    context_window: None,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn claude_model_lists_mark_yaml_aliases_when_api_returns_only_model_ids() {
+        let mut models = test_agent_models(&[
+            "gpt-original",
+            "gpt-high",
+            "claude-opus-5",
+            "oauth-original",
+            "oauth-fast",
+        ]);
+        let yaml = r#"
+codex-api-key:
+  - api-key: test
+    models:
+      - name: gpt-original
+      - name: gpt-original
+        alias: gpt-high
+      - name: gpt-original
+        alias: claude-opus-5
+oauth-model-alias:
+  codex:
+    - name: oauth-original
+      alias: oauth-fast
+      fork: true
+"#;
+
+        mark_configured_agent_model_aliases(&mut models, yaml).unwrap();
+
+        let find = |name: &str| models.iter().find(|model| model.name == name).unwrap();
+        assert!(!find("gpt-original").is_alias);
+        assert_eq!(find("gpt-high").alias.as_deref(), Some("gpt-original"));
+        assert!(find("gpt-high").is_alias);
+        assert_eq!(find("claude-opus-5").alias.as_deref(), Some("gpt-original"));
+        assert!(find("claude-opus-5").is_alias);
+        assert_eq!(find("oauth-fast").alias.as_deref(), Some("oauth-original"));
+        assert!(find("oauth-fast").is_alias);
+    }
+
+    #[test]
+    fn exit_preserves_claude_client_configurations() {
+        let restored = agent_clients_restored_on_exit();
+        assert!(!restored.contains(&AgentClient::ClaudeCode));
+        assert!(!restored.contains(&AgentClient::ClaudeDesktop));
+        assert!(restored.contains(&AgentClient::Codex));
+        assert!(restored.contains(&AgentClient::OpenCode));
+    }
+
+    #[test]
+    fn claude_desktop_aliases_expose_role_routes_only() {
+        let input = "openai-compatibility:\n  - name: CPA\n    base-url: https://example.com/v1\n    models:\n      - name: gpt-5.6-sol\n";
+        let mappings = ClaudeDesktopModelMappings {
+            opus: "gpt-5.6-sol".to_string(),
+            sonnet: "gpt-5.6-sol".to_string(),
+            haiku: "gpt-5.6-sol".to_string(),
+        };
+        let available_models = test_agent_models(&["gpt-5.6-sol"]);
+        let rendered =
+            ensure_claude_desktop_model_aliases_in_yaml(input, &mappings, &available_models)
+                .unwrap();
+        let value: serde_norway::Value = serde_norway::from_str(&rendered).unwrap();
+        let root = value.as_mapping().unwrap();
+        let providers = yaml_mapping_value(root, "openai-compatibility")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+        let models = yaml_mapping_value(providers[0].as_mapping().unwrap(), "models")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+
+        assert_eq!(models.len(), 4);
+        assert_eq!(
+            configured_model_identity(&models[1]).unwrap().1,
+            CLAUDE_DESKTOP_OPUS_MODEL_ID
+        );
+        assert_eq!(
+            configured_model_identity(&models[2]).unwrap().1,
+            CLAUDE_DESKTOP_SONNET_MODEL_ID
+        );
+        assert_eq!(
+            configured_model_identity(&models[3]).unwrap().1,
+            CLAUDE_DESKTOP_HAIKU_MODEL_ID
+        );
+        assert_eq!(
+            configured_model_identity(&models[1]).unwrap().2.as_deref(),
+            Some(MANAGED_CLAUDE_OPUS_ALIAS_DISPLAY_NAME)
+        );
+        assert_eq!(
+            configured_model_identity(&models[2]).unwrap().2.as_deref(),
+            Some(MANAGED_CLAUDE_SONNET_ALIAS_DISPLAY_NAME)
+        );
+        assert_eq!(
+            configured_model_identity(&models[3]).unwrap().2.as_deref(),
+            Some(MANAGED_CLAUDE_HAIKU_ALIAS_DISPLAY_NAME)
+        );
+        assert!(!rendered.contains("models: [{"));
+        assert!(rendered.contains("\n      - name: gpt-5.6-sol\n"));
+        assert!(rendered.contains("\n        alias: claude-opus-5\n"));
+        assert!(rendered
+            .contains("\n        display-name: EasyCLIProxyAPI managed Claude Opus mapping\n"));
+        assert_eq!(
+            ensure_claude_desktop_model_aliases_in_yaml(&rendered, &mappings, &available_models,)
+                .unwrap(),
+            rendered
+        );
+    }
+
+    #[test]
+    fn claude_managed_aliases_expand_flow_yaml_and_are_removed_selectively() {
+        let compact = "# keep this comment\ncodex-api-key: [{api-key: test, models: [{name: gpt-5.6-sol, alias: ''}]}]\ncredential-concurrency: {max-limit: 1000000, cleanup-interval: 5s}\n";
+        let mappings = ClaudeDesktopModelMappings::all("gpt-5.6-sol");
+        let available_models = test_agent_models(&["gpt-5.6-sol"]);
+        let rendered =
+            ensure_claude_desktop_model_aliases_in_yaml(compact, &mappings, &available_models)
+                .unwrap();
+
+        assert!(rendered.starts_with("# keep this comment\n"));
+        assert!(!rendered.contains("codex-api-key: ["));
+        assert!(!rendered.contains("credential-concurrency: {"));
+        assert!(rendered.contains("codex-api-key:\n  - api-key: test\n"));
+        assert!(rendered.contains("    models:\n      - name: gpt-5.6-sol\n"));
+
+        let cleaned = remove_managed_claude_model_aliases_in_yaml(&rendered).unwrap();
+        let value: serde_norway::Value = serde_norway::from_str(&cleaned).unwrap();
+        let root = value.as_mapping().unwrap();
+        let providers = yaml_mapping_value(root, "codex-api-key")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+        let models = yaml_mapping_value(providers[0].as_mapping().unwrap(), "models")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(
+            configured_model_identity(&models[0]).unwrap().0,
+            "gpt-5.6-sol"
+        );
+    }
+
+    #[test]
+    fn claude_alias_cleanup_does_not_delete_user_owned_routes() {
+        let input = format!(
+            "codex-api-key:\n  - api-key: test\n    models:\n      - name: user-opus\n        alias: {opus}\n        display-name: User managed route\n      - name: app-sonnet\n        alias: {sonnet}\n        display-name: {managed_sonnet}\n",
+            opus = CLAUDE_DESKTOP_OPUS_MODEL_ID,
+            sonnet = CLAUDE_DESKTOP_SONNET_MODEL_ID,
+            managed_sonnet = MANAGED_CLAUDE_SONNET_ALIAS_DISPLAY_NAME,
+        );
+
+        let cleaned = remove_managed_claude_model_aliases_in_yaml(&input).unwrap();
+        let value: serde_norway::Value = serde_norway::from_str(&cleaned).unwrap();
+        let root = value.as_mapping().unwrap();
+        assert_eq!(
+            configured_model_client_identity(root, CLAUDE_DESKTOP_OPUS_MODEL_ID)
+                .unwrap()
+                .0,
+            "user-opus"
+        );
+        assert!(configured_model_client_identity(root, CLAUDE_DESKTOP_SONNET_MODEL_ID).is_none());
+    }
+
+    #[test]
+    fn claude_legacy_aliases_are_adopted_and_moved_to_the_selected_model() {
+        let input = format!(
+            "codex-api-key:\n  - api-key: test\n    models:\n      - name: old-model\n      - name: new-model\n      - name: old-model\n        alias: {opus}\n",
+            opus = CLAUDE_DESKTOP_OPUS_MODEL_ID,
+        );
+        let mappings = ClaudeDesktopModelMappings::all("new-model");
+        let models = test_agent_models(&["old-model", "new-model"]);
+
+        let rendered =
+            ensure_claude_desktop_model_aliases_in_yaml(&input, &mappings, &models).unwrap();
+        let value: serde_norway::Value = serde_norway::from_str(&rendered).unwrap();
+        let root = value.as_mapping().unwrap();
+        assert_eq!(
+            configured_model_client_identity(root, CLAUDE_DESKTOP_OPUS_MODEL_ID)
+                .unwrap()
+                .0,
+            "new-model"
+        );
+        assert!(rendered.contains(MANAGED_CLAUDE_OPUS_ALIAS_DISPLAY_NAME));
+    }
+
+    #[test]
+    fn claude_desktop_uses_selected_alias_directly_with_original_context() {
+        let input = "openai-compatibility:\n  - name: CPA\n    base-url: https://example.com/v1\n    models:\n      - name: gpt-original\n      - name: gpt-original\n        alias: gpt-high\n      - name: gpt-original\n        alias: claude-opus-5\n        display-name: EasyCLIProxyAPI managed Claude Opus mapping\n";
+        let mappings = ClaudeDesktopModelMappings {
+            opus: "gpt-high".to_string(),
+            sonnet: "gpt-high".to_string(),
+            haiku: "gpt-high".to_string(),
+        };
+        let models = vec![
+            AgentModelOption {
+                name: "gpt-original".to_string(),
+                alias: None,
+                is_alias: false,
+                context_window: Some(1_000_000),
+            },
+            AgentModelOption {
+                name: "gpt-high".to_string(),
+                alias: Some("gpt-original".to_string()),
+                is_alias: true,
+                context_window: Some(128_000),
+            },
+        ];
+
+        let rendered =
+            ensure_claude_desktop_model_aliases_in_yaml(input, &mappings, &models).unwrap();
+        let value: serde_norway::Value = serde_norway::from_str(&rendered).unwrap();
+        let root = value.as_mapping().unwrap();
+        let providers = yaml_mapping_value(root, "openai-compatibility")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+        let configured_models = yaml_mapping_value(providers[0].as_mapping().unwrap(), "models")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+        let client_models = configured_models
+            .iter()
+            .filter_map(configured_model_identity)
+            .map(|(_, client_model, _)| client_model)
+            .collect::<Vec<_>>();
+        assert_eq!(client_models, vec!["gpt-original", "gpt-high"]);
+
+        let profile = build_claude_desktop_profile(
+            None,
+            "http://127.0.0.1:8317",
+            DEFAULT_API_KEY,
+            "gpt-high",
+            &models,
+            Some(&mappings),
+        )
+        .unwrap();
+        let profile: serde_json::Value = serde_json::from_str(&profile).unwrap();
+        assert_eq!(
+            profile["inferenceModels"],
+            serde_json::json!([{
+                "name": "gpt-high",
+                "contextWindow": 1_000_000,
+                "supports1m": true,
+                "prefer1m": true
+            }])
+        );
+    }
+
+    #[test]
+    fn claude_desktop_role_mappings_can_use_different_available_models() {
+        let models = test_agent_models(&["gpt-5.6-sol", "deepseek-chat", "gemini-3-pro"]);
+        let mappings = resolve_claude_desktop_model_mappings(
+            AgentClient::ClaudeDesktop,
+            &models,
+            "gpt-5.6-sol",
+            Some(ClaudeDesktopModelMappings {
+                opus: "gpt-5.6-sol".to_string(),
+                sonnet: "deepseek-chat".to_string(),
+                haiku: "gemini-3-pro".to_string(),
+            }),
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(mappings.opus, "gpt-5.6-sol");
+        assert_eq!(mappings.sonnet, "deepseek-chat");
+        assert_eq!(mappings.haiku, "gemini-3-pro");
+        assert!(resolve_claude_desktop_model_mappings(
+            AgentClient::ClaudeCode,
+            &models,
+            "gpt-5.6-sol",
+            None,
+        )
+        .unwrap()
+        .is_none());
+    }
+
+    #[test]
+    fn agent_model_list_parser_rejects_unexpected_response_shape() {
+        assert!(parse_agent_model_options(&serde_json::json!({"data": null})).is_err());
+    }
+
+    #[test]
+    fn detected_agent_version_requires_a_real_version_value() {
+        assert_eq!(
+            normalize_detected_agent_version("  opencode 1.2.3  ").as_deref(),
+            Some("opencode 1.2.3")
+        );
+        assert_eq!(
+            normalize_detected_agent_version("Claude Code v4").as_deref(),
+            Some("Claude Code v4")
+        );
+        assert!(normalize_detected_agent_version("").is_none());
+        assert!(normalize_detected_agent_version("version unknown").is_none());
+        assert!(normalize_detected_agent_version("1.2.3\0invalid").is_none());
+        assert!(normalize_detected_agent_version(&"1".repeat(257)).is_none());
+    }
+
+    #[test]
+    fn codex_model_list_is_empty_when_cpa_has_no_writable_models() {
+        let prepared = prepare_codex_agent_models(&[]).unwrap();
+
+        assert!(prepared.models.is_empty());
+        assert!(prepared.codex_catalog.is_none());
+    }
+
+    #[test]
+    fn agent_model_validation_only_accepts_models_in_current_list() {
+        let models = vec![AgentModelOption {
+            name: "gpt-5.4".to_string(),
+            alias: Some("GPT 5.4".to_string()),
+            is_alias: false,
+            context_window: None,
+        }];
+
+        assert_eq!(
+            resolve_available_agent_model(&models, "GPT-5.4").unwrap(),
+            "gpt-5.4"
+        );
+        assert!(resolve_available_agent_model(&models, "removed-model").is_err());
+        assert!(resolve_available_agent_model(&[], "gpt-5.4").is_err());
+    }
+
+    #[test]
+    fn thinking_alias_sources_only_include_current_core_models() {
+        let input = "codex-api-key:\n  - name: Codex API\n    api-key: test\n    models:\n      - name: config-only\nopenai-compatibility:\n  - name: DeepSeek\n    base-url: https://api.deepseek.com\n    api-key-entries:\n      - api-key: test\n    models:\n      - name: DeepSeek-Chat\n";
+        let definitions = parse_codex_model_definitions(&serde_json::json!({
+            "models": [
+                {
+                    "id": "gpt-runtime",
+                    "thinking": { "levels": ["low", "high"] }
+                },
+                {
+                    "id": "gpt-built-in-only",
+                    "thinking": { "levels": ["low", "high"] }
+                }
+            ]
+        }))
+        .unwrap();
+        let available_models = test_agent_models(&["GPT-RUNTIME", "deepseek-chat"]);
+
+        let sources =
+            resolved_thinking_alias_sources(input, &definitions, &available_models).unwrap();
+        let source_models = sources
+            .iter()
+            .map(|source| source.source.model.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(source_models, vec!["DeepSeek-Chat", "gpt-runtime"]);
+        assert!(!source_models.contains(&"gpt-built-in-only"));
+        assert!(!source_models.contains(&"config-only"));
+    }
+
+    #[test]
+    fn thinking_alias_prefers_codex_api_key_model_over_same_named_oauth_definition() {
+        let input = "codex-api-key:\n  - name: CPA\n    api-key: test\n    models:\n      - name: gpt-5.6-luna\n";
+        let definitions = parse_codex_model_definitions(&serde_json::json!({
+            "models": [{
+                "id": "gpt-5.6-luna",
+                "thinking": { "levels": ["low", "high", "xhigh"] }
+            }]
+        }))
+        .unwrap();
+        let available_models = test_agent_models(&["gpt-5.6-luna"]);
+
+        let sources =
+            resolved_thinking_alias_sources(input, &definitions, &available_models).unwrap();
+
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].source.model, "gpt-5.6-luna");
+        assert_eq!(sources[0].source.kind, "codex-api");
+        assert!(matches!(
+            sources[0].location,
+            ThinkingAliasSourceLocation::ConfigModel {
+                section: "codex-api-key",
+                ..
+            }
+        ));
+
+        let rendered =
+            add_model_alias_to_yaml(input, &sources[0], "gpt-5.6-luna-xhigh", "xhigh", false)
+                .unwrap();
+        assert!(rendered.contains("alias: gpt-5.6-luna-xhigh"), "{rendered}");
+        assert!(!rendered.contains("oauth-model-alias"), "{rendered}");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_batch_agent_commands_use_call_without_embedded_quotes() {
+        let executable = Path::new(r"C:\工具 目录\opencode.cmd");
+        let command = windows_command_for_executable(executable, true);
+        let args = command
+            .get_args()
+            .take(3)
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            Path::new(command.get_program())
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("cmd.exe")
+        );
+        assert_eq!(
+            args,
+            vec!["/D".to_string(), "/K".to_string(), "call".to_string(),]
+        );
+        assert_eq!(
+            windows_batch_executable_argument(executable),
+            r#""C:\工具 目录\opencode.cmd""#
+        );
+
+        let batch = windows_command_for_executable(Path::new(r"C:\tools\agent.bat"), false);
+        let batch_args = batch
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(batch_args[1], "/C");
+        assert_eq!(batch_args[2], "call");
+
+        let native = windows_command_for_executable(Path::new(r"C:\tools\agent.exe"), true);
+        assert_eq!(
+            native.get_program().to_string_lossy(),
+            r"C:\tools\agent.exe"
+        );
+        assert_eq!(native.get_args().count(), 0);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_tray_presentation_tracks_core_state_and_busy_actions() {
+        let mut status = CoreStatus {
+            installed: false,
+            running: false,
+            managed: false,
+            process_id: None,
+            current_version: None,
+            install_dir: String::new(),
+            binary_path: None,
+            message: String::new(),
+        };
+
+        let missing = windows_tray_presentation(&status, false, "zh-CN");
+        assert_eq!(missing.status_text, "内核状态：未安装");
+        assert!(!missing.toggle_enabled);
+        assert!(!missing.restart_enabled);
+
+        status.installed = true;
+        let stopped = windows_tray_presentation(&status, false, "zh-CN");
+        assert_eq!(stopped.toggle_text, "启动内核");
+        assert!(stopped.toggle_enabled);
+        assert!(!stopped.restart_enabled);
+
+        status.running = true;
+        let running = windows_tray_presentation(&status, false, "zh-CN");
+        assert_eq!(running.status_text, "内核状态：运行中");
+        assert_eq!(running.toggle_text, "停止内核");
+        assert!(running.toggle_enabled);
+        assert!(running.restart_enabled);
+
+        let busy = windows_tray_presentation(&status, true, "zh-CN");
+        assert_eq!(busy.status_text, "内核状态：处理中");
+        assert!(!busy.toggle_enabled);
+        assert!(!busy.restart_enabled);
+
+        let english = windows_tray_presentation(&status, false, "en-US");
+        assert_eq!(english.status_text, "Core status: Running");
+        assert_eq!(english.toggle_text, "Stop Core");
+
+        let japanese = windows_tray_presentation(&status, false, "ja-JP");
+        assert_eq!(japanese.status_text, "コア状態：実行中");
+        assert_eq!(japanese.toggle_text, "コアを停止");
+    }
+
+    #[test]
+    fn app_locale_normalization_has_a_stable_chinese_fallback() {
+        assert_eq!(normalize_app_locale("en"), "en");
+        assert_eq!(normalize_app_locale("en-US"), "en");
+        assert_eq!(normalize_app_locale("ja-JP"), "ja");
+        assert_eq!(normalize_app_locale("zh-TW"), "zh-TW");
+        assert_eq!(normalize_app_locale("zh-Hant-HK"), "zh-TW");
+        assert_eq!(normalize_app_locale("unsupported"), "zh-CN");
+        assert_eq!(GuiConfigFile::default().locale, "zh-CN");
+    }
+
+    #[test]
+    fn codex_installation_is_detected_from_either_cli_or_app_entry() {
+        let cli_target = vec![AgentLaunchTarget {
+            id: "cli".to_string(),
+            label: "Codex CLI".to_string(),
+            detail: "codex".to_string(),
+        }];
+        let app_target = vec![AgentLaunchTarget {
+            id: "app".to_string(),
+            label: "ChatGPT App".to_string(),
+            detail: "Microsoft Store · OpenAI.Codex_2p2nqsd0c76g0!App".to_string(),
+        }];
+
+        assert!(agent_client_is_installed(
+            AgentClient::Codex,
+            &cli_target,
+            None
+        ));
+        assert!(agent_client_is_installed(
+            AgentClient::Codex,
+            &app_target,
+            None
+        ));
+        assert!(!agent_client_is_installed(AgentClient::Codex, &[], None));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_chatgpt_discovery_parser_accepts_registered_app_and_executable() {
+        let app =
+            parse_windows_codex_app_discovery_output("APPID:OpenAI.Codex_2p2nqsd0c76g0!App\r\n")
+                .unwrap();
+        match app {
+            CodexAppTarget::WindowsAppId(app_id) => {
+                assert_eq!(app_id, "OpenAI.Codex_2p2nqsd0c76g0!App");
+            }
+            CodexAppTarget::Application(_) => panic!("expected Store application ID"),
+        }
+
+        let executable = parse_windows_codex_app_discovery_output(
+            "warning\r\nEXE:C:\\Program Files\\OpenAI\\ChatGPT\\ChatGPT.exe\r\n",
+        )
+        .unwrap();
+        match executable {
+            CodexAppTarget::Application(path) => {
+                assert_eq!(
+                    path,
+                    PathBuf::from(r"C:\Program Files\OpenAI\ChatGPT\ChatGPT.exe")
+                );
+            }
+            CodexAppTarget::WindowsAppId(_) => panic!("expected desktop executable"),
+        }
+
+        assert!(parse_windows_codex_app_discovery_output("MSEdgePWA:ChatGPT\r\n").is_none());
+
+        let registry_output = r"HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages\OpenAI.Codex_26.715.4045.0_x64__2p2nqsd0c76g0";
+        assert_eq!(
+            parse_windows_codex_app_id_from_registry(registry_output).as_deref(),
+            Some("OpenAI.Codex_2p2nqsd0c76g0!App")
+        );
+        assert_eq!(
+            windows_codex_app_id_from_package_full_name(
+                "OpenAI.ChatGPT_1.2.3.4_arm64__2p2nqsd0c76g0"
+            )
+            .as_deref(),
+            Some("OpenAI.ChatGPT_2p2nqsd0c76g0!App")
+        );
+        assert!(windows_codex_app_id_from_package_full_name(
+            "Microsoft.MicrosoftEdge_1.0.0.0_x64__8wekyb3d8bbwe"
+        )
+        .is_none());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_claude_desktop_discovery_parser_accepts_store_app() {
+        let target = parse_windows_claude_desktop_discovery_output(
+            "notice\r\nAPPID:Claude_pzs8sxrjxfjjc!Claude\r\n",
+        )
+        .unwrap();
+        match target {
+            ClaudeDesktopTarget::WindowsAppId(app_id) => {
+                assert_eq!(app_id, "Claude_pzs8sxrjxfjjc!Claude");
+            }
+            ClaudeDesktopTarget::Application(_) => panic!("expected Store application ID"),
+        }
+        assert!(parse_windows_claude_desktop_discovery_output("no app found\r\n").is_none());
+        assert_eq!(
+            parse_windows_claude_desktop_version_output("VERSION:1.24012.9.0\r\n").as_deref(),
+            Some("1.24012.9.0")
+        );
+        assert!(parse_windows_claude_desktop_version_output("VERSION:\r\n").is_none());
+        assert!(parse_windows_claude_desktop_version_output("VERSION:unknown\r\n").is_none());
+        assert_eq!(
+            parse_windows_codex_version_output("VERSION:26.727.6591.0\r\n").as_deref(),
+            Some("26.727.6591.0")
+        );
+        assert!(parse_windows_codex_version_output("VERSION:\r\n").is_none());
+        assert!(parse_windows_codex_version_output("VERSION:unknown\r\n").is_none());
+    }
+
+    #[test]
+    fn thinking_alias_adds_fork_and_matching_payload_rule() {
+        let input = "# Keep this comment\ndebug: true\npayload:\n  override:\n    - models:\n        - name: existing-fast\n          protocol: codex\n      params:\n        service_tier: priority\n";
+        let source = test_codex_oauth_thinking_source("gpt-5.5");
+        let rendered =
+            add_model_alias_to_yaml(input, &source, "gpt-5.5-xhigh", "xhigh", false).unwrap();
+        let aliases = thinking_aliases_from_yaml(&rendered).unwrap();
+
+        assert!(rendered.contains("# Keep this comment"), "{rendered}");
+        assert!(rendered.contains("service_tier: priority"), "{rendered}");
+        assert_eq!(
+            aliases,
+            vec![ThinkingAliasEntry {
+                source_model: "gpt-5.5".to_string(),
+                alias: "gpt-5.5-xhigh".to_string(),
+                effort: Some("xhigh".to_string()),
+                provider: "Codex OAuth".to_string(),
+                kind: "codex-oauth".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn model_alias_can_apply_reasoning_and_fast_together() {
+        let source = test_codex_oauth_thinking_source("gpt-5.6-sol");
+        let rendered =
+            add_model_alias_to_yaml("{}\n", &source, "gpt-5.6-sol-xhigh-fast", "xhigh", true)
+                .unwrap();
+
+        assert!(rendered.contains("reasoning.effort: xhigh"), "{rendered}");
+        assert!(rendered.contains("service_tier: priority"), "{rendered}");
+        assert_eq!(thinking_aliases_from_yaml(&rendered).unwrap().len(), 1);
+        assert_eq!(speed_aliases_from_yaml(&rendered).unwrap().len(), 1);
+
+        let restored =
+            remove_thinking_alias_from_yaml(&rendered, "gpt-5.6-sol-xhigh-fast").unwrap();
+        assert!(!restored.contains("gpt-5.6-sol-xhigh-fast"), "{restored}");
+        assert!(!restored.contains("service_tier: priority"), "{restored}");
+
+        let legacy = "oauth-model-alias:\n  codex:\n    - name: gpt-5.6-sol\n      alias: legacy-combined\n      fork: true\npayload:\n  override:\n    - models:\n        - name: legacy-combined\n          protocol: codex\n      params:\n        reasoning.effort: high\n    - models:\n        - name: legacy-combined\n          protocol: codex\n      params:\n        service_tier: priority\n";
+        let restored = remove_thinking_alias_from_yaml(legacy, "legacy-combined").unwrap();
+        assert!(!restored.contains("legacy-combined"), "{restored}");
+        assert!(!restored.contains("service_tier: priority"), "{restored}");
+    }
+
+    #[test]
+    fn speed_alias_adds_fast_service_tier_and_removes_only_its_rule() {
+        let input = "payload:\n  override:\n    - models:\n        - name: existing-thinker\n          protocol: codex\n      params:\n        reasoning.effort: xhigh\n";
+        let source = test_codex_oauth_thinking_source("gpt-5.6-sol");
+        let rendered = add_speed_alias_to_yaml(input, &source, "gpt-5.6-sol-fast").unwrap();
+
+        assert!(rendered.contains("alias: gpt-5.6-sol-fast"), "{rendered}");
+        assert!(rendered.contains("service_tier: priority"), "{rendered}");
+        assert!(!rendered.contains("reasoning.effort: fast"), "{rendered}");
+        assert_eq!(
+            speed_aliases_from_yaml(&rendered).unwrap(),
+            vec![SpeedAliasEntry {
+                source_model: "gpt-5.6-sol".to_string(),
+                alias: "gpt-5.6-sol-fast".to_string(),
+                service_tier: "priority".to_string(),
+                provider: "Codex OAuth".to_string(),
+                kind: "codex-oauth".to_string(),
+            }]
+        );
+
+        let restored = remove_speed_alias_from_yaml(&rendered, "gpt-5.6-sol-fast").unwrap();
+        assert!(!restored.contains("gpt-5.6-sol-fast"), "{restored}");
+        assert!(restored.contains("reasoning.effort: xhigh"), "{restored}");
+    }
+
+    #[test]
+    fn speed_alias_supports_openai_compatible_model_entries() {
+        let input = "openai-compatibility:\n  - name: Relay\n    base-url: https://example.com/v1\n    api-key-entries:\n      - api-key: test\n    models:\n      - name: gpt-5.6-terra\n        display-name: Terra\n";
+        let available_models = test_agent_models(&["gpt-5.6-terra"]);
+        let sources = resolved_thinking_alias_sources(input, &[], &available_models).unwrap();
+        let source = sources
+            .iter()
+            .find(|source| source.source.model == "gpt-5.6-terra")
+            .unwrap();
+        let rendered = add_speed_alias_to_yaml(input, source, "gpt-5.6-terra-fast").unwrap();
+
+        assert!(rendered.contains("alias: gpt-5.6-terra-fast"), "{rendered}");
+        assert!(
+            rendered.contains("display-name: Terra (Fast)"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("protocol: openai"), "{rendered}");
+        assert!(rendered.contains("service_tier: priority"), "{rendered}");
+        assert_eq!(speed_aliases_from_yaml(&rendered).unwrap().len(), 1);
+
+        let restored = remove_speed_alias_from_yaml(&rendered, "gpt-5.6-terra-fast").unwrap();
+        assert!(!restored.contains("gpt-5.6-terra-fast"), "{restored}");
+    }
+
+    #[test]
+    fn speed_alias_sources_include_codex_models_without_reasoning_levels() {
+        let definitions = vec![CodexModelDefinition {
+            id: "gpt-speed-only".to_string(),
+            display_name: None,
+            description: None,
+            context_window: None,
+            reasoning_levels: Vec::new(),
+            supports_tools: None,
+        }];
+        let available_models = test_agent_models(&["gpt-speed-only"]);
+
+        assert!(
+            resolved_thinking_alias_sources("{}", &definitions, &available_models)
+                .unwrap()
+                .is_empty()
+        );
+        let sources = resolved_speed_alias_sources("{}", &definitions, &available_models).unwrap();
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].source.model, "gpt-speed-only");
+    }
+
+    #[test]
+    fn thinking_alias_effort_accepts_provider_defined_levels() {
+        assert_eq!(validate_thinking_alias_effort(" AUTO ").unwrap(), "auto");
+        assert_eq!(validate_thinking_alias_effort("ultra").unwrap(), "ultra");
+        assert_eq!(
+            validate_thinking_alias_effort("vendor_level-2.1").unwrap(),
+            "vendor_level-2.1"
+        );
+        assert!(validate_thinking_alias_effort("").is_err());
+        assert!(validate_thinking_alias_effort("high value").is_err());
+        assert!(validate_thinking_alias_effort("32768").is_err());
+    }
+
+    #[test]
+    fn thinking_alias_removal_keeps_other_models_in_grouped_rule() {
+        let input = "oauth-model-alias:\n  codex:\n    - name: gpt-5.5\n      alias: gpt-5.5-xhigh\n      fork: true\n    - name: gpt-5.4\n      alias: gpt-5.4-xhigh\n      fork: true\npayload:\n  override:\n    - models:\n        - name: gpt-5.5-xhigh\n          protocol: codex\n        - name: gpt-5.4-xhigh\n          protocol: codex\n      params:\n        reasoning.effort: xhigh\n";
+        let rendered = remove_thinking_alias_from_yaml(input, "gpt-5.5-xhigh").unwrap();
+        let aliases = thinking_aliases_from_yaml(&rendered).unwrap();
+
+        assert_eq!(aliases.len(), 1);
+        assert_eq!(aliases[0].alias, "gpt-5.4-xhigh");
+        assert!(!rendered.contains("gpt-5.5-xhigh"), "{rendered}");
+        assert!(rendered.contains("gpt-5.4-xhigh"), "{rendered}");
+        assert!(rendered.contains("reasoning.effort: xhigh"), "{rendered}");
+    }
+
+    #[test]
+    fn thinking_alias_rejects_duplicate_client_visible_name() {
+        let input = "oauth-model-alias:\n  codex:\n    - name: gpt-5.5\n      alias: gpt-5.5-high\n      fork: true\n";
+        let source = test_codex_oauth_thinking_source("gpt-5.4");
+        assert!(
+            add_model_alias_to_yaml(input, &source, "GPT-5.5-HIGH", "high", false)
+                .unwrap_err()
+                .contains("已存在")
+        );
+    }
+
+    #[test]
+    fn thinking_alias_supports_openai_compatible_model_entries() {
+        let input = "openai-compatibility:\n  - name: DeepSeek\n    base-url: https://api.deepseek.com\n    api-key-entries:\n      - api-key: test\n    models:\n      - name: deepseek-chat\n        display-name: DeepSeek Chat\n        thinking:\n          levels: [low, medium, high]\n";
+        let available_models = test_agent_models(&["deepseek-chat"]);
+        let sources = resolved_thinking_alias_sources(input, &[], &available_models).unwrap();
+        let source = sources
+            .iter()
+            .find(|source| source.source.model == "deepseek-chat")
+            .unwrap();
+        let rendered =
+            add_model_alias_to_yaml(input, source, "deepseek-chat-high", "high", false).unwrap();
+        let value: serde_norway::Value = serde_norway::from_str(&rendered).unwrap();
+        let root = value.as_mapping().unwrap();
+        let providers = yaml_mapping_value(root, "openai-compatibility")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+        let models = yaml_mapping_value(providers[0].as_mapping().unwrap(), "models")
+            .and_then(serde_norway::Value::as_sequence)
+            .unwrap();
+        let alias_model = models[1].as_mapping().unwrap();
+
+        assert_eq!(models.len(), 2);
+        assert_eq!(
+            yaml_mapping_value(alias_model, "name").and_then(serde_norway::Value::as_str),
+            Some("deepseek-chat")
+        );
+        assert_eq!(
+            yaml_mapping_value(alias_model, "alias").and_then(serde_norway::Value::as_str),
+            Some("deepseek-chat-high")
+        );
+        assert!(rendered.contains("protocol: openai"), "{rendered}");
+        assert!(rendered.contains("reasoning_effort: high"), "{rendered}");
+        assert!(rendered.contains("thinking.type: enabled"), "{rendered}");
+        assert!(!rendered.contains("oauth-model-alias"), "{rendered}");
+
+        let entries = thinking_aliases_from_yaml(&rendered).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].provider, "DeepSeek");
+        assert_eq!(entries[0].kind, "openai-compatible");
+
+        let restored = remove_thinking_alias_from_yaml(&rendered, "deepseek-chat-high").unwrap();
+        assert!(!restored.contains("deepseek-chat-high"), "{restored}");
+        assert!(!restored.contains("reasoning_effort"), "{restored}");
+    }
+
+    #[test]
+    fn thinking_alias_supports_codex_api_model_entries() {
+        let input = "codex-api-key:\n  - api-key: test\n    base-url: https://example.com/v1\n    models:\n      - name: gpt-custom\n";
+        let available_models = test_agent_models(&["gpt-custom"]);
+        let sources = resolved_thinking_alias_sources(input, &[], &available_models).unwrap();
+        let source = sources
+            .iter()
+            .find(|source| source.source.kind == "codex-api")
+            .unwrap();
+        let rendered =
+            add_model_alias_to_yaml(input, source, "gpt-custom-xhigh", "xhigh", false).unwrap();
+
+        assert!(rendered.contains("alias: gpt-custom-xhigh"), "{rendered}");
+        assert!(rendered.contains("protocol: codex"), "{rendered}");
+        assert!(rendered.contains("reasoning.effort: xhigh"), "{rendered}");
+        assert!(!rendered.contains("oauth-model-alias"), "{rendered}");
+        let entries = thinking_aliases_from_yaml(&rendered).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, "codex-api");
+    }
+
+    #[test]
+    fn codex_agent_modification_merges_external_edits_and_restores_managed_fields() {
+        let home = agent_test_home("codex-organic-merge");
+        let path = home.join(".codex/config.toml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let original = br#"# original comment
+model_provider = "user-provider"
+model = "user-model"
+model_catalog_json = "user-catalog.json"
+approval_policy = "on-request"
+
+[model_providers.user-provider]
+name = "User Provider"
+base_url = "https://example.com/v1"
+
+[model_providers.cpa-gui]
+name = "Existing CPA"
+base_url = "https://existing.invalid/v1"
+wire_api = "chat"
+        experimental_bearer_token = "existing-token"
+custom_option = "keep-original"
+"#;
+        fs::write(&path, original).unwrap();
+        let hard_link = path.with_file_name("config-hard-link.toml");
+        fs::hard_link(&path, &hard_link).unwrap();
+
+        let available_models = test_agent_models(&["gpt-one", "gpt-two", "gpt-three"]);
+        let codex_models = test_codex_models(&["gpt-one", "gpt-two", "gpt-three"]);
+        let enabled = enable_agent_modification(
+            AgentClient::Codex,
+            &home,
+            8317,
+            "gpt-one",
+            &available_models,
+            Some(&codex_models),
+        )
+        .unwrap();
+        assert_eq!(enabled.outcome, "enabled");
+        let backup = agent_backup_path(&path).unwrap();
+        let state = agent_state_path(std::slice::from_ref(&path)).unwrap();
+        let catalog_path = codex_model_catalog_path(&home);
+        assert_eq!(fs::read(&backup).unwrap(), original);
+        assert!(state.is_file());
+        assert!(catalog_path.is_file());
+        assert_eq!(fs::read(&hard_link).unwrap(), fs::read(&path).unwrap());
+        assert!(fs::read_to_string(&hard_link)
+            .unwrap()
+            .contains(MANAGED_AGENT_PROVIDER_ID));
+
+        let mut externally_edited = fs::read_to_string(&path)
+            .unwrap()
+            .parse::<toml_edit::Document>()
+            .unwrap();
+        externally_edited["approval_policy"] = toml_edit::value("never");
+        externally_edited["custom_after_enable"] = toml_edit::value(true);
+        externally_edited["model_provider"] = toml_edit::value("external-provider");
+        externally_edited["model"] = toml_edit::value("external-model");
+        let provider = externally_edited["model_providers"]
+            .as_table_mut()
+            .unwrap()
+            .get_mut(MANAGED_AGENT_PROVIDER_ID)
+            .and_then(toml_edit::Item::as_table_mut)
+            .unwrap();
+        provider["base_url"] = toml_edit::value("https://external.invalid/v1");
+        provider["custom_option"] = toml_edit::value("keep-updated");
+        fs::write(&path, externally_edited.to_string()).unwrap();
+
+        let (configured, current_model, _) =
+            inspect_codex_agent_config(&path, 8317, DEFAULT_API_KEY).unwrap();
+        let inspection = inspect_agent_modification(
+            AgentClient::Codex,
+            &home,
+            8317,
+            configured,
+            current_model.as_deref(),
+        );
+        assert!(inspection.enabled);
+        assert_eq!(inspection.state, "active");
+        assert!(inspection
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("自动重新同步")));
+
+        let updated = update_agent_modification(
+            AgentClient::Codex,
+            &home,
+            8317,
+            "gpt-three",
+            &available_models,
+            Some(&codex_models),
+        )
+        .unwrap();
+        assert_eq!(updated.outcome, "updated");
+        assert_eq!(fs::read(&backup).unwrap(), original);
+        assert_eq!(fs::read(&hard_link).unwrap(), fs::read(&path).unwrap());
+        let managed: toml::Value = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            managed["model_provider"].as_str(),
+            Some(MANAGED_AGENT_PROVIDER_ID)
+        );
+        assert_eq!(managed["model"].as_str(), Some("gpt-three"));
+        assert_eq!(managed["approval_policy"].as_str(), Some("never"));
+        assert_eq!(managed["custom_after_enable"].as_bool(), Some(true));
+        assert_eq!(
+            managed["model_providers"][MANAGED_AGENT_PROVIDER_ID]["base_url"].as_str(),
+            Some("http://127.0.0.1:8317/v1")
+        );
+        assert_eq!(
+            managed["model_providers"][MANAGED_AGENT_PROVIDER_ID]["custom_option"].as_str(),
+            Some("keep-updated")
+        );
+
+        let restored = disable_agent_modification(AgentClient::Codex, &home, 8317, false).unwrap();
+        assert_eq!(restored.outcome, "disabled");
+        assert!(restored.conflict_files.is_empty());
+        let restored_content = fs::read_to_string(&path).unwrap();
+        let restored_value: toml::Value = toml::from_str(&restored_content).unwrap();
+        assert!(restored_content.contains("# original comment"));
+        assert_eq!(
+            restored_value["model_provider"].as_str(),
+            Some("user-provider")
+        );
+        assert_eq!(restored_value["model"].as_str(), Some("user-model"));
+        assert_eq!(
+            restored_value["model_catalog_json"].as_str(),
+            Some("user-catalog.json")
+        );
+        assert_eq!(restored_value["approval_policy"].as_str(), Some("never"));
+        assert_eq!(restored_value["custom_after_enable"].as_bool(), Some(true));
+        assert_eq!(
+            restored_value["model_providers"][MANAGED_AGENT_PROVIDER_ID]["name"].as_str(),
+            Some("Existing CPA")
+        );
+        assert_eq!(
+            restored_value["model_providers"][MANAGED_AGENT_PROVIDER_ID]["base_url"].as_str(),
+            Some("https://existing.invalid/v1")
+        );
+        assert_eq!(
+            restored_value["model_providers"][MANAGED_AGENT_PROVIDER_ID]["custom_option"].as_str(),
+            Some("keep-updated")
+        );
+        assert_eq!(
+            restored_value["model_providers"]["user-provider"]["base_url"].as_str(),
+            Some("https://example.com/v1")
+        );
+        assert_eq!(fs::read(&hard_link).unwrap(), fs::read(&path).unwrap());
+        assert!(!catalog_path.exists());
+        assert!(!backup.exists());
+        assert!(!state.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn codex_disable_keeps_user_configuration_added_after_enable() {
+        let home = agent_test_home("codex-created-config");
+        let path = home.join(".codex/config.toml");
+        let models = test_agent_models(&["gpt-test"]);
+        let codex_models = test_codex_models(&["gpt-test"]);
+
+        enable_agent_modification(
+            AgentClient::Codex,
+            &home,
+            8317,
+            "gpt-test",
+            &models,
+            Some(&codex_models),
+        )
+        .unwrap();
+        let mut edited = fs::read_to_string(&path)
+            .unwrap()
+            .parse::<toml_edit::Document>()
+            .unwrap();
+        edited["approval_policy"] = toml_edit::value("never");
+        fs::write(&path, edited.to_string()).unwrap();
+
+        let result = disable_agent_modification(AgentClient::Codex, &home, 8317, false).unwrap();
+        assert_eq!(result.outcome, "disabled");
+        let restored_content = fs::read_to_string(&path).unwrap();
+        let restored: toml::Value = toml::from_str(&restored_content).unwrap();
+        assert_eq!(restored["approval_policy"].as_str(), Some("never"));
+        assert!(restored.get("model_provider").is_none());
+        assert!(restored.get("model").is_none());
+        assert!(restored.get("model_catalog_json").is_none());
+        assert!(restored.get("model_providers").is_none());
+        assert!(!codex_model_catalog_path(&home).exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn agent_modification_removes_files_that_did_not_exist_before_enable() {
+        let home = agent_test_home("opencode-absent");
+        let path = home.join(".config/opencode/opencode.json");
+
+        let models = test_agent_models(&["gpt-test"]);
+        enable_agent_modification(
+            AgentClient::OpenCode,
+            &home,
+            8317,
+            "gpt-test",
+            &models,
+            None,
+        )
+        .unwrap();
+        assert!(path.is_file());
+        assert!(!agent_backup_path(&path).unwrap().exists());
+
+        disable_agent_modification(AgentClient::OpenCode, &home, 8317, false).unwrap();
+        assert!(!path.exists());
+        assert!(!agent_state_path(&[path]).unwrap().exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn agent_enable_discards_backup_when_state_cannot_be_written() {
+        let home = agent_test_home("state-write-failure");
+        let path = home.join(".codex/config.toml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"approval_policy = \"never\"\n").unwrap();
+        let state_path = agent_state_path(std::slice::from_ref(&path)).unwrap();
+        fs::create_dir(&state_path).unwrap();
+
+        let available_models = test_agent_models(&["gpt-test"]);
+        let codex_models = test_codex_models(&["gpt-test"]);
+        assert!(enable_agent_modification(
+            AgentClient::Codex,
+            &home,
+            8317,
+            "gpt-test",
+            &available_models,
+            Some(&codex_models),
+        )
+        .is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"approval_policy = \"never\"\n");
+        assert!(!agent_backup_path(&path).unwrap().exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn claude_code_keeps_using_the_path_that_owns_active_state() {
+        let home = agent_test_home("claude-path-state");
+        let directory = home.join(".claude");
+        let settings = directory.join("settings.json");
+        let legacy = directory.join("claude.json");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(&settings, b"{}\n").unwrap();
+        fs::write(&legacy, b"{}\n").unwrap();
+        fs::write(
+            agent_state_path(std::slice::from_ref(&legacy)).unwrap(),
+            b"{}\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            agent_config_paths(AgentClient::ClaudeCode, &home),
+            vec![legacy]
+        );
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn legacy_agent_backup_restores_even_when_gui_port_changed() {
+        let home = agent_test_home("legacy-port");
+        let path = home.join(".codex/config.toml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let original = b"approval_policy = \"never\"\n";
+        fs::write(agent_backup_path(&path).unwrap(), original).unwrap();
+        fs::write(
+            &path,
+            build_codex_agent_config(
+                Some(std::str::from_utf8(original).unwrap()),
+                "http://127.0.0.1:9999/v1",
+                DEFAULT_API_KEY,
+                "gpt-legacy",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(agent_has_managed_marker(AgentClient::Codex, std::slice::from_ref(&path)).unwrap());
+        let result = disable_agent_modification(AgentClient::Codex, &home, 8317, false).unwrap();
+        assert_eq!(result.outcome, "disabled");
+        assert_eq!(fs::read(&path).unwrap(), original);
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn legacy_generated_only_agent_config_is_removed_without_backup() {
+        let home = agent_test_home("legacy-generated");
+        let path = home.join(".codex/config.toml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(
+            &path,
+            build_codex_agent_config(
+                None,
+                "http://127.0.0.1:8317/v1",
+                DEFAULT_API_KEY,
+                "gpt-generated",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        let result = disable_agent_modification(AgentClient::Codex, &home, 8317, false).unwrap();
+        assert_eq!(result.outcome, "disabled");
+        assert!(!path.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn updating_legacy_codex_state_adds_catalog_without_replacing_original_backup() {
+        let home = agent_test_home("legacy-catalog-upgrade");
+        let path = home.join(".codex/config.toml");
+        let catalog_path = codex_model_catalog_path(&home);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let original_config = b"approval_policy = \"never\"\n";
+        let original_catalog = b"{\"models\":[{\"slug\":\"user-model\"}]}\n";
+        fs::write(agent_backup_path(&path).unwrap(), original_config).unwrap();
+        fs::write(
+            &path,
+            build_codex_agent_config(
+                Some(std::str::from_utf8(original_config).unwrap()),
+                "http://127.0.0.1:8317/v1",
+                DEFAULT_API_KEY,
+                "gpt-old",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(&catalog_path, original_catalog).unwrap();
+        let mut record = build_legacy_agent_record(AgentClient::Codex, &home, 8317, "gpt-old")
+            .unwrap()
+            .unwrap();
+        record.version = LEGACY_AGENT_MODIFICATION_STATE_VERSION;
+        assert_eq!(record.files.len(), 1);
+        write_agent_state(
+            &agent_state_path(std::slice::from_ref(&path)).unwrap(),
+            &record,
+        )
+        .unwrap();
+
+        let available_models = test_agent_models(&["gpt-new"]);
+        let codex_models = test_codex_models(&["gpt-new"]);
+        update_agent_modification(
+            AgentClient::Codex,
+            &home,
+            8317,
+            "gpt-new",
+            &available_models,
+            Some(&codex_models),
+        )
+        .unwrap();
+        let upgraded = load_agent_record(AgentClient::Codex, std::slice::from_ref(&path))
+            .unwrap()
+            .unwrap();
+        assert_eq!(upgraded.version, AGENT_MODIFICATION_STATE_VERSION);
+        assert_eq!(upgraded.files.len(), 2);
+        assert_eq!(
+            fs::read(agent_backup_path(&path).unwrap()).unwrap(),
+            original_config
+        );
+        assert_eq!(
+            fs::read(agent_backup_path(&catalog_path).unwrap()).unwrap(),
+            original_catalog
+        );
+        fs::write(&catalog_path, b"{\"models\":[]}\n").unwrap();
+
+        disable_agent_modification(AgentClient::Codex, &home, 8317, false).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), original_config);
+        assert_eq!(fs::read(&catalog_path).unwrap(), original_catalog);
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn interrupted_agent_state_is_reported_as_recovery() {
+        let home = agent_test_home("recovery-state");
+        let path = home.join(".codex/config.toml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "approval_policy = \"never\"\n").unwrap();
+        let available_models = test_agent_models(&["gpt-test"]);
+        let codex_models = test_codex_models(&["gpt-test"]);
+        enable_agent_modification(
+            AgentClient::Codex,
+            &home,
+            8317,
+            "gpt-test",
+            &available_models,
+            Some(&codex_models),
+        )
+        .unwrap();
+
+        let state_path = agent_state_path(std::slice::from_ref(&path)).unwrap();
+        let mut record = load_agent_record(AgentClient::Codex, &[path])
+            .unwrap()
+            .unwrap();
+        record.phase = AGENT_PHASE_APPLYING.to_string();
+        write_agent_state(&state_path, &record).unwrap();
+        let inspection =
+            inspect_agent_modification(AgentClient::Codex, &home, 8317, true, Some("gpt-test"));
+        assert!(inspection.enabled);
+        assert_eq!(inspection.state, "recovery");
+
+        disable_agent_modification(AgentClient::Codex, &home, 8317, false).unwrap();
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn agent_backup_protocol_restores_multiple_files_and_removes_created_files() {
+        let home = agent_test_home("multi-file");
+        let first = home.join("first.json");
+        let second = home.join("second.json");
+        fs::write(&first, b"{\"original\":true}\n").unwrap();
+        let updates = vec![
+            AgentFileUpdate {
+                path: first.clone(),
+                after: "{\"managed\":1}\n".to_string(),
+            },
+            AgentFileUpdate {
+                path: second.clone(),
+                after: "{\"managed\":2}\n".to_string(),
+            },
+        ];
+        let record = prepare_agent_record(
+            AgentClient::ClaudeDesktop,
+            &[first.clone(), second.clone()],
+            "claude-test",
+            &updates,
+        )
+        .unwrap();
+
+        apply_agent_updates(AgentClient::ClaudeDesktop, &updates).unwrap();
+        assert!(first.is_file());
+        assert!(second.is_file());
+        restore_agent_record_files(AgentClient::ClaudeDesktop, &record).unwrap();
+        assert_eq!(fs::read_to_string(&first).unwrap(), "{\"original\":true}\n");
+        assert!(!second.exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn interrupted_multi_file_apply_can_restore_without_false_conflict() {
+        let home = agent_test_home("partial-recovery");
+        let first = home.join("first.json");
+        let second = home.join("second.json");
+        fs::write(&first, b"{\"original\":1}\n").unwrap();
+        fs::write(&second, b"{\"original\":2}\n").unwrap();
+        let updates = vec![
+            AgentFileUpdate {
+                path: first.clone(),
+                after: "{\"managed\":1}\n".to_string(),
+            },
+            AgentFileUpdate {
+                path: second.clone(),
+                after: "{\"managed\":2}\n".to_string(),
+            },
+        ];
+        let record = prepare_agent_record(
+            AgentClient::ClaudeDesktop,
+            &[first.clone(), second.clone()],
+            "claude-test",
+            &updates,
+        )
+        .unwrap();
+
+        write_bytes_atomically(&first, updates[0].after.as_bytes()).unwrap();
+        assert_eq!(
+            record_conflict_files(&record).unwrap(),
+            vec![path_to_string(&second)]
+        );
+        assert!(record_restore_conflict_files(&record).unwrap().is_empty());
+
+        fs::write(&second, b"{\"external\":true}\n").unwrap();
+        assert_eq!(
+            record_restore_conflict_files(&record).unwrap(),
+            vec![path_to_string(&second)]
+        );
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn partial_agent_write_failure_rolls_back_previous_files() {
+        let home = agent_test_home("partial-write");
+        let first = home.join("first.txt");
+        let blocked_parent = home.join("blocked");
+        fs::write(&first, b"original\n").unwrap();
+        fs::write(&blocked_parent, b"not a directory").unwrap();
+        let updates = vec![
+            AgentFileUpdate {
+                path: first.clone(),
+                after: "changed\n".to_string(),
+            },
+            AgentFileUpdate {
+                path: blocked_parent.join("second.txt"),
+                after: "never written\n".to_string(),
+            },
+        ];
+
+        assert!(apply_agent_updates(AgentClient::ClaudeDesktop, &updates).is_err());
+        assert_eq!(fs::read_to_string(&first).unwrap(), "original\n");
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn legacy_string_api_keys_keep_custom_keys_without_special_protection() {
+        let legacy = "port = 8317\nallow-lan = false\nrun-on-startup = false\nauth-dir = \"/tmp/oauth\"\napi-keys = [\"123456\", \"custom-key\"]\nmanagement-secret-key = \"123456\"\nplugins-enabled = false\nrouting-strategy = \"round-robin\"\n";
+        let mut config = toml::from_str::<GuiConfigFile>(legacy).unwrap();
+
+        assert!(!sanitize_gui_config(&mut config).unwrap());
+        assert_eq!(
+            gui_api_key_values(&config.api_keys),
+            vec!["123456", "custom-key"]
+        );
+        assert!(config.api_keys[0].remark.is_empty());
+        assert!(config.api_keys[1].remark.is_empty());
+
+        let serialized = toml::to_string_pretty(&config).unwrap();
+        assert!(serialized.contains("[[api-keys]]"));
+        let reparsed = toml::from_str::<GuiConfigFile>(&serialized).unwrap();
+        assert_eq!(reparsed.api_keys, config.api_keys);
+    }
+
+    #[test]
+    fn api_key_remarks_follow_matching_core_keys() {
+        let existing = vec![
+            default_api_key_entry(),
+            GuiApiKeyEntry {
+                key: "custom-key".to_string(),
+                remark: "开发环境".to_string(),
+            },
+        ];
+        let core_keys = vec!["custom-key".to_string(), "new-key".to_string()];
+
+        let merged = merge_core_api_keys_with_gui_metadata(&existing, &core_keys, None);
+
+        assert_eq!(gui_api_key_values(&merged), vec!["custom-key", "new-key"]);
+        assert_eq!(merged[0].remark, "开发环境");
+        assert!(merged[1].remark.is_empty());
+    }
+
+    #[test]
+    fn explicit_empty_api_key_list_stays_empty() {
+        let existing = vec![default_api_key_entry()];
+        assert!(merge_core_api_keys_with_gui_metadata(&existing, &[], None).is_empty());
+
+        let mut config = GuiConfigFile {
+            api_keys: Vec::new(),
+            ..GuiConfigFile::default()
+        };
+        sanitize_gui_config(&mut config).unwrap();
+        assert!(config.api_keys.is_empty());
+
+        let content = toml::to_string_pretty(&config).unwrap();
+        let restored = toml::from_str::<GuiConfigFile>(&content).unwrap();
+        assert!(restored.api_keys.is_empty());
+    }
+
+    #[test]
+    fn fresh_config_keeps_initial_default_unless_core_has_real_keys() {
+        assert!(!should_import_core_api_keys(false, &[]));
+        assert!(should_import_core_api_keys(
+            false,
+            &["existing-key".to_string()]
+        ));
+        assert!(should_import_core_api_keys(true, &[]));
+    }
+
+    #[test]
+    fn initial_default_api_key_can_be_edited_and_deleted() {
+        let mut api_keys = vec![DEFAULT_API_KEY.to_string()];
+
+        replace_core_api_key_value(&mut api_keys, DEFAULT_API_KEY, "custom-key".to_string())
+            .unwrap();
+        assert_eq!(api_keys, vec!["custom-key"]);
+
+        remove_core_api_key_value(&mut api_keys, "custom-key").unwrap();
+        assert!(api_keys.is_empty());
+    }
+
+    #[test]
+    fn core_config_view_exposes_api_key_metadata_for_the_webview() {
+        let mut config = GuiConfigFile::default();
+        ensure_strong_management_secret(&mut config).unwrap();
+        let view = serde_json::to_value(CoreConfigView::from(&config)).unwrap();
+
+        assert_eq!(view["apiKeys"][0]["apiKey"], DEFAULT_API_KEY);
+        assert_eq!(view["apiKeys"][0]["remark"], DEFAULT_API_KEY_INITIAL_REMARK);
+        assert!(view["apiKeys"][0].get("builtIn").is_none());
+        assert_eq!(view["managementSecretConfigured"], true);
+        assert!(view.get("managementSecretKey").is_none());
+    }
+
+    #[test]
+    fn webui_management_secret_requires_a_non_empty_plaintext_value() {
+        assert_eq!(
+            normalize_management_secret_key("  new-webui-secret  ".to_string()).unwrap(),
+            "new-webui-secret"
+        );
+        assert!(normalize_management_secret_key("   ".to_string()).is_err());
+        assert!(normalize_management_secret_key(
+            "$2a$10$abcdefghijklmnopqrstuuuuuuuuuuuuuuuuuuuuuuuuuuuuu".to_string()
+        )
+        .is_err());
+        assert!(normalize_management_secret_key("bad\nsecret".to_string()).is_err());
+        assert!(normalize_management_secret_key("123456".to_string()).is_err());
+    }
+
+    #[test]
+    fn management_secret_rotation_replaces_legacy_values_and_preserves_custom_values() {
+        let mut fresh = GuiConfigFile::default();
+        assert!(ensure_strong_management_secret(&mut fresh).unwrap());
+        assert!(fresh.management_secret_key.starts_with("wui-Aa9_"));
+        assert!(fresh.management_secret_key.len() >= 50);
+        assert!(!management_secret_requires_rotation(
+            &fresh.management_secret_key
+        ));
+
+        let first_generated = fresh.management_secret_key.clone();
+        let mut legacy = GuiConfigFile {
+            management_secret_key: LEGACY_DEFAULT_MANAGEMENT_SECRET_KEY.to_string(),
+            ..GuiConfigFile::default()
+        };
+        assert!(ensure_strong_management_secret(&mut legacy).unwrap());
+        assert_ne!(
+            legacy.management_secret_key,
+            LEGACY_DEFAULT_MANAGEMENT_SECRET_KEY
+        );
+        assert_ne!(legacy.management_secret_key, first_generated);
+
+        let mut hashed = GuiConfigFile {
+            management_secret_key: "$2a$10$abcdefghijklmnopqrstuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+                .to_string(),
+            ..GuiConfigFile::default()
+        };
+        assert!(ensure_strong_management_secret(&mut hashed).unwrap());
+        assert!(hashed.management_secret_key.starts_with("wui-Aa9_"));
+
+        let mut custom = GuiConfigFile {
+            management_secret_key: "user-selected-secret".to_string(),
+            ..GuiConfigFile::default()
+        };
+        assert!(!ensure_strong_management_secret(&mut custom).unwrap());
+        assert_eq!(custom.management_secret_key, "user-selected-secret");
+    }
+
+    #[test]
+    fn management_secret_key_is_preserved_and_written_to_core() {
+        let mut config = GuiConfigFile {
+            management_secret_key: "old-management-secret".to_string(),
+            ..GuiConfigFile::default()
+        };
+
+        assert!(!sanitize_gui_config(&mut config).unwrap());
+        assert_eq!(config.management_secret_key, "old-management-secret");
+
+        let template = "remote-management:\n  secret-key: stale-secret\n";
+        let merged = merge_core_config_yaml(template, None, &config).unwrap();
+        let document = serde_norway::from_str::<serde_norway::Value>(&merged).unwrap();
+        assert_eq!(
+            document["remote-management"]["secret-key"],
+            "old-management-secret"
+        );
+    }
+
+    #[test]
+    fn custom_auth_directory_is_preserved_and_written_to_core_config() {
+        let mut config = GuiConfigFile {
+            auth_dir: "/tmp/user-selected-auth".to_string(),
+            ..GuiConfigFile::default()
+        };
+        ensure_strong_management_secret(&mut config).unwrap();
+
+        assert!(validate_gui_config(&config).is_ok());
+        assert!(!sanitize_gui_config(&mut config).unwrap());
+        assert_eq!(config.auth_dir, "/tmp/user-selected-auth");
+
+        let merged = merge_core_config_yaml("auth-dir: ~/.cli-proxy-api\n", None, &config).unwrap();
+        let document = serde_norway::from_str::<serde_norway::Value>(&merged).unwrap();
+        assert_eq!(document["auth-dir"], config.auth_dir);
+    }
+
+    #[test]
+    fn default_auth_directory_is_relative_and_legacy_absolute_value_is_migrated() {
+        let base_dir = agent_test_home("relative-default-auth-dir");
+        let install_dir = base_dir.join("cpa-core");
+        assert_eq!(
+            auth_dir_path_for_core(DEFAULT_AUTH_DIR, &install_dir),
+            base_dir.join(OAUTH_DIR_NAME)
+        );
+
+        let mut config = GuiConfigFile {
+            auth_dir: path_to_string(&fixed_oauth_dir().unwrap()),
+            ..GuiConfigFile::default()
+        };
+        assert!(sanitize_gui_config(&mut config).unwrap());
+        assert_eq!(config.auth_dir, DEFAULT_AUTH_DIR);
+        fs::remove_dir_all(base_dir).unwrap();
+    }
+
+    #[test]
+    fn legacy_gui_config_can_seed_managed_core_settings() {
+        let legacy = "port: 8317\nallow-lan: false\nrun-on-startup: true\n";
+        let mut config = serde_yaml::from_str::<GuiConfigFile>(legacy).unwrap();
+        let presence = serde_yaml::from_str::<GuiConfigPresence>(legacy).unwrap();
+        let core_settings = CoreConfigSettings {
+            host: "0.0.0.0".to_string(),
+            port: 9000,
+            auth_dir: "/tmp/external-auth".to_string(),
+            api_keys: vec!["existing-key".to_string()],
+            management_secret_configured: true,
+            usage_statistics_enabled: false,
+            plugins_enabled: true,
+            routing_strategy: "fill-first".to_string(),
+            proxy_url: "http://127.0.0.1:8080".to_string(),
+            routing_session_affinity: true,
+            routing_session_affinity_ttl: "45m".to_string(),
+            management_secret_key: Some("management-secret".to_string()),
+        };
+
+        assert!(presence.api_keys.is_none());
+        assert!(presence.management_secret_key.is_none());
+        assert!(presence.plugins_enabled.is_none());
+        assert!(presence.routing_strategy.is_none());
+        apply_core_settings_to_gui_config(&mut config, &core_settings);
+
+        assert_eq!(gui_api_key_values(&config.api_keys), vec!["existing-key"]);
+        assert_eq!(config.management_secret_key, "management-secret");
+        assert_eq!(config.host, "0.0.0.0");
+        assert_eq!(config.port, 9000);
+        assert_eq!(config.auth_dir, "/tmp/external-auth");
+        assert!(!config.usage_statistics_enabled);
+        assert!(config.plugins_enabled);
+        assert_eq!(config.routing_strategy, "fill-first");
+        assert_eq!(config.proxy_url, "http://127.0.0.1:8080");
+        assert!(config.routing_session_affinity);
+        assert_eq!(config.routing_session_affinity_ttl, "45m");
+        assert!(config.run_on_startup);
+    }
+
+    #[test]
+    fn example_api_keys_are_not_persisted_as_gui_settings() {
+        let input = "api-keys:\n  - your-api-key-1\n  - real-key\nremote-management:\n  secret-key: plain-management-secret\nplugins:\n  enabled: true\nrouting:\n  strategy: fill-first\n";
+        let document = serde_norway::from_str::<serde_norway::Value>(input).unwrap();
+        let core_settings = core_config_settings_from_value(&document).unwrap();
+        let mut config = GuiConfigFile::default();
+
+        apply_core_settings_to_gui_config(&mut config, &core_settings);
+
+        assert_eq!(core_settings.api_keys, vec!["real-key"]);
+        assert_eq!(gui_api_key_values(&config.api_keys), vec!["real-key"]);
+        assert_eq!(
+            core_settings.management_secret_key.as_deref(),
+            Some("plain-management-secret")
+        );
+        assert_eq!(config.management_secret_key, "plain-management-secret");
+        assert!(validate_core_api_key("your-api-key-3").is_err());
+    }
+
+    #[test]
+    fn hashed_management_secret_is_detected_without_replacing_known_plaintext() {
+        let input = "remote-management:\n  secret-key: $2a$10$abcdefghijklmnopqrstuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\n";
+        let document = serde_norway::from_str::<serde_norway::Value>(input).unwrap();
+        let core_settings = core_config_settings_from_value(&document).unwrap();
+
+        assert!(core_settings
+            .management_secret_key
+            .as_deref()
+            .is_some_and(is_hashed_management_secret_key));
+        assert!(core_settings.management_secret_configured);
+        let mut config = GuiConfigFile {
+            management_secret_key: "known-plaintext".to_string(),
+            ..GuiConfigFile::default()
+        };
+        apply_core_settings_to_gui_config(&mut config, &core_settings);
+        assert_eq!(config.management_secret_key, "known-plaintext");
+    }
+
+    #[test]
+    fn management_api_requires_an_available_plaintext_secret() {
+        let mut config = GuiConfigFile {
+            management_secret_key: String::new(),
+            ..GuiConfigFile::default()
+        };
+        assert!(management_authorization(&config).is_err());
+
+        config.management_secret_key =
+            "$2a$10$abcdefghijklmnopqrstuuuuuuuuuuuuuuuuuuuuuuuuuuuuu".to_string();
+        assert!(management_authorization(&config).is_err());
+
+        config.management_secret_key = "known-plaintext".to_string();
+        assert_eq!(
+            management_authorization(&config).unwrap(),
+            "Bearer known-plaintext"
+        );
+    }
+
+    #[test]
+    fn runtime_network_patch_preserves_comments_and_other_settings() {
+        let config = GuiConfigFile {
+            locale: "zh-CN".to_string(),
+            port: 9527,
+            allow_lan: true,
+            host: "0.0.0.0".to_string(),
+            run_on_startup: false,
+            ..GuiConfigFile::default()
+        };
+        let input = "# Bind address\nhost: 127.0.0.1 # local only\n\n# Service port\nport: 8317 # default\ndebug: true\n";
+        let updated = patch_core_network_yaml(input, &config)
+            .unwrap()
+            .expect("network settings should change");
+
+        assert_eq!(
+            updated,
+            "# Bind address\nhost: 0.0.0.0 # local only\n\n# Service port\nport: 9527 # default\ndebug: true\n"
+        );
+        assert!(updated.contains("# Bind address"));
+        assert!(updated.contains("# local only"));
+        assert!(updated.contains("# Service port"));
+        assert!(updated.contains("# default"));
+        assert!(updated.contains("debug: true"));
+
+        let document = serde_norway::from_str::<serde_norway::Value>(&updated).unwrap();
+        assert_eq!(
+            document["host"],
+            serde_norway::Value::String("0.0.0.0".to_string())
+        );
+        assert_eq!(document["port"], serde_norway::to_value(9527_u16).unwrap());
+    }
+
+    #[test]
+    fn runtime_network_patch_skips_unchanged_yaml() {
+        let config = GuiConfigFile::default();
+        let input = "host: 127.0.0.1\nport: 8317\n";
+
+        assert!(patch_core_network_yaml(input, &config).unwrap().is_none());
+    }
+
+    #[test]
+    fn confirmed_network_routing_patch_updates_all_fields_together() {
+        let config = GuiConfigFile {
+            port: 9527,
+            allow_lan: true,
+            host: "0.0.0.0".to_string(),
+            proxy_url: "socks5://127.0.0.1:7890".to_string(),
+            routing_session_affinity: true,
+            routing_session_affinity_ttl: "2h".to_string(),
+            ..GuiConfigFile::default()
+        };
+        let input = "# network\nhost: 127.0.0.1\nport: 8317\nproxy-url: \"\"\n# routing\nrouting:\n  strategy: round-robin\n# unrelated\ndebug: true\n";
+        let updated = patch_core_network_routing_yaml(input, &config)
+            .unwrap()
+            .expect("confirmed settings should change");
+        let document = serde_norway::from_str::<serde_norway::Value>(&updated).unwrap();
+
+        assert_eq!(document["host"], "0.0.0.0");
+        assert_eq!(document["port"], 9527);
+        assert_eq!(document["proxy-url"], "socks5://127.0.0.1:7890");
+        assert_eq!(document["routing"]["session-affinity"], true);
+        assert_eq!(document["routing"]["session-affinity-ttl"], "2h");
+        assert_eq!(document["routing"]["strategy"], "round-robin");
+        assert_eq!(document["debug"], true);
+        assert!(updated.contains("# network"));
+        assert!(updated.contains("# routing"));
+        assert!(updated.contains("# unrelated"));
+    }
+
+    #[test]
+    fn core_config_controls_preserve_comments_and_unrelated_values() {
+        let input = "# Client authentication\napi-keys:\n  - old-key\n\n# Plugin runtime\nplugins:\n  enabled: false # global switch\n  dir: plugins\n\n# Credential routing\nrouting:\n  strategy: round-robin # current strategy\n  session-affinity: true\n\ndebug: true # untouched\n";
+        let mut document = yaml_serde_edit::YamlValue::parse(input).unwrap();
+        let mut updated = document.get().clone();
+
+        set_core_api_keys(
+            &mut updated,
+            vec!["old-key".to_string(), "new-key".to_string()],
+        )
+        .unwrap();
+        set_nested_yaml_value(&mut updated, &["plugins", "enabled"], true).unwrap();
+        set_nested_yaml_value(
+            &mut updated,
+            &["routing", "strategy"],
+            "fill-first".to_string(),
+        )
+        .unwrap();
+        document.set(updated);
+
+        let rendered = document.get_string();
+        assert!(rendered.contains("# Client authentication"));
+        assert!(rendered.contains("# Plugin runtime"));
+        assert!(rendered.contains("# global switch"));
+        assert!(rendered.contains("# Credential routing"));
+        assert!(rendered.contains("# current strategy"));
+        assert!(rendered.contains("debug: true # untouched"));
+
+        let settings = core_config_settings_from_value(document.get()).unwrap();
+        assert_eq!(settings.api_keys, vec!["old-key", "new-key"]);
+        assert!(settings.plugins_enabled);
+        assert_eq!(settings.routing_strategy, "fill-first");
+        assert_eq!(document.get()["plugins"]["dir"], "plugins");
+        assert_eq!(document.get()["routing"]["session-affinity"], true);
+    }
+
+    #[test]
+    fn yaml_edit_runtime_patches_supported_fields_without_reflowing_yaml() {
+        let input = "# Client authentication\napi-keys:\n  - old-key\n\n# Plugin runtime\nplugins:\n  enabled: false # global switch\n  dir: plugins\n\n# Credential routing\nrouting:\n  strategy: round-robin # current strategy\n  session-affinity: true\n\ndebug: true # untouched\n";
+        let file = input.parse::<yaml_edit::YamlFile>().unwrap();
+        let document = file.document().unwrap();
+
+        assert!(set_yaml_edit_nested_value(
+            &document, "plugins", "enabled", true
+        ));
+        assert!(set_yaml_edit_nested_value(
+            &document,
+            "routing",
+            "strategy",
+            "fill-first".to_string()
+        ));
+
+        let rendered = patch_core_api_keys_yaml(
+            &file.to_string(),
+            &["new-key".to_string(), "backup-key".to_string()],
+        )
+        .unwrap();
+        assert!(rendered.contains("# Client authentication"));
+        assert!(rendered.contains("# Plugin runtime"));
+        assert!(rendered.contains("# global switch"));
+        assert!(rendered.contains("# Credential routing"));
+        assert!(rendered.contains("# current strategy"));
+        assert!(rendered.contains("debug: true # untouched"));
+        assert!(rendered.contains("dir: plugins"));
+        assert!(rendered.contains("session-affinity: true"));
+
+        let settings =
+            core_config_settings_from_value(&serde_norway::from_str(&rendered).unwrap()).unwrap();
+        assert_eq!(settings.api_keys, vec!["new-key", "backup-key"]);
+        assert!(settings.plugins_enabled);
+        assert_eq!(settings.routing_strategy, "fill-first");
+    }
+
+    #[test]
+    fn yaml_edit_sequence_shrink_keeps_following_top_level_key_valid() {
+        let input = "# API keys for authentication\napi-keys:\n  - first-key\n  - second-key\n  - third-key\n\n# Enable debug logging\ndebug: false\n";
+        let original = serde_norway::from_str::<serde_norway::Value>(input).unwrap();
+        let mut updated = original.clone();
+        set_core_api_keys(&mut updated, vec!["first-key".to_string()]).unwrap();
+
+        let rendered = render_yaml_value_changes(input, &original, &updated)
+            .unwrap_or_else(|error| panic!("sequence shrink failed: {error}"));
+        let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered)
+            .unwrap_or_else(|error| panic!("invalid YAML: {error}\n{rendered}"));
+
+        assert_eq!(parsed["api-keys"][0], "first-key");
+        assert_eq!(parsed["api-keys"].as_sequence().unwrap().len(), 1);
+        assert_eq!(parsed["debug"], false);
+        assert!(rendered.find("api-keys:").unwrap() < rendered.find("debug:").unwrap());
+    }
+
+    #[test]
+    fn runtime_yaml_ast_patch_handles_core_comments_around_nested_mapping() {
+        let input = "host: 127.0.0.1\nremote-management:\n# Whether to allow remote access.\n  allow-remote: false\n# Management key.\n# All requests require this key.\n  secret-key: old\n# Disable panel.\n  disable-control-panel: false\nauth-dir: /tmp/old\napi-keys:\n  - old-key\n";
+        let rendered = patch_core_yaml_document(input, |document| {
+            let auth_changed = set_core_yaml_top_level_value(
+                document,
+                "auth-dir",
+                serde_norway::Value::String("/tmp/new".to_string()),
+            )?;
+            let secret_changed = set_core_yaml_nested_value(
+                document,
+                "remote-management",
+                "secret-key",
+                serde_norway::Value::String("123456".to_string()),
+            )?;
+            Ok(auth_changed || secret_changed)
+        })
+        .unwrap()
+        .unwrap();
+        let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered)
+            .unwrap_or_else(|error| panic!("invalid YAML: {error}\n{rendered}"));
+
+        assert_eq!(parsed["auth-dir"], "/tmp/new");
+        assert_eq!(parsed["remote-management"]["secret-key"], "123456");
+        assert!(rendered.contains("# All requests require this key."));
+        assert!(rendered.contains("disable-control-panel: false"));
+    }
+
+    #[test]
+    fn yaml_edit_runtime_patch_removes_empty_keys_and_skips_unsupported_sections() {
+        let input = "# Client authentication\napi-keys:\n  - old-key\nplugins:\n  enabled: true\nrouting:\n  strategy: fill-first\n";
+        let rendered = patch_core_api_keys_yaml(input, &[]).unwrap();
+        let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+        let root = parsed.as_mapping().unwrap();
+        assert!(yaml_mapping_value(root, "api-keys").is_none(), "{rendered}");
+        assert_eq!(
+            core_config_settings_from_value(&parsed).unwrap().api_keys,
+            Vec::<String>::new()
+        );
+
+        let missing_api_keys = "host: 127.0.0.1\nport: 8317\n";
+        let rendered = patch_core_api_keys_yaml(
+            missing_api_keys,
+            &["new-key".to_string(), "backup-key".to_string()],
+        )
+        .unwrap();
+        let settings =
+            core_config_settings_from_value(&serde_norway::from_str(&rendered).unwrap()).unwrap();
+        assert_eq!(settings.api_keys, vec!["new-key", "backup-key"]);
+        assert!(rendered.contains("host: 127.0.0.1"));
+        assert!(rendered.contains("port: 8317"));
+
+        // Nested plugin/routing sections are still optional for comment-preserving
+        // runtime patches; missing maps remain unsupported and stay untouched.
+        let unsupported = "host: 127.0.0.1\nport: 8317\n";
+        let file = unsupported.parse::<yaml_edit::YamlFile>().unwrap();
+        let document = file.document().unwrap();
+        assert!(!set_yaml_edit_nested_value(
+            &document, "plugins", "enabled", true
+        ));
+        assert!(!set_yaml_edit_nested_value(
+            &document,
+            "routing",
+            "strategy",
+            "fill-first".to_string()
+        ));
+        assert_eq!(file.to_string(), unsupported);
+    }
+
+    #[test]
+    fn yaml_edit_runtime_patch_recreates_api_keys_after_delete_all() {
+        let input = "# Client authentication\napi-keys:\n  - old-key\nplugins:\n  enabled: true\n";
+        let cleared = patch_core_api_keys_yaml(input, &[]).unwrap();
+        let rendered = patch_core_api_keys_yaml(&cleared, &["restored-key".to_string()]).unwrap();
+        assert!(rendered.contains("# Client authentication"), "{rendered}");
+        let settings =
+            core_config_settings_from_value(&serde_norway::from_str(&rendered).unwrap()).unwrap();
+        assert_eq!(settings.api_keys, vec!["restored-key"]);
+    }
+
+    #[test]
+    fn yaml_edit_runtime_patch_adds_api_keys_to_core_style_config() {
+        let input = "host: 127.0.0.1\nremote-management:\n# nested setting comment\n  allow-remote: false\nauth-dir: /tmp/oauth\n# API keys for authentication\n# Enable debug logging\ndebug: false\n\n# Optional payload configuration\n# payload:\n#   filter:\n#     - models:\n#         - name: \"gemini-2.5-pro\"\n#       params:\n#         - \"generationConfig.responseJsonSchema\"\n";
+        let rendered =
+            patch_core_api_keys_yaml(input, &["new-key".to_string(), "backup-key".to_string()])
+                .unwrap();
+        let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered)
+            .unwrap_or_else(|error| panic!("invalid YAML: {error}\n{rendered}"));
+        let settings = core_config_settings_from_value(&parsed).unwrap();
+        assert_eq!(settings.api_keys, vec!["new-key", "backup-key"]);
+        assert!(rendered.contains("# Optional payload configuration"));
+        assert!(rendered.contains("generationConfig.responseJsonSchema"));
+        assert!(
+            rendered.find("auth-dir: /tmp/oauth").unwrap() < rendered.find("api-keys:").unwrap()
+        );
+        assert!(rendered.find("api-keys:").unwrap() < rendered.find("debug: false").unwrap());
+    }
+
+    #[test]
+    fn yaml_edit_runtime_patch_updates_existing_real_core_config() {
+        let input = "host: 0.0.0.0\nremote-management:\n# nested comment\n  allow-remote: false\nauth-dir: /tmp/oauth\n# API keys for authentication\napi-keys:\n  - '123456'\n# Enable debug logging\ndebug: false\n\n# payload:\n#   filter:\n#     - models:\n#         - name: gemini\n";
+        let rendered =
+            patch_core_api_keys_yaml(input, &[DEFAULT_API_KEY.to_string(), "new-key".to_string()])
+                .unwrap();
+        let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered)
+            .unwrap_or_else(|error| panic!("invalid YAML: {error}\n{rendered}"));
+        assert_eq!(
+            core_config_settings_from_value(&parsed).unwrap().api_keys,
+            vec![DEFAULT_API_KEY, "new-key"]
+        );
+    }
+
+    #[test]
+    fn runtime_api_key_patch_replaces_indentationless_core_sequence() {
+        let input = "host: 0.0.0.0\nport: 8317\nauth-dir: /tmp/oauth\napi-keys:\n- '123456'\ndebug: false\n";
+        let rendered = patch_core_api_keys_yaml(input, &[DEFAULT_API_KEY.to_string()])
+            .unwrap_or_else(|error| panic!("patch failed: {error}"));
+        let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered)
+            .unwrap_or_else(|error| panic!("invalid YAML: {error}\n{rendered}"));
+
+        assert_eq!(
+            core_config_settings_from_value(&parsed).unwrap().api_keys,
+            vec![DEFAULT_API_KEY]
+        );
+        assert_eq!(rendered.matches("- '123456'").count(), 1, "{rendered}");
+        assert!(rendered.contains("debug: false"), "{rendered}");
+    }
+
+    #[test]
+    fn yaml_edit_runtime_patch_migrates_legacy_api_key_entries() {
+        let input = "auth:\n  providers:\n    config-api-key:\n      api-key-entries:\n        - api-key: first-key\n        - key: second-key\nplugins:\n  enabled: false\n";
+        let rendered = patch_core_api_keys_yaml(input, &["migrated-key".to_string()]).unwrap();
+        let parsed = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+        let settings = core_config_settings_from_value(&parsed).unwrap();
+        assert_eq!(settings.api_keys, vec!["migrated-key"]);
+        assert!(
+            nested_yaml_value(
+                parsed.as_mapping().unwrap(),
+                &["auth", "providers", "config-api-key", "api-key-entries"]
+            )
+            .is_none(),
+            "{rendered}"
+        );
+    }
+
+    #[test]
+    fn core_config_reads_legacy_api_key_entries() {
+        let input = "auth:\n  providers:\n    config-api-key:\n      api-key-entries:\n        - api-key: first-key\n        - key: second-key\nplugins:\n  enabled: false\nrouting:\n  strategy: round-robin\n";
+        let document = serde_norway::from_str::<serde_norway::Value>(input).unwrap();
+        let settings = core_config_settings_from_value(&document).unwrap();
+
+        assert_eq!(settings.api_keys, vec!["first-key", "second-key"]);
+        assert!(!settings.plugins_enabled);
+        assert_eq!(settings.routing_strategy, "round-robin");
+    }
+
+    #[test]
+    fn core_config_reads_proxy_and_session_affinity_fields() {
+        let canonical = serde_norway::from_str::<serde_norway::Value>(
+            "proxy-url: socks5://127.0.0.1:7890\nrouting:\n  session-affinity: true\n  session-affinity-ttl: 2h\n",
+        )
+        .unwrap();
+        let settings = core_config_settings_from_value(&canonical).unwrap();
+        assert_eq!(settings.proxy_url, "socks5://127.0.0.1:7890");
+        assert!(settings.routing_session_affinity);
+        assert_eq!(settings.routing_session_affinity_ttl, "2h");
+
+        let aliases = serde_norway::from_str::<serde_norway::Value>(
+            "routing:\n  sessionAffinity: true\n  sessionAffinityTTL: 30m\n",
+        )
+        .unwrap();
+        let settings = core_config_settings_from_value(&aliases).unwrap();
+        assert!(settings.routing_session_affinity);
+        assert_eq!(settings.routing_session_affinity_ttl, "30m");
+
+        let defaults =
+            core_config_settings_from_value(&serde_norway::from_str("{}").unwrap()).unwrap();
+        assert_eq!(defaults.proxy_url, "");
+        assert!(!defaults.routing_session_affinity);
+        assert_eq!(defaults.routing_session_affinity_ttl, "");
+    }
+
+    #[test]
+    fn managed_session_settings_use_canonical_yaml_and_preserve_unrelated_content() {
+        let input = "# global proxy\nproxy-url: old\n# routing options\nrouting:\n  strategy: round-robin\n  sessionAffinity: false\n  sessionAffinityTTL: 10m\n# unrelated option\ndebug: true\n";
+        let config = GuiConfigFile {
+            proxy_url: "http://127.0.0.1:8080".to_string(),
+            routing_session_affinity: true,
+            routing_session_affinity_ttl: "1h".to_string(),
+            ..GuiConfigFile::default()
+        };
+        let rendered = apply_gui_managed_settings(input, &config).unwrap();
+        let document = serde_norway::from_str::<serde_norway::Value>(&rendered).unwrap();
+
+        assert_eq!(document["proxy-url"], "http://127.0.0.1:8080");
+        assert_eq!(document["routing"]["session-affinity"], true);
+        assert_eq!(document["routing"]["session-affinity-ttl"], "1h");
+        assert!(rendered.contains("# global proxy"));
+        assert!(rendered.contains("# unrelated option"));
+        assert_eq!(document["debug"], true);
+    }
+
+    #[test]
+    fn optional_core_strings_are_trimmed_and_reject_control_characters() {
+        assert_eq!(
+            normalize_optional_config_string("  socks5://proxy:7890  ".to_string(), "代理 URL")
+                .unwrap(),
+            "socks5://proxy:7890"
+        );
+        assert_eq!(
+            normalize_optional_config_string(" 1h ".to_string(), "TTL").unwrap(),
+            "1h"
+        );
+        assert!(normalize_optional_config_string("bad\nvalue".to_string(), "代理 URL").is_err());
+    }
+
+    #[test]
+    fn core_config_validates_keys_and_routing_strategy() {
+        assert!(validate_core_api_key("sk-valid_123").is_ok());
+        assert!(validate_core_api_key("").is_err());
+        assert!(validate_core_api_key("contains space").is_err());
+        assert!(validate_routing_strategy("round-robin").is_ok());
+        assert!(validate_routing_strategy("fill-first").is_ok());
+        assert!(validate_routing_strategy("random").is_err());
+    }
+
+    #[test]
+    fn unchanged_yaml_is_not_written_again() {
+        let path = std::env::temp_dir().join(format!(
+            "cpa-gui-unchanged-yaml-{}-{}.yaml",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let content = "host: 127.0.0.1\nport: 8317\n";
+        fs::write(&path, content).unwrap();
+
+        assert!(!write_yaml_if_changed(&path, content).unwrap());
+        assert_eq!(fs::read_to_string(&path).unwrap(), content);
+
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn startup_merge_uses_template_and_preserves_current_values() {
+        let template = "# Current release template\nhost: \"\" # template bind address\nport: 8317\n\n# Client authentication\napi-keys:\n  - template-key\n\n# Plugin runtime\nplugins:\n  enabled: false # plugin switch\n\n# Credential routing\nrouting:\n  strategy: round-robin # routing switch\n\n# New release option\nnew-option: true\nnested:\n  # Nested template comment\n  keep: template\n  added: from-template\nlist:\n  - template-item\n";
+        let current = "host: 127.0.0.1\nport: 9000\nnested:\n  keep: current\n  current-only: retained\nlist:\n  - current-a\n  - current-b\nextra: true\n";
+        let config = GuiConfigFile {
+            locale: "zh-CN".to_string(),
+            port: 9527,
+            allow_lan: true,
+            host: "0.0.0.0".to_string(),
+            run_on_startup: false,
+            close_behavior: WindowsCloseBehavior::Ask,
+            window_width: None,
+            window_height: None,
+            auth_dir: path_to_string(&fixed_oauth_dir().unwrap()),
+            api_keys: vec![
+                default_api_key_entry(),
+                GuiApiKeyEntry {
+                    key: "gui-key".to_string(),
+                    remark: "测试密钥".to_string(),
+                },
+            ],
+            api_access_remarks: Vec::new(),
+            management_secret_key: String::new(),
+            usage_statistics_enabled: false,
+            plugins_enabled: true,
+            routing_strategy: "fill-first".to_string(),
+            proxy_url: "socks5://127.0.0.1:7890".to_string(),
+            routing_session_affinity: true,
+            routing_session_affinity_ttl: "1h".to_string(),
+            codex_session_repair_on_launch: false,
+            claude_code_working_directory: String::new(),
+            claude_code_working_directory_prompt_disabled: false,
+        };
+        let merged = merge_core_config_yaml(template, Some(current), &config).unwrap();
+
+        assert!(merged.contains("# Current release template"));
+        assert!(merged.contains("# template bind address"), "{merged}");
+        assert!(merged.contains("# New release option"));
+        assert!(merged.contains("# Nested template comment"));
+
+        let document = serde_norway::from_str::<serde_norway::Value>(&merged).unwrap();
+        assert_eq!(
+            document["host"],
+            serde_norway::Value::String("0.0.0.0".to_string())
+        );
+        assert_eq!(document["port"], serde_norway::to_value(9527_u16).unwrap());
+        assert_eq!(document["api-keys"][0], DEFAULT_API_KEY);
+        assert_eq!(document["api-keys"][1], "gui-key");
+        assert_eq!(document["plugins"]["enabled"], true, "{merged}");
+        assert_eq!(document["routing"]["strategy"], "fill-first");
+        assert_eq!(document["proxy-url"], "socks5://127.0.0.1:7890");
+        assert_eq!(document["routing"]["session-affinity"], true);
+        assert_eq!(document["routing"]["session-affinity-ttl"], "1h");
+        assert_eq!(document["usage-statistics-enabled"], false);
+        assert_eq!(document["new-option"], serde_norway::Value::Bool(true));
+        assert_eq!(
+            document["nested"]["keep"],
+            serde_norway::Value::String("current".to_string())
+        );
+        assert_eq!(
+            document["nested"]["added"],
+            serde_norway::Value::String("from-template".to_string())
+        );
+        assert_eq!(
+            document["nested"]["current-only"],
+            serde_norway::Value::String("retained".to_string())
+        );
+        assert_eq!(document["extra"], serde_norway::Value::Bool(true));
+        assert_eq!(
+            document["list"],
+            serde_norway::Value::Sequence(vec![
+                serde_norway::Value::String("current-a".to_string()),
+                serde_norway::Value::String("current-b".to_string()),
+            ])
+        );
+    }
+
+    #[test]
+    fn startup_merge_without_current_config_uses_gui_defaults() {
+        let template = "# Template\nhost: \"\"\nport: 9000\napi-keys:\n  - template-key\nplugins:\n  enabled: true\nrouting:\n  strategy: fill-first\ndebug: false\n";
+        let mut config = GuiConfigFile::default();
+        ensure_strong_management_secret(&mut config).unwrap();
+        let merged = merge_core_config_yaml(template, None, &config).unwrap();
+        let document = serde_norway::from_str::<serde_norway::Value>(&merged).unwrap();
+
+        assert!(merged.contains("# Template"));
+        assert_eq!(
+            document["host"],
+            serde_norway::Value::String("127.0.0.1".to_string())
+        );
+        assert_eq!(document["port"], serde_norway::to_value(8317_u16).unwrap());
+        assert_eq!(document["debug"], serde_norway::Value::Bool(false));
+        assert_eq!(document["api-keys"][0], DEFAULT_API_KEY, "{merged}");
+        assert_eq!(document["plugins"]["enabled"], false);
+        assert_eq!(document["routing"]["strategy"], "round-robin");
+        assert_eq!(document["usage-statistics-enabled"], true);
+        assert_eq!(
+            document["remote-management"]["secret-key"],
+            config.management_secret_key
+        );
+    }
+
+    #[test]
+    fn startup_merge_can_shrink_template_api_key_sequence() {
+        let template = "host: \"\"\nport: 8317\nremote-management:\n  secret-key: \"\"\nauth-dir: ~/.cli-proxy-api\napi-keys:\n  - template-one\n  - template-two\n  - template-three\ndebug: false\nplugins:\n  enabled: false\nrouting:\n  strategy: round-robin\n";
+        let current = "host: 127.0.0.1\nport: 8317\nremote-management:\n  secret-key: hashed\nauth-dir: C:/oauth\napi-keys:\n  - '123456'\ndebug: false\nplugins:\n  enabled: false\nrouting:\n  strategy: round-robin\n";
+
+        let mut config = GuiConfigFile::default();
+        ensure_strong_management_secret(&mut config).unwrap();
+        let merged = merge_core_config_yaml(template, Some(current), &config).unwrap();
+        let document = serde_norway::from_str::<serde_norway::Value>(&merged)
+            .unwrap_or_else(|error| panic!("invalid YAML: {error}\n{merged}"));
+
+        assert_eq!(document["api-keys"][0], DEFAULT_API_KEY);
+        assert_eq!(document["api-keys"].as_sequence().unwrap().len(), 1);
+        assert_eq!(document["debug"], false);
+        assert_eq!(
+            document["remote-management"]["secret-key"],
+            config.management_secret_key
+        );
+    }
+
+    #[test]
+    fn release_atom_parser_reads_first_release_tag() {
+        let xml = r#"
+          <feed>
+            <entry>
+              <link href="https://github.com/router-for-me/CLIProxyAPI/releases/tag/v7.2.80"/>
+              <title>v7.2.80</title>
+            </entry>
+            <entry><title>v7.2.79</title></entry>
+          </feed>
+        "#;
+
+        assert_eq!(release_tag_from_atom(xml).as_deref(), Some("v7.2.80"));
+    }
+
+    #[test]
+    fn app_update_comparison_uses_semantic_versions() {
+        assert!(is_app_update_available("v0.1.9", "v0.2.0").unwrap());
+        assert!(is_app_update_available("v0.2.0-beta.1", "v0.2.0").unwrap());
+        assert!(!is_app_update_available("v0.2.0", "v0.2.0").unwrap());
+        assert!(!is_app_update_available("v0.2.0", "v0.1.9").unwrap());
+    }
+
+    fn portable_update_test_asset(version: &str, arch: &str) -> PortableUpdateAsset {
+        let name = format!("EasyCLIProxyAPI-v{version}-Windows-{arch}.zip");
+        PortableUpdateAsset {
+            url: format!("{APP_RELEASE_DOWNLOAD_PREFIX}v{version}/{name}"),
+            fallback_urls: Vec::new(),
+            sha256: "ab".repeat(32),
+            size_bytes: 1024,
+        }
+    }
+
+    fn portable_update_test_legacy_asset(version: &str, arch: &str) -> PortableUpdateAsset {
+        let name = format!("EasyCLIProxyAPI-update-v{version}-Windows-{arch}.zip");
+        PortableUpdateAsset {
+            url: format!("{APP_RELEASE_DOWNLOAD_PREFIX}v{version}/{name}"),
+            fallback_urls: Vec::new(),
+            sha256: "ab".repeat(32),
+            size_bytes: 1024,
+        }
+    }
+
+    fn portable_update_test_manifest(version: &str) -> PortableUpdateManifest {
+        PortableUpdateManifest {
+            schema_version: 1,
+            version: version.to_string(),
+            published_at: "2026-07-24T00:00:00.000Z".to_string(),
+            release_url: format!(
+                "https://github.com/router-for-me/EasyCLIProxyAPI/releases/tag/v{version}"
+            ),
+            assets: [
+                (
+                    "windows-amd64".to_string(),
+                    portable_update_test_asset(version, "amd64"),
+                ),
+                (
+                    "windows-aarch64".to_string(),
+                    portable_update_test_asset(version, "aarch64"),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            full_assets: None,
+        }
+    }
+
+    #[test]
+    fn portable_update_manifest_requires_both_matching_github_assets() {
+        let manifest = portable_update_test_manifest("1.2.3");
+        assert!(validate_portable_update_manifest(&manifest).is_ok());
+
+        let mut legacy_manifest = portable_update_test_manifest("1.2.3");
+        legacy_manifest.assets.insert(
+            "windows-amd64".to_string(),
+            portable_update_test_legacy_asset("1.2.3", "amd64"),
+        );
+        legacy_manifest.assets.insert(
+            "windows-aarch64".to_string(),
+            portable_update_test_legacy_asset("1.2.3", "aarch64"),
+        );
+        assert!(validate_portable_update_manifest(&legacy_manifest).is_ok());
+
+        let mut dual_manifest = portable_update_test_manifest("1.2.3");
+        dual_manifest.assets = [
+            (
+                "windows-amd64".to_string(),
+                portable_update_test_legacy_asset("1.2.3", "amd64"),
+            ),
+            (
+                "windows-aarch64".to_string(),
+                portable_update_test_legacy_asset("1.2.3", "aarch64"),
+            ),
+        ]
+        .into_iter()
+        .collect();
+        dual_manifest.full_assets = Some(
+            [
+                (
+                    "windows-amd64".to_string(),
+                    portable_update_test_asset("1.2.3", "amd64"),
+                ),
+                (
+                    "windows-aarch64".to_string(),
+                    portable_update_test_asset("1.2.3", "aarch64"),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        assert!(validate_portable_update_manifest(&dual_manifest).is_ok());
+
+        let mut missing_arch = portable_update_test_manifest("1.2.3");
+        missing_arch.assets.remove("windows-aarch64");
+        assert!(validate_portable_update_manifest(&missing_arch).is_err());
+
+        let mut invalid_timestamp = portable_update_test_manifest("1.2.3");
+        invalid_timestamp.published_at = "not-a-timestamp".to_string();
+        assert!(validate_portable_update_manifest(&invalid_timestamp).is_err());
+
+        let mut foreign_host = portable_update_test_manifest("1.2.3");
+        foreign_host
+            .assets
+            .get_mut("windows-amd64")
+            .unwrap()
+            .url = "https://github.com.example.invalid/router-for-me/EasyCLIProxyAPI/releases/download/v1.2.3/update.zip".to_string();
+        assert!(validate_portable_update_manifest(&foreign_host).is_err());
+
+        let mut mismatched_tag = portable_update_test_manifest("1.2.3");
+        mismatched_tag.assets.get_mut("windows-amd64").unwrap().url =
+            format!("{APP_RELEASE_DOWNLOAD_PREFIX}v9.9.9/EasyCLIProxyAPI-v1.2.3-Windows-amd64.zip");
+        assert!(validate_portable_update_manifest(&mismatched_tag).is_err());
+    }
+
+    #[test]
+    fn portable_update_asset_accepts_only_the_configured_gitcode_fallback() {
+        let mut asset = portable_update_test_asset("1.2.3", "amd64");
+        let filename = "EasyCLIProxyAPI-v1.2.3-Windows-amd64.zip";
+        asset.fallback_urls = vec![gitcode_release_attachment_url(
+            "mirror-owner/EasyCLIProxyAPI",
+            "v1.2.3",
+            filename,
+        )];
+        assert!(validate_portable_update_asset_fallbacks_for_repository(
+            &asset,
+            "v1.2.3",
+            &[filename],
+            Some("mirror-owner/EasyCLIProxyAPI"),
+        )
+        .is_ok());
+        assert!(validate_portable_update_asset_fallbacks_for_repository(
+            &asset,
+            "v1.2.3",
+            &[filename],
+            Some("another-owner/EasyCLIProxyAPI"),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn portable_update_state_supports_cancellation_and_snapshot_recovery() {
+        let state = AppUpdateState::default();
+        let pending = PendingAppUpdate {
+            version: "1.2.3".to_string(),
+            asset: portable_update_test_asset("1.2.3", "amd64"),
+            arch: "amd64".to_string(),
+        };
+        state.set_pending(
+            Some(pending),
+            AppUpdateTask {
+                phase: "available".to_string(),
+                target_version: Some("1.2.3".to_string()),
+                ..AppUpdateTask::default()
+            },
+        );
+
+        let token = CancellationToken::new();
+        let started = state.start(token.clone()).unwrap();
+        assert_eq!(started.version, "1.2.3");
+        let recovered = state.snapshot();
+        assert!(recovered.running);
+        assert!(recovered.cancellable);
+        assert_eq!(recovered.phase, "downloading");
+
+        state.cancel();
+        assert!(token.is_cancelled());
+        let finished = state.finish("cancelled", Some("cancelled".to_string()));
+        assert!(!finished.running);
+        assert!(!finished.cancellable);
+        assert_eq!(state.snapshot().phase, "cancelled");
+    }
+
+    #[test]
+    fn sha256_file_hashes_exact_portable_asset_bytes() {
+        let root = agent_test_home("portable-sha256");
+        let asset = root.join("update.zip");
+        fs::write(&asset, b"EasyCLIProxyAPI portable update").unwrap();
+
+        assert_eq!(
+            sha256_file(&asset).unwrap(),
+            "ade7a05bacf7c9144319c0f0cf431700a8883d3f6effd3613c60749dfba1eb52"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(windows)]
+    fn write_portable_update_zip(path: &Path, entries: &[(&str, &[u8], Option<u32>)]) {
+        use zip::write::SimpleFileOptions;
+
+        let file = File::create(path).unwrap();
+        let mut archive = zip::ZipWriter::new(file);
+        for (name, contents, unix_mode) in entries {
+            let mut options = SimpleFileOptions::default();
+            if let Some(mode) = unix_mode {
+                options = options.unix_permissions(*mode);
+            }
+            archive.start_file(*name, options).unwrap();
+            archive.write_all(contents).unwrap();
+        }
+        archive.finish().unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn portable_update_zip_accepts_the_complete_release_package() {
+        let root = agent_test_home("portable-zip");
+        let valid_zip = root.join("valid.zip");
+        let manifest = br#"{"schemaVersion":1,"application":"EasyCLIProxyAPI","version":"1.2.3","platform":"windows","arch":"amd64","autoUpdate":true}"#;
+        write_portable_update_zip(
+            &valid_zip,
+            &[
+                (
+                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/EasyCLIProxyAPI.exe",
+                    b"new executable",
+                    None,
+                ),
+                (
+                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/portable-app.json",
+                    manifest,
+                    None,
+                ),
+                (
+                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/core-version.txt",
+                    b"7.2.109\n",
+                    None,
+                ),
+                (
+                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/cpa-core/CLIProxyAPI_7.2.109_windows_amd64.zip",
+                    b"core archive",
+                    None,
+                ),
+            ],
+        );
+        let extracted = extract_portable_update_archive(&valid_zip, &root.join("valid")).unwrap();
+        assert_eq!(extracted.manifest.version, "1.2.3");
+        assert!(extracted.manifest.auto_update);
+        assert_eq!(
+            extracted.core_archive_name,
+            Some("CLIProxyAPI_7.2.109_windows_amd64.zip".to_string())
+        );
+
+        let legacy_zip = root.join("legacy.zip");
+        write_portable_update_zip(
+            &legacy_zip,
+            &[
+                (PORTABLE_APP_BINARY, b"legacy executable", None),
+                (PORTABLE_APP_MANIFEST_FILE, manifest, None),
+            ],
+        );
+        let legacy = extract_portable_update_archive(&legacy_zip, &root.join("legacy")).unwrap();
+        assert_eq!(legacy.manifest.version, "1.2.3");
+        assert!(legacy.core_archive_name.is_none());
+
+        let traversal_zip = root.join("traversal.zip");
+        write_portable_update_zip(
+            &traversal_zip,
+            &[
+                ("../EasyCLIProxyAPI.exe", b"malicious", None),
+                (
+                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/portable-app.json",
+                    manifest,
+                    None,
+                ),
+            ],
+        );
+        assert!(extract_portable_update_archive(&traversal_zip, &root.join("traversal")).is_err());
+
+        let symlink_zip = root.join("symlink.zip");
+        {
+            use zip::write::SimpleFileOptions;
+
+            let file = File::create(&symlink_zip).unwrap();
+            let mut archive = zip::ZipWriter::new(file);
+            archive
+                .add_symlink(
+                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/EasyCLIProxyAPI.exe",
+                    "target.exe",
+                    SimpleFileOptions::default(),
+                )
+                .unwrap();
+            archive
+                .start_file(
+                    "EasyCLIProxyAPI-v1.2.3-Windows-amd64/portable-app.json",
+                    SimpleFileOptions::default(),
+                )
+                .unwrap();
+            archive.write_all(manifest).unwrap();
+            archive.finish().unwrap();
+        }
+        assert!(extract_portable_update_archive(&symlink_zip, &root.join("symlink")).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn portable_update_replacement_preserves_user_data_and_can_roll_back() {
+        let root = agent_test_home("portable-replace");
+        let app_dir = root.join("app");
+        let work_dir = root.join("work");
+        let staging = work_dir.join("staging");
+        fs::create_dir_all(&app_dir).unwrap();
+        fs::create_dir_all(&staging).unwrap();
+        fs::create_dir_all(app_dir.join("cpa-core")).unwrap();
+        fs::create_dir_all(staging.join("cpa-core")).unwrap();
+        fs::write(app_dir.join(PORTABLE_APP_BINARY), b"old exe").unwrap();
+        fs::write(app_dir.join(PORTABLE_APP_MANIFEST_FILE), b"old manifest").unwrap();
+        fs::write(app_dir.join(CORE_VERSION_FILE), b"7.2.100").unwrap();
+        fs::write(
+            app_dir
+                .join("cpa-core")
+                .join("CLIProxyAPI_7.2.100_windows_amd64.zip"),
+            b"old core archive",
+        )
+        .unwrap();
+        fs::write(app_dir.join(GUI_CONFIG_FILE), b"user config").unwrap();
+        fs::create_dir_all(app_dir.join(OAUTH_DIR_NAME)).unwrap();
+        fs::write(app_dir.join(OAUTH_DIR_NAME).join("account.json"), b"oauth").unwrap();
+        fs::write(staging.join(PORTABLE_APP_BINARY), b"new exe").unwrap();
+        fs::write(staging.join(PORTABLE_APP_MANIFEST_FILE), b"new manifest").unwrap();
+        fs::write(staging.join(CORE_VERSION_FILE), b"7.2.109").unwrap();
+        fs::write(
+            staging
+                .join("cpa-core")
+                .join("CLIProxyAPI_7.2.109_windows_amd64.zip"),
+            b"new core archive",
+        )
+        .unwrap();
+        let descriptor = PortableUpdateDescriptor {
+            parent_pid: 1,
+            current_exe: app_dir.join(PORTABLE_APP_BINARY),
+            staged_exe: staging.join(PORTABLE_APP_BINARY),
+            current_manifest: app_dir.join(PORTABLE_APP_MANIFEST_FILE),
+            staged_manifest: staging.join(PORTABLE_APP_MANIFEST_FILE),
+            backup_exe: app_dir.join(".EasyCLIProxyAPI.exe.update-backup"),
+            backup_manifest: app_dir.join(".portable-app.json.update-backup"),
+            current_core_version: app_dir.join(CORE_VERSION_FILE),
+            staged_core_version: staging.join(CORE_VERSION_FILE),
+            backup_core_version: app_dir.join(".core-version.txt.update-backup"),
+            staged_core_archive: staging
+                .join("cpa-core")
+                .join("CLIProxyAPI_7.2.109_windows_amd64.zip"),
+            target_core_archive: app_dir
+                .join("cpa-core")
+                .join("CLIProxyAPI_7.2.109_windows_amd64.zip"),
+            install_core_archive: true,
+            ack_path: work_dir.join("update-started.ack"),
+            work_dir,
+            target_version: "1.2.3".to_string(),
+        };
+
+        replace_portable_update_files(&descriptor).unwrap();
+        assert_eq!(fs::read(&descriptor.current_exe).unwrap(), b"new exe");
+        assert_eq!(
+            fs::read(&descriptor.current_manifest).unwrap(),
+            b"new manifest"
+        );
+        assert_eq!(
+            fs::read(&descriptor.current_core_version).unwrap(),
+            b"7.2.109"
+        );
+        assert_eq!(
+            fs::read(&descriptor.target_core_archive).unwrap(),
+            b"new core archive"
+        );
+        assert_eq!(
+            fs::read(app_dir.join(GUI_CONFIG_FILE)).unwrap(),
+            b"user config"
+        );
+        assert_eq!(
+            fs::read(app_dir.join(OAUTH_DIR_NAME).join("account.json")).unwrap(),
+            b"oauth"
+        );
+
+        restore_portable_update_backup(&descriptor).unwrap();
+        assert_eq!(fs::read(&descriptor.current_exe).unwrap(), b"old exe");
+        assert_eq!(
+            fs::read(&descriptor.current_manifest).unwrap(),
+            b"old manifest"
+        );
+        assert_eq!(
+            fs::read(&descriptor.current_core_version).unwrap(),
+            b"7.2.100"
+        );
+        assert!(!descriptor.target_core_archive.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn synthetic_release_uses_official_asset_names_and_urls() {
+        let release = release_from_tag("7.2.80");
+        let platform = CorePlatform {
+            os: "linux".to_string(),
+            arch: "x86_64".to_string(),
+            asset_os: "linux".to_string(),
+            asset_arch: "amd64".to_string(),
+            archive_kind: "tar.gz".to_string(),
+        };
+        let asset = select_release_asset(&release, &platform).unwrap();
+
+        assert_eq!(release.tag_name, "v7.2.80");
+        assert_eq!(asset.name, "CLIProxyAPI_7.2.80_linux_amd64.tar.gz");
+        assert_eq!(
+            asset.browser_download_url,
+            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.80/CLIProxyAPI_7.2.80_linux_amd64.tar.gz"
+        );
+    }
+
+    #[test]
+    fn synthetic_core_release_uses_gitcode_as_download_fallback() {
+        let repository = "lzt404/CLIProxyAPI";
+        let release = release_from_tag_for_repositories("7.2.80", Some(repository), false);
+        let platform = CorePlatform {
+            os: "windows".to_string(),
+            arch: "x86_64".to_string(),
+            asset_os: "windows".to_string(),
+            asset_arch: "amd64".to_string(),
+            archive_kind: "zip".to_string(),
+        };
+        let asset = select_release_asset(&release, &platform).unwrap();
+
+        assert_eq!(
+            asset.browser_download_url,
+            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.80/CLIProxyAPI_7.2.80_windows_amd64.zip"
+        );
+        assert_eq!(
+            asset.fallback_download_urls,
+            ["https://api.gitcode.com/api/v5/repos/lzt404/CLIProxyAPI/releases/v7.2.80/attach_files/CLIProxyAPI_7.2.80_windows_amd64.zip/download"]
+        );
+    }
+
+    #[test]
+    fn gitcode_discovered_core_release_downloads_from_gitcode_first() {
+        let release = release_from_gitcode_tag("v7.2.80", "lzt404/CLIProxyAPI");
+        let platform = CorePlatform {
+            os: "linux".to_string(),
+            arch: "aarch64".to_string(),
+            asset_os: "linux".to_string(),
+            asset_arch: "aarch64".to_string(),
+            archive_kind: "tar.gz".to_string(),
+        };
+        let asset = select_release_asset(&release, &platform).unwrap();
+
+        assert_eq!(
+            asset.browser_download_url,
+            "https://api.gitcode.com/api/v5/repos/lzt404/CLIProxyAPI/releases/v7.2.80/attach_files/CLIProxyAPI_7.2.80_linux_aarch64.tar.gz/download"
+        );
+        assert!(asset.fallback_download_urls.is_empty());
+    }
+
+    #[test]
+    fn release_asset_names_cover_the_six_supported_gui_targets() {
+        let targets = [
+            ("linux", "amd64", "tar.gz"),
+            ("linux", "aarch64", "tar.gz"),
+            ("darwin", "amd64", "tar.gz"),
+            ("darwin", "aarch64", "tar.gz"),
+            ("windows", "amd64", "zip"),
+            ("windows", "aarch64", "zip"),
+        ];
+        for (os, arch, archive_kind) in targets {
+            let platform = CorePlatform {
+                os: os.to_string(),
+                arch: arch.to_string(),
+                asset_os: os.to_string(),
+                asset_arch: arch.to_string(),
+                archive_kind: archive_kind.to_string(),
+            };
+            assert_eq!(
+                core_release_asset_name("v7.2.83", &platform),
+                format!("CLIProxyAPI_7.2.83_{os}_{arch}.{archive_kind}")
+            );
+        }
+    }
+
+    #[test]
+    fn codex_launch_is_independent_from_managed_configuration_state() {
+        assert!(validate_agent_launch_modification(AgentClient::Codex, true, "applied").is_ok());
+        assert!(
+            validate_agent_launch_modification(AgentClient::Codex, false, "unconfigured").is_ok()
+        );
+        assert!(validate_agent_launch_modification(AgentClient::Codex, true, "invalid",).is_ok());
+        assert!(
+            validate_agent_launch_modification(AgentClient::OpenCode, false, "unconfigured")
+                .is_err()
+        );
+        assert!(validate_agent_launch_modification(AgentClient::OpenCode, true, "applied").is_ok());
+    }
+
+    #[test]
+    fn replacing_a_core_preserves_only_regular_bundled_assets() {
+        let root = agent_test_home("bundled-assets");
+        let source = root.join("source");
+        let target = root.join("target");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&target).unwrap();
+        fs::write(
+            source.join("CLIProxyAPI_7.2.83_linux_amd64.tar.gz"),
+            b"archive",
+        )
+        .unwrap();
+        fs::write(
+            source.join("CLIProxyAPI_7.2.83_linux_amd64_no-plugin.tar.gz"),
+            b"portable",
+        )
+        .unwrap();
+        fs::write(source.join(CORE_CHECKSUMS_FILE), b"checksums").unwrap();
+
+        preserve_bundled_core_assets(&source, &target).unwrap();
+
+        assert!(target
+            .join("CLIProxyAPI_7.2.83_linux_amd64.tar.gz")
+            .is_file());
+        assert!(!target
+            .join("CLIProxyAPI_7.2.83_linux_amd64_no-plugin.tar.gz")
+            .exists());
+        assert!(target.join(CORE_CHECKSUMS_FILE).is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn replacing_a_core_migrates_old_fields_into_the_new_template() {
+        let root = agent_test_home("core-config-migrate");
+        let source = root.join("source");
+        let target = root.join("target");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&target).unwrap();
+        let old_config = "# Old comment\nhost: 127.0.0.1\nport: 9527\nnested:\n  keep: old\n  old-only: retained\nlist:\n  - old-a\n  - old-b\nextra: true\n";
+        let new_template = "# New template\nhost: \"\"\nport: 8317\nnested:\n  keep: new-default\n  added: new-field\nlist:\n  - new-default\nnew-option: true\n";
+        fs::write(source.join(CORE_CONFIG_FILE), old_config).unwrap();
+        fs::write(target.join(CORE_EXAMPLE_CONFIG_FILE), new_template).unwrap();
+
+        migrate_core_config_for_update(&source, &target).unwrap();
+
+        let migrated = fs::read_to_string(target.join(CORE_CONFIG_FILE)).unwrap();
+        let document = serde_norway::from_str::<serde_norway::Value>(&migrated).unwrap();
+        assert!(migrated.contains("# New template"));
+        assert_eq!(document["host"], "127.0.0.1");
+        assert_eq!(document["port"], 9527);
+        assert_eq!(document["nested"]["keep"], "old");
+        assert_eq!(document["nested"]["added"], "new-field");
+        assert_eq!(document["nested"]["old-only"], "retained");
+        assert_eq!(document["list"][0], "old-a");
+        assert_eq!(document["list"][1], "old-b");
+        assert_eq!(document["new-option"], true);
+        assert_eq!(document["extra"], true);
+        assert_eq!(
+            fs::read_to_string(target.join(CORE_EXAMPLE_CONFIG_FILE)).unwrap(),
+            new_template
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn replacing_a_core_discards_invalid_fields_and_continues_migration() {
+        let root = agent_test_home("core-config-migrate-invalid");
+        let source = root.join("source");
+        let target = root.join("target");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&target).unwrap();
+        fs::write(
+            source.join(CORE_CONFIG_FILE),
+            "host: 127.0.0.1\nbroken: [invalid\nport: 9527\napi-keys:\n- old-a\n- old-b\n",
+        )
+        .unwrap();
+        fs::write(
+            target.join(CORE_EXAMPLE_CONFIG_FILE),
+            "host: \"\"\nbroken: new-default\nport: 8317\napi-keys:\n  - new-default\nnew-option: true\n",
+        )
+        .unwrap();
+        fs::write(target.join(CORE_CONFIG_FILE), "staged: untouched\n").unwrap();
+
+        migrate_core_config_for_update(&source, &target).unwrap();
+
+        let migrated = fs::read_to_string(target.join(CORE_CONFIG_FILE)).unwrap();
+        let document = serde_norway::from_str::<serde_norway::Value>(&migrated).unwrap();
+        assert_eq!(document["host"], "127.0.0.1");
+        assert_eq!(document["broken"], "new-default");
+        assert_eq!(document["port"], 9527);
+        assert_eq!(document["api-keys"][0], "old-a");
+        assert_eq!(document["api-keys"][1], "old-b");
+        assert_eq!(document["new-option"], true);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bundled_core_bootstrap_runs_only_when_no_core_binary_exists() {
+        let root = agent_test_home("bundled-bootstrap-detection");
+        let install_dir = root.join("cpa-core");
+
+        assert!(core_needs_bundled_bootstrap(&install_dir));
+
+        let existing_version = install_dir.join("existing-version");
+        fs::create_dir_all(&existing_version).unwrap();
+        fs::write(existing_version.join(core_binary_name()), b"existing core").unwrap();
+
+        assert!(!core_needs_bundled_bootstrap(&install_dir));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn bundled_core_locations_include_macos_app_resources() {
+        let contents_dir = agent_test_home("bundled-macos-resources")
+            .join("EasyCLIProxyAPI.app")
+            .join("Contents");
+        let executable_dir = contents_dir.join("MacOS");
+        let base_dir = agent_test_home("bundled-macos-data");
+        let resource_location = (
+            contents_dir.join("Resources").join(CORE_VERSION_FILE),
+            contents_dir.join("Resources").join("cpa-core"),
+        );
+
+        assert_eq!(
+            macos_app_resources_dir(&executable_dir),
+            Some(contents_dir.join("Resources"))
+        );
+        assert!(bundled_core_locations(&base_dir, &executable_dir).contains(&resource_location));
+    }
+
+    #[test]
+    fn source_project_root_is_detected_from_the_portable_development_directory() {
+        let root = agent_test_home("bundled-source-root");
+        fs::create_dir_all(root.join("src-tauri")).unwrap();
+        fs::create_dir_all(root.join("bin-work")).unwrap();
+        fs::write(root.join("package.json"), b"{}").unwrap();
+
+        assert_eq!(
+            source_project_root(&root.join("bin-work")),
+            Some(root.clone())
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn selected_source_archive_and_checksums_are_copied_into_the_installation() {
+        let root = agent_test_home("selected-bundled-asset");
+        let source = root.join("source");
+        let target = root.join("target");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&target).unwrap();
+        let archive = source.join("CLIProxyAPI_7.2.83_linux_amd64.tar.gz");
+        fs::write(&archive, b"archive").unwrap();
+        fs::write(source.join(CORE_CHECKSUMS_FILE), b"checksums").unwrap();
+
+        preserve_selected_bundled_core_asset(&archive, &target).unwrap();
+
+        assert_eq!(
+            fs::read(target.join("CLIProxyAPI_7.2.83_linux_amd64.tar.gz")).unwrap(),
+            b"archive"
+        );
+        assert_eq!(
+            fs::read(target.join(CORE_CHECKSUMS_FILE)).unwrap(),
+            b"checksums"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn release_page_assets_parse_download_links_and_sha256() {
+        let html = r#"
+          <li><a href="/router-for-me/CLIProxyAPI/releases/download/v1.2.3/checksums.txt">checksums.txt</a></li>
+          <li><a href="/router-for-me/CLIProxyAPI/releases/download/v1.2.3/CLIProxyAPI_1.2.3_linux_amd64.tar.gz">asset</a>
+            <span>sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef</span>
+          </li>
+        "#;
+
+        let assets = parse_release_assets(html);
+        assert_eq!(assets.len(), 2);
+        assert_eq!(assets[1].name, "CLIProxyAPI_1.2.3_linux_amd64.tar.gz");
+        assert_eq!(
+            assets[1].digest.as_deref(),
+            Some("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        );
+        assert!(assets[1]
+            .browser_download_url
+            .ends_with("/releases/download/v1.2.3/CLIProxyAPI_1.2.3_linux_amd64.tar.gz"));
+    }
+}

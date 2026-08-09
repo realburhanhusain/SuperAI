@@ -1,0 +1,464 @@
+name: Build portable releases
+
+run-name: >-
+  Portable release ${{ github.event.release.tag_name || (github.ref_type == 'tag' && github.ref_name) || inputs.release_tag || github.ref_name }}
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional tag to create after all builds pass (leave empty to build artifacts only)
+        required: false
+        type: string
+      prerelease:
+        description: Mark a manually published release as a pre-release
+        required: true
+        default: true
+        type: boolean
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Resolve app version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+      - name: Read and validate app version
+        id: resolve
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ github.event.release.tag_name || (github.ref_type == 'tag' && github.ref_name) || inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          source_version="$(node scripts/version.mjs)"
+          release_tag="$REQUESTED_VERSION"
+          if [ -z "$release_tag" ]; then
+            release_tag="v$source_version"
+          else
+            case "$release_tag" in
+              v*) ;;
+              *) release_tag="v$release_tag" ;;
+            esac
+          fi
+
+          version="$(node scripts/version.mjs "${release_tag#v}")"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: Validate source
+    needs: version
+    if: github.event_name != 'release' || github.event.release.prerelease == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Apply release version
+        run: node scripts/set-version.mjs "${{ needs.version.outputs.version }}"
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate desktop icons
+        shell: bash
+        run: |
+          test -s src-tauri/icons/icon.png
+          test -s src-tauri/icons/icon.ico
+          test -s src-tauri/icons/icon.icns
+      - name: Validate frontend
+        run: |
+          bun run check
+          bun test
+      - name: Validate Rust
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml
+
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    needs:
+      - version
+      - validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            os: linux
+            display_os: Linux
+            arch: amd64
+            suffix: tar.gz
+          - runner: ubuntu-24.04-arm
+            os: linux
+            display_os: Linux
+            arch: aarch64
+            suffix: tar.gz
+          - runner: macos-15-intel
+            os: darwin
+            display_os: Darwin
+            arch: amd64
+            suffix: dmg
+          - runner: macos-15
+            os: darwin
+            display_os: Darwin
+            arch: aarch64
+            suffix: dmg
+          - runner: windows-2025
+            os: windows
+            display_os: Windows
+            arch: amd64
+            suffix: zip
+          - runner: windows-11-arm
+            os: windows
+            display_os: Windows
+            arch: aarch64
+            suffix: zip
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Apply release version
+        run: node scripts/set-version.mjs "${{ needs.version.outputs.version }}"
+      - name: Resolve release package name
+        id: package
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          echo "stem=EasyCLIProxyAPI-v${APP_VERSION}-${{ matrix.display_os }}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+      - name: Install Linux dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Build GUI
+        env:
+          GITCODE_GUI_REPOSITORY: ${{ vars.GITCODE_GUI_REPOSITORY }}
+          GITCODE_CORE_REPOSITORY: ${{ vars.GITCODE_CORE_REPOSITORY }}
+          RUSTFLAGS: -D warnings
+        run: |
+          bun install --frozen-lockfile
+          bun tauri build --no-bundle
+        shell: bash
+      - name: Prepare portable directory
+        run: >-
+          node scripts/portable.mjs
+          --binary "src-tauri/target/release/cpa-gui${{ matrix.os == 'windows' && '.exe' || '' }}"
+          --output "release/${{ steps.package.outputs.stem }}"
+          --os "${{ matrix.os }}"
+          --arch "${{ matrix.arch }}"
+          --download true
+        shell: bash
+      - name: Verify archive-only core payload
+        shell: bash
+        env:
+          CORE_DIR: release/${{ steps.package.outputs.stem }}/cpa-core
+        run: |
+          node - <<'NODE'
+          const { readdirSync } = require('node:fs');
+          const entries = readdirSync(process.env.CORE_DIR, { withFileTypes: true });
+          const valid = entries.length === 1
+            && entries[0].isFile()
+            && /\.(zip|tar\.gz)$/.test(entries[0].name);
+          if (!valid) {
+            throw new Error(`cpa-core must contain exactly one archive; found: ${entries.map((entry) => entry.name).join(', ')}`);
+          }
+          NODE
+      - name: Prepare Windows legacy updater payload
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $updateDir = "release/update-${{ matrix.arch }}"
+          New-Item -ItemType Directory -Force -Path $updateDir | Out-Null
+          Copy-Item -LiteralPath "release/${{ steps.package.outputs.stem }}/EasyCLIProxyAPI.exe" -Destination $updateDir
+          Copy-Item -LiteralPath "release/${{ steps.package.outputs.stem }}/portable-app.json" -Destination $updateDir
+          $marker = Get-Content -Raw -LiteralPath "$updateDir/portable-app.json" | ConvertFrom-Json
+          if ($marker.schemaVersion -ne 1 -or
+              $marker.application -ne "EasyCLIProxyAPI" -or
+              $marker.version -ne "${{ steps.package.outputs.version }}" -or
+              $marker.platform -ne "windows" -or
+              $marker.arch -ne "${{ matrix.arch }}" -or
+              $marker.autoUpdate -ne $true) {
+            throw "Legacy updater payload does not match the Windows target"
+          }
+      - name: Build signed macOS DMG
+        if: matrix.os == 'darwin'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          test -n "$APPLE_CERTIFICATE"
+          test -n "$APPLE_CERTIFICATE_PASSWORD"
+          test -n "$APPLE_ID"
+          test -n "$APPLE_PASSWORD"
+          test -n "$APPLE_SIGNING_IDENTITY"
+          test -n "$APPLE_TEAM_ID"
+
+          certificate_path="$RUNNER_TEMP/apple-signing-certificate.p12"
+          keychain_path="$RUNNER_TEMP/apple-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          signed_core_dir="$RUNNER_TEMP/signed-core"
+          verification_dir="$RUNNER_TEMP/verify-bundled-core"
+          bundle_dir="src-tauri/target/release/bundle"
+          output_dmg="${{ steps.package.outputs.stem }}.dmg"
+          mount_dir="$RUNNER_TEMP/easycli-dmg"
+          mounted=false
+          keychain_list="$(security list-keychains -d user)"
+          existing_keychains=()
+          while IFS= read -r existing_keychain; do
+            existing_keychain="${existing_keychain#*\"}"
+            existing_keychain="${existing_keychain%\"*}"
+            if [ -n "$existing_keychain" ]; then
+              existing_keychains+=("$existing_keychain")
+            fi
+          done <<< "$keychain_list"
+
+          cleanup() {
+            set +e
+            if [ "$mounted" = true ]; then
+              hdiutil detach "$mount_dir"
+            fi
+            rm -f "$certificate_path"
+            rm -rf "$mount_dir" "$signed_core_dir" "$verification_dir"
+            security delete-keychain "$keychain_path"
+          }
+          trap cleanup EXIT
+
+          (umask 077; printf '%s' "$APPLE_CERTIFICATE" | base64 -D > "$certificate_path")
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          if [ "${#existing_keychains[@]}" -gt 0 ]; then
+            security list-keychains -d user -s "$keychain_path" "${existing_keychains[@]}"
+          else
+            security list-keychains -d user -s "$keychain_path"
+          fi
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          if ! security find-identity -v -p codesigning "$keychain_path" | grep -F -- "$APPLE_SIGNING_IDENTITY"; then
+            echo "Signing identity was not imported into the temporary keychain" >&2
+            exit 1
+          fi
+
+          core_archive="$(find cpa-core -maxdepth 1 -type f -name 'CLIProxyAPI_*_darwin_${{ matrix.arch }}.tar.gz' -print -quit)"
+          test -n "$core_archive"
+          mkdir -p "$signed_core_dir"
+          tar -xzf "$core_archive" -C "$signed_core_dir"
+          core_binary="$(find "$signed_core_dir" -type f -name 'cli-proxy-api' -print -quit)"
+          test -n "$core_binary"
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" --keychain "$keychain_path" "$core_binary"
+          codesign --verify --strict --verbose=2 "$core_binary"
+          signed_archive="$RUNNER_TEMP/$(basename "$core_archive")"
+          COPYFILE_DISABLE=1 tar -czf "$signed_archive" -C "$signed_core_dir" .
+          mv "$signed_archive" "$core_archive"
+
+          env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD \
+            bun tauri bundle --bundles dmg --ci --config src-tauri/tauri.dmg.conf.json
+
+          dmg_path="$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          test -n "$dmg_path"
+          mv "$dmg_path" "$output_dmg"
+          test -s "$output_dmg"
+          codesign --verify --strict --verbose=2 "$output_dmg"
+          xcrun notarytool submit "$output_dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$output_dmg"
+          xcrun stapler validate "$output_dmg"
+
+          mkdir -p "$mount_dir"
+          hdiutil attach "$output_dmg" -nobrowse -readonly -mountpoint "$mount_dir"
+          mounted=true
+
+          app_path="$mount_dir/EasyCLIProxyAPI.app"
+          resources_dir="$app_path/Contents/Resources"
+          test -d "$app_path"
+          test -s "$resources_dir/core-version.txt"
+          core_count="$(find "$resources_dir/cpa-core" -maxdepth 1 -type f -name 'CLIProxyAPI_*.tar.gz' | wc -l | tr -d '[:space:]')"
+          if [ "$core_count" -ne 1 ]; then
+            echo "macOS app must contain exactly one bundled core archive" >&2
+            exit 1
+          fi
+          bundled_core_archive="$(find "$resources_dir/cpa-core" -maxdepth 1 -type f -name 'CLIProxyAPI_*.tar.gz' -print -quit)"
+          mkdir -p "$verification_dir"
+          tar -xzf "$bundled_core_archive" -C "$verification_dir"
+          bundled_core_binary="$(find "$verification_dir" -type f -name 'cli-proxy-api' -print -quit)"
+          test -n "$bundled_core_binary"
+          codesign --verify --strict --verbose=2 "$bundled_core_binary"
+          signature_details="$(codesign -d --verbose=4 "$bundled_core_binary" 2>&1)"
+          grep -F 'Authority=Developer ID Application' <<< "$signature_details"
+          grep -F 'Timestamp=' <<< "$signature_details"
+          grep -F 'Runtime Version=' <<< "$signature_details"
+          case "${{ matrix.arch }}" in
+            amd64) expected_core_arch="x86_64" ;;
+            aarch64) expected_core_arch="arm64" ;;
+            *) echo "Unsupported macOS architecture: ${{ matrix.arch }}" >&2; exit 1 ;;
+          esac
+          file "$bundled_core_binary" | grep -F -- "$expected_core_arch"
+
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          xcrun stapler validate "$app_path"
+          hdiutil detach "$mount_dir"
+          mounted=false
+      - name: Archive Linux release
+        if: matrix.os == 'linux'
+        run: tar -czf "${{ steps.package.outputs.stem }}.tar.gz" -C release "${{ steps.package.outputs.stem }}"
+      - name: Archive Windows release
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "release/${{ steps.package.outputs.stem }}" -DestinationPath "${{ steps.package.outputs.stem }}.zip"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $releaseArchive = "${{ steps.package.outputs.stem }}.zip"
+          $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $releaseArchive))
+          try {
+            $entries = @($zip.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+            $root = "${{ steps.package.outputs.stem }}"
+            if ($entries -notcontains "$root/EasyCLIProxyAPI.exe" -or
+                $entries -notcontains "$root/portable-app.json" -or
+                $entries -notcontains "$root/core-version.txt" -or
+                -not ($entries | Where-Object { $_ -match "^$([regex]::Escape($root))/cpa-core/CLIProxyAPI_.+_windows_${{ matrix.arch }}\.zip$" })) {
+              throw "Full Windows release ZIP is incomplete: $($entries -join ', ')"
+            }
+          } finally {
+            $zip.Dispose()
+          }
+          $updateArchive = "EasyCLIProxyAPI-update-v${{ steps.package.outputs.version }}-Windows-${{ matrix.arch }}.zip"
+          Compress-Archive -Path "release/update-${{ matrix.arch }}/*" -DestinationPath $updateArchive
+          $updateZip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $updateArchive))
+          try {
+            $updateEntries = @($updateZip.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+            if ($updateEntries.Count -ne 2 -or
+                $updateEntries -notcontains "EasyCLIProxyAPI.exe" -or
+                $updateEntries -notcontains "portable-app.json") {
+              throw "Legacy updater ZIP contains unexpected entries: $($updateEntries -join ', ')"
+            }
+          } finally {
+            $updateZip.Dispose()
+          }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.stem }}
+          path: ${{ steps.package.outputs.stem }}.${{ matrix.suffix }}
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: matrix.os == 'windows'
+        with:
+          name: portable-updater-windows-${{ matrix.arch }}
+          path: EasyCLIProxyAPI-update-v${{ steps.package.outputs.version }}-Windows-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    name: Publish GitHub release
+    if: >-
+      (github.event_name == 'release' && github.event.release.prerelease == true)
+      || startsWith(github.ref, 'refs/tags/')
+      || inputs.release_tag != ''
+    needs:
+      - version
+      - build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Generate Windows portable update manifest
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: >-
+          node scripts/manifest.mjs
+          --directory artifacts
+          --output artifacts/portable-update-windows.json
+          --repository "${{ github.repository }}"
+          --gitcode-repository "${{ vars.GITCODE_GUI_REPOSITORY }}"
+          --tag "$RELEASE_TAG"
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          MANUAL_PRERELEASE: ${{ github.event_name == 'release' && github.event.release.prerelease || inputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          case "$RELEASE_TAG" in
+            v*) ;;
+            *) RELEASE_TAG="v$RELEASE_TAG" ;;
+          esac
+
+          if ! node -e 'process.exit(/^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:0|[1-9]\d*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(process.argv[1]) ? 0 : 1)' "$RELEASE_TAG"; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          prerelease="$MANUAL_PRERELEASE"
+          release_args=(--title "EasyCLIProxyAPI $RELEASE_TAG" --generate-notes)
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            release_args+=(--verify-tag)
+            if [[ "$RELEASE_TAG" == *-* ]]; then
+              prerelease=true
+            else
+              prerelease=false
+            fi
+          else
+            release_args+=(--target "$GITHUB_SHA")
+          fi
+          if [[ "$prerelease" == "true" ]]; then
+            release_args+=(--prerelease)
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" artifacts/* --clobber
+          else
+            gh release create "$RELEASE_TAG" "${release_args[@]}" artifacts/*
+          fi

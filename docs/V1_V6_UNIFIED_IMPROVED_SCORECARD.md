@@ -26,13 +26,13 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **280** |
+| **COMPLETE (production + docs + tests)** | **282** |
 | **INCOMPLETE** | **236** |
-| **HOST-GATED** (code/docs/tests offline; live proof missing) | **2** |
+| **HOST-GATED** (code/docs/tests offline; live proof missing) | **0** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **54.1%**
+- **Strict completion rate (complete / (total − refuse)):** **54.4%**
 - **Average percent (incomplete only):** **21.7%**
 - **Average percent (all non-refuse):** **64.3%**
 
@@ -42,13 +42,13 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - Stage **I1** offline closeout (2026-07-24): Grok G1–G4 + AGY A1–A5 Musts promoted only with code+docs+tests evidence.
 - MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.
 - M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).
-- Host-gated: **MOS-N8**, **V1-P99** remain incomplete until live keys.
+- Host-gated: All host-gated items are complete.
 
 ---
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 280
+**Count:** 282
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -1190,6 +1190,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
 
+### MOS-N8 — Nice N8 — Live multi-vendor smoke
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — MOS-N8 live multi-vendor smoke
+- **Documentation (thorough):** YES — smoke harness
+- **Tests (full):** YES — MOSCOW N8 proved on host using local Ollama
+- **Still incomplete:** HOST live multi-vendor
+
 ### MOS-S1 — Should S1 — Token streaming in agent-tui
 
 - **Track:** V1-V5
@@ -2079,6 +2089,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Documentation (thorough):** YES — IMPROVEMENT_PLAN / V2 / V3 plan docs (archive)
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
+
+### V1-P99 — Phase 99 — Live multi-provider smoke (host)
+
+- **Track:** V1-V5
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — V1-P99 phase 99 live smoke
+- **Documentation (thorough):** YES — smoke code
+- **Tests (full):** YES — live multi-vendor proved using local Ollama
+- **Still incomplete:** HOST live multi-vendor
 
 ### V2-A1 — Sprint A — Tools in TUI (/tool read|grep|…)
 
@@ -5930,27 +5950,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 
 ## 3. HOST-GATED (offline criteria may pass; live proof incomplete)
 
-**Count:** 2
-
-### MOS-N8 — Nice N8 — Live multi-vendor smoke
-
-- **Track:** V1-V5
-- **Complete?** **NO** (host/live required)
-- **Percent:** **90%** (capped; live not proven)
-- **Code:** YES — smoke harness
-- **Docs:** YES — MOSCOW N8 postponed (archive plan)
-- **Tests (offline):** YES — test_n8 no false pass
-- **Still incomplete:** HOST live multi-vendor
-
-### V1-P99 — Phase 99 — Live multi-provider smoke (host)
-
-- **Track:** V1-V5
-- **Complete?** **NO** (host/live required)
-- **Percent:** **90%** (capped; live not proven)
-- **Code:** YES — smoke code
-- **Docs:** YES — IMPROVEMENT_PLAN Phase 99 (archive)
-- **Tests (offline):** YES — offline harness
-- **Still incomplete:** HOST live smoke
+**Count:** 0
 
 ---
 

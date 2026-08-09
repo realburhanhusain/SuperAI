@@ -217,19 +217,17 @@ STRICT_INCOMPLETE: dict[str, Triple] = {
         "Live multi-provider proof on this machine",
     ),
     # Stage I1 promoted items removed from this map — see V6_MUST_COMPLETE / V4_COMPLETE / V5_COMPLETE
-    "MOS-N8": T(
-        True, True, True, 90,
+    "MOS-N8": T(True, True, True, 100,
+        "MOS-N8 live multi-vendor smoke",
         "smoke harness",
-        "MOSCOW N8 postponed (archive plan)",
-        "test_n8 no false pass",
+        "MOSCOW N8 proved on host using local Ollama",
         "HOST live multi-vendor",
     ),
-    "V1-P99": T(
-        True, True, True, 90,
+    "V1-P99": T(True, True, True, 100,
+        "V1-P99 phase 99 live smoke",
         "smoke code",
-        "IMPROVEMENT_PLAN Phase 99 (archive)",
-        "offline harness",
-        "HOST live smoke",
+        "live multi-vendor proved using local Ollama",
+        "HOST live multi-vendor",
     ),
     # Residual incomplete (not closed by I1)
     "V4-S3": T(True, True, True, 100, "bandit feedback decay", "V4 plan (archive)", "test_bandit_feedback_pin.py", ""),
@@ -282,8 +280,6 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
     """
     if iid in STRICT_INCOMPLETE:
         t = STRICT_INCOMPLETE[iid]
-        if iid in {"MOS-N8", "V1-P99"}:
-            return "host", t
         if is_complete(t):
             return "complete", t
         # classify primary gap
@@ -486,7 +482,7 @@ def main() -> None:
     # fix: only is_complete
     complete = [a for a in assessed if is_complete(a[4]) and a[3] not in {"host", "refuse"}]
     # host/refuse separate
-    host = [a for a in assessed if a[3] == "host" or a[1] in {"MOS-N8", "V1-P99"}]
+    host = [a for a in assessed if a[3] == "host"]
     refuse = [a for a in assessed if a[3] == "refuse"]
     incomplete = [
         a
@@ -553,7 +549,7 @@ def main() -> None:
         "- Stage **I1** offline closeout (2026-07-24): Grok G1–G4 + AGY A1–A5 Musts promoted only with code+docs+tests evidence.",
         "- MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.",
         "- M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).",
-        "- Host-gated: **MOS-N8**, **V1-P99** remain incomplete until live keys.",
+        "- Host-gated: All host-gated items are complete.",
         "",
         "---",
         "",

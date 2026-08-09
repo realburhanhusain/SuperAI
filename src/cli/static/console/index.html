@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperAI Management Center</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="brand">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                <span>SuperAI</span>
+            </div>
+            <ul class="nav-links">
+                <li><button class="nav-item active" data-tab="quotas">Agent Quotas</button></li>
+                <li><button class="nav-item" data-tab="keys">API Key Pools</button></li>
+                <li><button class="nav-item" data-tab="aliases">Model Aliases</button></li>
+                <li><button class="nav-item" data-tab="ratelimits">Rate Limits</button></li>
+                <li><button class="nav-item" data-tab="payloads">Payload Rules</button></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-title">Management Center</div>
+                <div class="topbar-actions">
+                    <input type="password" id="mgmt-token" placeholder="Management Token" class="input-glass">
+                </div>
+            </header>
+            
+            <div id="toast-container"></div>
+
+            <div class="dashboard-content">
+                <!-- Quotas Panel -->
+                <section id="panel-quotas" class="panel active glass-panel">
+                    <h2>Agent Quotas & Budgets</h2>
+                    <p class="subtitle">Set limits on how much an autonomous agent can spend.</p>
+                    <div class="json-editor-container">
+                        <textarea id="quotas-json" class="json-editor" spellcheck="false"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveResource('quotas')">Save Quotas</button>
+                </section>
+
+                <!-- Key Pools Panel -->
+                <section id="panel-keys" class="panel glass-panel">
+                    <h2>API Key Pools</h2>
+                    <p class="subtitle">Configure arrays of provider API keys for automatic round-robin rotation on 429s.</p>
+                    <div class="json-editor-container">
+                        <textarea id="keys-json" class="json-editor" spellcheck="false"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveResource('key_pools')">Save Key Pools</button>
+                </section>
+
+                <!-- Aliases Panel -->
+                <section id="panel-aliases" class="panel glass-panel">
+                    <h2>Model Aliases</h2>
+                    <p class="subtitle">Map generic router identifiers (e.g., router:fast) to actual upstream models.</p>
+                    <div class="json-editor-container">
+                        <textarea id="aliases-json" class="json-editor" spellcheck="false"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveResource('aliases')">Save Aliases</button>
+                </section>
+
+                <!-- Rate Limits Panel -->
+                <section id="panel-ratelimits" class="panel glass-panel">
+                    <h2>Rate Limits</h2>
+                    <p class="subtitle">Configure RPM and TPM token-bucket rate limits for internal throttling.</p>
+                    <div class="json-editor-container">
+                        <textarea id="ratelimits-json" class="json-editor" spellcheck="false"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveResource('rate_limits')">Save Rate Limits</button>
+                </section>
+
+                <!-- Payload Rules Panel -->
+                <section id="panel-payloads" class="panel glass-panel">
+                    <h2>Payload Rules & Interceptors</h2>
+                    <p class="subtitle">Configure system-level prompt injections and keyword blocking.</p>
+                    <div class="json-editor-container">
+                        <textarea id="payloads-json" class="json-editor" spellcheck="false"></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveResource('payload_rules')">Save Rules</button>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

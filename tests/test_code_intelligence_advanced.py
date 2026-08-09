@@ -114,8 +114,15 @@ def test_csharp_real_lsp_probe(tmp_path):
     status = lsp_bridge.provider_status("csharp")
     if not status.get("available"):
         pytest.skip("No C# LSP available")
-        
-    subprocess.run(["dotnet", "new", "console"], cwd=str(tmp_path), check=True)
+    
+    # Suppress .NET first-run welcome banner and telemetry notice
+    env = {**__import__("os").environ, "DOTNET_NOLOGO": "1", "DOTNET_CLI_TELEMETRY_OPTOUT": "1"}
+    subprocess.run(["dotnet", "new", "console"], cwd=str(tmp_path), check=True, env=env,
+                   capture_output=True)
+    subprocess.run(["dotnet", "new", "sln"], cwd=str(tmp_path), check=True, env=env,
+                   capture_output=True)
+    subprocess.run(["dotnet", "sln", "add", "."], cwd=str(tmp_path), check=True, env=env,
+                   capture_output=True)
     code = """using System;
 
 public class UsedClass {
@@ -139,7 +146,9 @@ class Program {
         {"id": "unused", "file": "Program.cs", "name": "UnusedClass", "line": 7}
     ]
     
-    res = lsp_bridge.python_reference_counts(tmp_path, candidates, timeout_seconds=30.0, language="csharp")
-    assert res["available"] is True
+    # Roslyn server init can take >30s on cold start; 120s matches our verified probe
+    res = lsp_bridge.python_reference_counts(tmp_path, candidates, timeout_seconds=120.0, language="csharp")
+    assert res["available"] is True, f"LSP unavailable: {res.get('reason')}"
     assert res["reference_counts"].get("used", 0) > 1
     assert res["reference_counts"].get("unused", 0) == 1
+

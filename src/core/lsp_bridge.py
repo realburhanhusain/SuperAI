@@ -213,7 +213,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
             return _omnisharp_reference_counts(command, root, candidates, timeout_seconds)
         argv = [command, "-mode=stdio"] if language == "go" else ([command, "--stdio"] if language in {"python", "typescript_javascript", "csharp"} else [command])
     try:
-        proc = subprocess.Popen(argv, cwd=str(root), env=_server_environment(language), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(argv, cwd=str(root), env=_server_environment(language), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=None)
     except OSError as exc:
         return {"available": False, "reason": f"provider start failed: {exc}", "reference_counts": {}}
     messages: "queue.Queue[Dict[str, Any]]" = queue.Queue()
@@ -272,7 +272,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
                 "cargo": {"features": "all"},
                 "linkedProjects": [str(root.resolve() / "Cargo.toml")]
             }
-        initialized = request("initialize", init_params, min(45.0 if language == "csharp" else (20.0 if language == "java" else 10.0), timeout_seconds)) or {}
+        initialized = request("initialize", init_params, min(120.0 if language == "csharp" else (20.0 if language == "java" else 10.0), timeout_seconds)) or {}
         if not (initialized.get("capabilities") or {}).get("referencesProvider"):
             return {"available": False, "reason": "provider has no references capability", "reference_counts": {}}
         assert proc.stdin is not None
@@ -280,6 +280,7 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
         proc.stdin.write(f"Content-Length: {len(init)}\r\n\r\n".encode("ascii") + init); proc.stdin.flush()
         counts: Dict[str, int] = {}
         deadline = time.monotonic() + timeout_seconds
+        opened_uris = set()
         for item in candidates:
             source = root / str(item["file"]); name = str(item["name"]); line = int(item["line"]) - 1
             if source.suffix not in extensions or not source.is_file() or time.monotonic() >= deadline:
@@ -288,11 +289,13 @@ def python_reference_counts(root: Path, candidates: List[Dict[str, Any]], timeou
             if line < 0 or line >= len(lines) or name not in lines[line]:
                 continue
             uri = source.resolve().as_uri(); column = lines[line].index(name)
-            open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":language_id,"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
-            proc.stdin.write(f"Content-Length: {len(open_payload)}\r\n\r\n".encode("ascii") + open_payload); proc.stdin.flush()
+            if uri not in opened_uris:
+                opened_uris.add(uri)
+                open_payload = json.dumps({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":language_id,"version":1,"text":"\n".join(lines)}}}).encode("utf-8")
+                proc.stdin.write(f"Content-Length: {len(open_payload)}\r\n\r\n".encode("ascii") + open_payload); proc.stdin.flush()
             # Servers build workspace indexes asynchronously; wait briefly within the existing bounded budget.
             time.sleep(min(5.0 if language in {"rust", "csharp"} else 1.0, max(0.0, deadline - time.monotonic())))
-            locations = request("textDocument/references", {"textDocument":{"uri":uri},"position":{"line":line,"character":column},"context":{"includeDeclaration":True}}, min(15.0, max(0.5, deadline-time.monotonic()))) or []
+            locations = request("textDocument/references", {"textDocument":{"uri":uri},"position":{"line":line,"character":column},"context":{"includeDeclaration":True}}, min(120.0, max(0.5, deadline-time.monotonic()))) or []
             counts[str(item["id"])] = len(locations) if isinstance(locations, list) else 0
         return {"available": True, "reference_counts": counts, "timed_out": time.monotonic() >= deadline}
     except (OSError, RuntimeError, TimeoutError, queue.Empty) as exc:

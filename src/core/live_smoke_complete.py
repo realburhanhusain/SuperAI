@@ -30,6 +30,7 @@ def run_stream_smoke_sample(
     *,
     use_mock: bool = True,
     model: str = "gpt-4o-mini",
+    provider: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Offline-safe stream aggregation smoke (M027/M089 adjacency).
@@ -45,6 +46,7 @@ def run_stream_smoke_sample(
         model=model,
         prompt="Reply with exactly: pong",
         command_name="live-smoke-stream",
+        provider=provider,
     )
     return {
         "ok": bool(result.get("ok")),
@@ -129,7 +131,7 @@ def run_phase6_smoke(
             try:
                 t0 = targets[0]
                 live_stream = run_stream_smoke_sample(
-                    use_mock=False, model=str(t0.get("model") or "gpt-4o-mini")
+                    use_mock=False, model=str(t0.get("model") or "gpt-4o-mini"), provider=t0.get("provider")
                 )
                 live_stream["provider"] = t0.get("provider")
             except Exception as e:

@@ -24,7 +24,7 @@ SMOKE_TARGETS = [
     {"provider": "google", "model": "gemini-2.0-flash", "env": "GOOGLE_API_KEY"},
     {"provider": "deepseek", "model": "deepseek-coder", "env": "DEEPSEEK_API_KEY"},
     {"provider": "groq", "model": "llama-3.3-70b", "env": "GROQ_API_KEY"},
-    {"provider": "ollama", "model": "llama3.2", "env": None},  # local probe
+    {"provider": "ollama", "model": "ollama/llama3.1-latest", "env": None},  # local probe
 ]
 
 

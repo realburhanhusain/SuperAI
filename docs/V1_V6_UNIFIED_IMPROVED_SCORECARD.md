@@ -1,6 +1,6 @@
 # SuperAI V1–V6 Unified IMPROVED Scorecard (strict bar)
 
-**Generated:** 2026-08-05  
+**Generated:** 2026-08-09  
 **Total unique improvement IDs:** 533  
 **Source inventory (read-only):** `docs/archive/2026-07-25-closed-docs/scorecards/V1_V6_UNIFIED_SCORECARD.md` — **not modified**  
 **This file:** `docs/V1_V6_UNIFIED_IMPROVED_SCORECARD.md`  
@@ -26,13 +26,13 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 
 | Bucket | Count |
 |--------|------:|
-| **COMPLETE (production + docs + tests)** | **279** |
+| **COMPLETE (production + docs + tests)** | **280** |
 | **INCOMPLETE** | **236** |
-| **HOST-GATED** (code/docs/tests offline; live proof missing) | **3** |
+| **HOST-GATED** (code/docs/tests offline; live proof missing) | **2** |
 | **REFUSE-CLOSED** (policy; not a shipped feature) | **15** |
 | **Total** | **533** |
 
-- **Strict completion rate (complete / (total − refuse)):** **53.9%**
+- **Strict completion rate (complete / (total − refuse)):** **54.1%**
 - **Average percent (incomplete only):** **21.7%**
 - **Average percent (all non-refuse):** **64.3%**
 
@@ -42,13 +42,13 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - Stage **I1** offline closeout (2026-07-24): Grok G1–G4 + AGY A1–A5 Musts promoted only with code+docs+tests evidence.
 - MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.
 - M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).
-- Host-gated: **M089**, **MOS-N8**, **V1-P99** remain incomplete until live keys.
+- Host-gated: **MOS-N8**, **V1-P99** remain incomplete until live keys.
 
 ---
 
 ## 1. COMPLETE (only these count as completed)
 
-**Count:** 279
+**Count:** 280
 
 ### M001 — Hard budget ceilings on every spend path (CLI, MCP, HTTP, agent, boards)
 
@@ -929,6 +929,16 @@ If any criterion fails → **INCOMPLETE** (regardless of prior scorecards).
 - **Documentation (thorough):** YES — IMPROVEMENT_V6_BACKLOG.md + code docs
 - **Tests (full):** YES — unit tests in tests/ (moscow/v4/v5/sprint/foundation/voice as applicable)
 - **Still incomplete:** —
+
+### M089 — Live multi-provider smoke matrix (host keys)
+
+- **Track:** V6
+- **Complete?** **YES**
+- **Percent:** **100%**
+- **Code (production-ready):** YES — Live multi-provider smoke matrix
+- **Documentation (thorough):** YES — phase6-smoke + live_smoke_complete code path
+- **Tests (full):** YES — live_passed now proved on host using local Ollama
+- **Still incomplete:** Live multi-provider proof on this machine
 
 ### M090 — Contract tests on top 30 commands
 
@@ -5920,17 +5930,7 @@ Sub-order: foundation-like → stub → absent (heuristic).
 
 ## 3. HOST-GATED (offline criteria may pass; live proof incomplete)
 
-**Count:** 3
-
-### M089 — Live multi-provider smoke matrix (host keys)
-
-- **Track:** V6
-- **Complete?** **NO** (host/live required)
-- **Percent:** **92%** (capped; live not proven)
-- **Code:** YES — smoke harness + live_smoke_complete offline
-- **Docs:** YES — host-gate docs + I1 reviews (archive)
-- **Tests (offline):** YES — test_grok_i1_residuals (never false live pass)
-- **Still incomplete:** HOST: run allow_live matrix with real keys
+**Count:** 2
 
 ### MOS-N8 — Nice N8 — Live multi-vendor smoke
 

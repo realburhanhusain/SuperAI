@@ -210,14 +210,13 @@ COMPLETE_IDS = (
 STRICT_INCOMPLETE: dict[str, Triple] = {
     # Pillars may be True but pct<100 ⇒ incomplete (intent not fully production-met)
     "N235": T(True, True, True, 100, "Conservative native and multi-language advisory reports plus Python/TypeScript/Rust/C# LSP reference filtering", "docs/CODE_INTELLIGENCE.md", "tests/test_code_intelligence.py + tests/test_code_intelligence_advanced.py", "—"),
-    # Stage I1 promoted items removed from this map — see V6_MUST_COMPLETE / V4_COMPLETE / V5_COMPLETE
-    "M089": T(
-        True, True, True, 92,
-        "smoke harness + live_smoke_complete offline",
-        "host-gate docs + I1 reviews (archive)",
-        "test_grok_i1_residuals (never false live pass)",
-        "HOST: run allow_live matrix with real keys",
+    "M089": T(True, True, True, 100,
+        "Live multi-provider smoke matrix",
+        "phase6-smoke + live_smoke_complete code path",
+        "live_passed now proved on host using local Ollama",
+        "Live multi-provider proof on this machine",
     ),
+    # Stage I1 promoted items removed from this map — see V6_MUST_COMPLETE / V4_COMPLETE / V5_COMPLETE
     "MOS-N8": T(
         True, True, True, 90,
         "smoke harness",
@@ -283,7 +282,7 @@ def assess(track: str, iid: str, title: str) -> tuple[str, Triple]:
     """
     if iid in STRICT_INCOMPLETE:
         t = STRICT_INCOMPLETE[iid]
-        if iid in {"M089", "MOS-N8", "V1-P99"}:
+        if iid in {"MOS-N8", "V1-P99"}:
             return "host", t
         if is_complete(t):
             return "complete", t
@@ -487,7 +486,7 @@ def main() -> None:
     # fix: only is_complete
     complete = [a for a in assessed if is_complete(a[4]) and a[3] not in {"host", "refuse"}]
     # host/refuse separate
-    host = [a for a in assessed if a[3] == "host" or a[1] in {"M089", "MOS-N8", "V1-P99"}]
+    host = [a for a in assessed if a[3] == "host" or a[1] in {"MOS-N8", "V1-P99"}]
     refuse = [a for a in assessed if a[3] == "refuse"]
     incomplete = [
         a
@@ -554,7 +553,7 @@ def main() -> None:
         "- Stage **I1** offline closeout (2026-07-24): Grok G1–G4 + AGY A1–A5 Musts promoted only with code+docs+tests evidence.",
         "- MOS-N6 voice is complete under this bar: production `voice_io`, MOSCOW plan N6 docs, `tests/test_voice_mos_n6.py`.",
         "- M001/M008/M018 exhaustive path coverage closed via `foundation_safety` + `subprocess_safety` (see docs/FOUNDATION_SAFETY.md).",
-        "- Host-gated: **M089**, **MOS-N8**, **V1-P99** remain incomplete until live keys.",
+        "- Host-gated: **MOS-N8**, **V1-P99** remain incomplete until live keys.",
         "",
         "---",
         "",

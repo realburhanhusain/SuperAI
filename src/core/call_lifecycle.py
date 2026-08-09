@@ -25,6 +25,7 @@ def pre_call(
     skip_budget: bool = False,
     estimated_usd: Optional[float] = None,
     estimated_tokens: Optional[int] = None,
+    agent_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Return {} if ok to proceed, or a blocked contract dict.
@@ -61,6 +62,28 @@ def pre_call(
         est = estimate_call(model, prompt, registry=registry)
         usd = float(estimated_usd if estimated_usd is not None else est.get("estimated_cost_usd") or 0.05)
         toks = int(estimated_tokens if estimated_tokens is not None else est.get("tokens") or 200)
+        
+        if agent_id:
+            from .quota_manager import QuotaManager, QuotaExceededError
+            qm = QuotaManager()
+            try:
+                # This will raise if budget is already exceeded or would be exceeded
+                qm.record_spend(agent_id, 0.0) # check current spend vs budget
+                current_spend = qm.get_spend(agent_id)
+                budget = qm.get_budget(agent_id)
+                if budget > 0 and (current_spend + usd) > budget:
+                    raise QuotaExceededError(f"Quota exceeded for agent {agent_id}. Budget: ${budget:.4f}, Attempted spend: ${(current_spend + usd):.4f}")
+            except QuotaExceededError as qe:
+                block = {
+                    "blocked": True,
+                    "ok": False,
+                    "status": "error",
+                    "error_code": "quota_exceeded",
+                    "error": str(qe),
+                    "response": str(qe)
+                }
+                return block
+
         block = budget_precheck(estimated_usd=usd, tokens=toks)
         if block.get("blocked") or block.get("ok") is False:
             block.setdefault("status", "error")
@@ -83,6 +106,7 @@ def post_call(
     started: Optional[float] = None,
     record_spend: bool = True,
     update_bandit: bool = True,
+    agent_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Attach cost fields, record spend, bandit, preferences, history."""
     if not isinstance(result, dict):
@@ -120,10 +144,16 @@ def post_call(
         try:
             from .spend_guard import budget_record
 
+            usd_spent = float(result.get("estimated_cost_usd") or 0)
             budget_record(
-                usd=float(result.get("estimated_cost_usd") or 0),
+                usd=usd_spent,
                 tokens=int(result.get("tokens") or 0),
             )
+            
+            if agent_id:
+                from .quota_manager import QuotaManager
+                qm = QuotaManager()
+                qm.record_spend(agent_id, usd_spent)
         except Exception:
             pass
 

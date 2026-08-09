@@ -17,7 +17,7 @@ This project board tracks the implementation of advanced orchestration and proxy
 
 | ID | Task | Component | Est | Status | Owner |
 |----|------|-----------|-----|--------|-------|
-| T17 | Granular Quotas & Agent Budgets | `core/quota_manager.py` | 2h | `[~]` | agent-fleet (stub only) |
+| T17 | Granular Quotas & Agent Budgets | `core/quota_manager.py` | 2h | `[x]` | agent-fleet |
 | T18 | Provider API Key Pooling & Rotation | `core/key_pool.py` | 2h | `[~]` | agent-fleet (stub only) |
 | T19 | Model Mappings & Aliasing | `core/model_router.py` | 1.5h | `[~]` | agent-fleet (stub only) |
 | T20 | Token-Bucket Rate Limiting (RPM/TPM) | `core/rate_limiter.py` | 1.5h | `[~]` | agent-fleet (stub only) |

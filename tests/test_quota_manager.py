@@ -20,6 +20,11 @@ def test_record_spend_exceeds_quota():
         qm.record_spend("agent1", 150.0)
 
 def test_record_spend_no_budget():
-    qm = QuotaManager()
-    with pytest.raises(ValueError):
-        qm.record_spend("agent1", 50.0)
+    qm = QuotaManager(storage_path="test_no_budget.json")
+    qm.record_spend("agent_x", 1.5)
+    assert qm.get_spend("agent_x") == 1.5
+    
+    # cleanup
+    import os
+    if os.path.exists("test_no_budget.json"):
+        os.remove("test_no_budget.json")

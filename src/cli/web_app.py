@@ -59,7 +59,7 @@ def create_app() -> Any:
     # AI Council Integration
     try:
         import sys
-        council_dir = Path(__file__).resolve().parents[4] / "claude" / "aicouncil" / "the-ai-counsel"
+        council_dir = Path(__file__).resolve().parents[2] / "projects" / "ai-council"
         council_backend = council_dir / "backend"
         council_frontend = council_dir / "frontend" / "dist"
         

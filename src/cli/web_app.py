@@ -56,6 +56,23 @@ def create_app() -> Any:
         if mgmt_ui_dir.is_dir():
             app.mount("/cliproxy-admin", StaticFiles(directory=str(mgmt_ui_dir), html=True), name="cliproxy_admin")
 
+    # AI Council Integration
+    try:
+        import sys
+        council_dir = Path(__file__).resolve().parents[4] / "claude" / "aicouncil" / "the-ai-counsel"
+        council_backend = council_dir / "backend"
+        council_frontend = council_dir / "frontend" / "dist"
+        
+        if council_backend.is_dir() and council_frontend.is_dir():
+            if str(council_backend) not in sys.path:
+                sys.path.append(str(council_backend))
+            
+            from main import app as council_api
+            app.mount("/council-api", council_api)
+            app.mount("/council", StaticFiles(directory=str(council_frontend), html=True), name="council_frontend")
+    except Exception:
+        pass
+
 
     def _client_is_loopback(request: Request) -> bool:
         host = (request.client.host if request.client else "") or ""

@@ -1,4 +1,71 @@
-from typing import Callable, Dict, Any, List
+import json
+import os
+from pathlib import Path
+from typing import Callable, Dict, Any, List, Optional
+
+class PayloadRulesError(Exception):
+    pass
+
+class PersistentPayloadRules:
+    def __init__(self, storage_path: Optional[str] = None):
+        if storage_path:
+            self.path = Path(storage_path)
+        else:
+            self.path = Path.home() / ".superai" / "config" / "payload_rules.json"
+        
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.rules = {"blocked_keywords": [], "system_append": ""}
+        self._load()
+
+    def _load(self):
+        if self.path.exists():
+            try:
+                with open(self.path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.rules["blocked_keywords"] = data.get("blocked_keywords", [])
+                    self.rules["system_append"] = data.get("system_append", "")
+            except Exception:
+                pass
+
+    def _save(self):
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(self.rules, f, indent=2)
+
+    def set_system_append(self, text: str):
+        self._load()
+        self.rules["system_append"] = text
+        self._save()
+
+    def add_blocked_keyword(self, keyword: str):
+        self._load()
+        if keyword not in self.rules["blocked_keywords"]:
+            self.rules["blocked_keywords"].append(keyword)
+            self._save()
+
+    def remove_blocked_keyword(self, keyword: str):
+        self._load()
+        if keyword in self.rules["blocked_keywords"]:
+            self.rules["blocked_keywords"].remove(keyword)
+            self._save()
+
+    def apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Applies persistent rules to a payload."""
+        self._load()
+        prompt = str(payload.get("prompt", ""))
+        sys_prompt = str(payload.get("system_prompt", ""))
+        
+        lower_prompt = prompt.lower()
+        for kw in self.rules["blocked_keywords"]:
+            if kw.lower() in lower_prompt:
+                raise PayloadRulesError(f"Prompt contains blocked keyword: {kw}")
+                
+        if self.rules["system_append"]:
+            if sys_prompt:
+                payload["system_prompt"] = sys_prompt + "\n\n" + self.rules["system_append"]
+            else:
+                payload["system_prompt"] = self.rules["system_append"]
+                
+        return payload
 
 class InterceptorChain:
     """
@@ -6,8 +73,11 @@ class InterceptorChain:
     to modify the payload (e.g., inject system prompts or filter keywords)
     before the request is sent.
     """
-    def __init__(self):
+    def __init__(self, use_persistent_rules: bool = True):
         self.interceptors: List[Callable[[Dict[str, Any]], Dict[str, Any]]] = []
+        if use_persistent_rules:
+            self.persistent_rules = PersistentPayloadRules()
+            self.add_interceptor(self.persistent_rules.apply)
 
     def add_interceptor(self, interceptor: Callable[[Dict[str, Any]], Dict[str, Any]]):
         """Adds an interceptor to the chain."""

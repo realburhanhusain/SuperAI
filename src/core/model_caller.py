@@ -132,6 +132,15 @@ class ModelCaller:
         except Exception:
             pass
 
+        try:
+            from .payload_rules import InterceptorChain, PayloadRulesError
+            payload = InterceptorChain().execute({"prompt": prompt, "system_prompt": system_prompt})
+            prompt = payload.get("prompt", "")
+            system_prompt = payload.get("system_prompt")
+        except PayloadRulesError as e:
+            _finish([], mode="budget_blocked", prov=None, fallback_reason=str(e), cancelled=True)
+            return
+
         info = self.registry.get_model(model) if self.registry else None
         provider = (
             (info.provider if info else None)
@@ -447,6 +456,14 @@ class ModelCaller:
             model = AliasRouter().resolve(model)
         except Exception:
             pass
+            
+        try:
+            from .payload_rules import InterceptorChain, PayloadRulesError
+            payload = InterceptorChain().execute({"prompt": prompt, "system_prompt": system_prompt})
+            prompt = payload.get("prompt", "")
+            system_prompt = payload.get("system_prompt")
+        except PayloadRulesError as e:
+            return {"ok": False, "status": "error", "error_code": "blocked_by_rule", "response": str(e), "blocked": True}
 
         started = time.time()
         skip_budget = bool(kwargs.pop("skip_budget", False))

@@ -21,7 +21,7 @@ This project board tracks the implementation of advanced orchestration and proxy
 | T18 | Provider API Key Pooling & Rotation | `core/key_pool.py` | 2h | `[x]` | agent-fleet |
 | T19 | Model Mappings & Aliasing | `core/model_router.py` | 1.5h | `[x]` | agent-fleet |
 | T20 | Token-Bucket Rate Limiting (RPM/TPM) | `core/rate_limiter.py` | 1.5h | `[x]` | agent-fleet |
-| T21 | Model Payload Rules & Interceptors | `core/payload_rules.py` | 1.5h | `[~]` | agent-fleet (stub only) |
+| T21 | Model Payload Rules & Interceptors | `core/payload_rules.py` | 1.5h | `[x]` | agent-fleet |
 
 **Total estimate:** ~8.5 hours.
 

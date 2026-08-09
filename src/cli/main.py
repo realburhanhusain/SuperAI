@@ -5341,6 +5341,49 @@ def desktop():
         raise typer.Exit(code=1)
 
 
+@app.command()
+def home():
+    """Launch the CLIProxyAPIHome Distributed Cluster Controller"""
+    import subprocess
+    import sys
+    import os
+    
+    project_dir = Path(__file__).parent.parent.parent / "projects" / "cli-proxy-api-home"
+    if not project_dir.exists():
+        console.print("[red]CLIProxyAPIHome vendored project not found.[/red]")
+        raise typer.Exit(code=1)
+        
+    console.print(f"[green]Starting CLIProxyAPIHome from {project_dir}[/green]")
+    
+    # Check if go is installed
+    try:
+        subprocess.run(["go", "version"], check=True, capture_output=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        console.print("[red]Go is required to run CLIProxyAPIHome but was not found on your system.[/red]")
+        raise typer.Exit(code=1)
+
+    binary_name = "CLIProxyAPIHome.exe" if os.name == "nt" else "CLIProxyAPIHome"
+    binary_path = project_dir / binary_name
+    
+    # Build if it doesn't exist
+    if not binary_path.exists():
+        console.print("[yellow]Building CLIProxyAPIHome...[/yellow]")
+        try:
+            subprocess.run(["go", "build", "-o", binary_name, "./cmd/home"], cwd=str(project_dir), check=True)
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]Failed to build CLIProxyAPIHome: {e}[/red]")
+            raise typer.Exit(code=1)
+            
+    console.print(f"[green]Running {binary_name}...[/green]")
+    try:
+        subprocess.run([str(binary_path)], cwd=str(project_dir), check=True)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]CLIProxyAPIHome stopped.[/yellow]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]CLIProxyAPIHome exited with error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
 @app.command("delegate")
 def delegate(
     goal: str = typer.Argument(..., help="High-level goal to decompose and run"),

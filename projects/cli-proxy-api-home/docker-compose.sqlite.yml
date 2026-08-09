@@ -1,0 +1,20 @@
+services:
+  home:
+    image: ${CLI_PROXY_HOME_IMAGE:-eceasy/cli-proxy-api-home:latest}
+    pull_policy: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-none}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    container_name: cli-proxy-api-home
+    ports:
+      - "8327:8327"
+    volumes:
+      - ${CLI_PROXY_HOME_CLUSTER_PATH:-./cluster.yaml}:/CLIProxyAPIHome/cluster.yaml:ro
+      - ${CLI_PROXY_HOME_DATA_PATH:-./data}:/CLIProxyAPIHome/data
+      - ${CLI_PROXY_HOME_LOG_PATH:-./logs}:/CLIProxyAPIHome/logs
+      - ${CLI_PROXY_HOME_PLUGIN_PATH:-./plugins}:/CLIProxyAPIHome/plugins
+    restart: unless-stopped

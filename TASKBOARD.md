@@ -24,6 +24,7 @@ Resume rules for agents: read **your** owner board first, then this index. Close
 | Project | Board | Scope |
 |---------|-------|-------|
 | **Web UI Management Center** | [`projects/webui-management-center/TASKBOARD.md`](projects/webui-management-center/TASKBOARD.md) | Browser UI for SuperAI config editing + runtime status; embeds the MIT CLI Proxy API Management Center for the proxy pane. 16 tasks, W0–W5. Plan: [`projects/webui-management-center/PLAN.md`](projects/webui-management-center/PLAN.md) |
+| **Fleet Proxy Features** | [`projects/fleet-proxy-features/TASKBOARD.md`](projects/fleet-proxy-features/TASKBOARD.md) | Native orchestration and proxy routing features (Quotas, Rate Limiting, Mappings, Pooling, Payload Rules). 5 tasks, T17-T21. |
 
 Unlike the owner boards above, project boards are not assigned to a specific
 agent. Read the project's `README.md` first — it carries the constraints and the

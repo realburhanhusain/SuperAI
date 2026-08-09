@@ -1,0 +1,49 @@
+/* Shared styles for Stage Copy Buttons */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.copy-button {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    height: 28px;
+}
+
+.copy-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.copy-button.copied {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #34d399;
+}
+
+.copy-button .icon {
+    font-size: 0.9em;
+}
+
+/* Ensure model-header in Stage 1 & 2 handles the actions container */
+/* We don't need to change model-header flex properties as space-between handles it, 
+   but we added a div wrapper .header-actions so they group together */
+
+/* Stage 3 specific tweaks since it uses chairman-header */
+.chairman-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* existing styles... */
+}

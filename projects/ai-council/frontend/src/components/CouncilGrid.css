@@ -1,0 +1,430 @@
+.council-grid {
+    display: grid;
+    gap: 14px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 12px;
+}
+
+.council-grid .council-card {
+    opacity: 0;
+    animation: card-reveal 0.5s ease forwards;
+}
+
+.council-grid .council-card:nth-child(1) { animation-delay: 0.05s; }
+.council-grid .council-card:nth-child(2) { animation-delay: 0.1s; }
+.council-grid .council-card:nth-child(3) { animation-delay: 0.15s; }
+.council-grid .council-card:nth-child(4) { animation-delay: 0.2s; }
+.council-grid .council-card:nth-child(5) { animation-delay: 0.25s; }
+.council-grid .council-card:nth-child(6) { animation-delay: 0.3s; }
+.council-grid .council-card:nth-child(7) { animation-delay: 0.35s; }
+.council-grid .council-card:nth-child(8) { animation-delay: 0.4s; }
+.council-grid .council-card:nth-child(9) { animation-delay: 0.45s; }
+
+@keyframes card-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 2 Members (3 items total) - Single Row */
+.council-grid.layout-2-members {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* 3 Members (4 items total) - Single Row */
+.council-grid.layout-3-members {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+/* 4 Members (5 items total) - Single Row */
+.council-grid.layout-4-members {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+/* 5 Members (6 items total) - 3 Top, 2 Bottom + Chairman */
+.council-grid.layout-5-members {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.council-grid.layout-5-members .council-card.chairman {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+/* 6 Members (7 items total) - 3 Top, 3 Bottom, Chairman Side */
+.council-grid.layout-6-members {
+    grid-template-columns: repeat(3, 1fr) 1fr;
+}
+
+.council-grid.layout-6-members .council-card.chairman {
+    grid-column: 4;
+    grid-row: 1 / 3;
+    align-self: center;
+}
+
+/* 7 Members (8 items total) - 4 Top, 3 Bottom + Chairman */
+.council-grid.layout-7-members {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.council-grid.layout-7-members .council-card.chairman {
+    grid-column: 4;
+    grid-row: 2;
+}
+
+/* 8 Members (9 items total) - 4 Top, 4 Bottom, Chairman Side */
+.council-grid.layout-8-members {
+    grid-template-columns: repeat(4, 1fr) 1fr;
+}
+
+.council-grid.layout-8-members .council-card.chairman {
+    grid-column: 5;
+    grid-row: 1 / 3;
+    align-self: center;
+}
+
+/* Mobile: stack vertically */
+@media (max-width: 799px) {
+    .council-grid:not(.council-grid--editable) {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    }
+
+    .council-grid:not(.council-grid--editable) .council-card.chairman {
+        grid-column: auto !important;
+        grid-row: auto !important;
+    }
+}
+
+.council-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border-glass);
+    border-radius: 14px;
+    padding: 24px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
+}
+
+/* ... existing styles ... */
+
+.model-name {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    position: relative;
+    cursor: help;
+}
+
+.model-name:hover::after {
+    content: attr(data-full-name);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.95);
+    color: #f8fafc;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 5px;
+}
+
+/* Role Badge */
+.role-badge {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    font-weight: 700;
+    width: 100%;
+}
+
+/* ... existing styles ... */
+
+.custom-tooltip {
+    position: fixed;
+    background: rgba(15, 23, 42, 0.95);
+    color: #f8fafc;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transform: translate(-50%, 20px);
+    /* Center horizontally, push down vertically */
+}
+
+.role-badge.member {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.role-badge.chairman {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* Chairman */
+.council-card.chairman {
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    background: linear-gradient(145deg, var(--bg-card), var(--accent-chairman-dim));
+    box-shadow: var(--shadow-soft), 0 0 20px rgba(251, 191, 36, 0.08);
+}
+
+/* Chairman disabled (not used in current execution mode) */
+.council-card.chairman.chairman-disabled {
+    opacity: 0.35;
+    border-color: rgba(148, 163, 184, 0.15);
+    background: linear-gradient(145deg, var(--bg-card), rgba(30, 41, 59, 0.3));
+    box-shadow: none;
+    pointer-events: none;
+    filter: grayscale(0.6);
+}
+
+/* Hover — only when idle/ready */
+.council-card.ready:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+}
+
+.council-card.chairman.ready:hover {
+    border-color: rgba(251, 191, 36, 0.5);
+    box-shadow: 0 12px 28px rgba(251, 191, 36, 0.15);
+}
+
+/* Active (thinking) */
+.council-card.active {
+    background: rgba(30, 41, 59, 0.75);
+    border-color: var(--provider-color);
+    box-shadow: 0 0 20px var(--accent-primary-dim);
+}
+
+/* Done State */
+.council-card.done {
+    background: rgba(30, 41, 59, 0.5);
+    border-color: rgba(16, 185, 129, 0.3);
+    /* Green tint */
+}
+
+/* Waiting/Queued State */
+.council-card.waiting {
+    opacity: 0.6;
+    transform: scale(0.98);
+}
+
+.council-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 10px;
+    position: relative;
+    border: 2px solid transparent;
+}
+
+.council-card.active .council-avatar {
+    border-color: var(--provider-color);
+}
+
+.avatar-icon {
+    z-index: 2;
+}
+
+.provider-logo {
+    width: 75%;
+    height: 75%;
+    object-fit: contain;
+    z-index: 2;
+}
+
+/* Thinking Animation */
+.thinking-ring {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--provider-color);
+    opacity: 0;
+    animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* Done Badge */
+.done-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 18px;
+    height: 18px;
+    background: #10b981;
+    color: white;
+    border-radius: 50%;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #1e293b;
+    z-index: 3;
+    animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop-in {
+    0% {
+        transform: scale(0);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.council-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+}
+
+.provider-label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .council-grid-container {
+        padding: 0 8px;
+    }
+
+    .council-grid {
+        gap: 10px;
+    }
+
+    .council-card {
+        padding: 18px 10px 12px;
+        border-radius: 12px;
+    }
+
+    .model-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+    }
+
+    .model-name {
+        font-size: 11px;
+    }
+
+    .provider-label {
+        font-size: 10px;
+    }
+
+    .role-badge {
+        font-size: 6px;
+        padding: 2px 6px;
+    }
+}
+
+@media (max-width: 600px) {
+    .council-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .council-card {
+        padding: 14px 8px 10px;
+    }
+
+    .model-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+
+    .model-name {
+        font-size: 10px;
+    }
+}
+
+/* Working Badge (Still processing) */
+.working-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 18px;
+    height: 18px;
+    background: #f59e0b; /* Amber alert color */
+    color: white;
+    border-radius: 50%;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #1e293b;
+    z-index: 3;
+    animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), pulse-spin 2s infinite ease-in-out;
+}
+
+@keyframes pulse-spin {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}

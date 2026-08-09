@@ -1,0 +1,215 @@
+:root {
+  /* --- Council Chamber Theme (refined Midnight Glass) --- */
+
+  /* Backgrounds */
+  --bg-dark: #080c1a;
+  --bg-darker: #05080f;
+  --bg-card: rgba(10, 14, 26, 0.75);
+  --bg-sidebar: rgba(6, 9, 18, 0.95);
+  --accent-advisor: #8b5cf6;
+
+  /* Text */
+  --text-primary: #f0f4f8;
+  --text-secondary: #9ca8b8;
+  --text-muted: #5c6b7c;
+
+  /* Accents */
+  --accent-primary: #3b82f6;
+  --accent-primary-dim: rgba(59, 130, 246, 0.25);
+  --accent-stage1: #22d3ee;
+  --accent-stage2: #f59e0b;
+  --accent-stage3: #10b981;
+  --accent-chairman: #fbbf24;
+  --accent-chairman-dim: rgba(251, 191, 36, 0.2);
+
+  /* Borders */
+  --border-color: rgba(148, 163, 184, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.08);
+
+  /* Typography */
+  --font-display: 'Syne', sans-serif;
+  --font-ui: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-content: 'IBM Plex Sans', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-code: 'JetBrains Mono', monospace;
+
+  /* Shadows & glow */
+  --shadow-glass: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --shadow-glow-blue: 0 0 24px rgba(59, 130, 246, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-darker);
+  background-image:
+    radial-gradient(ellipse 90% 70% at 15% 10%, rgba(59, 130, 246, 0.1) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 85% 85%, rgba(139, 92, 246, 0.09) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(34, 211, 238, 0.03) 0%, transparent 60%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Global Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+
+/* --- Glassmorphism Utility Classes --- */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Fallback for browsers without backdrop-filter */
+@supports not (backdrop-filter: blur(12px)) {
+  .glass-panel {
+    background: rgba(15, 23, 42, 0.95);
+  }
+}
+
+/* Optional grain overlay for depth (subtle) */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Markdown Content Styling */
+.markdown-content {
+  font-family: var(--font-content);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.68;
+  color: #dce6f2;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-content p {
+  margin-bottom: 1em;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: #f2f6fb;
+}
+
+.markdown-content code {
+  font-family: var(--font-code);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #f472b6; /* Pink-400 for inline code */
+}
+
+.markdown-content pre {
+  background: #020617; /* Almost black */
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.85em;
+}
+
+.markdown-content ul, .markdown-content ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid var(--accent-primary);
+  margin: 1em 0;
+  padding-left: 1em;
+  font-style: italic;
+  color: var(--text-secondary);
+  background: rgba(59, 130, 246, 0.05);
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.markdown-content thead {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.markdown-content th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  white-space: nowrap;
+}
+
+.markdown-content td {
+  padding: 9px 14px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.markdown-content tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-content tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Global Button Reset */
+button {
+  font-family: var(--font-ui);
+}

@@ -1,0 +1,219 @@
+/* Advisor Grid — horizontal strip of persona cards */
+
+:root {
+  --accent-advisor: #a855f7;
+}
+
+.advisor-grid-wrapper {
+  width: 100%;
+  margin-bottom: 28px;
+}
+
+.advisor-round-indicator {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-advisor);
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.advisor-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ── Individual Advisor Card ── */
+.advisor-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 16px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  transition:
+    opacity 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+  min-width: 110px;
+  flex: 1 1 110px;
+  max-width: 160px;
+  position: relative;
+}
+
+/* Idle — before debate starts, all cards neutral */
+.advisor-card--idle {
+  opacity: 0.75;
+}
+
+/* Thinking — actively speaking: full opacity + colored border + glow */
+.advisor-card--thinking {
+  opacity: 1;
+  border-color: var(--persona-color);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--persona-color) 25%, transparent),
+              var(--shadow-soft);
+  transform: translateY(-2px);
+}
+
+/* Waiting — debate running but not this persona's turn: dimmed */
+.advisor-card--waiting {
+  opacity: 0.45;
+  filter: saturate(0.4);
+}
+
+/* ── Avatar ── */
+.advisor-avatar-wrap {
+  position: relative;
+}
+
+.advisor-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 2px solid transparent;
+  transition: border-color 0.25s ease;
+}
+
+.advisor-card--thinking .advisor-avatar {
+  border-color: var(--persona-color);
+}
+
+.advisor-emoji {
+  font-size: 26px;
+  line-height: 1;
+  z-index: 2;
+  position: relative;
+}
+
+/* Thinking ring — reuses same keyframe pattern as CouncilGrid */
+.advisor-thinking-ring {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--persona-color, var(--accent-advisor));
+  opacity: 0;
+  animation: advisor-pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes advisor-pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* Done badge */
+.advisor-done-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  background: #10b981;
+  color: white;
+  border-radius: 50%;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0c1222;
+  z-index: 3;
+  animation: advisor-pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes advisor-pop-in {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* ── Text Info ── */
+.advisor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+
+.advisor-name {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.advisor-role {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.advisor-model {
+  font-family: var(--font-code);
+  font-size: 9.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* ── Mobile: 2-per-row wrap ── */
+@media (max-width: 599px) {
+  .advisor-grid {
+    gap: 8px;
+  }
+
+  .advisor-card {
+    min-width: calc(50% - 4px);
+    max-width: calc(50% - 4px);
+    flex: 0 0 calc(50% - 4px);
+    padding: 12px 10px 10px;
+  }
+
+  .advisor-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .advisor-emoji {
+    font-size: 22px;
+  }
+
+  .advisor-name {
+    font-size: 12px;
+  }
+
+  .advisor-role {
+    font-size: 10px;
+  }
+
+  .advisor-model {
+    font-size: 8.5px;
+  }
+}
+

@@ -1,0 +1,211 @@
+.app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text-primary);
+  position: relative;
+  z-index: 1;
+}
+
+.app-loading {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Mobile hamburger menu button */
+.mobile-menu-btn {
+  display: none;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 100;
+  width: 44px;
+  height: 44px;
+  background: rgba(30, 41, 59, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.mobile-menu-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.hamburger-icon {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text-primary);
+  position: relative;
+  border-radius: 2px;
+}
+
+.hamburger-icon::before,
+.hamburger-icon::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  left: 0;
+}
+
+.hamburger-icon::before {
+  top: -6px;
+}
+
+.hamburger-icon::after {
+  top: 6px;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+}
+
+/* Ensure modals sit on top of the glass UI */
+.settings-overlay {
+  background: rgba(0, 0, 0, 0.7); /* Darker overlay for contrast */
+  backdrop-filter: blur(4px);
+}
+
+.settings-modal {
+  background: #0f172a; /* Dark solid background for settings to avoid visual chaos */
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+/* Adjust Settings Styles for Dark Mode Compatibility */
+.settings-header {
+  background: #0f172a;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-header h2 {
+  color: var(--text-primary);
+}
+
+.close-button {
+  color: var(--text-secondary);
+}
+.close-button:hover {
+  color: var(--text-primary);
+}
+
+.settings-body {
+  background: #0f172a;
+}
+
+.settings-sidebar {
+  background: rgba(15, 23, 42, 0.5);
+  border-right: 1px solid var(--border-color);
+}
+
+.sidebar-nav-item {
+  color: var(--text-secondary);
+}
+.sidebar-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+.sidebar-nav-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-primary);
+}
+
+.settings-main-panel {
+  background: #0f172a;
+}
+
+.settings-section h3 {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-color);
+}
+
+.section-description {
+  color: var(--text-secondary);
+}
+
+/* Form Elements in Settings */
+.settings-modal input[type="text"],
+.settings-modal input[type="password"],
+.settings-modal textarea,
+.settings-modal select {
+  background: #1e293b;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.settings-modal input:focus,
+.settings-modal textarea:focus,
+.settings-modal select:focus {
+  border-color: var(--accent-primary);
+  background: #1e293b;
+}
+
+/* Cards in Settings */
+.provider-option-container {
+  border-color: var(--border-color);
+  background: transparent;
+}
+.provider-option-container:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.provider-option-container.selected {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: none;
+}
+.provider-name {
+  color: var(--text-primary);
+}
+.provider-description {
+  color: var(--text-secondary);
+}
+
+.council-member-row {
+  background: #1e293b;
+  border-color: var(--border-color);
+}
+.member-label {
+  color: var(--text-primary);
+}
+
+.api-key-section, .hybrid-settings-card, .full-content-section {
+  background: #1e293b; /* Card bg in settings */
+  border-color: var(--border-color);
+}
+
+.api-key-section label, .full-content-section label {
+  color: var(--text-primary);
+}
+
+.settings-footer {
+  background: #0f172a;
+  border-top-color: var(--border-color);
+}
+
+.toggle-text {
+  color: var(--text-primary);
+}
+
+.free-filter-label {
+  color: var(--text-primary);
+}

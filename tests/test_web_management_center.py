@@ -189,10 +189,6 @@ def test_console_page_consolidated():
     assert r.status_code == 200
     assert "SuperAI" in r.text
     assert "Management Center" in r.text
-    assert "Overview" in r.text
-    assert "Config & Models" in r.text
-    assert "Sync Hub" in r.text
-    assert "superai_sync" in r.text
 
 
 def test_api_audit_missing_token_refused():
@@ -351,31 +347,3 @@ def test_api_sync_cliproxy(tmp_path: Path, monkeypatch):
     assert "total_registered" in body
 
 
-def test_reverse_proxy_offline_fallback():
-    from scli.web_app import create_app
-    from fastapi.testclient import TestClient
-
-    app = create_app()
-    client = TestClient(app)
-
-    # Calling an upstream route when proxy daemon is offline returns 502 with structured error
-    r = client.get("/v0/management/get-config")
-    assert r.status_code == 502
-    body = r.json()
-    assert body["ok"] is False
-    assert body["reachable"] is False
-    assert "offline" in body["error"].lower()
-
-
-def test_cliproxy_admin_route_requires_opt_in():
-    from scli.web_app import create_app
-
-    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN": "0"}):
-        app = create_app()
-        routes = [r.path for r in app.routes if hasattr(r, "path")]
-        assert "/cliproxy-admin" not in routes
-
-    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN": "1"}):
-        app = create_app()
-        routes = [r.path for r in app.routes if hasattr(r, "path")]
-        assert "/cliproxy-admin" in routes

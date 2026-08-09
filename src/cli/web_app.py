@@ -50,11 +50,10 @@ def create_app() -> Any:
     if pwa_dir.is_dir():
         app.mount("/pwa", StaticFiles(directory=str(pwa_dir), html=True), name="pwa")
 
-    enable_cliproxy_admin = os.getenv("SUPERAI_WEB_ENABLE_CLIPROXY_ADMIN") == "1"
-    if enable_cliproxy_admin:
-        mgmt_ui_dir = Path(__file__).resolve().parents[2] / "vendor" / "mgmt-ui"
-        if mgmt_ui_dir.is_dir():
-            app.mount("/cliproxy-admin", StaticFiles(directory=str(mgmt_ui_dir), html=True), name="cliproxy_admin")
+    console_dir = Path(__file__).resolve().parent / "static" / "console"
+    if console_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=str(console_dir)), name="static")
+
 
     # AI Council Integration
     try:
@@ -393,6 +392,33 @@ def create_app() -> Any:
                 
                 return {"ok": True, "status": "updated", "count": len(valid_models)}
 
+            @app.get("/api/{resource}")
+            async def get_resource(request: Request, resource: str) -> Dict[str, Any]:
+                if resource not in ("quotas", "key_pools", "aliases", "rate_limits", "payload_rules"):
+                    raise HTTPException(status_code=404)
+                _check_management_auth(request)
+                import json
+                from pathlib import Path
+                path = Path.home() / ".superai" / "config" / f"{resource}.json"
+                if path.exists():
+                    try:
+                        return {"ok": True, "data": json.loads(path.read_text(encoding="utf-8"))}
+                    except Exception as e:
+                        return {"ok": False, "error": str(e)}
+                return {"ok": True, "data": {}}
+
+            @app.post("/api/{resource}")
+            async def set_resource(request: Request, resource: str) -> Dict[str, Any]:
+                if resource not in ("quotas", "key_pools", "aliases", "rate_limits", "payload_rules"):
+                    raise HTTPException(status_code=404)
+                _check_management_auth(request)
+                import json
+                from pathlib import Path
+                payload = await request.json()
+                path = Path.home() / ".superai" / "config" / f"{resource}.json"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(payload.get("data", payload), indent=2), encoding="utf-8")
+                return {"ok": True}
     @app.get("/api/audit")
     async def api_audit(request: Request, limit: int = Query(50, ge=1, le=500)) -> Dict[str, Any]:
         _check_management_auth(request)
@@ -555,10 +581,7 @@ async function status(){
                 },
             )
 
-    @app.api_route("/v0/management/{mgmt_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-    async def proxy_management_endpoint(mgmt_path: str, request: Request):
-        body = await request.body()
-        return _proxy_cliproxy_request(f"v0/management/{mgmt_path}", request, request.method, body)
+
 
     @app.api_route("/v1/models", methods=["GET"])
     async def proxy_models_endpoint(request: Request):
@@ -1317,568 +1340,12 @@ setInterval(load, 2000);
 
     @app.get("/console", response_class=HTMLResponse)
     @app.get("/management.html", response_class=HTMLResponse)
-    def console_page() -> str:
-        return """<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SuperAI Unified Management Center</title>
-<style>
-:root {
-  --bg: #0d1117;
-  --panel: #161b22;
-  --panel-border: #30363d;
-  --text: #c9d1d9;
-  --text-muted: #8b949e;
-  --text-bright: #f0f6fc;
-  --primary: #238636;
-  --primary-hover: #2ea043;
-  --accent: #58a6ff;
-  --accent-hover: #79c0ff;
-  --danger: #da3633;
-  --warning: #d29922;
-  --success: #3fb950;
-  --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
-}
-* { box-sizing: border-box; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-header {
-  background: var(--panel);
-  border-bottom: 1px solid var(--panel-border);
-  padding: 0.75rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.brand {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text-bright);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.brand span { color: var(--accent); }
-.nav-tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-left: 1rem;
-}
-.tab-btn {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid transparent;
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  transition: all 0.15s ease;
-}
-.tab-btn:hover { color: var(--text-bright); background: rgba(255,255,255,0.05); }
-.tab-btn.active {
-  color: var(--text-bright);
-  background: #21262d;
-  border-color: var(--panel-border);
-  border-bottom: 2px solid var(--accent);
-}
-.header-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.pill {
-  padding: 0.2rem 0.6rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.pill-mock { background: rgba(218,54,51,0.15); color: #ff7b72; border: 1px solid rgba(218,54,51,0.4); }
-.pill-live { background: rgba(63,185,80,0.15); color: #56d364; border: 1px solid rgba(63,185,80,0.4); }
-.pill-proxy { background: rgba(88,166,255,0.15); color: #79c0ff; border: 1px solid rgba(88,166,255,0.4); }
-.token-input {
-  background: #0d1117;
-  border: 1px solid var(--panel-border);
-  color: var(--text-bright);
-  padding: 0.35rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  width: 170px;
-}
-.btn {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  color: var(--text-bright);
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn:hover { background: #30363d; }
-.btn-primary { background: var(--primary); border-color: rgba(240,246,252,0.1); }
-.btn-primary:hover { background: var(--primary-hover); }
-.btn-accent { background: #1f6feb; border-color: rgba(240,246,252,0.1); }
-.btn-accent:hover { background: #388bfd; }
-main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.25rem 1.5rem;
-}
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 1rem;
-}
-.card {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.card h2 {
-  font-size: 1rem;
-  margin: 0;
-  color: var(--text-bright);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-pre {
-  background: #0d1117;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  padding: 0.75rem;
-  color: #7ee787;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  max-height: 250px;
-  overflow: auto;
-  margin: 0;
-  white-space: pre-wrap;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-th, td {
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--panel-border);
-  text-align: left;
-}
-th { color: var(--text-muted); font-weight: 600; background: #0d1117; }
-iframe {
-  width: 100%;
-  height: calc(100vh - 120px);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  background: #fff;
-}
-.banner {
-  background: rgba(210,153,34,0.15);
-  border: 1px solid rgba(210,153,34,0.4);
-  color: #e3b341;
-  padding: 0.6rem 1rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-.banner a { color: #f0883e; font-weight: 600; }
-.form-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-.form-input {
-  background: #0d1117;
-  border: 1px solid var(--panel-border);
-  color: var(--text-bright);
-  padding: 0.4rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  flex: 1;
-}
-.sync-stat-box {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-.stat-card {
-  background: #21262d;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  padding: 1rem;
-  text-align: center;
-}
-.stat-val { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
-.stat-lbl { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
-</style>
-</head>
-<body>
-
-<header>
-  <div class="brand">
-    ⚡ <span>SuperAI</span> Management Center
-  </div>
-  <div class="nav-tabs">
-    <button class="tab-btn active" onclick="switchTab('overview')">📊 Overview</button>
-    <button class="tab-btn" onclick="switchTab('models-config')">⚙️ Config & Models</button>
-    <button class="tab-btn" onclick="switchTab('cliproxy-admin')">🌐 CLIProxyAPI Admin</button>
-    <button class="tab-btn" onclick="switchTab('sync-hub')">🔄 Sync Hub</button>
-  </div>
-  <div class="header-actions">
-    <div id="sig-mode" class="pill pill-mock">MOCK MODE</div>
-    <div id="sig-proxy" class="pill pill-proxy">Proxy: Probing...</div>
-    <input id="mgmt-token" type="password" class="token-input" placeholder="Management Token" onchange="saveToken(this.value)"/>
-    <button class="btn btn-primary" onclick="triggerAutoSync()">⚡ 2-Way Sync</button>
-  </div>
-</header>
-
-<main>
-  <!-- OVERVIEW TAB -->
-  <div id="tab-overview" class="tab-content active">
-    <div class="banner">
-      <strong>Notice:</strong> Using CLIProxyAPI to wrap subscription access as a general API may conflict with vendor Terms of Service. See <a href="https://github.com/superai/superai/blob/master/docs/CLIPROXY_TRANSPORT.md" target="_blank">docs/CLIPROXY_TRANSPORT.md</a>.
-    </div>
-    <div class="grid">
-      <div class="card">
-        <h2>Spend & Cost Breakdown <button class="btn" onclick="loadSpend()">Refresh</button></h2>
-        <pre id="p-spend">Loading...</pre>
-      </div>
-      <div class="card">
-        <h2>Bandit Model Router <button class="btn" onclick="loadBandit()">Refresh</button></h2>
-        <pre id="p-bandit">Loading...</pre>
-      </div>
-      <div class="card">
-        <h2>Goals Daemon <button class="btn" onclick="loadGoals()">Refresh</button></h2>
-        <pre id="p-goals">Loading...</pre>
-      </div>
-      <div class="card">
-        <h2>Parallel CLI Workers <button class="btn" onclick="loadCliPool()">Refresh</button></h2>
-        <pre id="p-clipool">Loading...</pre>
-      </div>
-      <div class="card">
-        <h2>Runtime System Snapshot <button class="btn" onclick="loadDashboard()">Refresh</button></h2>
-        <pre id="p-dashboard">Loading...</pre>
-      </div>
-      <div class="card">
-        <h2>Memory Palace & Learnings <button class="btn" onclick="loadLearnings()">Refresh</button></h2>
-        <pre id="p-learnings">Loading...</pre>
-      </div>
-    </div>
-  </div>
-
-  <!-- CONFIG & MODELS TAB -->
-  <div id="tab-models-config" class="tab-content">
-    <div class="grid" style="grid-template-columns: 1.2fr 1fr;">
-      <div class="card">
-        <h2>Model Registry CRUD <button class="btn btn-primary" onclick="loadModels()">Reload Models</button></h2>
-        <div style="overflow-x: auto; max-height: 350px;">
-          <table id="models-table">
-            <thead>
-              <tr><th>Name</th><th>Provider</th><th>Model ID</th><th>Context</th><th>Cost/1k</th></tr>
-            </thead>
-            <tbody id="models-tbody"><tr><td colspan="5">Loading models...</td></tr></tbody>
-          </table>
-        </div>
-        <div style="border-top: 1px solid var(--panel-border); padding-top: 0.75rem;">
-          <h3 style="margin: 0 0 0.5rem 0; font-size: 0.9rem;">Add Custom Model</h3>
-          <div class="form-row" style="margin-bottom: 0.5rem;">
-            <input id="new-model-name" class="form-input" placeholder="Name (e.g. cliproxy:claude-3-5-sonnet)"/>
-            <input id="new-model-id" class="form-input" placeholder="Model ID (e.g. claude-3-5-sonnet)"/>
-          </div>
-          <div class="form-row">
-            <input id="new-model-provider" class="form-input" placeholder="Provider (e.g. cliproxy, openai)"/>
-            <input id="new-model-cost" class="form-input" placeholder="Cost per 1k (e.g. 0.015)" type="number" step="0.001"/>
-            <button class="btn btn-accent" onclick="addCustomModel()">Save Model</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Config Mutation & Backups</h2>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Atomic updates to <code>~/.superai/config.json</code> with automatic rollback snapshots.</p>
-        <div class="form-row">
-          <button class="btn" onclick="viewConfigDiff()">Preview Diff</button>
-          <button class="btn btn-accent" onclick="viewBackups()">List Backups</button>
-          <button class="btn" onclick="loadAuditLog()">Audit Trail</button>
-        </div>
-        <pre id="p-config-result">Select an action above.</pre>
-      </div>
-    </div>
-  </div>
-
-  <!-- CLIPROXYAPI ADMIN TAB -->
-  <div id="tab-cliproxy-admin" class="tab-content">
-    <iframe id="cliproxy-frame" src="/cliproxy-admin" title="CLIProxyAPI Management Center"></iframe>
-  </div>
-
-  <!-- SYNC HUB TAB -->
-  <div id="tab-sync-hub" class="tab-content">
-    <div class="sync-stat-box">
-      <div class="stat-card">
-        <div id="stat-synced-count" class="stat-val">0</div>
-        <div class="stat-lbl">Synced Proxy Models</div>
-      </div>
-      <div class="stat-card">
-        <div id="stat-bridge-status" class="stat-val" style="color: var(--success);">ACTIVE</div>
-        <div class="stat-lbl">Bidirectional Gateway Bridge</div>
-      </div>
-      <div class="stat-card">
-        <div id="stat-proxy-reach" class="stat-val">Checking...</div>
-        <div class="stat-lbl">CLIProxyAPI Daemon Status</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Two-Way Auto-Sync Controls <button class="btn btn-primary" onclick="triggerAutoSync()">Execute Two-Way Sync Now</button></h2>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
-        Changes made in CLIProxyAPI (OAuth logins, auth files, custom keys) automatically populate into SuperAI's Model Registry and Bandit Router.
-        Changes made in SuperAI automatically route through the single-port gateway.
-      </p>
-      <pre id="p-sync-log">Ready. Click 'Execute Two-Way Sync Now' to pull latest proxy definitions.</pre>
-    </div>
-  </div>
-</main>
-
-<script>
-// Shared Event Bridge
-const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('superai_sync') : null;
-if (syncChannel) {
-  syncChannel.onmessage = (event) => {
-    console.log('[SuperAI Sync Bridge] Event received:', event.data);
-    refreshAllData();
-  };
-}
-
-function getToken() {
-  return sessionStorage.getItem('SUPERAI_WEB_MANAGEMENT_TOKEN') ||
-         sessionStorage.getItem('SUPERAI_WEB_TOKEN') ||
-         localStorage.getItem('management_token') || '';
-}
-
-function saveToken(token) {
-  token = (token || '').trim();
-  if (token) {
-    sessionStorage.setItem('SUPERAI_WEB_MANAGEMENT_TOKEN', token);
-    sessionStorage.setItem('SUPERAI_WEB_TOKEN', token);
-    localStorage.setItem('management_token', token);
-  }
-  if (syncChannel) syncChannel.postMessage({ type: 'token_updated', token });
-}
-
-function getHeaders() {
-  const token = getToken();
-  return token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-}
-
-function switchTab(tabId) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  
-  const selectedBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
-  if (selectedBtn) selectedBtn.classList.add('active');
-  
-  const target = document.getElementById('tab-' + tabId);
-  if (target) target.classList.add('active');
-
-  if (tabId === 'models-config') loadModels();
-  if (tabId === 'sync-hub') loadSyncStatus();
-}
-
-async function apiFetch(url, options = {}) {
-  options.headers = { ...getHeaders(), ...(options.headers || {}) };
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    let errText = `HTTP ${res.status}`;
-    try {
-      const errJson = await res.json();
-      errText = errJson.detail || errJson.error || JSON.stringify(errJson);
-    } catch(e) {}
-    throw new Error(errText);
-  }
-  return await res.json();
-}
-
-async function fetchPanel(url, elId, onData) {
-  try {
-    const data = await apiFetch(url);
-    document.getElementById(elId).textContent = JSON.stringify(data, null, 2);
-    if (onData) onData(data);
-  } catch(e) {
-    document.getElementById(elId).textContent = 'Failed: ' + e.message;
-  }
-}
-
-function loadSpend() {
-  fetchPanel('/api/spend', 'p-spend');
-}
-function loadBandit() {
-  fetchPanel('/api/bandit', 'p-bandit');
-}
-function loadGoals() {
-  fetchPanel('/api/goals', 'p-goals');
-}
-function loadCliPool() {
-  fetchPanel('/api/cli-pool', 'p-clipool');
-}
-function loadDashboard() {
-  fetchPanel('/api/dashboard', 'p-dashboard', (d) => {
-    const sigMode = document.getElementById('sig-mode');
-    if (d.mock_mode) {
-      sigMode.textContent = 'MOCK MODE';
-      sigMode.className = 'pill pill-mock';
-    } else {
-      sigMode.textContent = 'LIVE MODE';
-      sigMode.className = 'pill pill-live';
-    }
-  });
-}
-function loadLearnings() {
-  fetchPanel('/api/learnings/summary', 'p-learnings');
-}
-
-async function checkProxyStatus() {
-  try {
-    const data = await apiFetch('/api/cliproxy/status');
-    const sig = document.getElementById('sig-proxy');
-    const reachStat = document.getElementById('stat-proxy-reach');
-    if (data.reachable) {
-      sig.textContent = 'Proxy: Online (8317)';
-      sig.className = 'pill pill-live';
-      if (reachStat) { reachStat.textContent = 'ONLINE'; reachStat.style.color = 'var(--success)'; }
-    } else {
-      sig.textContent = 'Proxy: Offline';
-      sig.className = 'pill pill-mock';
-      if (reachStat) { reachStat.textContent = 'OFFLINE'; reachStat.style.color = 'var(--danger)'; }
-    }
-  } catch(e) {}
-}
-
-async function loadModels() {
-  try {
-    const data = await apiFetch('/api/models');
-    const tbody = document.getElementById('models-tbody');
-    tbody.innerHTML = '';
-    const models = data.models || [];
-    models.forEach(m => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td><strong>${m.name}</strong></td><td>${m.provider}</td><td><code>${m.model_id}</code></td><td>${m.context_window?.toLocaleString() || '-'}</td><td>$${m.cost_per_1k_tokens || '0.00'}</td>`;
-      tbody.appendChild(tr);
-    });
-    if (!models.length) {
-      tbody.innerHTML = '<tr><td colspan="5">No models registered.</td></tr>';
-    }
-  } catch(e) {
-    document.getElementById('models-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--danger)">Error: ${e.message}</td></tr>`;
-  }
-}
-
-async function addCustomModel() {
-  const name = document.getElementById('new-model-name').value.trim();
-  const model_id = document.getElementById('new-model-id').value.trim();
-  const provider = document.getElementById('new-model-provider').value.trim() || 'cliproxy';
-  const cost = parseFloat(document.getElementById('new-model-cost').value || '0.01');
-
-  if (!name || !model_id) {
-    alert('Name and Model ID are required');
-    return;
-  }
-
-  try {
-    const existing = (await apiFetch('/api/models')).models || [];
-    existing.push({ name, model_id, provider, cost_per_1k_tokens: cost, supports_tools: true, context_window: 128000 });
-    await apiFetch('/api/models', { method: 'POST', body: JSON.stringify({ models: existing }) });
-    alert('Model registered successfully!');
-    loadModels();
-    if (syncChannel) syncChannel.postMessage({ type: 'models_updated' });
-  } catch(e) {
-    alert('Failed to register model: ' + e.message);
-  }
-}
-
-async function viewConfigDiff() {
-  fetchPanel('/api/config/diff', 'p-config-result');
-}
-async function viewBackups() {
-  fetchPanel('/api/config/backups', 'p-config-result');
-}
-async function loadAuditLog() {
-  fetchPanel('/api/audit?limit=20', 'p-config-result');
-}
-
-async function loadSyncStatus() {
-  try {
-    const data = await apiFetch('/api/sync/status');
-    document.getElementById('stat-synced-count').textContent = data.synced_models_count || '0';
-    checkProxyStatus();
-  } catch(e) {}
-}
-
-async function triggerAutoSync() {
-  const logEl = document.getElementById('p-sync-log');
-  logEl.textContent = 'Executing bidirectional auto-sync with CLIProxyAPI...';
-  try {
-    const res = await apiFetch('/api/sync/cliproxy', { method: 'POST' });
-    logEl.textContent = JSON.stringify(res, null, 2);
-    loadSyncStatus();
-    loadModels();
-    if (syncChannel) syncChannel.postMessage({ type: 'autosync_complete' });
-  } catch(e) {
-    logEl.textContent = 'Auto-sync failed: ' + e.message;
-  }
-}
-
-function refreshAllData() {
-  loadSpend();
-  loadBandit();
-  loadGoals();
-  loadCliPool();
-  loadDashboard();
-  loadLearnings();
-  checkProxyStatus();
-  loadSyncStatus();
-}
-
-// Initial load
-const existingTok = getToken();
-if (existingTok) {
-  const inp = document.getElementById('mgmt-token');
-  if (inp) inp.value = existingTok;
-}
-refreshAllData();
-setInterval(checkProxyStatus, 10000);
-</script>
-</body>
-</html>"""
-
+    def console_page() -> Any:
+        from fastapi.responses import FileResponse
+        console_path = Path(__file__).resolve().parent / "static" / "console" / "index.html"
+        if console_path.is_file():
+            return FileResponse(str(console_path))
+        return HTMLResponse("<h1>Console UI not built. Please create static/console/index.html</h1>", status_code=404)
 
     # S22: WebSocket live dashboard events (broadcast simple snapshots)
     try:

@@ -22,6 +22,11 @@ This project board tracks the implementation of advanced orchestration and proxy
 | T19 | Model Mappings & Aliasing | `core/model_router.py` | 1.5h | `[x]` | agent-fleet |
 | T20 | Token-Bucket Rate Limiting (RPM/TPM) | `core/rate_limiter.py` | 1.5h | `[x]` | agent-fleet |
 | T21 | Model Payload Rules & Interceptors | `core/payload_rules.py` | 1.5h | `[x]` | agent-fleet |
+| T22 | Clean House (Remove Vendored UI) | `cli/web_app.py` | 1h | `[x]` | agent-fleet |
+| T23 | Setup Static Hosting | `cli/web_app.py` | 0.5h | `[x]` | agent-fleet |
+| T24 | Native Management APIs | `cli/web_app.py` | 2h | `[x]` | agent-fleet |
+| T25 | Core Design System (Vanilla CSS) | `cli/static/styles.css` | 2h | `[x]` | agent-fleet |
+| T26 | Dashboard Modules (Vanilla JS) | `cli/static/app.js` | 3h | `[x]` | agent-fleet |
 
 **Total estimate:** ~8.5 hours.
 

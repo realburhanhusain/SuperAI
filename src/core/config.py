@@ -307,7 +307,15 @@ def atomic_write_with_backup(target_path: Path, data: Any, backups_dir: Path) ->
             json.dump(data, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp_path, target_path)
+        import time
+        for _ in range(5):
+            try:
+                os.replace(tmp_path, target_path)
+                break
+            except PermissionError:
+                time.sleep(0.05)
+        else:
+            os.replace(tmp_path, target_path)
     finally:
         if tmp_path.exists():
             try:

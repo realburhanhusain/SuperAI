@@ -791,7 +791,7 @@ def status(
         try:
             from pathlib import Path
 
-            cache_dir = Path.home() / ".superai" / "cache" / "boards"
+            cache_dir = Path("~").expanduser() / ".superai" / "cache" / "boards"
             payload["board_cache_files"] = (
                 len(list(cache_dir.glob("*.json"))) if cache_dir.is_dir() else 0
             )
@@ -5335,7 +5335,7 @@ def desktop():
     console.print("Running npm install (if needed) and launching dev server...")
     
     try:
-        subprocess.run("npm install && npm run tauri dev", cwd=str(project_dir), shell=True, check=True)
+        subprocess.run("npm install && npm run tauri dev", cwd=str(project_dir), shell=True, check=True, timeout=60)
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Failed to launch desktop app: {e}[/red]")
         raise typer.Exit(code=1)
@@ -5357,7 +5357,7 @@ def home():
     
     # Check if go is installed
     try:
-        subprocess.run(["go", "version"], check=True, capture_output=True)
+        subprocess.run(["go", "version"], check=True, capture_output=True, timeout=60)
     except (subprocess.CalledProcessError, FileNotFoundError):
         console.print("[red]Go is required to run CLIProxyAPIHome but was not found on your system.[/red]")
         raise typer.Exit(code=1)
@@ -5369,14 +5369,14 @@ def home():
     if not binary_path.exists():
         console.print("[yellow]Building CLIProxyAPIHome...[/yellow]")
         try:
-            subprocess.run(["go", "build", "-o", binary_name, "./cmd/home"], cwd=str(project_dir), check=True)
+            subprocess.run(["go", "build", "-o", binary_name, "./cmd/home"], cwd=str(project_dir), check=True, timeout=60)
         except subprocess.CalledProcessError as e:
             console.print(f"[red]Failed to build CLIProxyAPIHome: {e}[/red]")
             raise typer.Exit(code=1)
             
     console.print(f"[green]Running {binary_name}...[/green]")
     try:
-        subprocess.run([str(binary_path)], cwd=str(project_dir), check=True)
+        subprocess.run([str(binary_path)], cwd=str(project_dir), check=True, timeout=60)
     except KeyboardInterrupt:
         console.print("\n[yellow]CLIProxyAPIHome stopped.[/yellow]")
     except subprocess.CalledProcessError as e:

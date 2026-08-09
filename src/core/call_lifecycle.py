@@ -94,14 +94,47 @@ def pre_call(
             return block
             
         try:
+            from .payload_rules import PersistentPayloadRules, InterceptorChain
+            pr = PersistentPayloadRules()
+            chain = InterceptorChain(pr)
+            
+            # Simple keyword block check
+            for kw in pr.blocked_keywords:
+                if kw.lower() in prompt.lower():
+                    return {
+                        "blocked": True,
+                        "ok": False,
+                        "status": "error",
+                        "error_code": "payload_blocked",
+                        "error": f"Payload contains blocked keyword: {kw}",
+                        "response": f"Payload contains blocked keyword: {kw}"
+                    }
+            
+            # Appending system prompts can be done here or in caller, 
+            # for pre_call we'll just return it in _preflight to be applied later
+            appends = "\n".join(pr.system_prompt_appends)
+            
             from .rate_limiter import TokenBucketRateLimiter
-            # Basic 60 RPM global throttle (capacity 10, fill_rate 1/s)
-            limiter = TokenBucketRateLimiter(capacity=10, fill_rate=1.0, name="global")
+            import json
+            from pathlib import Path
+            limits_path = Path.home() / ".superai" / "config" / "rate_limits.json"
+            
+            cap, rate = 10, 1.0 # fallback defaults
+            if limits_path.exists():
+                try:
+                    limits_data = json.loads(limits_path.read_text(encoding="utf-8"))
+                    global_limit = limits_data.get("limits", {}).get("global", {})
+                    cap = global_limit.get("capacity", cap)
+                    rate = global_limit.get("fill_rate", rate)
+                except Exception:
+                    pass
+                    
+            limiter = TokenBucketRateLimiter(capacity=cap, fill_rate=rate, name="global")
             limiter.wait_and_acquire(1)
         except Exception as e:
             pass
             
-        return {"_preflight": {"estimated_usd": usd, "tokens": toks}}
+        return {"_preflight": {"estimated_usd": usd, "tokens": toks, "system_prompt_append": appends if 'appends' in locals() else ""}}
     except Exception as e:
         return {"_preflight": {"budget_error": str(e)[:200]}}
 

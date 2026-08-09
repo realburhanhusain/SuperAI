@@ -212,7 +212,11 @@ class ModelRouter:
         task: str,
         preferred_model: Optional[str] = None,
     ) -> Optional[ModelInfo]:
+        from .model_router import AliasRouter
+        ar = AliasRouter()
+        
         if preferred_model:
+            preferred_model = ar.resolve(preferred_model)
             model = self.registry.get_model(preferred_model)
             if model:
                 return model

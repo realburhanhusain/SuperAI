@@ -337,13 +337,27 @@ def test_api_sync_cliproxy(tmp_path: Path, monkeypatch):
     from scli.web_app import create_app
     from fastapi.testclient import TestClient
 
-    app = create_app()
-    client = TestClient(app)
+    # C2.1: the route is a config-mutating management endpoint, so it must be
+    # gated exactly like /api/config and /api/models. Asserting a bare 200 here
+    # is what let the auth bypass survive - it encoded the bug as the contract.
 
-    r = client.post("/api/sync/cliproxy")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["ok"] is True
-    assert "total_registered" in body
+    # 1. flag off -> route must not be registered at all
+    client = TestClient(create_app())
+    assert client.post("/api/sync/cliproxy").status_code == 404
+
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1",
+                                      "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        client = TestClient(create_app())
+
+        # 2. flag on, no token -> rejected
+        assert client.post("/api/sync/cliproxy").status_code == 401
+
+        # 3. flag on, correct token -> works
+        r = client.post("/api/sync/cliproxy",
+                        headers={"Authorization": "Bearer secret"})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["ok"] is True
+        assert "total_registered" in body
 
 

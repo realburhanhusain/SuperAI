@@ -22,7 +22,12 @@ class DiffAwareGate(QualityGate):
     def validate(self, context: dict) -> bool:
         try:
             # Check staged files (those about to be committed)
-            result = subprocess.run(["git", "diff", "--cached", "--name-only"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["git", "diff", "--cached", "--name-only"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
             files = result.stdout.strip().split("\n") if result.stdout.strip() else []
             
             if not files:

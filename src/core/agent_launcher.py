@@ -10,8 +10,9 @@ class AgentLaunchProfiles:
     
     @staticmethod
     def get_profiles() -> Dict[str, Dict[str, Any]]:
-        # Assuming SuperAI runs on localhost:8000
-        proxy_url = "http://127.0.0.1:8000/v1"
+        # Read port dynamically to avoid hijacking failure if web_app runs on 8787
+        port = os.getenv("SUPERAI_WEB_PORT", "8787")
+        proxy_url = f"http://127.0.0.1:{port}/v1"
         
         return {
             "claude-code": {

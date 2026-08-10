@@ -1582,9 +1582,11 @@ setInterval(load, 2000);
                 pr.system_prompt_appends = data.get("system_prompt_appends", [])
                 pr._save()
             else:
+                from core.config import atomic_write_with_backup
                 path = Path.home() / ".superai" / "config" / f"{resource}.json"
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                backups_dir = Path.home() / ".superai" / "backups"
+                atomic_write_with_backup(path, data, backups_dir)
                 
             return {"ok": True}
 

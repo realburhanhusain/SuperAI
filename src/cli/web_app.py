@@ -454,6 +454,11 @@ def create_app() -> Any:
                     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
                     
                 return {"ok": True}
+
+    @app.get("/dashboard")
+    async def dashboard():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/index.html")
     @app.get("/api/audit")
     async def api_audit(request: Request, limit: int = Query(50, ge=1, le=500)) -> Dict[str, Any]:
         _check_management_auth(request)

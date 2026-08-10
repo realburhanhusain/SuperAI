@@ -50,7 +50,7 @@ Old top-level paths were removed after archive — use the folders above (or git
 **Policy:** finish offline Must work first; live smoke is last. See `docs/UNIVERSAL_MODELS_PLAN.md` Phase 99.
 
 - [!] Live multi-provider keys (all vendors / open-weight / NVIDIA / Ollama) — **M089** owned on Grok board when run  
-- [!] Live Telegram/Slack  
+- [x] AgentClaw Live Chat Relays (Telegram, Slack, Discord, DingTalk, Feishu, WeCom, LINE)
 - [!] rclone remote E2E  
 - [!] GitHub Pages enable  
 - [!] Live Postgres + pgvector server  

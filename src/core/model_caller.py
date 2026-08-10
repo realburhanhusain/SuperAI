@@ -134,9 +134,18 @@ class ModelCaller:
 
         try:
             from .payload_rules import InterceptorChain, PayloadRulesError
-            payload = InterceptorChain().execute({"prompt": prompt, "system_prompt": system_prompt})
+            interceptor_payload = {
+                "prompt": prompt, 
+                "system_prompt": system_prompt, 
+                "vision_attachments": kwargs.get("vision_attachments"),
+                "model": model
+            }
+            interceptor_payload.update(kwargs)
+            payload = InterceptorChain().execute(interceptor_payload)
             prompt = payload.get("prompt", "")
             system_prompt = payload.get("system_prompt")
+            if "vision_attachments" in payload:
+                kwargs["vision_attachments"] = payload.get("vision_attachments")
         except PayloadRulesError as e:
             _finish([], mode="budget_blocked", prov=None, fallback_reason=str(e), cancelled=True)
             return
@@ -459,9 +468,18 @@ class ModelCaller:
             
         try:
             from .payload_rules import InterceptorChain, PayloadRulesError
-            payload = InterceptorChain().execute({"prompt": prompt, "system_prompt": system_prompt})
+            interceptor_payload = {
+                "prompt": prompt, 
+                "system_prompt": system_prompt, 
+                "vision_attachments": kwargs.get("vision_attachments"),
+                "model": model
+            }
+            interceptor_payload.update(kwargs)
+            payload = InterceptorChain().execute(interceptor_payload)
             prompt = payload.get("prompt", "")
             system_prompt = payload.get("system_prompt")
+            if "vision_attachments" in payload:
+                kwargs["vision_attachments"] = payload.get("vision_attachments")
         except PayloadRulesError as e:
             return {"ok": False, "status": "error", "error_code": "blocked_by_rule", "response": str(e), "blocked": True}
 

@@ -48,6 +48,11 @@ class MessengerBus:
         slack_token = (os.getenv("SUPERAI_SLACK_BOT_TOKEN") or "").strip()
         slack_channel = (os.getenv("SUPERAI_SLACK_CHANNEL") or "").strip()
         webhook = (os.getenv("SUPERAI_WEBHOOK_URL") or "").strip()
+        discord_hook = (os.getenv("SUPERAI_DISCORD_WEBHOOK_URL") or "").strip()
+        dingtalk_hook = (os.getenv("SUPERAI_DINGTALK_WEBHOOK_URL") or "").strip()
+        feishu_hook = (os.getenv("SUPERAI_FEISHU_WEBHOOK_URL") or "").strip()
+        wecom_hook = (os.getenv("SUPERAI_WECOM_WEBHOOK_URL") or "").strip()
+        line_token = (os.getenv("SUPERAI_LINE_NOTIFY_TOKEN") or "").strip()
 
         return {
             "cli": {
@@ -75,6 +80,31 @@ class MessengerBus:
                 or self.dry_run,
                 "description": "Slack incoming webhook or chat.postMessage",
                 "configured": bool(slack_hook or (slack_token and slack_channel)),
+            },
+            "discord": {
+                "enabled": bool(discord_hook) or self.dry_run,
+                "description": "Discord incoming webhook (SUPERAI_DISCORD_WEBHOOK_URL)",
+                "configured": bool(discord_hook),
+            },
+            "dingtalk": {
+                "enabled": bool(dingtalk_hook) or self.dry_run,
+                "description": "DingTalk custom robot (SUPERAI_DINGTALK_WEBHOOK_URL)",
+                "configured": bool(dingtalk_hook),
+            },
+            "feishu": {
+                "enabled": bool(feishu_hook) or self.dry_run,
+                "description": "Feishu custom robot (SUPERAI_FEISHU_WEBHOOK_URL)",
+                "configured": bool(feishu_hook),
+            },
+            "wecom": {
+                "enabled": bool(wecom_hook) or self.dry_run,
+                "description": "WeCom (Enterprise WeChat) robot (SUPERAI_WECOM_WEBHOOK_URL)",
+                "configured": bool(wecom_hook),
+            },
+            "line": {
+                "enabled": bool(line_token) or self.dry_run,
+                "description": "LINE Notify (SUPERAI_LINE_NOTIFY_TOKEN)",
+                "configured": bool(line_token),
             },
         }
 
@@ -135,6 +165,21 @@ class MessengerBus:
 
         if ch == "slack":
             return self._send_slack(message, metadata, entry)
+
+        if ch == "discord":
+            return self._send_discord(message, metadata, entry)
+
+        if ch == "dingtalk":
+            return self._send_dingtalk(message, metadata, entry)
+
+        if ch == "feishu":
+            return self._send_feishu(message, metadata, entry)
+
+        if ch == "wecom":
+            return self._send_wecom(message, metadata, entry)
+
+        if ch == "line":
+            return self._send_line(message, metadata, entry)
 
         return {"ok": False, "error": f"No handler for {ch}"}
 
@@ -294,6 +339,129 @@ class MessengerBus:
             "entry": entry,
             "error": result.get("error"),
             "dry_run": result.get("dry_run"),
+        }
+
+    def _send_discord(
+        self,
+        message: str,
+        metadata: Optional[Dict[str, Any]],
+        entry: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        url = (os.getenv("SUPERAI_DISCORD_WEBHOOK_URL") or "").strip()
+        if not url and not self.dry_run:
+            return {"ok": False, "error": "SUPERAI_DISCORD_WEBHOOK_URL not set", "logged": True}
+        payload = {"content": message}
+        if metadata and "embeds" in metadata:
+            payload["embeds"] = metadata["embeds"]
+        result = self._http_json(url or "https://example.invalid/discord", payload)
+        entry["transport"] = result
+        return {
+            "ok": bool(result.get("ok")),
+            "channel": "discord",
+            "logged": True,
+            "entry": entry,
+            "error": result.get("error"),
+        }
+
+    def _send_dingtalk(
+        self,
+        message: str,
+        metadata: Optional[Dict[str, Any]],
+        entry: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        url = (os.getenv("SUPERAI_DINGTALK_WEBHOOK_URL") or "").strip()
+        if not url and not self.dry_run:
+            return {"ok": False, "error": "SUPERAI_DINGTALK_WEBHOOK_URL not set", "logged": True}
+        payload = {"msgtype": "text", "text": {"content": message}}
+        result = self._http_json(url or "https://example.invalid/dingtalk", payload)
+        entry["transport"] = result
+        return {
+            "ok": bool(result.get("ok")),
+            "channel": "dingtalk",
+            "logged": True,
+            "entry": entry,
+            "error": result.get("error"),
+        }
+
+    def _send_feishu(
+        self,
+        message: str,
+        metadata: Optional[Dict[str, Any]],
+        entry: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        url = (os.getenv("SUPERAI_FEISHU_WEBHOOK_URL") or "").strip()
+        if not url and not self.dry_run:
+            return {"ok": False, "error": "SUPERAI_FEISHU_WEBHOOK_URL not set", "logged": True}
+        payload = {"msg_type": "text", "content": {"text": message}}
+        result = self._http_json(url or "https://example.invalid/feishu", payload)
+        entry["transport"] = result
+        return {
+            "ok": bool(result.get("ok")),
+            "channel": "feishu",
+            "logged": True,
+            "entry": entry,
+            "error": result.get("error"),
+        }
+
+    def _send_wecom(
+        self,
+        message: str,
+        metadata: Optional[Dict[str, Any]],
+        entry: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        url = (os.getenv("SUPERAI_WECOM_WEBHOOK_URL") or "").strip()
+        if not url and not self.dry_run:
+            return {"ok": False, "error": "SUPERAI_WECOM_WEBHOOK_URL not set", "logged": True}
+        payload = {"msgtype": "text", "text": {"content": message}}
+        result = self._http_json(url or "https://example.invalid/wecom", payload)
+        entry["transport"] = result
+        return {
+            "ok": bool(result.get("ok")),
+            "channel": "wecom",
+            "logged": True,
+            "entry": entry,
+            "error": result.get("error"),
+        }
+
+    def _send_line(
+        self,
+        message: str,
+        metadata: Optional[Dict[str, Any]],
+        entry: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        token = (os.getenv("SUPERAI_LINE_NOTIFY_TOKEN") or "").strip()
+        if not token and not self.dry_run:
+            return {"ok": False, "error": "SUPERAI_LINE_NOTIFY_TOKEN not set", "logged": True}
+            
+        url = "https://notify-api.line.me/api/notify"
+        if self.dry_run:
+            result = {"ok": True, "dry_run": True, "url": url}
+        else:
+            try:
+                data = urllib.parse.urlencode({"message": message}).encode("utf-8")
+                req = urllib.request.Request(url, data=data, method="POST")
+                req.add_header("Authorization", f"Bearer {token}")
+                req.add_header("Content-Type", "application/x-www-form-urlencoded")
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    raw = resp.read().decode("utf-8", errors="replace")
+                    try:
+                        resp_data = json.loads(raw)
+                    except json.JSONDecodeError:
+                        resp_data = {"raw": raw[:500]}
+                    result = {"ok": True, "status": resp.status, "response": resp_data}
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode("utf-8", errors="replace")[:500]
+                result = {"ok": False, "error": f"HTTP {e.code}: {err_body}"}
+            except Exception as e:
+                result = {"ok": False, "error": str(e)}
+                
+        entry["transport"] = result
+        return {
+            "ok": bool(result.get("ok")),
+            "channel": "line",
+            "logged": True,
+            "entry": entry,
+            "error": result.get("error"),
         }
 
     def recent(self, limit: int = 20) -> List[Dict[str, Any]]:

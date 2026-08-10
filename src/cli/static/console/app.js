@@ -1,7 +1,8 @@
 // UI State
 const state = {
-    currentTab: 'quotas',
-    token: localStorage.getItem('mgmt_token') || ''
+    currentTab: 'overview',
+    token: localStorage.getItem('mgmt_token') || '',
+    chartsInitialized: false
 };
 
 // Initialize UI
@@ -12,7 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
     tokenInput.addEventListener('change', (e) => {
         state.token = e.target.value;
         localStorage.setItem('mgmt_token', state.token);
-        loadResource(state.currentTab);
+        if (state.currentTab !== 'overview') {
+            loadResource(state.currentTab);
+        }
     });
 
     // Setup tabs
@@ -24,8 +27,102 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Load initial tab
-    loadResource(state.currentTab);
+    switchTab(state.currentTab);
 });
+
+function initCharts() {
+    if (state.chartsInitialized) return;
+    
+    // Set Chart.js defaults for dark theme
+    Chart.defaults.color = '#9ca3af';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 17, 26, 0.9)';
+    Chart.defaults.plugins.tooltip.titleColor = '#fff';
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.05)';
+
+    // Daily Token Spend Line Chart
+    const ctxSpend = document.getElementById('tokenSpendChart').getContext('2d');
+    
+    // Gradient for line chart
+    const gradient = ctxSpend.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
+    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+    new Chart(ctxSpend, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Token Spend (Millions)',
+                data: [12, 19, 15, 25, 22, 30, 28],
+                borderColor: '#3b82f6',
+                backgroundColor: gradient,
+                borderWidth: 2,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#3b82f6',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
+                x: { grid: { display: false } }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            }
+        }
+    });
+
+    // Model Usage Doughnut Chart
+    const ctxModel = document.getElementById('modelUsageChart').getContext('2d');
+    new Chart(ctxModel, {
+        type: 'doughnut',
+        data: {
+            labels: ['GPT-4o', 'Claude 3.5 Sonnet', 'Gemini 1.5 Pro', 'Llama 3 Local'],
+            datasets: [{
+                data: [45, 30, 15, 10],
+                backgroundColor: [
+                    '#10a37f', // OpenAI
+                    '#d97757', // Anthropic
+                    '#4285f4', // Gemini
+                    '#a855f7'  // Local
+                ],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20,
+                        font: { size: 12 }
+                    }
+                }
+            }
+        }
+    });
+
+    state.chartsInitialized = true;
+}
 
 function switchTab(tabId) {
     // Update active button
@@ -40,17 +137,22 @@ function switchTab(tabId) {
 
     state.currentTab = tabId;
     
-    // Only load if it's one of the API-backed tabs
-    const resourceMap = {
-        'quotas': 'quotas',
-        'keys': 'key_pools',
-        'aliases': 'aliases',
-        'ratelimits': 'rate_limits',
-        'payloads': 'payload_rules'
-    };
-    
-    if (resourceMap[tabId]) {
-        loadResource(resourceMap[tabId]);
+    if (tabId === 'overview') {
+        // Initialize charts if not already done, requires slight delay for canvas rendering
+        setTimeout(initCharts, 50);
+    } else {
+        // Only load if it's one of the API-backed tabs
+        const resourceMap = {
+            'quotas': 'quotas',
+            'keys': 'key_pools',
+            'aliases': 'aliases',
+            'ratelimits': 'rate_limits',
+            'payloads': 'payload_rules'
+        };
+        
+        if (resourceMap[tabId]) {
+            loadResource(resourceMap[tabId]);
+        }
     }
 }
 

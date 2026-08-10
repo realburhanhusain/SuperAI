@@ -5,85 +5,250 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SuperAI Management Center</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <div class="app-background">
+        <div class="ambient-glow glow-1"></div>
+        <div class="ambient-glow glow-2"></div>
+    </div>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
             <div class="brand">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#brand-gradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <defs>
+                        <linearGradient id="brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#3b82f6" />
+                            <stop offset="100%" stop-color="#8b5cf6" />
+                        </linearGradient>
+                    </defs>
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
                 <span>SuperAI</span>
             </div>
             <ul class="nav-links">
-                <li><button class="nav-item active" data-tab="quotas">Agent Quotas</button></li>
-                <li><button class="nav-item" data-tab="keys">API Key Pools</button></li>
-                <li><button class="nav-item" data-tab="aliases">Model Aliases</button></li>
-                <li><button class="nav-item" data-tab="ratelimits">Rate Limits</button></li>
-                <li><button class="nav-item" data-tab="payloads">Payload Rules</button></li>
+                <li><button class="nav-item active" data-tab="overview">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    Overview
+                </button></li>
+                <li><button class="nav-item" data-tab="quotas">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    Agent Quotas
+                </button></li>
+                <li><button class="nav-item" data-tab="keys">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                    API Key Pools
+                </button></li>
+                <li><button class="nav-item" data-tab="aliases">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                    Model Aliases
+                </button></li>
+                <li><button class="nav-item" data-tab="ratelimits">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                    Rate Limits
+                </button></li>
+                <li><button class="nav-item" data-tab="payloads">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Payload Rules
+                </button></li>
             </ul>
         </nav>
 
         <!-- Main Content Area -->
         <main class="main-content">
             <header class="topbar">
-                <div class="topbar-title">Management Center</div>
+                <div class="topbar-title">SuperAI Control Center</div>
                 <div class="topbar-actions">
-                    <input type="password" id="mgmt-token" placeholder="Management Token" class="input-glass">
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        <input type="password" id="mgmt-token" placeholder="Management Token" class="input-glass">
+                    </div>
                 </div>
             </header>
             
             <div id="toast-container"></div>
 
             <div class="dashboard-content">
-                <!-- Quotas Panel -->
-                <section id="panel-quotas" class="panel active glass-panel">
-                    <h2>Agent Quotas & Budgets</h2>
-                    <p class="subtitle">Set limits on how much an autonomous agent can spend.</p>
-                    <div class="json-editor-container">
-                        <textarea id="quotas-json" class="json-editor" spellcheck="false"></textarea>
+                <!-- Overview Panel -->
+                <section id="panel-overview" class="panel active">
+                    <div class="panel-header">
+                        <h2>Dashboard Overview</h2>
+                        <p class="subtitle">System health, usage analytics, and authentication monitor.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="saveResource('quotas')">Save Quotas</button>
+                    
+                    <h3 class="section-title">Live Auth Monitor</h3>
+                    <div class="auth-monitor">
+                        <div class="auth-card glass-panel">
+                            <div class="auth-icon openai"></div>
+                            <div class="auth-info">
+                                <span class="auth-name">OpenAI</span>
+                                <div class="auth-status-row">
+                                    <span class="status-indicator healthy"></span>
+                                    <span class="status-text">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="auth-card glass-panel">
+                            <div class="auth-icon anthropic"></div>
+                            <div class="auth-info">
+                                <span class="auth-name">Anthropic</span>
+                                <div class="auth-status-row">
+                                    <span class="status-indicator healthy"></span>
+                                    <span class="status-text">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="auth-card glass-panel">
+                            <div class="auth-icon gemini"></div>
+                            <div class="auth-info">
+                                <span class="auth-name">Gemini</span>
+                                <div class="auth-status-row">
+                                    <span class="status-indicator healthy"></span>
+                                    <span class="status-text">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="auth-card glass-panel">
+                            <div class="auth-icon local"></div>
+                            <div class="auth-info">
+                                <span class="auth-name">Local Node</span>
+                                <div class="auth-status-row">
+                                    <span class="status-indicator healthy"></span>
+                                    <span class="status-text">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="section-title">Usage Analytics</h3>
+                    <div class="charts-container">
+                        <div class="chart-card glass-panel">
+                            <h4>Daily Token Spend</h4>
+                            <div class="chart-wrapper">
+                                <canvas id="tokenSpendChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card glass-panel">
+                            <h4>Model Usage</h4>
+                            <div class="chart-wrapper doughnut-wrapper">
+                                <canvas id="modelUsageChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Quotas Panel -->
+                <section id="panel-quotas" class="panel">
+                    <div class="panel-header">
+                        <h2>Agent Quotas & Budgets</h2>
+                        <p class="subtitle">Set limits on how much an autonomous agent can spend.</p>
+                    </div>
+                    <div class="glass-panel editor-panel">
+                        <div class="editor-header">
+                            <span class="file-name">quotas.json</span>
+                        </div>
+                        <div class="json-editor-container">
+                            <textarea id="quotas-json" class="json-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button class="btn btn-primary" onclick="saveResource('quotas')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Quotas
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Key Pools Panel -->
-                <section id="panel-keys" class="panel glass-panel">
-                    <h2>API Key Pools</h2>
-                    <p class="subtitle">Configure arrays of provider API keys for automatic round-robin rotation on 429s.</p>
-                    <div class="json-editor-container">
-                        <textarea id="keys-json" class="json-editor" spellcheck="false"></textarea>
+                <section id="panel-keys" class="panel">
+                    <div class="panel-header">
+                        <h2>API Key Pools</h2>
+                        <p class="subtitle">Configure arrays of provider API keys for automatic round-robin rotation on 429s.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="saveResource('key_pools')">Save Key Pools</button>
+                    <div class="glass-panel editor-panel">
+                        <div class="editor-header">
+                            <span class="file-name">key_pools.json</span>
+                        </div>
+                        <div class="json-editor-container">
+                            <textarea id="keys-json" class="json-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button class="btn btn-primary" onclick="saveResource('key_pools')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Key Pools
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Aliases Panel -->
-                <section id="panel-aliases" class="panel glass-panel">
-                    <h2>Model Aliases</h2>
-                    <p class="subtitle">Map generic router identifiers (e.g., router:fast) to actual upstream models.</p>
-                    <div class="json-editor-container">
-                        <textarea id="aliases-json" class="json-editor" spellcheck="false"></textarea>
+                <section id="panel-aliases" class="panel">
+                    <div class="panel-header">
+                        <h2>Model Aliases</h2>
+                        <p class="subtitle">Map generic router identifiers (e.g., router:fast) to actual upstream models.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="saveResource('aliases')">Save Aliases</button>
+                    <div class="glass-panel editor-panel">
+                        <div class="editor-header">
+                            <span class="file-name">aliases.json</span>
+                        </div>
+                        <div class="json-editor-container">
+                            <textarea id="aliases-json" class="json-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button class="btn btn-primary" onclick="saveResource('aliases')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Aliases
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Rate Limits Panel -->
-                <section id="panel-ratelimits" class="panel glass-panel">
-                    <h2>Rate Limits</h2>
-                    <p class="subtitle">Configure RPM and TPM token-bucket rate limits for internal throttling.</p>
-                    <div class="json-editor-container">
-                        <textarea id="ratelimits-json" class="json-editor" spellcheck="false"></textarea>
+                <section id="panel-ratelimits" class="panel">
+                    <div class="panel-header">
+                        <h2>Rate Limits</h2>
+                        <p class="subtitle">Configure RPM and TPM token-bucket rate limits for internal throttling.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="saveResource('rate_limits')">Save Rate Limits</button>
+                    <div class="glass-panel editor-panel">
+                        <div class="editor-header">
+                            <span class="file-name">rate_limits.json</span>
+                        </div>
+                        <div class="json-editor-container">
+                            <textarea id="ratelimits-json" class="json-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button class="btn btn-primary" onclick="saveResource('rate_limits')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Rate Limits
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Payload Rules Panel -->
-                <section id="panel-payloads" class="panel glass-panel">
-                    <h2>Payload Rules & Interceptors</h2>
-                    <p class="subtitle">Configure system-level prompt injections and keyword blocking.</p>
-                    <div class="json-editor-container">
-                        <textarea id="payloads-json" class="json-editor" spellcheck="false"></textarea>
+                <section id="panel-payloads" class="panel">
+                    <div class="panel-header">
+                        <h2>Payload Rules & Interceptors</h2>
+                        <p class="subtitle">Configure system-level prompt injections and keyword blocking.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="saveResource('payload_rules')">Save Rules</button>
+                    <div class="glass-panel editor-panel">
+                        <div class="editor-header">
+                            <span class="file-name">payload_rules.json</span>
+                        </div>
+                        <div class="json-editor-container">
+                            <textarea id="payloads-json" class="json-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button class="btn btn-primary" onclick="saveResource('payload_rules')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Rules
+                            </button>
+                        </div>
+                    </div>
                 </section>
             </div>
         </main>

@@ -68,7 +68,11 @@ def init_db():
     initdb_exe = PG_BIN_DIR / ("initdb.exe" if os.name == "nt" else "initdb")
     
     print("Initializing Postgres database cluster...")
-    subprocess.run([str(initdb_exe), "-D", str(PG_DATA_DIR), "-U", "superai", "--auth=trust"], check=True)
+    subprocess.run(
+        [str(initdb_exe), "-D", str(PG_DATA_DIR), "-U", "superai", "--auth=trust"],
+        check=True,
+        timeout=300,  # cluster init on a cold disk can take a while; bounded, not unbounded
+    )
 
 def start_postgres():
     """Starts the PostgreSQL daemon."""
@@ -79,7 +83,11 @@ def start_postgres():
     log_file = PG_BASE_DIR / "postgres.log"
     
     print("Starting PostgreSQL daemon...")
-    subprocess.run([str(pg_ctl_exe), "-D", str(PG_DATA_DIR), "-l", str(log_file), "start"], check=True)
+    subprocess.run(
+        [str(pg_ctl_exe), "-D", str(PG_DATA_DIR), "-l", str(log_file), "start"],
+        check=True,
+        timeout=120,  # pg_ctl start waits for the server to accept connections
+    )
     print("PostgreSQL is running natively!")
 
 if __name__ == "__main__":

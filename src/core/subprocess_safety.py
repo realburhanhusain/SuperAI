@@ -35,6 +35,7 @@ LONG_LIVED_ALLOWLIST = (
     "tui_conpty.py",  # ConPTY session lifetime
     "windows_task_scheduler.py",  # schtasks install only (uses run with timeout)
     "lsp_bridge.py:Popen",  # LSP background server
+    "chrome_profile.py:Popen",  # fire-and-forget browser launch; never waited on
 )
 
 

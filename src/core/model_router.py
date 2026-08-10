@@ -426,7 +426,10 @@ class AliasRouter:
             self.path = Path.home() / ".superai" / "config" / "aliases.json"
             
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._mapping = {}
+        self._mapping = {
+            "gemini-cli": "gemini-cli:latest",
+            "pi": "pi:latest"
+        }
         self._load()
         
     def _load(self):
@@ -436,7 +439,7 @@ class AliasRouter:
                 with open(self.path, "r", encoding="utf-8") as f:
                     content = f.read().strip()
                     if content:
-                        self._mapping = json.loads(content)
+                        self._mapping.update(json.loads(content))
             except Exception:
                 pass
                 

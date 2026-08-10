@@ -22,3 +22,15 @@ def test_alias_router_add_alias():
     assert router.resolve("router:cheap") == "claude-3-haiku"
     if os.path.exists(path):
         os.remove(path)
+
+def test_alias_router_default():
+    path = "test_alias3.json"
+    if os.path.exists(path):
+        os.remove(path)
+    router = AliasRouter(storage_path=path)
+    
+    assert router.resolve("gemini-cli") == "gemini-cli:latest"
+    assert router.resolve("pi") == "pi:latest"
+    
+    if os.path.exists(path):
+        os.remove(path)

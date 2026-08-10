@@ -9420,23 +9420,24 @@ def host_hook_checklist_cmd(
 def main() -> None:
     """CLI entry with M080 exception → exit-code mapping."""
     import sys
-    try:
-        if len(sys.argv) > 2 and not sys.argv[1].startswith("-"):
-            # Check if arg 1 is a known command
-            known_cmds = {
-                "run", "plan", "status", "version", "init", "config",
-                "plugins", "rules", "skills", "tools", "mcp", "agents",
-                "web", "memory-eval", "smoke-providers", "git", "host-hook",
-                "runs", "agent", "board", "do"
+    if len(sys.argv) > 2 and not sys.argv[1].startswith("-"):
+        try:
+            names = {
+                c.name or c.callback.__name__.replace("_", "-")
+                for c in app.registered_commands
+            } | {
+                g.name or g.typer_instance.info.name
+                for g in app.registered_groups
             }
-            if sys.argv[1] not in known_cmds:
-                # Treat as `superai <model> "<task>"`
-                model = sys.argv[1]
-                task = sys.argv[2]
-                rest = sys.argv[3:]
-                sys.argv = [sys.argv[0], "run", task, "--model", model] + rest
-    except Exception:
-        pass
+            
+            first = sys.argv[1]
+            if first not in names:
+                from core.model_router import AliasRouter
+                if AliasRouter().resolve(first) != first:
+                    sys.argv = [sys.argv[0], "run", sys.argv[2], "--model", first] + sys.argv[3:]
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to process CLI shorthand: {e}")
 
     try:
         app()

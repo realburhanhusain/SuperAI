@@ -86,7 +86,15 @@ def test_interceptor_chain_init(tmp_path):
         use_antigravity_filter=True,
         archive_dir=log_dir
     )
-    assert len(chain.interceptors) == 3
+    names = {type(i).__name__ for i in chain.interceptors}
+    assert names == {
+        "PrivacyFilterInterceptor",
+        "AntigravityCodingFilterInterceptor",
+        "SessionArchiveInterceptor",
+        "ToolHubInterceptor",
+        "FusionVisionInterceptor",
+        "VirtualModelInterceptor"
+    }
     
     payload = {
         "prompt": "email is test@example.com and You are Antigravity",

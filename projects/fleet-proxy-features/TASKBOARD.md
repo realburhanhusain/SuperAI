@@ -28,8 +28,8 @@ This project board tracks the implementation of advanced orchestration and proxy
 | T25 | Core Design System (Vanilla CSS) | `cli/static/styles.css` | 2h | `[x]` | agent-fleet |
 | T26 | Dashboard Modules (Vanilla JS) | `cli/static/app.js` | 3h | `[x]` | agent-fleet |
 | T27 | SuperAI Bar (System Tray) | `cli/tray.py` | 2h | `[x]` | agent-fleet |
-| T28 | Shorthand Model Profiling | `cli/main.py` | 1h | `[ ]` | |
-| T29 | Browser Automation Tools | `core/browser.py` | 2h | `[ ]` | |
+| T28 | Shorthand Model Profiling | `cli/main.py` | 1h | `[x]` | agent-fleet |
+| T29 | Browser Automation Tools | `core/browser.py` | 2h | `[x]` | agent-fleet |
 
 **Total estimate:** ~8.5 hours.
 

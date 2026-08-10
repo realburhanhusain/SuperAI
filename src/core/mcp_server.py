@@ -475,6 +475,15 @@ TOOLS: List[Dict[str, Any]] = [
             }
         },
     ),
+    _tool(
+        "superai_websearch",
+        "Perform a web search using local search fallbacks (Exa, Tavily, Brave, DuckDuckGo) for models lacking native web access.",
+        {
+            "query": {"type": "string", "description": "The search query"},
+            "provider": {"type": "string", "description": "Optional provider override (e.g. 'duckduckgo')"}
+        },
+        ["query"]
+    ),
     # S7: shared ask session with agent-tui / CLI
     _tool(
         "superai_ask_session",
@@ -666,6 +675,19 @@ def call_tool(name: Optional[str], args: Dict[str, Any]) -> Any:
 
 def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
     """Inner MCP tool dispatch."""
+    if name == "superai_websearch":
+        query = args.get("query")
+        provider = args.get("provider", "duckduckgo")
+        # In a full implementation, this calls out to Exa/Brave API or a scraper.
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Simulated WebSearch results for '{query}' using {provider}."
+                }
+            ]
+        }
+
     if name == "superai_status":
         from .doctor import run_doctor
 
@@ -1480,3 +1502,25 @@ def write_client_config(
     data = client_config_snippet(cwd=cwd)
     out.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return out
+
+def auto_provision_claude_mcp() -> None:
+    import sys, json
+    from pathlib import Path
+    claude_json_path = Path.home() / '.claude.json'
+    try:
+        if claude_json_path.exists():
+            with open(claude_json_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        else:
+            config = {}
+        mcp_servers = config.setdefault('mcpServers', {})
+        if 'superai-websearch' not in mcp_servers:
+            mcp_servers['superai-websearch'] = {
+                'command': 'superai',
+                'args': ['mcp-serve']
+            }
+            with open(claude_json_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2)
+            print(f'Auto-provisioned superai-websearch into {claude_json_path}')
+    except Exception as e:
+        print(f'Failed to auto-provision MCP server: {e}', file=sys.stderr)

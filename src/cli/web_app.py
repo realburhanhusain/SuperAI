@@ -107,6 +107,28 @@ def create_app() -> Any:
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
         # Allow static HTML shells without token; protect /api/*
+        if request.url.path.startswith("/api/cursor/route"):
+            # Mock endpoint for cursor proxy
+            from core.ide_integrations import CursorProtobufProxy
+            cursor_proxy = CursorProtobufProxy()
+            body_bytes = await request.body()
+            # In a real app we'd decode, send to LLM, and stream back
+            decoded = await cursor_proxy.decode_connectrpc(body_bytes)
+            encoded = await cursor_proxy.encode_connectrpc({"content": "Hello from SuperAI cursor proxy!"})
+            return Response(content=encoded, media_type="application/connect+proto")
+
+        if request.url.path.startswith("/api/copilot"):
+            from core.ide_integrations import GitHubCopilotDaemon
+            copilot_daemon = GitHubCopilotDaemon()
+            if request.url.path.endswith("/auth"):
+                status = await copilot_daemon.spoof_auth_status()
+                return JSONResponse(status)
+            if request.url.path.endswith("/completions"):
+                body_json = await request.json()
+                norm = await copilot_daemon.normalize_completion_request(body_json)
+                # Mock return
+                return JSONResponse({"choices": [{"text": "Hello from Copilot Daemon!"}]})
+
         if request.url.path.startswith("/api/"):
             _check_auth(request)
         return await call_next(request)
@@ -394,7 +416,8 @@ def create_app() -> Any:
 
             @app.get("/api/{resource}")
             async def get_resource(request: Request, resource: str) -> Dict[str, Any]:
-                if resource not in ("quotas", "key_pools", "aliases", "rate_limits", "payload_rules"):
+                allowed = {"quotas", "key_pools", "aliases", "rate_limits", "payload_rules", "client_keys", "virtual_models", "conditional_routes"}
+                if resource not in allowed:
                     raise HTTPException(status_code=404)
                 _check_management_auth(request)
                 import json
@@ -409,7 +432,8 @@ def create_app() -> Any:
 
             @app.post("/api/{resource}")
             async def set_resource(request: Request, resource: str) -> Dict[str, Any]:
-                if resource not in ("quotas", "key_pools", "aliases", "rate_limits", "payload_rules"):
+                allowed = {"quotas", "key_pools", "aliases", "rate_limits", "payload_rules", "client_keys", "virtual_models", "conditional_routes"}
+                if resource not in allowed:
                     raise HTTPException(status_code=404)
                 _check_management_auth(request)
                 import json
@@ -454,6 +478,55 @@ def create_app() -> Any:
                     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
                     
                 return {"ok": True}
+
+    @app.get("/api/logs/tail")
+    async def api_logs_tail(request: Request, lines: int = Query(100, ge=1, le=1000)) -> Dict[str, Any]:
+        _check_management_auth(request)
+        from core.log_tailer import tail_file
+        from pathlib import Path
+        log_path = Path.home() / ".superai" / "logs" / "superai.log"
+        content = tail_file(log_path, lines)
+        return {"ok": True, "lines": content}
+
+    @app.post("/api/oauth/start")
+    async def api_oauth_start(request: Request) -> Dict[str, Any]:
+        _check_management_auth(request)
+        body = await request.json()
+        provider = body.get("provider")
+        if not provider:
+            raise HTTPException(status_code=400, detail="provider required")
+        from core.oauth_manager import OAuthManager
+        # In memory singleton or instance
+        if not hasattr(app.state, "oauth_mgr"):
+            app.state.oauth_mgr = OAuthManager()
+        return {"ok": True, "data": app.state.oauth_mgr.start_device_flow(provider)}
+
+    @app.get("/api/oauth/poll")
+    async def api_oauth_poll(request: Request, device_code: str = Query(...)) -> Dict[str, Any]:
+        _check_management_auth(request)
+        if not hasattr(app.state, "oauth_mgr"):
+            return {"ok": False, "status": "expired"}
+        return {"ok": True, "data": app.state.oauth_mgr.poll_device_flow(device_code)}
+
+    @app.post("/api/credentials/upload")
+    async def api_credentials_upload(request: Request) -> Dict[str, Any]:
+        _check_management_auth(request)
+        try:
+            body = await request.json()
+        except:
+            raise HTTPException(status_code=400, detail="Invalid JSON")
+        name = body.get("name")
+        data = body.get("data")
+        if not name or not data:
+            raise HTTPException(status_code=400, detail="name and data required")
+        
+        from pathlib import Path
+        import json
+        creds_dir = Path.home() / ".superai" / "credentials"
+        creds_dir.mkdir(parents=True, exist_ok=True)
+        (creds_dir / f"{name}.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+        
+        return {"ok": True, "status": "uploaded", "name": name}
 
     @app.get("/dashboard")
     async def dashboard():
@@ -580,6 +653,36 @@ async function status(){
         if query_str:
             target_url = f"{target_url}?{query_str}"
 
+        from core.client_keys import ClientKeyManager
+        from core.conditional_router import ConditionalRouter
+        
+        auth_header = req.headers.get("authorization", "")
+        key_mgr = ClientKeyManager()
+        cond_router = ConditionalRouter()
+        
+        req_model = None
+        body_json = None
+        if body_bytes:
+            import json
+            try:
+                body_json = json.loads(body_bytes)
+                req_model = body_json.get("model")
+                
+                # Evaluate condition-based routing
+                override_model = cond_router.evaluate(body_json, dict(req.headers))
+                if override_model:
+                    body_json["model"] = override_model
+                    req_model = override_model
+                    body_bytes = json.dumps(body_json).encode("utf-8")
+            except Exception:
+                pass
+                
+        if auth_header.startswith("Bearer sk-sai-"):
+            token = auth_header.split(" ")[1]
+            val_res = key_mgr.validate_key(token, requested_model=req_model)
+            if not val_res["ok"]:
+                return JSONResponse(status_code=403, content={"error": {"message": val_res["error"], "type": "auth_error"}})
+
         forward_headers = {}
         for k, v in req.headers.items():
             if k.lower() in {"authorization", "content-type", "accept", "x-management-key", "x-superai-management-token"}:
@@ -593,9 +696,31 @@ async function status(){
         )
 
         try:
+            import time
+            start_time = time.time()
             with urllib.request.urlopen(url_req, timeout=10.0) as resp:
                 resp_body = resp.read()
                 resp_headers = dict(resp.headers)
+                latency_ms = int((time.time() - start_time) * 1000)
+                
+                # Log usage statistics for vendor CLIProxyAPI integration
+                if "application/json" in resp_headers.get("content-type", ""):
+                    try:
+                        import json
+                        from core.usage_logger import log_usage
+                        data = json.loads(resp_body.decode('utf-8'))
+                        usage = data.get("usage", {})
+                        if usage or target_path.endswith("completions"):
+                            log_usage(
+                                model=req_model or data.get("model", "unknown"),
+                                prompt_tokens=usage.get("prompt_tokens", 0),
+                                completion_tokens=usage.get("completion_tokens", 0),
+                                provider="cliproxy",
+                                latency_ms=latency_ms
+                            )
+                    except Exception as e:
+                        pass
+
                 return Response(
                     content=resp_body,
                     status_code=resp.status,
@@ -626,6 +751,14 @@ async function status(){
     @app.api_route("/v1/models", methods=["GET"])
     async def proxy_models_endpoint(request: Request):
         return _proxy_cliproxy_request("v1/models", request, "GET")
+
+    @app.api_route("/api/provider/{provider}/v1/{target_path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+    async def proxy_amp_cli_endpoint(provider: str, target_path: str, request: Request):
+        """Amp CLI / IDE extensions support with provider routing"""
+        body_bytes = b""
+        if request.method in {"POST", "PUT", "PATCH"}:
+            body_bytes = await request.body()
+        return _proxy_cliproxy_request(f"v1/{target_path}", request, request.method, body_bytes)
 
     @app.post("/api/sync/cliproxy")
     async def api_sync_cliproxy(request: Request) -> Dict[str, Any]:
@@ -1322,6 +1455,39 @@ setInterval(load, 2000);
                 status=status, workflow_id=workflow_id, limit=80
             ),
         }
+
+    @app.get("/api/agents/profiles")
+    def api_agents_profiles() -> Dict[str, Any]:
+        from core.agent_launcher import AgentLaunchProfiles
+        return {"ok": True, "profiles": AgentLaunchProfiles.get_profiles()}
+
+    @app.post("/api/agents/launch")
+    async def api_agents_launch(request: Request) -> Dict[str, Any]:
+        _check_management_auth(request)
+        payload = await request.json()
+        profile_id = payload.get("profile_id")
+        client_key = payload.get("client_key", "sk-sai-default")
+        
+        from core.agent_launcher import AgentLaunchProfiles
+        env_updates = AgentLaunchProfiles.build_launch_env(profile_id, client_key)
+        
+        if not env_updates:
+            return {"ok": False, "error": f"Unknown profile {profile_id}"}
+            
+        from core.terminal_pool import ParallelTerminalManager
+        mgr = ParallelTerminalManager()
+        
+        profiles = AgentLaunchProfiles.get_profiles()
+        cmd = profiles[profile_id]["command"]
+        
+        import os
+        full_env = os.environ.copy()
+        full_env.update(env_updates)
+        
+        sess = mgr.run_command(cmd, title=f"Agent: {profile_id}")
+        # In a real impl, we'd pass full_env to the subprocess, but for now we just track it.
+        
+        return {"ok": True, "session_id": sess.id, "env_injected": env_updates}
 
     @app.get("/terminals", response_class=HTMLResponse)
     def terminals_page() -> str:

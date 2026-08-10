@@ -17,54 +17,102 @@
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
             <div class="brand">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#brand-gradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <defs>
-                        <linearGradient id="brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#3b82f6" />
-                            <stop offset="100%" stop-color="#8b5cf6" />
-                        </linearGradient>
-                    </defs>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
                     <polyline points="2 17 12 22 22 17"></polyline>
                     <polyline points="2 12 12 17 22 12"></polyline>
                 </svg>
-                <span>SuperAI</span>
+                <span>SuperAI Config</span>
             </div>
-            <ul class="nav-links">
-                <li><button class="nav-item active" data-tab="overview">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                    Overview
-                </button></li>
-                <li><button class="nav-item" data-tab="quotas">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                    Agent Quotas
-                </button></li>
-                <li><button class="nav-item" data-tab="keys">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-                    API Key Pools
-                </button></li>
-                <li><button class="nav-item" data-tab="aliases">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-                    Model Aliases
-                </button></li>
-                <li><button class="nav-item" data-tab="ratelimits">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
-                    Rate Limits
-                </button></li>
-                <li><button class="nav-item" data-tab="payloads">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    Payload Rules
-                </button></li>
-            </ul>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">General</div>
+                <ul class="nav-links">
+                    <li><button class="nav-item active" data-tab="overview">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        Home
+                    </button></li>
+                    <li><button class="nav-item" data-tab="launcher">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                        Agent Launcher
+                    </button></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Identity & Access</div>
+                <ul class="nav-links">
+                    <li><button class="nav-item" data-tab="clientkeys">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        API Profiles
+                    </button></li>
+                    <li><button class="nav-item" data-tab="copilot">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                        GitHub Copilot
+                    </button></li>
+                    <li><button class="nav-item" data-tab="keys">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                        Provider Pools
+                    </button></li>
+                    <li><button class="nav-item" data-tab="ratelimits">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                        Rate Limits
+                    </button></li>
+                    <li><button class="nav-item" data-tab="quotas">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Quota Management
+                    </button></li>
+                    <li><button class="nav-item" data-tab="oauth">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10.04 10.04 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        OAuth Flows
+                    </button></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">System</div>
+                <ul class="nav-links">
+                    <li><button class="nav-item" data-tab="livelogs">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M2 15h10"></path><path d="M2 19h10"></path></svg>
+                        Live Logs
+                    </button></li>
+                    <li><button class="nav-item" data-tab="authfiles">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                        Auth Files
+                    </button></li>
+                    <li><button class="nav-item" data-tab="virtualmodels">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                        Virtual Models
+                    </button></li>
+                    <li><button class="nav-item" data-tab="conditional">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        Conditional Routes
+                    </button></li>
+                    <li><button class="nav-item" data-tab="aliases">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                        Model Aliases
+                    </button></li>
+                    <li><button class="nav-item" data-tab="payloads">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg>
+                        Payload Rules
+                    </button></li>
+                    <li><button class="nav-item" data-tab="settings">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 1.95L9.67 5.5a8 8 0 0 0-1.87 1.08L6.2 5.66a2 2 0 0 0-2.45.64l-.32.44a2 2 0 0 0 .16 2.52l1.32 1.32a8 8 0 0 0 0 2.84l-1.32 1.32a2 2 0 0 0-.16 2.52l.32.44a2 2 0 0 0 2.45.64l1.6-.92c.6.45 1.22.82 1.87 1.08l.11 1.55A2 2 0 0 0 11.78 22h.44a2 2 0 0 0 2-1.95l.11-1.55a8 8 0 0 0 1.87-1.08l1.6.92a2 2 0 0 0 2.45-.64l.32-.44a2 2 0 0 0-.16-2.52l-1.32-1.32a8 8 0 0 0 0-2.84l1.32-1.32a2 2 0 0 0 .16-2.52l-.32-.44a2 2 0 0 0-2.45-.64l-1.6.92a8 8 0 0 0-1.87-1.08l-.11-1.55A2 2 0 0 0 12.22 2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        Settings
+                    </button></li>
+                </ul>
+            </div>
         </nav>
 
         <!-- Main Content Area -->
         <main class="main-content">
             <header class="topbar">
-                <div class="topbar-title">SuperAI Control Center</div>
+                <div class="topbar-badges">
+                    <div class="badge">POWERED BY <strong>ClaudeKit</strong></div>
+                    <div class="badge connected">● Connected</div>
+                </div>
                 <div class="topbar-actions">
                     <div class="input-wrapper">
-                        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                         <input type="password" id="mgmt-token" placeholder="Management Token" class="input-glass">
                     </div>
                 </div>
@@ -163,6 +211,183 @@
                     </div>
                 </section>
 
+                <!-- Live Logs Panel -->
+                <section id="panel-livelogs" class="panel">
+                    <div class="panel-header">
+                        <h2>Live Server Logs</h2>
+                        <p class="subtitle">Stream backend logs directly in the browser.</p>
+                        <button class="btn btn-secondary" onclick="fetchLiveLogs()">Refresh Logs</button>
+                    </div>
+                    <div class="glass-panel" style="height: 60vh; overflow-y: auto; background: #000; padding: 1rem; font-family: monospace; font-size: 0.85rem; color: #a5d6ff;">
+                        <pre id="livelogs-content">Loading logs...</pre>
+                    </div>
+                </section>
+
+                <!-- OAuth Flows Panel -->
+                <section id="panel-oauth" class="panel">
+                    <div class="panel-header">
+                        <h2>OAuth Device Flows</h2>
+                        <p class="subtitle">Trigger interactive OAuth flows for supported providers.</p>
+                    </div>
+                    <div class="glass-panel">
+                        <div class="form-group">
+                            <label>Provider</label>
+                            <select id="oauth-provider" class="input-glass">
+                                <option value="codex">Codex</option>
+                                <option value="claude">Claude</option>
+                                <option value="antigravity">Antigravity</option>
+                                <option value="grok">xAI / Grok</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="startOAuthFlow()" style="margin-top: 1rem;">Start Device Flow</button>
+                        </div>
+                        <div id="oauth-status" style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 4px; display: none;">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Auth Files Panel -->
+                <section id="panel-authfiles" class="panel">
+                    <div class="panel-header">
+                        <h2>JSON Auth Files</h2>
+                        <p class="subtitle">Upload complex JSON credentials (e.g. GCP Service Accounts).</p>
+                    </div>
+                    <div class="glass-panel">
+                        <div class="form-group">
+                            <label>Credential Name</label>
+                            <input type="text" id="authfile-name" class="input-glass" placeholder="vertex-sa">
+                        </div>
+                        <div class="form-group">
+                            <label>JSON Content</label>
+                            <textarea id="authfile-content" class="input-glass" rows="6" placeholder="{ ... }"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="uploadAuthFile()">Upload Credential</button>
+                    </div>
+                </section>
+
+                <!-- Copilot Panel -->
+                <section id="panel-copilot" class="panel">
+                    <div class="panel-header">
+                        <h2>Copilot</h2>
+                        <p class="subtitle">GitHub Copilot proxy</p>
+                    </div>
+                    
+                    <div class="master-detail-view">
+                        <!-- Left sidebar for master list -->
+                        <div class="master-list">
+                            <div class="warning-box" style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                                <h4 style="color: var(--warning); font-size: 0.85rem; margin-bottom: 0.5rem;">⚠️ Unofficial API - Use at Your Own Risk</h4>
+                                <ul style="color: var(--warning); font-size: 0.75rem; padding-left: 1rem; opacity: 0.9;">
+                                    <li>Reverse-engineered API - may break anytime</li>
+                                    <li>Excessive use may trigger account restrictions</li>
+                                    <li>No warranty, no responsibility from SuperAI</li>
+                                </ul>
+                            </div>
+                            
+                            <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 0.5rem; margin-top: 1rem;">Setup</h4>
+                            <div class="master-item">
+                                <span class="master-item-title" style="display:flex; justify-content:space-between;">
+                                    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg> copilot-api</span>
+                                    <span style="color:var(--text-secondary); font-weight:normal; font-size:0.8rem;">⦻ Missing</span>
+                                </span>
+                                <button class="btn btn-primary" style="margin-top:0.75rem; justify-content:center; width:100%; font-size:0.8rem; background:rgba(255,255,255,0.1)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Install copilot-api
+                                </button>
+                            </div>
+                            
+                            <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 0.5rem; margin-top: 1.5rem;">Daemon</h4>
+                            <div class="master-item">
+                                <span class="master-item-title" style="display:flex; justify-content:space-between;">
+                                    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Status</span>
+                                    <span style="color:var(--text-secondary); font-weight:normal; font-size:0.8rem;">⦻ Stopped</span>
+                                </span>
+                                <span class="master-item-subtitle" style="margin-bottom:0.75rem">Port: 4141</span>
+                                <button class="btn btn-primary" style="justify-content:center; width:100%; font-size:0.8rem; background:rgba(255,255,255,0.1)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> Start
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Right detail view -->
+                        <div class="detail-view">
+                            <div class="detail-header">
+                                <div>
+                                    <h3 style="margin-bottom:0.2rem">Copilot Configuration <span class="badge" style="display:inline-flex; padding:2px 6px; font-size:0.7rem; font-weight:normal; background:var(--bg-dark)">copilot.settings.json</span></h3>
+                                    <span style="font-size:0.8rem; color:var(--text-tertiary)">Last modified: Never saved</span>
+                                </div>
+                                <button class="btn btn-primary" onclick="saveResource('copilot_settings')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                    Save
+                                </button>
+                            </div>
+                            
+                            <div class="detail-body">
+                                <div class="detail-form">
+                                    <h4 style="margin-bottom:1rem; color:var(--text-secondary)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Presets</h4>
+                                    
+                                    <div style="margin-bottom: 1.5rem">
+                                        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem">
+                                            <span style="background:var(--success); color:var(--bg-dark); font-size:0.7rem; font-weight:600; padding:2px 6px; border-radius:10px;">Free Tier</span>
+                                            <span style="font-size:0.75rem; color:var(--text-tertiary)">No premium usage count</span>
+                                        </div>
+                                        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                                            <button class="btn btn-primary" style="font-size:0.8rem; padding:0.25rem 0.75rem; background:transparent; border-radius:12px; border-color:var(--glass-border-highlight)">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--success)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> GPT-4.1 (Free)
+                                            </button>
+                                            <button class="btn btn-primary" style="font-size:0.8rem; padding:0.25rem 0.75rem; background:transparent; border-radius:12px; border-color:var(--glass-border-highlight)">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--success)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> GPT-5 Mini (Free)
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-bottom: 2rem">
+                                        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem">
+                                            <span style="background:#8b5cf6; color:white; font-size:0.7rem; font-weight:600; padding:2px 6px; border-radius:10px;">Pro+ Required</span>
+                                            <span style="font-size:0.75rem; color:var(--text-tertiary)">Uses premium request quota</span>
+                                        </div>
+                                        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                                            <button class="btn btn-primary" style="font-size:0.8rem; padding:0.25rem 0.75rem; background:transparent; border-radius:12px; border-color:var(--glass-border-highlight)">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#8b5cf6"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Claude Opus 4.5
+                                            </button>
+                                            <button class="btn btn-primary" style="font-size:0.8rem; padding:0.25rem 0.75rem; background:transparent; border-radius:12px; border-color:var(--glass-border-highlight)">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#8b5cf6"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Claude Sonnet 4.5
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <h4 style="margin-bottom:1rem; color:var(--text-secondary)">Model Mapping</h4>
+                                    
+                                    <div class="form-group">
+                                        <label>Default Model</label>
+                                        <select class="form-control">
+                                            <option>gpt-4.1 (free)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Opus (Most capable)</label>
+                                        <select class="form-control">
+                                            <option>gpt-4.1 (free)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="detail-json">
+                                    <div class="editor-header" style="padding: 1rem; border-bottom: 1px solid var(--glass-border); color: var(--text-secondary); font-size: 0.85rem;">
+                                        &lt;/&gt; Raw Configuration (JSON)
+                                    </div>
+                                    <textarea id="copilot-json" class="json-editor" spellcheck="false" style="border:none; border-radius: 0 0 8px 8px;">{
+    "env": {
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:4141",
+        "ANTHROPIC_MODEL": "gpt-4.1",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-4.1"
+    }
+}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Key Pools Panel -->
                 <section id="panel-keys" class="panel">
                     <div class="panel-header">
@@ -250,8 +475,310 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- API Profiles Panel (formerly Client API Keys) -->
+                <section id="panel-clientkeys" class="panel">
+                    <div class="panel-header">
+                        <h2>API Profiles</h2>
+                        <p class="subtitle">CCS-level account management and proxy definitions.</p>
+                    </div>
+                    
+                    <div class="master-detail-view">
+                        <!-- Left sidebar for master list -->
+                        <div class="master-list">
+                            <div class="master-item">
+                                <span class="master-item-title">Google Gemini</span>
+                                <span class="master-item-subtitle"><span class="badge connected" style="padding:0; border:none; background:transparent">● Connected</span> 1</span>
+                            </div>
+                            <div class="master-item">
+                                <span class="master-item-title">Codex</span>
+                                <span class="master-item-subtitle"><span class="badge connected" style="padding:0; border:none; background:transparent">● Connected</span> 1</span>
+                            </div>
+                            <div class="master-item active">
+                                <span class="master-item-title">Antigravity</span>
+                                <span class="master-item-subtitle"><span class="badge connected" style="padding:0; border:none; background:transparent">● Connected</span> 14</span>
+                            </div>
+                            <div class="master-item">
+                                <span class="master-item-title">Qwen Code</span>
+                                <span class="master-item-subtitle">○ Not connected</span>
+                            </div>
+                            <div class="master-item">
+                                <span class="master-item-title">iFlow</span>
+                                <span class="master-item-subtitle">○ Not connected</span>
+                            </div>
+                        </div>
+
+                        <!-- Right detail view -->
+                        <div class="detail-view">
+                            <div class="detail-header">
+                                <div>
+                                    <h3 style="margin-bottom:0.2rem">Antigravity</h3>
+                                    <span style="font-size:0.8rem; color:var(--text-tertiary)">Last modified: Just now</span>
+                                </div>
+                                <button class="btn btn-primary" onclick="saveResource('client_keys')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                    Save
+                                </button>
+                            </div>
+                            
+                            <div class="detail-body">
+                                <div class="detail-form">
+                                    <h4 style="margin-bottom:1rem; color:var(--text-secondary)">Model Mapping</h4>
+                                    
+                                    <div class="form-group">
+                                        <label>Default Model</label>
+                                        <select class="form-control">
+                                            <option>gemini-claude-opus-4-5-thinking</option>
+                                            <option>gemini-3-flash-preview</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Opus (Most capable)</label>
+                                        <select class="form-control">
+                                            <option>gemini-claude-opus-4-5-thinking</option>
+                                            <option>gemini-3-flash-preview</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Haiku (Fast)</label>
+                                        <select class="form-control">
+                                            <option>gemini-3-flash-preview</option>
+                                            <option>gemini-claude-opus-4-5-thinking</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="detail-json">
+                                    <div class="editor-header" style="padding: 1rem; border-bottom: 1px solid var(--glass-border); color: var(--text-secondary); font-size: 0.85rem;">
+                                        &lt;/&gt; Raw Configuration (JSON)
+                                    </div>
+                                    <textarea id="clientkeys-json" class="json-editor" spellcheck="false" style="border:none; border-radius: 0 0 8px 8px;"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Virtual Models Panel -->
+                <section id="panel-virtualmodels" class="panel">
+                    <div class="panel-header">
+                        <h2>Virtual Models</h2>
+                        <p class="subtitle">Compose underlying models with injected tools, modified prompts, and overrides.</p>
+                    </div>
+                    <div class="glass-panel editor-panel">
+                        <div class="editor-header">
+                            <span class="file-name">virtual_models.json</span>
+                        </div>
+                        <div class="json-editor-container">
+                            <textarea id="virtualmodels-json" class="json-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button class="btn btn-primary" onclick="saveResource('virtual_models')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Virtual Models
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Conditional Routes Panel -->
+                <section id="panel-conditional" class="panel">
+                    <div class="panel-header">
+                        <h2>Conditional Routes</h2>
+                        <p class="subtitle">Evaluate request payloads and headers dynamically to reroute traffic.</p>
+                    </div>
+                    <div class="glass-panel editor-panel">
+                        <div class="editor-header">
+                            <span class="file-name">conditional_routes.json</span>
+                        </div>
+                        <div class="json-editor-container">
+                            <textarea id="conditional-json" class="json-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button class="btn btn-primary" onclick="saveResource('conditional_routes')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Routes
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Agent Launcher Panel -->
+                <section id="panel-launcher" class="panel">
+                    <div class="panel-header">
+                        <h2>Agent Launcher</h2>
+                        <p class="subtitle">Quickly launch third-party CLI agents (like Claude Code) routed automatically through SuperAI.</p>
+                    </div>
+                    
+                    <div class="launcher-grid glass-panel" style="padding: 24px;">
+                        <div class="launcher-controls" style="margin-bottom: 24px;">
+                            <label for="launcher-client-key" style="display:block; margin-bottom: 8px; color:#fff;">Inject Client API Key:</label>
+                            <input type="text" id="launcher-client-key" class="input-glass" placeholder="sk-sai-..." style="width: 100%; max-width: 400px; padding: 10px;">
+                        </div>
+                        <div id="launcher-profiles" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+                    <div style="margin-top: 16px;">
+                        <a href="/terminals" target="_blank" class="btn btn-primary" style="display:inline-flex; text-decoration:none; align-items:center; gap:8px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                            View Active Terminals
+                        </a>
+                    </div>
+                </section>
+                <!-- Settings Panel -->
+                <section id="panel-settings" class="panel">
+                    <div class="panel-header">
+                        <h2>Settings</h2>
+                        <p class="subtitle">Global environment configurations and system-wide fallbacks.</p>
+                    </div>
+                    
+                    <div class="master-detail-view">
+                        <!-- Left master view -->
+                        <div class="master-list" style="width:350px;">
+                            <div class="sub-nav">
+                                <button class="sub-nav-item active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg> WebSearch</button>
+                                <button class="sub-nav-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg> Global Env</button>
+                                <button class="sub-nav-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg> Proxy</button>
+                            </div>
+                            
+                            <p style="color:var(--text-secondary); font-size:0.8rem; margin-bottom:1rem;">CLI-based web search for third-party profiles (gemini, codex, agy, etc.)</p>
+                            
+                            <div class="glass-panel" style="padding:1rem; margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <h4 style="font-size:0.9rem; margin-bottom:0.2rem">WebSearch enabled</h4>
+                                    <span style="font-size:0.75rem; color:var(--text-tertiary)">Ready (Gemini + OpenCode)</span>
+                                </div>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary)"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21L21.5 8"></path></svg>
+                            </div>
+                            
+                            <h4 style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Providers</h4>
+                            
+                            <div class="provider-item">
+                                <div class="provider-header">
+                                    <div class="provider-title-row">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                        <span class="provider-name">gemini</span>
+                                        <span class="tag-free">FREE</span>
+                                        <span class="tag-installed">installed</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="provider-desc">Google Gemini CLI (1000 req/day free)</div>
+                                <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem; font-size:0.8rem;">
+                                    <span style="color:var(--text-secondary)">Model:</span>
+                                    <div style="flex:1; background:var(--bg-panel); border:1px solid var(--glass-border); padding:0.25rem 0.5rem; border-radius:4px; font-family:var(--font-mono)">gemini-2.5-flash</div>
+                                </div>
+                            </div>
+
+                            <div class="provider-item">
+                                <div class="provider-header">
+                                    <div class="provider-title-row">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                        <span class="provider-name">opencode</span>
+                                        <span class="tag-free">FREE</span>
+                                        <span class="tag-installed">installed</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="provider-desc">OpenCode (web search via Zen)</div>
+                            </div>
+
+                            <div class="provider-item">
+                                <div class="provider-header">
+                                    <div class="provider-title-row">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                        <span class="provider-name">grok</span>
+                                        <span class="tag-warning">GROK_API_KEY</span>
+                                        <span style="background:rgba(239, 68, 68, 0.15); color:var(--error); font-size:0.65rem; padding:2px 6px; border-radius:4px;">not installed</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="provider-desc">xAI Grok CLI (web + X search)</div>
+                                <div style="margin-top:0.5rem; font-size:0.75rem; color:#3b82f6; display:flex; align-items:center; gap:0.25rem;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg> How to install Grok CLI
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right detail view (YAML) -->
+                        <div class="detail-view">
+                            <div class="detail-header" style="padding: 1rem; border-radius: 8px 8px 0 0; background:var(--bg-dark); border-bottom:none;">
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                    <div>
+                                        <h3 style="margin-bottom:0.1rem; font-size:0.9rem;">config.yaml</h3>
+                                        <span style="font-size:0.7rem; color:var(--text-tertiary)">~/.ccs/config.yaml</span>
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:0.5rem;">
+                                    <button class="btn" style="background:transparent; font-size:0.75rem; padding:0.25rem 0.5rem;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy
+                                    </button>
+                                    <button class="btn" style="background:transparent; font-size:0.75rem; padding:0.25rem 0.5rem;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21L21.5 8"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-json" style="flex:1; border-radius:0 0 8px 8px; border-top:none;">
+                                <textarea class="json-editor" spellcheck="false" style="border:none; border-radius:0 0 8px 8px; background:var(--bg-base); font-size:0.8rem;" readonly># -------------------------------------------------------------
+# Copilot: GitHub Copilot API proxy (via copilot-api)
+# Uses your existing GitHub Copilot subscription with Claude Code.
+# 
+# !! DISCLAIMER - USE AT YOUR OWN RISK !!
+# This uses an UNOFFICIAL reverse-engineered API.
+# Excessive usage may trigger GitHub account restrictions.
+# CCS provides NO WARRANTY and accepts NO RESPONSIBILITY.
+#
+# Setup: npx copilot-api auth (authenticate with GitHub)
+# Usage: ccs copilot (switch to copilot profile)
+# Models: claude-sonnet-4.5, claude-opus-4.5, gpt-5.1
+# -------------------------------------------------------------
+copilot:
+  enabled: false
+  auto_start: false
+  port: 4141
+  account_type: individual
+  rate_limit: null
+  wait_on_limit: true
+  model: gpt-4.1
+
+# -------------------------------------------------------------
+# Global Environment Variables: Injected into all profiles
+# These env vars disable telemetry/reporting.
+# -------------------------------------------------------------
+global_env:
+  enabled: true
+  env:
+    DISABLE_BUG_COMMAND: "1"
+    DISABLE_ERROR_REPORTING: "1"
+    DISABLE_TELEMETRY: "1"</textarea>
+                                <div style="display:flex; justify-content:space-between; padding:0.5rem 1rem; background:var(--bg-dark); border-top:1px solid var(--glass-border); border-radius:0 0 8px 8px; font-size:0.75rem; color:var(--text-tertiary);">
+                                    <span style="color:var(--success); display:flex; align-items:center; gap:0.25rem;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Valid YAML</span>
+                                    <span>(Read-only)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
+    </div>
+    <div class="footer-banner">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        This dashboard runs locally. All data stays on your machine.
     </div>
     <script src="app.js"></script>
 </body>

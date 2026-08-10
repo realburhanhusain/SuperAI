@@ -18,6 +18,8 @@ class KeyPool:
         self.lock = FileLock(str(self.path) + ".lock")
         self.pools: Dict[str, List[str]] = {}
         self.indexes: Dict[str, int] = {}
+        self.exhausted_keys: Dict[str, float] = {}  # key -> timestamp when it was marked exhausted
+        self.exhausted_timeout_sec = 3600  # 1 hour before re-trying an exhausted key
         self._load()
 
     def _load(self):
@@ -29,12 +31,17 @@ class KeyPool:
                         data = json.loads(content)
                         self.pools = data.get("pools", {})
                         self.indexes = data.get("indexes", {})
+                        self.exhausted_keys = data.get("exhausted_keys", {})
             except Exception:
                 pass
                 
     def _save(self):
+        import time
+        # cleanup old exhausted keys before save
+        now = time.time()
+        self.exhausted_keys = {k: v for k, v in self.exhausted_keys.items() if now - v < self.exhausted_timeout_sec}
         with open(self.path, "w", encoding="utf-8") as f:
-            json.dump({"pools": self.pools, "indexes": self.indexes}, f, indent=2)
+            json.dump({"pools": self.pools, "indexes": self.indexes, "exhausted_keys": self.exhausted_keys}, f, indent=2)
 
     def set_keys(self, name: str, keys: List[str]):
         """Set the pool of keys for a given name (e.g., env_name or provider)."""
@@ -54,30 +61,57 @@ class KeyPool:
         with self.lock:
             self._load()
             if name in self.pools and self.pools[name]:
-                idx = self.indexes.get(name, 0)
-                if idx >= len(self.pools[name]):
-                    idx = 0
-                    self.indexes[name] = 0
-                    self._save()
-                return self.pools[name][idx]
+                import time
+                now = time.time()
+                pool_keys = self.pools[name]
+                
+                # Check for an active key that isn't exhausted
+                start_idx = self.indexes.get(name, 0) % len(pool_keys)
+                idx = start_idx
+                for _ in range(len(pool_keys)):
+                    key = pool_keys[idx]
+                    exhausted_time = self.exhausted_keys.get(key, 0)
+                    if now - exhausted_time >= self.exhausted_timeout_sec:
+                        if idx != start_idx:
+                            self.indexes[name] = idx
+                            self._save()
+                        return key
+                    idx = (idx + 1) % len(pool_keys)
+                
+                # If all exhausted, fallback to returning the start_idx
+                return pool_keys[start_idx]
                 
             if fallback_env:
                 import os
                 return (os.getenv(fallback_env) or "").strip()
             return None
 
-    def rotate(self, name: str) -> Optional[str]:
+    def mark_exhausted(self, key: str):
+        """Mark a specific key as exhausted (e.g. 429 hit)."""
+        import time
+        with self.lock:
+            self._load()
+            self.exhausted_keys[key] = time.time()
+            self._save()
+
+    def rotate(self, name: str, current_key_exhausted: bool = False) -> Optional[str]:
         """
         Rotate to the next key in the pool (round-robin).
-        Useful when encountering HTTP 429 errors.
+        If current_key_exhausted is True, marks the current key as exhausted.
         Returns the new active key, or None if pool is empty.
         """
+        import time
         with self.lock:
             self._load()
             if name not in self.pools or not self.pools[name]:
                 return self.get_key_without_lock(name, None)
                 
             idx = self.indexes.get(name, 0)
+            current_key = self.pools[name][idx % len(self.pools[name])]
+            
+            if current_key_exhausted:
+                self.exhausted_keys[current_key] = time.time()
+                
             self.indexes[name] = (idx + 1) % len(self.pools[name])
             self._save()
             return self.get_key_without_lock(name, None)

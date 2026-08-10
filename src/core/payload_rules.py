@@ -242,6 +242,47 @@ class FusionVisionInterceptor:
             
         return payload
 
+class VirtualModelInterceptor:
+    """
+    Virtual Model interceptor. Maps a 'virtual:' prefixed model to a physical model
+    while injecting configured tools or system prompts.
+    """
+    def __init__(self):
+        import json
+        from pathlib import Path
+        self.config_path = Path.home() / ".superai" / "config" / "virtual_models.json"
+        self.profiles = {}
+        if self.config_path.exists():
+            try:
+                self.profiles = json.loads(self.config_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+    def __call__(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        model_name = payload.get("model", "")
+        if not model_name.startswith("virtual:"):
+            return payload
+
+        payload = payload.copy()
+        profile = self.profiles.get(model_name)
+        if not profile:
+            # Fallback if profile not found
+            payload["model"] = model_name.replace("virtual:", "")
+            return payload
+            
+        payload["model"] = profile.get("target_model", "gpt-4o-mini")
+        
+        # Inject system prompt
+        if "system_prompt" in profile:
+            current_sys = payload.get("system_prompt", "")
+            payload["system_prompt"] = profile["system_prompt"] + "\n\n" + current_sys
+            
+        # Inject force tools
+        if "force_tool" in profile:
+            payload["prompt"] = payload.get("prompt", "") + f"\n\n[Use tool: {profile['force_tool']}]"
+
+        return payload
+
 class InterceptorChain:
     """
     A middleware/interceptor chain pattern that can intercept LLM requests 
@@ -263,6 +304,16 @@ class InterceptorChain:
             self.add_interceptor(ToolHubInterceptor())
         if use_fusion_vision:
             self.add_interceptor(FusionVisionInterceptor())
+        self.add_interceptor(VirtualModelInterceptor())
+
+        # Apply plugins
+        try:
+            from core.plugin_manager import PluginManager
+            pm = PluginManager()
+            pm.load_all_plugins()
+            pm.apply_interceptors(self)
+        except Exception:
+            pass
 
     def add_interceptor(self, interceptor: Callable[[Dict[str, Any]], Dict[str, Any]]):
         """Adds an interceptor to the chain."""

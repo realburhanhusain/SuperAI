@@ -145,14 +145,76 @@ function switchTab(tabId) {
         const resourceMap = {
             'quotas': 'quotas',
             'keys': 'key_pools',
+            'clientkeys': 'client_keys',
+            'virtualmodels': 'virtual_models',
+            'conditional': 'conditional_routes',
             'aliases': 'aliases',
             'ratelimits': 'rate_limits',
-            'payloads': 'payload_rules'
+            'payloads': 'payload_rules',
+            'copilot': 'copilot_settings'
         };
         
         if (resourceMap[tabId]) {
             loadResource(resourceMap[tabId]);
+        } else if (tabId === 'launcher') {
+            loadLauncherProfiles();
+        } else if (tabId === 'livelogs') {
+            fetchLiveLogs();
         }
+    }
+}
+
+// Launcher specific logic
+async function loadLauncherProfiles() {
+    if (!state.token) return;
+    
+    try {
+        const response = await fetch('/api/agents/profiles', { headers: getHeaders() });
+        const json = await response.json();
+        
+        if (json.ok && json.profiles) {
+            const container = document.getElementById('launcher-profiles');
+            container.innerHTML = '';
+            
+            for (const [id, profile] of Object.entries(json.profiles)) {
+                const card = document.createElement('div');
+                card.className = 'glass-panel';
+                card.style.padding = '16px';
+                card.style.borderRadius = '8px';
+                card.innerHTML = `
+                    <h3 style="margin: 0 0 8px 0; color: #fff;">${profile.name}</h3>
+                    <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #9ca3af;">Command: <code>${profile.command.join(' ')}</code></p>
+                    <button class="btn btn-primary" onclick="launchAgent('${id}')" style="width: 100%;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                        Launch Agent
+                    </button>
+                `;
+                container.appendChild(card);
+            }
+        }
+    } catch (err) {
+        showToast(`Error loading profiles: ${err.message}`, "error");
+    }
+}
+
+async function launchAgent(profileId) {
+    const clientKey = document.getElementById('launcher-client-key').value || 'sk-sai-default';
+    try {
+        showToast(`Spawning ${profileId}...`, "success");
+        const response = await fetch('/api/agents/launch', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ profile_id: profileId, client_key: clientKey })
+        });
+        
+        const json = await response.json();
+        if (json.ok) {
+            showToast(`Successfully launched! Session ID: ${json.session_id}`, "success");
+        } else {
+            showToast(`Launch failed: ${json.error}`, "error");
+        }
+    } catch (err) {
+        showToast(`Launch error: ${err.message}`, "error");
     }
 }
 
@@ -170,12 +232,18 @@ async function loadResource(resourceName) {
     // Map tab IDs to resource names if needed
     const apiName = resourceName === 'quotas' ? 'quotas' :
                    resourceName === 'keys' ? 'key_pools' :
+                   resourceName === 'clientkeys' ? 'client_keys' :
+                   resourceName === 'virtualmodels' ? 'virtual_models' :
+                   resourceName === 'conditional' ? 'conditional_routes' :
                    resourceName === 'aliases' ? 'aliases' :
                    resourceName === 'ratelimits' ? 'rate_limits' :
                    resourceName === 'payloads' ? 'payload_rules' : resourceName;
 
     const textareaId = `${resourceName === apiName ? resourceName : (
         apiName === 'key_pools' ? 'keys' : 
+        apiName === 'client_keys' ? 'clientkeys' : 
+        apiName === 'virtual_models' ? 'virtualmodels' : 
+        apiName === 'conditional_routes' ? 'conditional' : 
         apiName === 'rate_limits' ? 'ratelimits' : 
         apiName === 'payload_rules' ? 'payloads' : apiName
     )}-json`;
@@ -206,6 +274,9 @@ async function loadResource(resourceName) {
 async function saveResource(resourceName) {
     // Map back to UI ID
     const uiId = resourceName === 'key_pools' ? 'keys' : 
+                 resourceName === 'client_keys' ? 'clientkeys' : 
+                 resourceName === 'virtual_models' ? 'virtualmodels' : 
+                 resourceName === 'conditional_routes' ? 'conditional' : 
                  resourceName === 'rate_limits' ? 'ratelimits' : 
                  resourceName === 'payload_rules' ? 'payloads' : resourceName;
                  
@@ -249,14 +320,115 @@ function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     
-    toast.innerHTML = `
-        <span>${message}</span>
-        <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
-    `;
+    toast.textContent = message;
     
     container.appendChild(toast);
     
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Remove after 3 seconds
     setTimeout(() => {
-        if (toast.parentElement) toast.remove();
-    }, 4000);
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// -----------------------------------------
+// Live Logs, OAuth, and Auth Files Logic
+// -----------------------------------------
+
+async function fetchLiveLogs() {
+    if (!state.token) return;
+    try {
+        const response = await fetch('/api/logs/tail?lines=100', { headers: getHeaders() });
+        const json = await response.json();
+        const contentArea = document.getElementById('livelogs-content');
+        if (json.ok) {
+            contentArea.textContent = json.lines.join('\n') || "No logs available.";
+            contentArea.scrollTop = contentArea.scrollHeight;
+        } else {
+            contentArea.textContent = "Error loading logs: " + (json.detail || "Unknown error");
+        }
+    } catch (err) {
+        document.getElementById('livelogs-content').textContent = "Connection error: " + err.message;
+    }
+}
+
+let oauthPollInterval = null;
+async function startOAuthFlow() {
+    if (!state.token) return;
+    const provider = document.getElementById('oauth-provider').value;
+    const statusDiv = document.getElementById('oauth-status');
+    statusDiv.style.display = 'block';
+    statusDiv.innerHTML = `<span style="color:#a5d6ff">Starting device flow for ${provider}...</span>`;
+    
+    try {
+        const response = await fetch('/api/oauth/start', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ provider })
+        });
+        const json = await response.json();
+        if (json.ok) {
+            const data = json.data;
+            statusDiv.innerHTML = `
+                <div style="color: #fff; margin-bottom: 8px;">Please go to: <strong><a href="${data.verification_uri}" target="_blank" style="color: #58a6ff;">${data.verification_uri}</a></strong></div>
+                <div style="color: #fff; margin-bottom: 8px;">Enter code: <strong style="font-size: 1.2rem; background: #000; padding: 2px 6px; border-radius: 4px;">${data.user_code}</strong></div>
+                <div style="color: #8b949e;">Waiting for authorization...</div>
+            `;
+            if (oauthPollInterval) clearInterval(oauthPollInterval);
+            oauthPollInterval = setInterval(() => pollOAuthFlow(data.device_code), 5000);
+        } else {
+            statusDiv.innerHTML = `<span style="color:#f85149">Error: ${json.detail || "Failed to start flow"}</span>`;
+        }
+    } catch (err) {
+        statusDiv.innerHTML = `<span style="color:#f85149">Connection error: ${err.message}</span>`;
+    }
+}
+
+async function pollOAuthFlow(deviceCode) {
+    if (!state.token) return;
+    try {
+        const response = await fetch(`/api/oauth/poll?device_code=${deviceCode}`, { headers: getHeaders() });
+        const json = await response.json();
+        if (json.ok && json.data.status !== 'pending') {
+            const statusDiv = document.getElementById('oauth-status');
+            statusDiv.innerHTML = `<span style="color:#3fb950">Authorization successful! Flow complete.</span>`;
+            if (oauthPollInterval) clearInterval(oauthPollInterval);
+        }
+    } catch (err) {
+        // silently ignore poll errors
+    }
+}
+
+async function uploadAuthFile() {
+    if (!state.token) return;
+    const name = document.getElementById('authfile-name').value;
+    let content;
+    try {
+        content = JSON.parse(document.getElementById('authfile-content').value);
+    } catch (err) {
+        showToast("Invalid JSON in Auth File content", "error");
+        return;
+    }
+    
+    try {
+        showToast("Uploading credential...", "success");
+        const response = await fetch('/api/credentials/upload', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ name: name, data: content })
+        });
+        const json = await response.json();
+        if (json.ok) {
+            showToast("Credential uploaded successfully!", "success");
+            document.getElementById('authfile-name').value = '';
+            document.getElementById('authfile-content').value = '';
+        } else {
+            showToast("Upload failed: " + (json.detail || "Error"), "error");
+        }
+    } catch (err) {
+        showToast("Connection error: " + err.message, "error");
+    }
 }

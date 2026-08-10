@@ -62,3 +62,36 @@ class BrowserAutomation:
             extractor = TextExtractor()
             extractor.feed(html)
             return extractor.get_text()
+
+    def import_chrome_login_state(self) -> str:
+        """
+        Imports active Chrome cookies to allow headless browser to access authenticated pages.
+        Equivalent to CCR's browser_chrome_login_import.
+        """
+        if not self.use_playwright:
+            return "Error: Playwright is required for browser automation with injected state."
+        try:
+            import browser_cookie3
+            # Extract cookies from local Chrome
+            cj = browser_cookie3.chrome()
+            cookies = []
+            for cookie in cj:
+                cookies.append({
+                    "name": cookie.name,
+                    "value": cookie.value,
+                    "domain": cookie.domain,
+                    "path": cookie.path,
+                })
+            
+            # Start Playwright with these cookies
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context()
+                context.add_cookies(cookies)
+                # Keep context open or store it for subsequent requests
+                self.persistent_context = context
+                return f"Successfully imported {len(cookies)} cookies from Chrome."
+        except ImportError:
+            return "Error: browser_cookie3 library is not installed. Run `pip install browser_cookie3`"
+        except Exception as e:
+            return f"Error importing Chrome state: {str(e)}"

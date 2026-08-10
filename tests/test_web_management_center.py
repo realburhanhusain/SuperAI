@@ -336,14 +336,24 @@ def test_api_sync_cliproxy(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     from scli.web_app import create_app
     from fastapi.testclient import TestClient
+    import os
+    from unittest import mock
 
-    app = create_app()
-    client = TestClient(app)
+    # 1. flag off -> route must not be registered at all
+    client = TestClient(create_app())
+    assert client.post("/api/sync/cliproxy").status_code == 404
 
-    r = client.post("/api/sync/cliproxy")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["ok"] is True
-    assert "total_registered" in body
+    # 2. flag on, no token -> rejected
+    with mock.patch.dict(os.environ, {"SUPERAI_WEB_ENABLE_CONFIG_WRITE": "1",
+                                      "SUPERAI_WEB_MANAGEMENT_TOKEN": "secret"}):
+        c = TestClient(create_app())
+        assert c.post("/api/sync/cliproxy").status_code == 401
+
+        # 3. with token -> works
+        r = c.post("/api/sync/cliproxy", headers={"Authorization": "Bearer secret"})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["ok"] is True
+        assert "total_registered" in body
 
 

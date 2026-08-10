@@ -505,6 +505,25 @@ TOOLS: List[Dict[str, Any]] = [
         },
         ["action"],
     ),
+    _tool(
+        "superai_chrome_profile",
+        "Open a URL in a specific Chrome profile resolved by email or display name.",
+        {
+            "url": {"type": "string"},
+            "profile_query": {"type": "string", "description": "Email or display name substring"},
+            "append_cdp_anchor": {"type": "boolean", "description": "Append #cdp-profile=query (default true)"},
+        },
+        ["url", "profile_query"],
+    ),
+    _tool(
+        "superai_skillx_search",
+        "Search the SkillX.sh marketplace for AI agent skills.",
+        {
+            "query": {"type": "string"},
+            "limit": {"type": "integer"}
+        },
+        ["query"],
+    ),
 ]
 
 
@@ -687,6 +706,30 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
                 }
             ]
         }
+
+    if name == "superai_chrome_profile":
+        from core.chrome_profile import open_url_in_profile
+        url = args.get("url", "")
+        query = args.get("profile_query", "")
+        append_cdp = args.get("append_cdp_anchor", True)
+        success = open_url_in_profile(url, query, append_cdp)
+        return {"status": "success" if success else "failed", "message": f"Opened in profile: {success}"}
+
+    if name == "superai_skillx_search":
+        import urllib.request
+        import json
+        query = args.get("query", "")
+        limit = args.get("limit", 5)
+        try:
+            req = urllib.request.Request(
+                "https://skillx.sh/api/search", 
+                data=json.dumps({"query": query, "limit": limit}).encode('utf-8'),
+                headers={'Content-Type': 'application/json', 'User-Agent': 'SuperAI-MCP'}
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                return json.loads(response.read().decode('utf-8'))
+        except Exception as e:
+            return {"error": str(e)}
 
     if name == "superai_status":
         from .doctor import run_doctor

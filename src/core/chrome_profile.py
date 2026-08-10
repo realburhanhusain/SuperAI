@@ -2,8 +2,10 @@ import os
 import json
 import subprocess
 import sys
+import logging
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 def get_chrome_user_data_dir() -> Path:
     if sys.platform == "win32":
@@ -30,7 +32,8 @@ def resolve_profile_dir(query: str) -> Optional[str]:
     try:
         with open(local_state_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-    except Exception:
+    except Exception as e:
+        logging.warning(f"Failed to read Chrome Local State: {e}")
         return None
         
     info_cache = data.get("profile", {}).get("info_cache", {})
@@ -59,6 +62,10 @@ def open_url_in_profile(url: str, profile_query: str, append_cdp_anchor: bool = 
         # Fallback for 32-bit windows path
         chrome_bin = r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
         
+    if urlparse(url).scheme not in ("http", "https"):
+        logging.warning(f"Invalid or unsafe URL scheme: {url}")
+        return False
+
     target_url = url
     if append_cdp_anchor:
         target_url = f"{url}#cdp-profile={profile_query}"
@@ -70,5 +77,6 @@ def open_url_in_profile(url: str, profile_query: str, append_cdp_anchor: bool = 
             target_url
         ])
         return True
-    except Exception:
+    except Exception as e:
+        logging.warning(f"Failed to launch Chrome: {e}")
         return False

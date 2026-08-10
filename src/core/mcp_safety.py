@@ -34,6 +34,7 @@ MUTATING_TOOLS: Set[str] = {
     "superai_memory_cloud",
     "superai_cli_run",
     "superai_run",
+    "superai_chrome_profile",
 }
 
 # Tools that are read-only and free
@@ -51,6 +52,8 @@ FREE_TOOLS: Set[str] = {
     "superai_ontology",
     "superai_cli_discover",
     "superai_host_tools",
+    "superai_websearch",
+    "superai_skillx_search",
 }
 
 # MCP tool → closest CLI command (parity map)
@@ -87,6 +90,9 @@ CLI_PARITY: Dict[str, str] = {
     "superai_cli_discover": "host-tools / cli discover",
     "superai_cli_parallel": "cli-parallel",
     "superai_host_tools": "host-tools",
+    "superai_websearch": "websearch",
+    "superai_skillx_search": "skillx search",
+    "superai_chrome_profile": "chrome profile",
 }
 
 

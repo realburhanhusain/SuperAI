@@ -414,70 +414,6 @@ def create_app() -> Any:
                 
                 return {"ok": True, "status": "updated", "count": len(valid_models)}
 
-            @app.get("/api/{resource}")
-            async def get_resource(request: Request, resource: str) -> Dict[str, Any]:
-                allowed = {"quotas", "key_pools", "aliases", "rate_limits", "payload_rules", "client_keys", "virtual_models", "conditional_routes"}
-                if resource not in allowed:
-                    raise HTTPException(status_code=404)
-                _check_management_auth(request)
-                import json
-                from pathlib import Path
-                path = Path.home() / ".superai" / "config" / f"{resource}.json"
-                if path.exists():
-                    try:
-                        return {"ok": True, "data": json.loads(path.read_text(encoding="utf-8"))}
-                    except Exception as e:
-                        return {"ok": False, "error": str(e)}
-                return {"ok": True, "data": {}}
-
-            @app.post("/api/{resource}")
-            async def set_resource(request: Request, resource: str) -> Dict[str, Any]:
-                allowed = {"quotas", "key_pools", "aliases", "rate_limits", "payload_rules", "client_keys", "virtual_models", "conditional_routes"}
-                if resource not in allowed:
-                    raise HTTPException(status_code=404)
-                _check_management_auth(request)
-                import json
-                from pathlib import Path
-                try:
-                    payload = await request.json()
-                except json.JSONDecodeError:
-                    raise HTTPException(status_code=400, detail="Invalid JSON in request body")
-                
-                data = payload.get("data", payload)
-                
-                if resource == "quotas":
-                    from core.quota_manager import QuotaManager
-                    qm = QuotaManager()
-                    qm.data = data
-                    qm._save()
-                elif resource == "key_pools":
-                    from core.key_pool import KeyPool
-                    kp = KeyPool()
-                    kp.pools = data.get("pools", {})
-                    kp.indexes = data.get("indexes", {})
-                    kp._save()
-                elif resource == "aliases":
-                    from core.model_router import AliasRouter
-                    ar = AliasRouter()
-                    ar.aliases = data.get("aliases", {})
-                    ar._save()
-                elif resource == "rate_limits":
-                    from core.rate_limiter import TokenBucketRateLimiter
-                    tb = TokenBucketRateLimiter()
-                    tb.limits = data.get("limits", {})
-                    tb._save()
-                elif resource == "payload_rules":
-                    from core.payload_rules import PersistentPayloadRules
-                    pr = PersistentPayloadRules()
-                    pr.blocked_keywords = data.get("blocked_keywords", [])
-                    pr.system_prompt_appends = data.get("system_prompt_appends", [])
-                    pr._save()
-                else:
-                    path = Path.home() / ".superai" / "config" / f"{resource}.json"
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-                    
-                return {"ok": True}
 
     @app.get("/api/logs/tail")
     async def api_logs_tail(request: Request, lines: int = Query(100, ge=1, le=1000)) -> Dict[str, Any]:
@@ -1578,6 +1514,73 @@ setInterval(load, 2000);
                     pass
     except Exception:
         pass
+
+    if enable_config_write:
+        # C0.1 FIX: Catch-all routes must remain at the very end of create_app() to avoid shadowing explicit routes!
+        @app.get("/api/{resource}")
+        async def get_resource(request: Request, resource: str) -> Dict[str, Any]:
+            allowed = {"quotas", "key_pools", "aliases", "rate_limits", "payload_rules", "client_keys", "virtual_models", "conditional_routes"}
+            if resource not in allowed:
+                raise HTTPException(status_code=404)
+            _check_management_auth(request)
+            import json
+            from pathlib import Path
+            path = Path.home() / ".superai" / "config" / f"{resource}.json"
+            if path.exists():
+                try:
+                    return {"ok": True, "data": json.loads(path.read_text(encoding="utf-8"))}
+                except Exception as e:
+                    return {"ok": False, "error": str(e)}
+            return {"ok": True, "data": {}}
+
+        @app.post("/api/{resource}")
+        async def set_resource(request: Request, resource: str) -> Dict[str, Any]:
+            allowed = {"quotas", "key_pools", "aliases", "rate_limits", "payload_rules", "client_keys", "virtual_models", "conditional_routes"}
+            if resource not in allowed:
+                raise HTTPException(status_code=404)
+            _check_management_auth(request)
+            import json
+            from pathlib import Path
+            try:
+                payload = await request.json()
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+            
+            data = payload.get("data", payload)
+            
+            if resource == "quotas":
+                from core.quota_manager import QuotaManager
+                qm = QuotaManager()
+                qm.data = data
+                qm._save()
+            elif resource == "key_pools":
+                from core.key_pool import KeyPool
+                kp = KeyPool()
+                kp.pools = data.get("pools", {})
+                kp.indexes = data.get("indexes", {})
+                kp._save()
+            elif resource == "aliases":
+                from core.model_router import AliasRouter
+                ar = AliasRouter()
+                ar.aliases = data.get("aliases", {})
+                ar._save()
+            elif resource == "rate_limits":
+                from core.rate_limiter import TokenBucketRateLimiter
+                tb = TokenBucketRateLimiter()
+                tb.limits = data.get("limits", {})
+                tb._save()
+            elif resource == "payload_rules":
+                from core.payload_rules import PersistentPayloadRules
+                pr = PersistentPayloadRules()
+                pr.blocked_keywords = data.get("blocked_keywords", [])
+                pr.system_prompt_appends = data.get("system_prompt_appends", [])
+                pr._save()
+            else:
+                path = Path.home() / ".superai" / "config" / f"{resource}.json"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                
+            return {"ok": True}
 
     return app
 

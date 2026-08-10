@@ -1,0 +1,256 @@
+{
+  "ok": true,
+  "phase": 6,
+  "product": "live_smoke_complete.m089",
+  "harness": {
+    "ok": true,
+    "live": false,
+    "harness": true,
+    "message": "Smoke harness only — live multi-vendor smoke postponed by policy. Pass allow_live=True when credentials are ready.",
+    "targets_known": 7,
+    "targets_credentialed": 1,
+    "inventory": [
+      {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "credentialed": false,
+        "env": "OPENAI_API_KEY"
+      },
+      {
+        "provider": "anthropic",
+        "model": "claude-4-sonnet",
+        "credentialed": false,
+        "env": "ANTHROPIC_API_KEY"
+      },
+      {
+        "provider": "xai",
+        "model": "grok-3",
+        "credentialed": false,
+        "env": "XAI_API_KEY"
+      },
+      {
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+        "credentialed": false,
+        "env": "GOOGLE_API_KEY"
+      },
+      {
+        "provider": "deepseek",
+        "model": "deepseek-coder",
+        "credentialed": false,
+        "env": "DEEPSEEK_API_KEY"
+      },
+      {
+        "provider": "groq",
+        "model": "llama-3.3-70b",
+        "credentialed": false,
+        "env": "GROQ_API_KEY"
+      },
+      {
+        "provider": "ollama",
+        "model": "llama3.1-latest",
+        "credentialed": true,
+        "env": null
+      }
+    ],
+    "live_passed": false,
+    "live_claimed": false,
+    "contract": "superai.smoke.harness.v1"
+  },
+  "preflight": {
+    "ok": true,
+    "harness": true,
+    "live_smoke_run": false,
+    "live_passed": false,
+    "providers": [
+      {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "env": "OPENAI_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "anthropic",
+        "model": "claude-4-sonnet",
+        "env": "ANTHROPIC_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "xai",
+        "model": "grok-3",
+        "env": "XAI_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+        "env": "GOOGLE_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "env": "DEEPSEEK_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "groq",
+        "model": "llama-3.3-70b",
+        "env": "GROQ_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "openrouter",
+        "model": "openrouter-auto",
+        "env": "OPENROUTER_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "nvidia",
+        "model": "nvidia-llama-3.1-70b-instruct",
+        "env": "NVIDIA_API_KEY",
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "ollama",
+        "model": "llama3.2",
+        "env": null,
+        "credentialed": true,
+        "local_up": true,
+        "ready_for_live_smoke": true,
+        "readiness": {
+          "ok": true,
+          "detail": "mock"
+        }
+      },
+      {
+        "provider": "lmstudio",
+        "model": "lmstudio-local",
+        "env": null,
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      },
+      {
+        "provider": "cliproxy",
+        "model": null,
+        "env": null,
+        "credentialed": false,
+        "local_up": false,
+        "ready_for_live_smoke": false
+      }
+    ],
+    "credentialed_count": 1,
+    "total_checks": 11,
+    "checklist": [
+      "Set API keys for providers you want to smoke (OPENAI_API_KEY, …)",
+      "Start Ollama/LM Studio if testing local open-weight",
+      "Run: superai smoke-harness  (inventory, no false pass)",
+      "Run: superai smoke-preflight --readiness",
+      "When ready: superai smoke-harness --allow-live  (only claims pass on real results)",
+      "Optional: SUPERAI_MOCK_MODE=0 for non-mock paths"
+    ],
+    "message": "Preflight only — does not run live multi-vendor smoke. 1/11 targets look credentialed/local-up.",
+    "contract": "superai.smoke.preflight.v1"
+  },
+  "stream_sample_offline": {
+    "ok": true,
+    "mock": true,
+    "contract": "superai.result.v1",
+    "stream_meta": {
+      "mode": "mock_chunked",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "chunks": 6,
+      "chars": 141,
+      "cancelled": false,
+      "fallback_reason": null
+    },
+    "has_response": true,
+    "product": "live_smoke.stream_sample",
+    "result": {
+      "ok": true,
+      "status": "success",
+      "model": "gpt-4o-mini",
+      "provider": "openai",
+      "mock": true,
+      "tokens": 35,
+      "estimated_cost_usd": 1.8e-05,
+      "cost_source": "usage",
+      "contract": "superai.result.v1"
+    }
+  },
+  "live": false,
+  "live_stream": {
+    "ok": true,
+    "mock": false,
+    "contract": "superai.result.v1",
+    "stream_meta": {
+      "mode": "chunked_fallback",
+      "provider": "ollama",
+      "model": "llama3.1-latest",
+      "chunks": 1,
+      "chars": 23,
+      "cancelled": false,
+      "fallback_reason": "NotFoundError:Error code: 404 - {'error': {'message': \"model 'llama3.1-latest' not found\", 'type': 'not_found_error', 'param': None, '"
+    },
+    "has_response": true,
+    "product": "live_smoke.stream_sample",
+    "result": {
+      "ok": true,
+      "status": "success",
+      "model": "llama3.1-latest",
+      "provider": "ollama",
+      "mock": false,
+      "tokens": 5,
+      "estimated_cost_usd": 4e-06,
+      "cost_source": "usage",
+      "contract": "superai.result.v1"
+    },
+    "provider": "ollama"
+  },
+  "live_attempted": true,
+  "live_passed": false,
+  "phase6_complete_code": true,
+  "phase6_complete_host": false,
+  "env_keys_present": {
+    "OPENAI_API_KEY": false,
+    "ANTHROPIC_API_KEY": false,
+    "CLAUDE_API_KEY": false,
+    "DEEPSEEK_API_KEY": false,
+    "XAI_API_KEY": false,
+    "GOOGLE_API_KEY": false,
+    "GROQ_API_KEY": false
+  },
+  "budget_command": "live-smoke",
+  "message": "M089 code path complete (harness + offline stream aggregate). Host complete only if live_passed=true with real provider results.",
+  "status": "success",
+  "mock": true,
+  "dry_run": false,
+  "model_chain": [],
+  "tokens": 0,
+  "estimated_cost_usd": 0.0,
+  "estimate_source": "fallback",
+  "members": [],
+  "memory_ids": [],
+  "contract": "superai.result.v1",
+  "note_mock": "Result produced under mock/offline mode",
+  "honesty": "MOCK",
+  "exit_code": 0
+}

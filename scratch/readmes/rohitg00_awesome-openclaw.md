@@ -1,0 +1,2436 @@
+<p align="center">
+  <a href="https://github.com/openclaw/openclaw">
+    <picture>
+      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text-dark.png">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text.png">
+      <img alt="OpenClaw" src="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text.png" width="600">
+    </picture>
+  </a>
+</p>
+
+<h1 align="center">Awesome OpenClaw</h1>
+
+<p align="center">
+  <a href="https://github.com/openclaw/openclaw/stargazers"><img src="https://img.shields.io/github/stars/openclaw/openclaw?style=flat&logo=github&label=Stars&color=gold" alt="Stars"></a>
+  <a href="https://github.com/openclaw/openclaw/network/members"><img src="https://img.shields.io/github/forks/openclaw/openclaw?style=flat&label=Forks&color=silver" alt="Forks"></a>
+  <a href="https://github.com/openclaw/openclaw/graphs/contributors"><img src="https://img.shields.io/github/contributors/openclaw/openclaw?label=Contributors&color=green" alt="Contributors"></a>
+  <a href="https://github.com/openclaw/openclaw/commits"><img src="https://img.shields.io/github/commit-activity/t/openclaw/openclaw?style=flat&label=Commits&color=blue" alt="Commits"></a>
+  <br>
+  <a href="https://awesome.re"><img src="https://awesome.re/badge.svg" alt="Awesome"></a>
+  <a href="https://github.com/openclaw/openclaw/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/openclaw/openclaw/releases"><img src="https://img.shields.io/github/v/release/openclaw/openclaw?include_prereleases&label=Release&color=orange" alt="Release"></a>
+  <a href="https://discord.gg/openclaw"><img src="https://img.shields.io/discord/1456350064065904867?label=Discord&logo=discord&logoColor=white&color=5865F2" alt="Discord"></a>
+  <br>
+  <em>Fastest-growing GitHub repo ever - 9K to 195K stars in 66 days (18x faster than Kubernetes)</em>
+</p>
+
+<p align="center">
+  The most comprehensive, curated collection of OpenClaw resources, hosting guides, cost comparisons, security hardening, skills, tutorials, and community links.
+</p>
+
+---
+
+**OpenClaw** (formerly Clawdbot → Moltbot) is a free, open-source autonomous AI agent created by **Peter Steinberger** ([@steipete](https://github.com/steipete)). It runs on your own hardware, connects to 10+ messaging platforms (WhatsApp, Telegram, Slack, Discord, Signal, iMessage, Google Chat, Microsoft Teams, Matrix, Zalo), and orchestrates AI agent workflows with persistent memory and 24/7 operation.
+
+---
+
+## Table of Contents
+
+- [What is OpenClaw?](#what-is-openclaw)
+- [Name History](#name-history)
+- [System Requirements](#system-requirements)
+- [Quick Start (1 Minute)](#quick-start-1-minute)
+- [Setup Methods (1-10 Minutes)](#setup-methods-1-10-minutes)
+- [Hosting Providers Comparison](#hosting-providers-comparison)
+  - [Free Tier ($0/month)](#free-tier-0month)
+  - [Budget VPS ($2-8/month)](#budget-vps-2-8month)
+  - [Mid-Range ($5-25/month)](#mid-range-5-25month)
+  - [Serverless & PaaS](#serverless--paas)
+  - [Managed Hosting Services](#managed-hosting-services)
+  - [Setup-as-a-Service (Freelancers)](#setup-as-a-service-freelancers)
+  - [Local Hardware](#local-hardware)
+- [Master Cost Comparison Table](#master-cost-comparison-table)
+- [AI Model API Costs](#ai-model-api-costs)
+- [Total Real-World Cost Examples](#total-real-world-cost-examples)
+- [Cloudflare Workers (Moltworker) Deep Dive](#cloudflare-workers-moltworker-deep-dive)
+- [DigitalOcean 1-Click Deploy](#digitalocean-1-click-deploy)
+- [Hetzner Setup Guide](#hetzner-setup-guide)
+- [Hostinger VPS Setup](#hostinger-vps-setup)
+- [Oracle Cloud Free Tier Setup](#oracle-cloud-free-tier-setup)
+- [Raspberry Pi Setup](#raspberry-pi-setup)
+- [ESP32 Embedded (MimiClaw)](#esp32-embedded-mimiclaw)
+- [Docker Deployment](#docker-deployment)
+- [Security & Hardening](#security--hardening)
+- [Configuration](#configuration)
+  - [Model Providers](#model-providers)
+  - [Messaging Channels](#messaging-channels)
+  - [Local LLM Integration](#local-llm-integration)
+  - [MCP Server Integration](#mcp-server-integration)
+- [Integrations & Features](#integrations--features)
+  - [Voice Assistant](#voice-assistant)
+  - [Home Automation](#home-automation)
+  - [Email & Calendar](#email--calendar)
+  - [Google Workspace](#google-workspace)
+  - [Webhooks & Cron Jobs](#webhooks--cron-jobs)
+  - [Live Canvas](#live-canvas)
+  - [Multi-Agent Setup](#multi-agent-setup)
+  - [Companion Apps](#companion-apps)
+  - [Monitoring & Dashboards](#monitoring--dashboards)
+  - [Backup & Restore](#backup--restore)
+- [Performance Benchmarks](#performance-benchmarks)
+- [OpenClaw vs Claude Code](#openclaw-vs-claude-code)
+- [Alternatives & Competitors](#alternatives--competitors)
+- [Moltbook (AI Social Network)](#moltbook-ai-social-network)
+- [Skills & Plugins](#skills--plugins)
+  - [Setup Guides & Starters](#setup-guides--starters)
+- [Browser Automation](#browser-automation)
+- [Real-World Use Cases](#real-world-use-cases)
+- [Current OpenClaw Operating Patterns](#current-openclaw-operating-patterns)
+- [Tutorials & Guides](#tutorials--guides)
+- [Video Tutorials](#video-tutorials)
+- [Community](#community)
+- [Media Coverage](#media-coverage)
+- [Common Issues & Troubleshooting](#common-issues--troubleshooting)
+- [Cost Calculator & Optimization](#cost-calculator--optimization)
+- [Key Contributors](#key-contributors)
+- [Related Repositories](#related-repositories)
+- [Kubernetes & Helm Charts](#kubernetes--helm-charts)
+- [PicoClaw (RISC-V / Ultra-Lightweight)](#picoclaw-risc-v--ultra-lightweight)
+- [Courses & Learning Platforms](#courses--learning-platforms)
+- [Enterprise Considerations](#enterprise-considerations)
+- [China & Global Adoption](#china--global-adoption)
+- [Latest Releases](#latest-releases)
+
+---
+
+## What is OpenClaw?
+
+> **Current maintenance note:** this README keeps the original comprehensive awesome-list format while being maintained from current OpenClaw docs, upstream source, public ecosystem repos, and contributor PRs. New resources should be added to the end of the most relevant section with neutral descriptions and source links.
+
+OpenClaw is an **agentic AI interface** that:
+
+- Runs **locally on your own hardware** (Mac Mini, VPS, Raspberry Pi, ESP32-S3, or serverless)
+- Connects to **10+ messaging platforms** simultaneously
+- Has **persistent memory** across sessions (saves files, breadcrumbs, chat histories)
+- Handles **tasks spanning hours or days** without losing context
+- Operates **24/7 autonomously** focusing on automation and integration
+- Supports **5,700+ community-built skills** via ClawHub
+- Works with **multiple AI providers** (Anthropic, OpenAI, Google, OpenRouter, DeepSeek, local LLMs)
+- Features **voice assistant**, **browser automation**, **home automation**, and **cron scheduling**
+
+### Core Architecture (6 Layers)
+
+| Layer | Purpose |
+|-------|---------|
+| **Gateway** | Central control plane - message routing, sessions, plugins, tool execution policy |
+| **Channels** | Adapters normalizing Telegram/WhatsApp/Discord/iMessage into standard message shapes |
+| **Routing + Sessions** | Determines which agent handles specific conversations |
+| **Agent Runtime** | Processes context, calls model providers, streams responses, requests tools |
+| **Tools** | Capabilities - web fetch, browser control, command execution, device pairing |
+| **Surfaces** | Interaction points - chat apps, web dashboard, macOS menu bar, Live Canvas |
+
+---
+
+## Name History
+
+| Date | Name | Reason |
+|------|------|--------|
+| Nov 2025 | **Clawdbot** | Original name at launch |
+| Jan 27, 2026 | **Moltbot** | Anthropic trademark complaint (similarity to "Claude") |
+| Jan 30, 2026 | **OpenClaw** | Final rebrand, community vote |
+
+> When the team dropped the @clawdbot Twitter handle to transition to @moltbot, professional "handle snipers" immediately grabbed it. Scammers used the hijacked account to launch a fake CLAWD token on Solana.
+
+---
+
+## System Requirements
+
+### Minimum
+
+| Component | Requirement |
+|-----------|-------------|
+| **OS** | macOS 11+ / Ubuntu 22.04+ / Windows (WSL2) |
+| **Runtime** | Node.js 22+ |
+| **RAM** | 2 GB (may crash during onboarding) |
+| **CPU** | 2 cores |
+| **Storage** | 10 GB SSD |
+| **Network** | Stable internet connection |
+
+### Recommended
+
+| Component | Requirement |
+|-----------|-------------|
+| **RAM** | 4-8 GB (cloud models) / 16-24 GB (local LLMs) |
+| **CPU** | 2-4 cores |
+| **Storage** | 30-50 GB SSD |
+| **GPU** | 12-24 GB VRAM (for local model inference) |
+
+---
+
+## Quick Start (1 Minute)
+
+```bash
+npm install -g openclaw@latest
+openclaw onboard --install-daemon
+openclaw gateway --port 18789 --verbose
+```
+
+That's it. The wizard walks you through API key setup, channel configuration, and security settings.
+
+---
+
+## Setup Methods (1-10 Minutes)
+
+| Method | Time | Difficulty | Best For |
+|--------|------|------------|----------|
+| **[Agent37](https://www.agent37.com/openclaw)** | 30 sec | Easy | Cheapest managed ($0.99/mo) |
+| **[Clawdy](https://clawdy.app)** | < 60 sec | Easy | Non-technical + developers wanting zero-config hosting |
+| **[SimpleClaw](https://www.simpleclaw.com/)** | 1 min | Easy | Non-technical users |
+| **[npm install](https://docs.openclaw.ai/quickstart)** | 1 min | Easy | Developers with Node.js |
+| **[DigitalOcean 1-Click](https://marketplace.digitalocean.com/apps/openclaw)** | 2 min | Easy | Quick cloud deploy |
+| **[Railway Template](https://railway.com/deploy/openclaw)** | 2 min | Easy | PaaS users |
+| **[Zeabur](https://zeabur.com/templates/VTZ4FX)** | 1 min | Easy | Docker auto-deploy |
+| **[Docker](https://docs.openclaw.ai/docker)** | 5 min | Medium | Isolation & reproducibility |
+| **[Cloudflare Workers](https://docs.openclaw.ai/cloudflare)** | 5 min | Medium | Serverless enthusiasts |
+| **[OctoClaw](https://octoclaw.ai)** | Minutes | None | Fully managed EU hosting, GDPR-compliant, pre-provisioned number, AI starter budget |
+| **[xCloud Managed](https://xcloud.host/openclaw-hosting)** | 5 min | None | Full managed hosting |
+| **[Kimi Claw](https://kimi.com/bot)** | Instant | None | Browser-native OpenClaw in kimi.com, 5K+ skills, 40 GB storage |
+| **[Molty by Finna](https://molty.finna.ai)** | 30 sec | None | Multiple Molties, Mission Control, GitHub sync |
+| **[Manual VPS](https://docs.openclaw.ai/vps)** | 10 min | Medium | Full control |
+| **[Raspberry Pi](https://docs.openclaw.ai/raspberry-pi)** | 10 min | Medium | Low-power, always-on |
+| **[ESP32-S3 (MimiClaw)](https://github.com/memovai/mimiclaw)** | 10 min | Medium | Cheapest hardware ($5), pure C, no OS |
+| **[PicoClaw (RISC-V)](https://github.com/sipeed/picoclaw)** | 5 min | Easy | Single Go binary, 10 MB RAM, $10 RISC-V board |
+| **[ZeroClaw (Rust)](https://github.com/theonlyhennygod/zeroclaw)** | 2 min | Easy | 3.4 MB binary, <10ms startup, 22+ providers |
+| **[TinyClaw (Shell)](https://github.com/jlia0/tinyclaw)** | 5 min | Easy | 400 LoC, Claude Code + tmux, self-healing |
+| **[Autobot (Crystal)](https://github.com/crystal-autobot/autobot)** | 2 min | Easy | 2MB binary, ~5MB RAM, <10ms startup |
+| **[TryClaw.xyz](https://tryclaw.xyz)** | 1 min | Easy | $9/mo, Cloud deploy |
+| **[ClawHost](https://github.com/fastclaw-ai/clawhost)** | Varies | Advanced | Kubernetes-native platform for creating, deploying, and managing OpenClaw bot instances |
+| **[Coolify OpenClaw](https://github.com/essamamdani/openclaw-coolify)** | 5 min | Medium | Coolify-oriented OpenClaw deployment template and post-deploy checklist |
+| **[coollabsio/openclaw](https://github.com/coollabsio/openclaw)** | 5 min | Medium | Automated Docker image for OpenClaw with environment-based web UI and gateway configuration |
+| **[phioranex/openclaw-docker](https://github.com/phioranex/openclaw-docker)** | 5 min | Medium | Pre-built Docker image and install scripts for running OpenClaw without building from source |
+| **[docker-gentkit-openclaw](https://github.com/lentiancn/docker-gentkit-openclaw)** | 5 min | Medium | Docker image and scripts for running OpenClaw with persistent host-mounted state |
+| **[Carapace](https://github.com/jhenderiks/carapace)** | 10 min | Medium | Hardened Docker Compose wrapper for OpenClaw with read-only root filesystem, dropped capabilities, and optional isolated browser container |
+| **[Railway Community Template](https://github.com/vignesh07/clawdbot-railway-template)** | 5 min | Medium | Railway deployment template with a setup wizard, persistent volume paths, Basic auth protection, and backup import/export flows |
+
+### Method 1: Official Installer Script
+
+```bash
+curl -fsSL https://openclaw.ai/install.sh | bash
+openclaw onboard --install-daemon
+```
+
+### Method 2: npm / pnpm
+
+```bash
+npm install -g openclaw@latest
+# or
+pnpm add -g openclaw@latest
+```
+
+### Method 3: Docker
+
+```bash
+git clone https://github.com/openclaw/openclaw.git
+cd openclaw
+./docker-setup.sh
+```
+
+### Method 4: One-Click Cloud Deploys
+
+| Platform | Link | Notes |
+|----------|------|-------|
+| **DigitalOcean** | [1-Click Deploy](https://marketplace.digitalocean.com/apps/openclaw) | Security-hardened, pre-configured |
+| **Railway** | [Template](https://railway.com/deploy/openclaw) | Web-based /setup wizard |
+| **Render** | [render.yaml](https://docs.openclaw.ai/render) | Infrastructure as Code |
+| **SimpleClaw** | [simpleclaw.com](https://www.simpleclaw.com/) | Deploy in under 1 minute |
+| **Zeabur** | [Template](https://zeabur.com/templates/VTZ4FX) | One-click Docker deploy |
+| **Northflank** | [Stack](https://northflank.com/stacks/deploy-openclaw) | No server-side terminal needed |
+| **Lightning.AI** | [Environment](https://lightning.ai/lightning-ai/environments/openclaw) | Browser-based, no local hardware |
+| **Coolify** | [Template](https://github.com/essamamdani/openclaw-coolify) | Self-hosted PaaS template |
+| **Elestio** | [Open Source](https://elest.io/open-source/openclaw) | Fully managed in < 3 min |
+
+---
+
+## Hosting Providers Comparison
+
+### Free Tier ($0/month)
+
+| Provider | Free Resources | Limits | Permanent? | Setup Time | Best For |
+|----------|---------------|--------|------------|------------|----------|
+| **[Oracle Cloud](https://www.oracle.com/cloud/free/)** | 4 ARM CPUs, 24 GB RAM, 200 GB storage, 10 TB/mo | ARM architecture only | Yes (forever) | ~3 hours | Power users wanting $0 hosting |
+| **[AMD Developer Cloud](https://www.amd.com/en/developer/resources/cloud-access.html)** | MI300X GPU (192 GB memory), $100 credits | ~50 hours compute | No (credits) | 30 min | GPU-accelerated local LLMs |
+| **[Google Cloud Run](https://cloud.google.com/run)** | 180K vCPU-sec, 360K GiB-sec, 2M requests/mo | Cold starts, stateless | Yes | 30 min | Serverless testing |
+| **[Azure Container Apps](https://azure.microsoft.com/en-us/products/container-apps)** | 180K vCPU-sec, 360K GiB-sec, 2M requests/mo | Cold starts | Yes | 30 min | Enterprise users |
+| **[Render](https://render.com/)** | Web service (spins down after 15 min) | Slow wake-up (~60s) | Yes | 5 min | Testing only |
+| **[AWS Free Tier](https://aws.amazon.com/free/)** | t2.micro (1 vCPU, 1 GB RAM) | 12 months only | No (12 mo) | 15 min | AWS-familiar users |
+| **[Railway](https://railway.com/deploy/openclaw)** | $5 one-time credit | 30 days trial | No | 2 min | Quick testing |
+
+### Budget VPS ($2-8/month)
+
+| Provider | Plan | Price/mo | vCPU | RAM | Storage | Bandwidth | Region |
+|----------|------|----------|------|-----|---------|-----------|--------|
+| **[LumaDock](https://lumadock.com/)** | Basic | $1.99 | 1 | 1 GB | 20 GB SSD | 1 TB | US/EU |
+| **[Vultr](https://www.vultr.com/)** | Regular Cloud | $2.50 | 1 | 512 MB | 10 GB | 0.5 TB | 32 locations |
+| **[Vultr](https://www.vultr.com/)** | Standard | $3.50 | 1 | 1 GB | 25 GB NVMe | 1 TB | 32 locations |
+| **[Hetzner](https://www.hetzner.com/cloud/)** | CX22 | €3.79 (~$4.15) | 2 | 4 GB | 40 GB SSD | 20 TB | EU (DE/FI) |
+| **[Alibaba Cloud](https://www.alibabacloud.com/en/campaign/ai-openclaw)** | Simple App Server | $4 | 1 | 1 GB | Varies | Varies | 19 regions |
+| **[Contabo](https://contabo.com/en/openclaw-hosting/)** | Cloud VPS S | $4.95 | 4 | 8 GB | 50 GB SSD | Unlimited | US/EU/Asia |
+| **[Hostinger](https://www.hostinger.com/uk/vps/docker/openclaw)** | KVM 1 | $4.99 | 1 | 4 GB | 50 GB NVMe | 4 TB | Global |
+| **[Linode](https://www.linode.com/)** | Shared 1GB | $5 | 1 | 1 GB | 25 GB | 1 TB | Global |
+| **[Vultr](https://www.vultr.com/)** | High-Performance | $6 | 1 | 1 GB | 25 GB NVMe | 2 TB | 32 locations |
+| **[DigitalOcean](https://marketplace.digitalocean.com/apps/openclaw)** | Basic Droplet | $6 | 1 | 1 GB | 25 GB | 1 TB | Global |
+| **[Hetzner](https://www.hetzner.com/cloud/)** | CX32 | €6.80 (~$7.45) | 4 | 8 GB | 80 GB SSD | 20 TB | EU (DE/FI) |
+| **[Contabo](https://contabo.com/en/openclaw-hosting/)** | Cloud VPS M | $7.95 | 4 | 8 GB | 200 GB SSD | Unlimited | US/EU/Asia |
+| **[Kamatera](https://www.kamatera.com/)** | Custom | $4+ | Custom | Custom | Custom | Pay-as-you-go | Global |
+| **[Zap-Hosting](https://zap-hosting.com/)** | VPS | Varies | Varies | Varies | Varies | Varies | EU |
+| **[BoostedHost](https://boostedhost.com/)** | OpenClaw VPS | Varies | Varies | Varies | Varies | Varies | Global |
+| **[EQVPS](https://eqvps.com/)** | Micro (NAT) | $5 | 1 | 2 GB | 25 GB NVMe | Unmetered | EU (DE) |
+
+### Mid-Range ($5-25/month)
+
+| Provider | Plan | Price/mo | vCPU | RAM | Storage | Notes |
+|----------|------|----------|------|-----|---------|-------|
+| **[DigitalOcean](https://marketplace.digitalocean.com/apps/openclaw)** | Premium Droplet | $7 | 1 | 1 GB | 25 GB NVMe | 1-Click Deploy available |
+| **[DigitalOcean](https://marketplace.digitalocean.com/apps/openclaw)** | Standard 2GB | $12 | 1 | 2 GB | 50 GB | Recommended for OpenClaw |
+| **[Hostinger](https://www.hostinger.com/uk/vps/docker/openclaw)** | KVM 2 | $6.99 | 2 | 8 GB | 100 GB NVMe | Best Hostinger value |
+| **[GCP](https://cloud.google.com/compute)** | e2-medium | ~$12 | 2 | 4 GB | 30 GB SSD | $300 free credit (90 days) |
+| **[Azure](https://azure.microsoft.com/en-us/products/virtual-machines)** | B1ms VM | ~$15 | 1 | 2 GB | 32 GB | Enterprise compliance |
+| **[Linode](https://www.linode.com/)** | Dedicated 4GB | $36 | 2 (dedicated) | 4 GB | 40 GB | Consistent performance |
+
+### Serverless & PaaS
+
+| Platform | Starting Price | Free Tier? | Persistent Storage | Auto-Scale | Notes |
+|----------|---------------|------------|-------------------|------------|-------|
+| **[Cloudflare Workers](https://workers.cloudflare.com/)** | $5/mo (paid plan) | 100K req/day (free) | R2 ($0.015/GB/mo) | Yes | Moltworker PoC |
+| **[Railway](https://railway.com/deploy/openclaw)** | $5/mo (Hobby) | $5 credit trial | Yes (volumes) | Yes | Best PaaS UX |
+| **[Render](https://render.com/)** | $7/mo (web service) | Free w/ limits | Yes (disks) | Yes | YAML IaC |
+| **[Fly.io](https://fly.io/)** | Pay-as-you-go | None | Yes (volumes) | Yes | Global edge |
+| **[AWS Lightsail](https://aws.amazon.com/lightsail/)** | $3.50/mo | None | Yes | No | Simple AWS VPS |
+| **[Northflank](https://northflank.com/stacks/deploy-openclaw)** | Varies | Limited | Yes | Yes | Stack templates |
+| **[Zeabur](https://zeabur.com/templates/VTZ4FX)** | Varies | Limited | Yes | Yes | One-click Docker |
+| **[Elestio](https://elest.io/open-source/openclaw)** | Varies | None | Yes | Yes | Fully managed open source |
+| **[Coolify](https://github.com/essamamdani/openclaw-coolify)** | Self-hosted | Free (self-host) | Yes | No | Open-source PaaS |
+| **[openclaw-azure-template](https://github.com/honoyr/openclaw-azure-template)** | Azure usage | No | Azure Files | No | Azure Container Instance template with Telegram, Azure OpenAI / Foundry, and runbook docs |
+| **[openclaw-cloudrun](https://github.com/t2tse/openclaw-cloudrun)** | GCP usage | No | PVC / cloud storage | No | Terraform example for sandboxed OpenClaw deployments on Google Cloud infrastructure |
+| **[1Panel](https://github.com/1Panel-dev/1Panel)** | Self-hosted | Free core | VPS storage | No | Open-source VPS control panel with Docker management, app marketplace, and documented OpenClaw agent deployment support |
+
+### Managed Hosting Services
+
+These providers handle ALL the setup for you - no Docker, no terminal, no DevOps required.
+
+| Provider | Price/mo | Setup Time | Specs | What's Included | Promo |
+|----------|----------|------------|-------|-----------------|-------|
+| **[Clawdy](https://clawdy.app)** | $24 (was $49) | < 60 sec | Managed | Multi-provider (Claude, GPT, Gemini, Kimi), custom subdomain (slug.clawdy.app), SSL/auth/firewall/reverse proxy pre-configured, 99.9% uptime | Price locked at $24/mo for early subscribers |
+| **[Agent37](https://www.agent37.com/openclaw)** | $0.99-3.99 | 30 sec | 2 vCPU, 4-6 GB RAM | Isolated instance, full UI, terminal, SSL | - |
+| **[MyClaw.ai](https://myclaw.ai/pricing)** | $9 (was $29) | Instant | 2 vCPU, 4 GB RAM, 40 GB SSD | Auto-updates, backups, web terminal | 69-76% off early bird |
+| **[get-open-claw.com](https://www.get-open-claw.com/)** | $9-49 | < 1 min | Varies by plan | OpenClaw Secure, daily backups, health monitoring | Pro includes $10 AI credits |
+| **[ClawBob](https://clawbob.com/en)** | $29-219 | 3 min | 2-8 vCPU, 4-64 GB RAM | Fully configured OpenClaw agent with email, browser, 600+ LLMs, 140+ one-click OAuth integrations, image & video generation, PDF extraction, best-in-class security, isolation, and automatic updates. No keys. No config. EU hosting. | $10 in AI credits on signup |
+| **[EasyClaw](https://www.easyclaw.pro/en)** | $10+ | 60 sec | Varies | Multi-model, 3+ platforms, zero maintenance | 29 min saved per deploy |
+| **[ClawSimple](https://clawsimple.com/en)** | $8.25-29.08 | 2-3 min | Varies | Secure cloud, one-click updates (coming) | 20% off with LAUNCH20 |
+| **[xCloud](https://xcloud.host/openclaw-hosting)** | $24 | 5 min | Managed | Telegram/WhatsApp pre-configured, encrypted backups | 7-day guarantee |
+| **[OneClickClaw](https://oneclickclaw.io)** | €14.99 (€10.42 annual) | 5 min | Dedicated EU VPS | Your own AI assistant on Telegram/WhatsApp/Discord, BYOK no markup, managed updates/backups, hardened by default, EU/GDPR data residency | - |
+| **[OctoClaw](https://octoclaw.ai)** | $19-59 | Minutes | 2-4 vCPU, 4-16 GB RAM | Hetzner Germany, GDPR-compliant, pre-provisioned phone number, AI starter budget, BYOK | - |
+| **[ClawCloud](https://www.clawcloud.sh/)** | $29-129 | < 1 min | 1-2 vCPU, 1-4 GB RAM | All AI models (BYOK), auto-updates, daily backups | 70% off with EARLYBIRD70 |
+| **[SimpleClaw](https://www.simpleclaw.com/)** | TBD | < 1 min | Managed | 1-click deploy, model selection | - |
+| **[OpenClaw Cloud](https://openclawcloud.work/)** | Beta pricing | 5 min | Managed | All AI tokens included, 99.9% uptime, $0 hidden fees | Waitlist open |
+| **[OpenClawd.ai](https://openclawd.ai)** | Free + Premium | Minutes | Managed | Launched Feb 10 - fully managed hosting, one-click deploy, security built-in, free tier available | - |
+| **[Kimi Claw](https://kimi.com/bot)** | Allegretto+ | Instant | Browser-native | OpenClaw native in kimi.com - 5,000+ ClawHub skills, 40 GB cloud storage, Yahoo Finance search, BYOC (Bring Your Own Claw) | Beta open |
+| **[Kilo Claw](https://kilo.ai/kiloclaw)** | Pay-as-you-go | < 60 sec | Managed | 500+ models, 50+ platforms, SSO, audit logs | 7 days free compute |
+| **[OpenClaw Hosting](https://openclawhosting.io/pricing)** | $29+ | 5 min | Managed | Solo/Team/Business tiers, annual billing saves 20% | - |
+| **[Myclawhost](https://www.myclawhost.com/)** | $9-39 | Instant | Managed | Lite ($9), Pro ($19), Max ($39), full lifecycle | One-click deploy |
+| **[Contabo OpenClaw](https://contabo.com/en/openclaw-hosting/)** | $4.95+ | Minutes | VPS | Unlimited workflows, full data ownership, predictable pricing | - |
+| **[Molty by Finna](https://molty.finna.ai)** | $19-99 | 30 sec | VM-isolated (Fly.io) | Multiple Molties per account, Mission Control (multi-agent coordination), GitHub backup sync, browser automation, auto-updates | 3-day free trial |
+| **[KinthAI](https://agents.kinthai.ai)** | $24.90 | Instant | Multi-tenant | Persistent per-user memory, multi-agent group chat (221 agents tested), agent marketplace, token budget built-in | Free tier available |
+| **[OpenClaw Launch](https://openclawlaunch.com)** | $20+ | < 1 min | Managed | One-click setup, management UI, multi-instance support | - |
+| **[RapidClaw](https://rapidclaw.dev)** | $29+ | Minutes | Managed | Managed OpenClaw hosting with opinionated defaults and no-Docker setup for non-technical operators | - |
+| **[ClawLaunch](https://clawlaunch.ai)** | Free (30d) / $9.49 | 60 sec | Varies by plan | Includes AI Credits. Hardened sandbox via gVisor. Free TTS pre-installed (Whisper). | 30-day free trial, 50% revshare affiliate program |
+| **[Lobsterland](https://lobsterland.ing)** | $6.90+ (Light/Medium/Large) | ~2 min | 1-4 CPU, 3-16 GB RAM | Full UI instance management (LLM providers, env vars, workspace and memory management), Telegram + Slack + WhatsApp support, encrypted credentials, allowlist access control, per-model usage analytics, optional Paperclip workspace add-on | AWESOMEOPENCLAWSETUP (50% off first-time customers) |
+| **[Vessel](https://vesselofone.com)** | $35 | ~5 min | Dedicated VM | Secure, fully managed, zero-ops. VM-level isolation, tunnel-based networking (no exposed ports), automated security updates | - |
+| **[ClawBob](https://clawbob.com/en)** | $29-219 | ~3 min | Managed | Hosted OpenClaw agent environment with browser, email account, integrations, EU hosting, and managed setup | - |
+| **[Clawdy](https://clawdy.app)** | $24+ | < 60 sec | Managed | Browser-based OpenClaw deployment with model selection, auth, SSL, and reverse proxy setup handled | - |
+| **[1ClickClaw](https://1clickclaw.app/)** | $49 | < 1 min | 2 vCPU, 2 GB RAM | OpenClaw hosting for Telegram, Discord, and WhatsApp bot deployments | - |
+| **[OctoClaw](https://octoclaw.ai)** | $19-59 | Minutes | Managed | OpenClaw-based hosted AI specialist agents for marketing, sales, and support workflows | - |
+| **[RapidClaw](https://rapidclaw.dev)** | $29+ | Minutes | Managed | Built for non-technical operators - no Docker, no API keys, opinionated defaults, deploys in minutes | - |
+
+### Setup-as-a-Service (Freelancers)
+
+Hire someone to set it up for you.
+
+| Provider | Price | Type | What's Included |
+|----------|-------|------|-----------------|
+| **[GetClawHelp](https://getclawhelp.com/)** | $119-229 (one-time) | 1-on-1 video call | VPS setup, LLM config, 10-25 skills, 24/7 uptime |
+| **[GetClawHelp Maintenance](https://getclawhelp.com/)** | $97/mo | Monthly | Updates, troubleshooting, new skills |
+| **Fiverr - [almaasparvez](https://www.fiverr.com/almaasparvez)** | $90 | One-time | OpenClaw on AWS VPS, Telegram setup |
+| **Fiverr - marcos_mark683** | $40 | One-time | OpenClaw installation |
+| **[Upwork - Custom Skills](https://www.upwork.com/services/product/development-it-openclaw-ai-agent-setup-with-custom-skills-2018301653307508886)** | Varies | One-time | Up to 23 custom skills, testing, step-by-step guide |
+| **[Upwork - Secure Deploy](https://www.upwork.com/services/product/development-it-secure-openclaw-clawdbot-deployment-mac-mini-or-vps-approval-gates-2019127245731633908)** | Varies | One-time | Mac Mini/VPS, sandboxing, human-in-the-loop approval gates |
+| **[Freelancer.com](https://www.freelancer.com/projects/automation/OpenClaw-Linux-Setup.html)** | Varies | One-time | Linux setup, tuning, README |
+| **[OpenClaw Money Playbook](https://openclawmoney.com/)** | $9.95 | E-book | Guide on monetizing OpenClaw setup services |
+| **[Associates AI](https://associatesai.team)** | Custom | Managed service | Configures managed OpenClaw teammate agents for SMB sales, support, operations, and engineering workflows |
+
+> **Business Model Insight**: *"The move right now is doing free OpenClaw installs, upselling security/skill packages/custom builds. We still make money on a 'free' install because we get an affiliate commission from the hosting company."* - [@GanimCorey on X](https://x.com/GanimCorey)
+
+---
+
+## Master Cost Comparison Table
+
+| Provider | Monthly Cost | Setup Time | Difficulty | 1-Click? | Best For |
+|----------|-------------|------------|------------|----------|----------|
+| [Clawdy](https://clawdy.app) | **$24** | < 60 sec | **None** | **Yes** | Zero-config managed hosting |
+| [Oracle Cloud](https://www.oracle.com/cloud/free/) | **$0** | 3 hours | Hard | No | Free-forever hosting |
+| [AMD Dev Cloud](https://www.amd.com/en/developer/resources/cloud-access.html) | **$0** (credits) | 30 min | Medium | No | Free GPU inference |
+| [Agent37](https://www.agent37.com/openclaw) | **$0.99** | 30 sec | **None** | **Yes** | Cheapest managed |
+| [LumaDock](https://lumadock.com/) | **$1.99** | 15 min | Medium | No | Cheapest VPS |
+| [Vultr](https://www.vultr.com/) | **$2.50** | 10 min | Medium | Yes | Global presence |
+| [Hetzner CX22](https://www.hetzner.com/cloud/) | **$4.15** | 10 min | Medium | No | Best price/performance |
+| [Contabo VPS S](https://contabo.com/en/openclaw-hosting/) | **$4.95** | 15 min | Medium | No | Unlimited bandwidth |
+| [Hostinger KVM 1](https://www.hostinger.com/uk/vps/docker/openclaw) | **$4.99** | 10 min | Easy | Yes | Docker templates |
+| [Cloudflare Workers](https://workers.cloudflare.com/) | **$5** | 5 min | Medium | No | Serverless |
+| [Railway Hobby](https://railway.com/deploy/openclaw) | **$5** | 2 min | Easy | Yes | Best PaaS experience |
+| [Linode 1GB](https://www.linode.com/) | **$5** | 10 min | Medium | No | Consistent performance |
+| [DigitalOcean](https://marketplace.digitalocean.com/apps/openclaw) | **$6** | 2 min | Easy | **Yes** | Best docs + 1-Click |
+| [Render](https://render.com/) | **$7** | 5 min | Easy | Yes | YAML Infrastructure |
+| [MyClaw.ai Lite](https://myclaw.ai/pricing) | **$9** | Instant | **None** | **Yes** | Budget managed |
+| [DigitalOcean 2GB](https://marketplace.digitalocean.com/apps/openclaw) | **$12** | 2 min | Easy | **Yes** | Recommended production |
+| [Molty by Finna](https://molty.finna.ai) | **$19** | 30 sec | **None** | **Yes** | Multi-Molty, Mission Control, GitHub sync |
+| [xCloud Managed](https://xcloud.host/openclaw-hosting) | **$24** | 5 min | **None** | **Yes** | Full managed hosting |
+| [OctoClaw](https://octoclaw.ai) | **$19** | Minutes | **None** | **Yes** | Fully managed EU (Germany), GDPR-compliant |
+| [ClawCloud Starter](https://www.clawcloud.sh/) | **$29** | < 1 min | **None** | **Yes** | Premium managed |
+| [Raspberry Pi 5](https://docs.openclaw.ai/raspberry-pi) | **$0**/mo | 30 min | Medium | No | Low-power, always-on |
+| [ESP32-S3 (MimiClaw)](https://github.com/memovai/mimiclaw) | **$0**/mo | 10 min | Medium | No | Cheapest ($5 chip), no OS |
+| [PicoClaw (RISC-V)](https://github.com/sipeed/picoclaw) | **$0**/mo | 5 min | Easy | No | $10 hardware, 10 MB RAM, Go binary |
+| [ZeroClaw (Rust)](https://github.com/theonlyhennygod/zeroclaw) | **$0**/mo | 2 min | Easy | No | 3.4 MB binary, Rust, <10ms startup |
+| [TinyClaw (Shell)](https://github.com/jlia0/tinyclaw) | **$0**/mo | 5 min | Easy | No | 400 LoC, Claude Code + tmux |
+| [Autobot (Crystal)](https://github.com/crystal-autobot/autobot) | **$0**/mo | 2 min | Easy | No | 2MB binary, Crystal, <10ms startup |
+| Mac Mini | **$0**/mo | 10 min | Easy | No | Privacy-first, local |
+
+---
+
+## AI Model API Costs
+
+The **real cost** of running OpenClaw is the AI model API, not infrastructure.
+
+### Provider Pricing (per 1M tokens)
+
+| Provider | Model | Input Cost | Output Cost | Notes |
+|----------|-------|-----------|-------------|-------|
+| **[Anthropic](https://console.anthropic.com/)** | Claude 3.5 Haiku | $0.80 | $4.00 | Best budget option |
+| **[Anthropic](https://console.anthropic.com/)** | Claude 3.5 Sonnet | $3.00 | $15.00 | Best balance |
+| **[Anthropic](https://console.anthropic.com/)** | Claude Opus 4.5 | $15.00 | $75.00 | Most capable, expensive |
+| **[OpenAI](https://platform.openai.com/)** | GPT-4o | $2.50 | $10.00 | Good alternative |
+| **[OpenAI](https://platform.openai.com/)** | GPT-4o-mini | $0.15 | $0.60 | Very cheap |
+| **[Google](https://aistudio.google.dev/)** | Gemini 2.0 Flash | $0.10 | $0.40 | Cheapest hosted |
+| **[Google](https://aistudio.google.dev/)** | Gemini Flash-Lite | **Free tier** | **Free tier** | Zero cost option |
+| **[DeepSeek](https://platform.deepseek.com/)** | DeepSeek V3 | $0.27 | $1.10 | Best value reasoning |
+| **[Moonshot](https://platform.moonshot.cn/)** | Kimi K2.5 | $3.00 | $3.00 | Great agentic performance, free built-in provider since v2026.2.6 |
+| **[Grok](https://console.x.ai/)** | Grok 4.1 mini | $0.20 | $0.50 | Budget alternative |
+| **[OpenRouter](https://openrouter.ai/)** | Various | Varies | Varies | Unified API for 200+ models |
+| **[Ollama](https://ollama.com/)** | Any | **$0** | **$0** | Requires hardware (16 GB+ RAM) |
+
+> **75x price difference** between the most expensive (Claude Opus) and cheapest (Gemini Flash) options.
+
+### Monthly API Cost Estimates
+
+| Usage Level | Description | Monthly Cost |
+|-------------|-------------|-------------|
+| **Minimal** | Few messages/day, Gemini free tier | $0-5 |
+| **Light** | ~50 messages/day, Claude Haiku | $5-15 |
+| **Moderate** | ~200 messages/day, mixed models | $15-50 |
+| **Heavy** | 500+ messages/day, Claude Sonnet | $50-150 |
+| **Power User** | All-day usage, Claude Opus | $150-500+ |
+
+### Cost Optimization Tips
+
+1. Use **smart model routing** - cheap models (Haiku/Flash) for simple tasks, expensive (Sonnet/Opus) for complex
+2. Enable **prompt caching** - Anthropic auto-applies 5-min cache, reducing repeat costs
+3. Use **local LLMs** via Ollama for zero API cost (requires 16 GB+ RAM)
+4. Set **budget alerts** in your AI provider dashboard
+5. Use [OpenClaw Cost Calculator](https://calculator.vlvt.sh/) to estimate your spend
+
+---
+
+## Total Real-World Cost Examples
+
+| Setup | Infrastructure | API | Total/month | Notes |
+|-------|---------------|-----|-------------|-------|
+| **Free Tier Max** | Oracle Cloud ($0) | Gemini free ($0) | **$0** | Limited but functional |
+| **Cheapest Managed** | Agent37 ($1) | Haiku ($5) | **$6** | 30-second setup |
+| **Ultra Budget** | LumaDock ($2) | Haiku ($5) | **$7** | Basic personal assistant |
+| **Budget Managed** | MyClaw.ai Lite ($9) | BYOK ($10) | **$19** | Zero setup, instant access |
+| **Sweet Spot** | Hetzner CX22 ($4) | Mixed models ($15) | **$19** | Best value-to-capability |
+| **Standard** | DigitalOcean ($12) | Sonnet ($40) | **$52** | Production-ready |
+| **Managed Easy** | Clawdy ($24) | Mixed ($30) | **$54** | Zero technical setup, custom subdomain |
+| **Managed Easy** | xCloud ($24) | Mixed ($30) | **$54** | Zero technical setup |
+| **Cloudflare** | Workers ($5+$30) | Mixed ($20) | **$55** | Serverless architecture |
+| **Local LLM** | Raspberry Pi 5 ($0/mo) | Ollama ($0) | **$0** | After $80 hardware purchase |
+| **Embedded** | ESP32-S3 ($0/mo) | Claude API ($5) | **$5** | After $5 hardware purchase (MimiClaw) |
+| **PicoClaw** | RISC-V board ($0/mo) | Gemini/Claude ($5) | **$5** | After $10 hardware purchase (PicoClaw) |
+| **Power User** | DigitalOcean ($24) | Opus ($200) | **$224** | Heavy professional use |
+| **Extreme** | Dedicated ($50) | All models ($573) | **$623** | One developer's real report |
+
+---
+
+## Cloudflare Workers (Moltworker) Deep Dive
+
+[Moltworker](https://github.com/cloudflare/moltworker) is Cloudflare's official adaptation of OpenClaw for Workers.
+
+### Architecture
+
+- **Container**: Sandbox (standard-1: 1/2 vCPU, 4 GiB RAM, 8 GB disk)
+- **Storage**: R2 for persistence (auto-sync every 5 minutes)
+- **Auth**: Cloudflare Access (Zero Trust) + gateway token + device pairing
+- **Status**: Proof-of-concept (not an official Cloudflare product)
+
+### Setup
+
+```bash
+git clone https://github.com/cloudflare/moltworker.git
+cd moltworker && npm install
+npx wrangler secret put ANTHROPIC_API_KEY
+export MOLTBOT_GATEWAY_TOKEN=$(openssl rand -hex 32)
+npx wrangler secret put MOLTBOT_GATEWAY_TOKEN
+npm run deploy
+```
+
+Access: `https://your-worker.workers.dev/?token=YOUR_GATEWAY_TOKEN`
+
+### Cost Breakdown (24/7 Operation)
+
+| Component | Monthly Cost |
+|-----------|-------------|
+| Workers Paid Plan | $5.00 |
+| Memory (~4 GiB) | ~$26.00 |
+| CPU | ~$2.00 |
+| Disk (8 GB) | ~$1.50 |
+| **Total** | **~$34.50** |
+
+> Set `SANDBOX_SLEEP_AFTER=10m` for infrequent use to reduce costs significantly.
+
+### Limitations
+
+- **Cannot support Telegram bots** (requires persistent connection for long-polling)
+- Containers hibernate when not receiving HTTP requests
+- Use VPS deployment for Telegram integration
+
+### Resources
+
+- [GitHub - cloudflare/moltworker](https://github.com/cloudflare/moltworker)
+- [Blog - Introducing Moltworker](https://blog.cloudflare.com/moltworker-self-hosted-ai-agent/)
+- [openclaw-nearai-worker](https://github.com/nearai/openclaw-nearai-worker) - Worker for hosting OpenClaw in NEAR AI Cloud.
+
+---
+
+## DigitalOcean 1-Click Deploy
+
+The fastest path to a production OpenClaw instance.
+
+1. Go to [DigitalOcean Marketplace](https://marketplace.digitalocean.com/apps/openclaw)
+2. Click "Create OpenClaw Droplet"
+3. Choose $12/mo plan (2 GB RAM recommended)
+4. Select region, SSH key
+5. Deploy (ready in ~90 seconds)
+
+**Pre-configured**: OpenClaw 2026.1.24-1, Docker isolation, unique gateway token, security-hardened, Caddy HTTPS.
+
+### Resources
+
+- [DigitalOcean Blog - Introducing OpenClaw](https://www.digitalocean.com/blog/moltbot-on-digitalocean)
+- [Technical Deep Dive - Security Hardening](https://www.digitalocean.com/blog/technical-dive-openclaw-hardened-1-click-app)
+- [Tutorial - How to Run OpenClaw](https://www.digitalocean.com/community/tutorials/how-to-run-openclaw)
+
+---
+
+## Hetzner Setup Guide
+
+Best price-to-performance ratio for OpenClaw hosting.
+
+| Plan | Price/mo | vCPU | RAM | Storage | Bandwidth |
+|------|----------|------|-----|---------|-----------|
+| **CX22** | €3.79 | 2 | 4 GB | 40 GB SSD | 20 TB |
+| **CX32** | €6.80 | 4 | 8 GB | 80 GB SSD | 20 TB |
+| **CAX11 (ARM)** | €3.79 | 2 | 4 GB | 40 GB | 20 TB |
+
+```bash
+ssh root@your-server-ip
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs
+npm install -g openclaw@latest
+openclaw onboard --install-daemon
+ufw allow ssh && ufw allow 443/tcp && ufw enable
+```
+
+- [Hetzner - OpenClaw Docs](https://docs.openclaw.ai/platforms/hetzner)
+- [Deploy with Pulumi + Tailscale](https://www.pulumi.com/blog/deploy-openclaw-aws-hetzner/)
+- [openclaw-terraform-hetzner](https://github.com/andreesg/openclaw-terraform-hetzner) - Terraform modules for provisioning OpenClaw on Hetzner Cloud.
+
+---
+
+## Hostinger VPS Setup
+
+| Plan | Price/mo | vCPU | RAM | Storage | Bandwidth |
+|------|----------|------|-----|---------|-----------|
+| **KVM 1** | $4.99 | 1 | 4 GB | 50 GB NVMe | 4 TB |
+| **KVM 2** | $6.99 | 2 | 8 GB | 100 GB NVMe | 8 TB |
+| **KVM 4** | $10.99 | 4 | 16 GB | 200 GB NVMe | 16 TB |
+
+> Renewal prices are ~2x. Lock in annual pricing.
+
+- [How to Install OpenClaw on Hostinger VPS](https://www.hostinger.com/support/how-to-install-openclaw-on-hostinger-vps/)
+- [How to Secure OpenClaw on Hostinger](https://www.hostinger.com/support/how-to-secure-and-harden-openclaw-security/)
+- [25 OpenClaw Use Cases](https://www.hostinger.com/tutorials/openclaw-use-cases)
+
+---
+
+## Oracle Cloud Free Tier Setup
+
+**Truly free forever** - 4 ARM cores, 24 GB RAM, 200 GB storage, 10 TB/month.
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs git
+npm install -g openclaw@latest
+openclaw onboard --install-daemon
+```
+
+**Caveats**: ARM architecture, high demand (keep retrying), add credit card to prevent account termination.
+
+- [Oracle Cloud - OpenClaw Docs](https://docs.openclaw.ai/platforms/oracle)
+- [Always-On AI for $0/month](https://ryanshook.org/blog/posts/openclaw-on-oracle-free-tier-always-on-ai-for-free/)
+- [Self-Host on a Free VPS](https://cognio.so/clawdbot/self-hosting)
+
+---
+
+## Raspberry Pi Setup
+
+| Device | Price | RAM | Performance |
+|--------|-------|-----|-------------|
+| **Pi 5 (8 GB)** | $80 | 8 GB | Best choice |
+| **Pi 5 (4 GB)** | $60 | 4 GB | Good budget option |
+| **Pi 4 (8 GB)** | $55 | 8 GB | 2-2.5x slower than Pi 5 |
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+sudo apt-get install -y nodejs
+npm install -g openclaw@latest
+openclaw onboard --install-daemon
+```
+
+- [OpenClaw on Raspberry Pi - ajfisher](https://ajfisher.me/2026/02/03/openclaw-raspberrypi-howto/)
+- [OpenClaw on Raspberry Pi - Adafruit](https://learn.adafruit.com/openclaw-on-raspberry-pi)
+
+---
+
+## ESP32 Embedded (MimiClaw)
+
+[MimiClaw](https://github.com/memovai/mimiclaw) implements OpenClaw's core principles on a **$5 ESP32-S3** microcontroller. Written entirely in pure C - no Linux, no Node.js, no server infrastructure needed.
+
+| Spec | Detail |
+|------|--------|
+| **Hardware** | ESP32-S3 (16 MB flash, 8 MB PSRAM) |
+| **Cost** | ~$5 (chip only) |
+| **Language** | Pure C (ESP-IDF v5.5+) |
+| **AI Backend** | Anthropic Claude API with ReAct agent loop |
+| **Messaging** | Telegram |
+| **Memory** | Persistent local storage (SOUL.md, USER.md, MEMORY.md on flash) |
+| **Features** | Tool use (web search, time), dual-core processing, WebSocket gateway, runtime CLI config |
+
+The smallest and cheapest way to run an OpenClaw-style AI agent - proving the core architecture (agent loop, persistent memory, tool calling, chat integration) can work without an operating system or runtime environment.
+
+- [GitHub - memovai/mimiclaw](https://github.com/memovai/mimiclaw)
+
+---
+
+## Docker Deployment
+
+```bash
+git clone https://github.com/openclaw/openclaw.git
+cd openclaw && ./docker-setup.sh
+```
+
+### Useful Commands
+
+```bash
+docker compose run --rm openclaw-cli pairing approve telegram <CODE>
+docker compose run --rm openclaw-cli dashboard --no-open
+docker compose run --rm openclaw-cli security audit --deep
+```
+
+- [Docker - OpenClaw Docs](https://docs.openclaw.ai/install/docker)
+- [Running OpenClaw in Docker - Simon Willison](https://til.simonwillison.net/llms/openclaw-docker)
+- [Docker Guide for Beginners - Medium](https://medium.com/@ozbillwang/run-openclaw-moltbot-clawdbot-safely-with-docker-a-practical-guide-for-beginners-94112a9b57be)
+- [docker-gentkit-openclaw](https://github.com/lentiancn/docker-gentkit-openclaw) - Docker image and scripts for running OpenClaw with persistent host-mounted state.
+- [Carapace](https://github.com/jhenderiks/carapace) - Hardened Docker Compose setup for OpenClaw with read-only root filesystem, dropped capabilities, and optional browser isolation.
+- [wodby/openclaw](https://github.com/wodby/openclaw) - Docker image for OpenClaw Gateway with versioned stability tags, amd64/arm64 builds, and entrypoint-generated configuration.
+- [OpenSandbox OpenClaw example](https://github.com/alibaba/OpenSandbox/tree/main/examples/openclaw) - Example for launching OpenClaw Gateway inside an OpenSandbox instance with restrictive network policy and configurable image, token, port, and timeout settings.
+- [OpenKruise Agents OpenClaw example](https://github.com/openkruise/agents/tree/master/examples/openclaw) - Kubernetes sandbox example for pre-warmed OpenClaw instances with persistent user data through volume claim templates.
+
+---
+
+## Security & Hardening
+
+### Known CVEs (All Patched)
+
+| CVE | Severity | Description | Fixed In |
+|-----|----------|-------------|----------|
+| **CVE-2026-24763** | High | Docker PATH Command Injection | v2026.1.29 |
+| **GHSA-g8p2-7wf7-98mq** | Critical (8.8) | gatewayUrl Token Exfiltration (1-click RCE) | v2026.1.29 |
+| **GHSA-q284-4pvr-m585** | High | sshNodeCommand Injection | v2026.1.29 |
+| **CVE-2026-25593** | Critical | Unauthenticated Local RCE via WebSocket | v2026.1.30 |
+| **CVE-2026-25475** | High | Local File Inclusion via MEDIA: Path | v2026.1.30 |
+| **CVE-2026-25253** | Critical (8.8) | 1-Click RCE via Cross-Site WebSocket Hijacking | v2026.1.29 |
+
+> **Update immediately to v2026.2.12+** to patch all known vulnerabilities (40+ security fixes).
+
+### Security Best Practices
+
+1. **Bind to `127.0.0.1` only** (never `0.0.0.0`) - over 135,000 exposed instances found online
+2. Use **SSH tunnels** or [Tailscale Serve](https://tailscale.com/kb/1242/tailscale-serve) for remote access
+3. Use **auth profiles** (system keychain): `openclaw auth set ANTHROPIC_API_KEY`
+4. Configure **firewall**: `ufw default deny incoming && ufw allow ssh && ufw allow 443/tcp && ufw enable`
+5. Use **Docker** for container isolation
+6. Run regular audits: `openclaw security audit --deep` and `openclaw doctor`
+7. Use **Composio** for managed OAuth ([security guide](https://composio.dev/blog/secure-openclaw-moltbot-clawdbot-setup))
+
+### Skills Marketplace Risks
+
+> **~15% of community skills contain malicious instructions**
+
+- **341 malicious skills** discovered in "ClawHavoc" campaign (Atomic Stealer malware)
+- **280+ skills leak API keys and PII** ([Snyk](https://snyk.io/blog/openclaw-skills-credential-leaks-research/))
+- VirusTotal scanning now integrated
+- Always audit skills before installation
+
+### Security Tools
+
+| Tool | Description | Source |
+|------|-------------|--------|
+| [APort Agent Guardrails](https://github.com/aporthq/aport-agent-guardrails) | Pre-action authorization guardrails for OpenClaw agents using plugin hooks and policy checks. | [OpenClaw docs](https://github.com/aporthq/aport-agent-guardrails/blob/main/docs/frameworks/openclaw.md) |
+| **ClawSec** | Complete security skill suite by Prompt Security | [GitHub](https://github.com/prompt-security/clawsec) |
+| **ClawBands** | Security middleware - intercepts tool execution, human-in-the-loop approval for dangerous actions | [GitHub](https://github.com/SeyZ/clawbands) |
+| **ClawGuard** | Permission manifests, runtime enforcement, sandboxing, audit logging with hash-chaining | [GitHub](https://github.com/newtro/ClawGuard) |
+| **Claw-Hunter** | MDM-ready scripts to detect and monitor shadow OpenClaw agents across macOS/Linux/Windows endpoints | [GitHub](https://github.com/backslash-security/Claw-Hunter) |
+| **Aquaman** | Credential isolation proxy - API keys never enter the agent process. Stores secrets in Keychain/1Password/Vault/encrypted-file, injects via Unix domain socket. Process-level isolation (not detection/redaction). | [GitHub](https://github.com/tech4242/aquaman) |
+| **Orchard Kit** | Complete alignment and safety architecture - membrane security (Calyx Protocol), continuous trust verification with heartbeat, epistemic hygiene, and defence tools. Includes a ready-to-install OpenClaw skill for agent self-governance. Based on 30 years of cybernetic research | [GitHub](https://github.com/OrchardHarmonics/orchard-kit) |
+| **Clawhatch** | Pre-install security scanner - 128 automated checks, scores skills 0-100, runs in <1 second, catches malicious patterns before installation | [GitHub](https://github.com/AISafetyLab/clawhatch) |
+| **OpenClaw Scanner** | Enterprise endpoint scanner - detects OpenClaw agents running across corporate networks, identifies exposed instances and misconfigurations | [Help Net Security](https://www.helpnetsecurity.com/2026/02/13/openclaw-scanner-enterprise/) |
+| **WatchClaw** | Linux server hardening and threat-intelligence toolkit with SSH hardening, firewall baseline, Cowrie honeypot, Fail2ban, canaries, and an optional OpenClaw agent mode | [GitHub](https://github.com/kashifeqbal/watchclaw) |
+| **OpenClaw Guardian** | Watchdog for OpenClaw Gateway service checks, `doctor --fix` repair flows, git rollback, daily snapshots, and Discord alerts | [GitHub](https://github.com/LeoYeAI/openclaw-guardian) |
+| **OpenClaw Hardened** | VPS hardening guide and plugin set with configuration auditing, monitoring scripts, and defense-in-depth deployment runbooks | [GitHub](https://github.com/mj-deving/openclaw-hardened) |
+| **EDAMAME for OpenClaw** | Runtime security integration for OpenClaw agents with MCP plugin, provisioning, and behavioral monitoring documentation | [GitHub](https://github.com/edamametechnologies/edamame_openclaw) |
+| **Guardrail Bridge Plugin** | Pre-agent policy plugin that checks content before OpenClaw dispatches work to an agent | [GitHub](https://github.com/guardrail-bridge/guardrail-bridge-plugin) |
+| **OpenClaw Carapace** | Security auditor, CVE scanner, and skill analyzer for OpenClaw gateways | [GitHub](https://github.com/CoChatAI/openclaw-carapace) |
+| **GatewayStack Governance** | Governance layer for OpenClaw Gateway with identity, scope, rate limiting, injection detection, and audit logging boundaries | [GitHub](https://github.com/davidcrowe/openclaw-gatewaystack-governance) |
+| **openclaw-detect** | MDM deployment scripts for identifying OpenClaw installations on managed devices | [GitHub](https://github.com/knostic/openclaw-detect) |
+| **ClawShield** | Security preflight and guardrail toolkit for OpenClaw and Moltbot deployments | [GitHub](https://github.com/kappa9999/ClawShield) |
+| **ClawKeeper** | Safety plugin and watcher stack for OpenClaw agents, focused on skills, plugins, and runtime protection checks | [GitHub](https://github.com/SafeAI-Lab-X/ClawKeeper) |
+| **OpenClaw Security Watchdog** | Security audit workflow that runs OpenClaw-focused checks and generates reviewable reports | [GitHub](https://github.com/CTCT-CT2/openclaw-security-watchdog) |
+| **ClawVault** | OpenClaw security vault project for tracking and controlling agent access boundaries | [GitHub](https://github.com/tophant-ai/ClawVault) |
+| **ShieldCortex Realtime** | OpenClaw plugin for real-time defense scanning and optional memory extraction | [npm](https://www.npmjs.com/package/@drakon-systems/shieldcortex-realtime) |
+| **AIP OpenClaw** | Security plugin for OpenClaw skill signing, capability manifests, and runtime enforcement | [npm](https://www.npmjs.com/package/aip-openclaw) |
+| **skill-security-scanner** | Static security scanner and linter for OpenClaw skill directories | [npm](https://www.npmjs.com/package/skill-security-scanner) |
+| **Falco OpenClaw Plugin** | Falco plugin for monitoring OpenClaw Gateway logs and matching security-relevant events | [GitHub](https://github.com/takaosgb3/falco-plugin-openclaw) |
+| **OpenClaw Secure Stack** | Hardened deployment wrapper with authentication, skill scanning, prompt-injection checks, and policy controls | [GitHub](https://github.com/yi-john-huang/openclaw-secure-stack) |
+| **OpenClaw Security Dashboard** | Dashboard for reviewing gateway exposure, skill risks, configuration hardening, and identity checks | [GitHub](https://github.com/piti/openclaw-security-dashboard) |
+| **Clawpinch** | Security audit toolkit for OpenClaw deployments with grouped local checks | [GitHub](https://github.com/MikeeBuilds/clawpinch) |
+| **iClaw** | Local-first AI workspace for OpenClaw with project-isolated folders, Docker sandbox modes, and the `@iclawapp/iclaw` npm launcher. | [GitHub](https://github.com/iclawapp/iclaw) |
+| **ClawShield** | PolicyGate security audit tool for OpenClaw agent misconfiguration checks | [GitHub](https://github.com/policygate/clawshield) |
+| **Security Watchdog** | Host-posture watchdog for OpenClaw with firewall, SSH, exposure, and listening-port checks | [GitHub](https://github.com/lashawrelay/security-watchdog-openclaw) |
+| **Security Agent** | Daily security posture auditor for OpenClaw hosts and hosted services with baseline comparison reports | [GitHub](https://github.com/clwdtch/openclaw-security-agent) |
+| **ReefWatch** | Host-based monitoring skill for OpenClaw machines, with local detection for auth, malware, privilege, and persistence signals | [GitHub](https://github.com/yasnaak/reefwatch) |
+| **trentclaw** | Security assessment skill for OpenClaw - scans gateway config, tool permissions, installed skills, and MCP servers for risks, then proposes fixes you review before applying. | [GitHub](https://github.com/trnt-ai/trent-openclaw-security-assessment) |
+
+### Security Resources
+
+- [centminmod/explain-openclaw](https://github.com/centminmod/explain-openclaw) - Deep security analysis (73 files, multi-AI)
+- [Cisco - AI Agents Are a Security Nightmare](https://blogs.cisco.com/ai/personal-ai-agents-like-openclaw-are-a-security-nightmare)
+- [Bitdefender - Malicious Skill Trap](https://www.bitdefender.com/en-us/blog/labs/helpful-skills-or-hidden-payloads-bitdefender-labs-dives-deep-into-the-openclaw-malicious-skill-trap)
+- [Snyk - 280+ Leaky Skills](https://snyk.io/blog/openclaw-skills-credential-leaks-research/)
+- [The Register - Security Issues](https://www.theregister.com/2026/02/02/openclaw_security_issues/)
+- [SecurityWeek - Hijack OpenClaw AI Assistant](https://www.securityweek.com/vulnerability-allows-hackers-to-hijack-openclaw-ai-assistant/)
+- [SoC Radar - CVE-2026-25253 Analysis](https://socradar.io/blog/cve-2026-25253-rce-openclaw-auth-token/)
+- [Runzero - OpenClaw RCE Vulnerability](https://www.runzero.com/blog/openclaw/)
+- [Depthfirst - 1-Click RCE to Steal Data and Keys](https://depthfirst.com/post/1-click-rce-to-steal-your-moltbot-data-and-keys)
+- [VirusTotal - From Automation to Infection](https://blog.virustotal.com/2026/02/from-automation-to-infection-how.html) - 7.1% of ClawHub skills exposed credentials
+- [Cyera - The OpenClaw Security Saga](https://www.cyera.com/research-labs/the-openclaw-security-saga-how-ai-adoption-outpaced-security-boundaries)
+- [Vectra - When Automation Becomes a Digital Backdoor](https://www.vectra.ai/blog/clawdbot-to-moltbot-to-openclaw-when-automation-becomes-a-digital-backdoor)
+- [Belgium CCB Advisory](https://ccb.belgium.be/advisories/warning-critical-vulnerability-openclaw-allows-1-click-remote-code-execution-when)
+- [University of Toronto Advisory](https://security.utoronto.ca/advisories/openclaw-vulnerability-notification/)
+- [n8n + OpenClaw Security White Paper](https://gripsy.com.au/research/n8n-openclaw-security-whitepaper.html) - Security analysis of n8n and OpenClaw integration patterns: credential isolation via n8n proxy, webhook hardening, network architecture, and threat modeling for production deployments. Peer-reviewed with multi-model validation. By Dr. Gaurav Caprihan.
+- [The Calyx Protocol](https://github.com/OrchardHarmonics/orchard-kit/blob/main/01_CALYX_PROTOCOL.md) - Permeability-based security model replacing binary allow/deny with membrane architecture. Addresses prompt injection, data exfiltration, and skill poisoning through ethics-weighted signal routing. Derived from the Codex Harmonicae (30 years cybernetic research). By Kimberley Asher.
+- [Semgrep - OpenClaw Security Engineer's Cheat Sheet](https://semgrep.dev/blog/openclaw-security-cheat-sheet) - Static analysis rules for detecting insecure OpenClaw configurations, exposed API keys, and risky skill patterns
+- [OpenClaw Security Practice Guide](https://github.com/slowmist/openclaw-security-practice-guide) - Agent-facing hardening guide for OpenClaw deployments, prompt-injection risk, supply-chain review, and high-risk tool boundaries.
+
+---
+
+## Configuration
+
+### Model Providers
+
+| Provider | Config Key | Free Tier? | Notes |
+|----------|-----------|------------|-------|
+| **Anthropic** | `ANTHROPIC_API_KEY` | No | Primary, best quality |
+| **OpenAI** | `OPENAI_API_KEY` | No | GPT-4, GPT-4o |
+| **Google** | `GOOGLE_API_KEY` | Yes (Gemini Flash-Lite) | Cheapest hosted |
+| **OpenRouter** | `OPENROUTER_API_KEY` | No | 200+ models unified API |
+| **DeepSeek** | `DEEPSEEK_API_KEY` | No | Excellent value |
+| **Moonshot** | `MOONSHOT_API_KEY` | No | Kimi K2.5 (great agentic) |
+| **MiniMax** | `MINIMAX_API_KEY` | No | M2.1 native support |
+| **Fireworks AI** | Built-in | No | Model hosting |
+| **Workers AI** | Built-in | Yes (limits) | Cloudflare models |
+| **Ollama** | Local | **Free** | Requires local hardware |
+| **LM Studio** | Local | **Free** | Requires local hardware |
+| **vLLM** | Local | **Free** | High-performance inference |
+
+### Messaging Channels
+
+| Channel | Setup | Auth Method | Notes |
+|---------|-------|-------------|-------|
+| **Telegram** | 2 min | BotFather token | Fastest setup, supports Topics for parallel threads |
+| **WhatsApp** | 2 min | QR code scan | Separate phone number recommended |
+| **Discord** | 5 min | Bot application | Developer portal required |
+| **Slack** | 5 min | Bot token (Socket or HTTP mode) | api.slack.com/apps |
+| **Signal** | 5 min | Direct integration | Privacy-focused |
+| **iMessage** | 10 min | BlueBubbles bridge | macOS only |
+| **Microsoft Teams** | 5 min | Enterprise integration | Business users |
+| **Google Chat** | 5 min | Workspace integration | Google Workspace |
+| **Matrix** | 5 min | E2E encryption | Best for privacy |
+| **Zalo** | 5 min | Direct integration | Popular in Vietnam |
+| **WebChat** | Built-in | Gateway token | Browser-based interface |
+| **WeCom** | [npm](https://www.npmjs.com/package/@wecom/wecom-openclaw-plugin) | Bot / app credentials | Tencent WeCom channel plugin |
+| **WeChat** | [npm](https://www.npmjs.com/package/@tencent-weixin/openclaw-weixin) | WeChat app credentials | Weixin channel plugin |
+| **Lark / Feishu** | [GitHub](https://github.com/larksuite/openclaw-lark) | Lark / Feishu app credentials | Official Lark/Feishu channel plugin |
+| **OpenIM** | [npm](https://www.npmjs.com/package/@openim/openclaw-channel) | OpenIM credentials | OpenIM channel plugin for OpenClaw gateway |
+| **DingTalk** | [GitHub](https://github.com/soimy/openclaw-channel-dingtalk) | DingTalk app credentials | DingTalk channel plugin |
+| **QQ Bot** | [GitHub](https://github.com/tencent-connect/openclaw-qqbot) | QQ bot credentials | QQ private chat and group channel plugin with rich media and approval support |
+| **OpenClaw China** | [GitHub](https://github.com/BytePioneer-AI/openclaw-china) | China IM credentials | Plugin collection for DingTalk, QQ, WeCom, WeChat, and Feishu channels |
+| **DingTalk Connector** | [GitHub](https://github.com/DingTalk-Real-AI/dingtalk-openclaw-connector) | DingTalk app credentials | DingTalk connector package for OpenClaw channel setup |
+| **OpenClaw WeChat** | [GitHub](https://github.com/freestylefly/openclaw-wechat) | WeChat login / bot credentials | Community WeChat channel plugin for connecting OpenClaw to personal WeChat |
+| **WeChat Channel** | [GitHub](https://github.com/HenryXiaoYang/wechat-openclaw-channel) | QClaw or WorkBuddy login | WeChat channel extracted for OpenClaw compatibility |
+| **WeCom Plugin** | [GitHub](https://github.com/sunnoy/openclaw-plugin-wecom) | Enterprise WeChat credentials | Enterprise WeChat plugin with streaming output, agent management, group chat, and allowlist controls |
+| **OpenClaw-Wechat** | [GitHub](https://github.com/dingxiang-me/OpenClaw-Wechat) | WeChat / WeCom credentials | Chinese WeChat and Enterprise WeChat integration with streaming output and visual configuration docs |
+| **Feishu Guide** | [GitHub](https://github.com/AlexAnys/openclaw-feishu) | Lark / Feishu app credentials | Community Feishu and Lark setup guide covering webhook and WebSocket channel patterns |
+| **Tencent WeChat Plugin** | [GitHub](https://github.com/Tencent/openclaw-weixin) | WeChat login | WeChat channel plugin for OpenClaw with QR-code login authorization and version compatibility notes |
+| **Telegram Task Silencer** | [GitHub](https://github.com/adagues/openclaw-telegram-task-silencer) | Telegram bot token | OpenClaw plugin that suppresses Telegram background-task completion notifications without changing the task registry |
+| **Customer Bridge** | [GitHub](https://github.com/gthneo/openclaw-customer-bridge) | WeChat / WeCom credentials | OpenClaw plugin for mapping customer identity across personal WeChat, WeCom, and WeChat Open Platform identifiers |
+| **OpenClaw Stepfun** | [npm](https://www.npmjs.com/package/openclaw-stepfun) | Stepfun app credentials | WebSocket channel plugin for connecting Stepfun Bot API messages to OpenClaw |
+| **Now4real** | [GitHub](https://github.com/now4real/openclaw-now4real) | Now4real webhook secret | Live-chat widget channel plugin that routes page chat messages into OpenClaw |
+| **P2P Portal** | [GitHub](https://github.com/yananli199307-dev/p2p-channel-plugin) | Portal URL and channel config | P2P Portal channel plugin for OpenClaw with heartbeat and message-deduplication logic |
+| **Zulip** | [GitHub](https://github.com/FtlC-ian/openclaw-channel-zulip) | Zulip bot credentials | Channel plugin for Zulip with concurrent message processing, reactions, file uploads, and actions API support |
+| **SeaTalk** | [GitHub](https://github.com/lf4096/openclaw-seatalk) | SeaTalk app credentials | Channel plugin for routing SeaTalk messages into OpenClaw |
+| **Rocket.Chat** | [GitHub](https://github.com/alexwoo-awso/openclaw-rocketchat) | Rocket.Chat DDP / REST credentials | Channel plugin for DMs, groups, threads, media, and multi-account Rocket.Chat setups |
+| **Rocket.Chat Plugin** | [GitHub](https://github.com/cloudrise-network/openclaw-channel-rocketchat) | Rocket.Chat credentials | Community Rocket.Chat plugin for talking with OpenClaw from chat rooms |
+| **WeChat Official Account** | [GitHub](https://github.com/yangyangkeai/wechat-mpc-openclaw-channel) | WeChat Open Platform app credentials | Channel plugin for connecting subscription or service accounts to OpenClaw through a third-party platform flow |
+| **Max Messenger** | [GitHub](https://github.com/alexeyavdey/openclaw-max-messenger) | Max Bot API credentials | Channel plugin for connecting OpenClaw agents to Max Messenger through the Bot API |
+| **Thenvoi** | [GitHub](https://github.com/thenvoi/openclaw-channel-thenvoi) | Thenvoi platform credentials | Channel plugin for connecting OpenClaw to the Thenvoi agent collaboration platform |
+| **Odoo** | [GitHub](https://github.com/mondaymerch/openclaw-channel-odoo) | Odoo webhook settings | Webhook-based Odoo channel plugin for OpenClaw |
+| **DingTalk Stream Mode** | [GitHub](https://github.com/cnjack/OpenClaw-dingtalk) | DingTalk app credentials | DingTalk channel plugin that documents Stream Mode integration |
+| **Mesibo** | [GitHub](https://github.com/mesibo/openclaw-channel) | Mesibo app credentials | Mesibo channel plugin for OpenClaw messaging workflows |
+| **IMAP / SMTP** | [GitHub](https://github.com/antarien/openclaw-channel-imap) | Mailbox credentials | IMAP and SMTP channel plugin with IDLE-based push for email-driven OpenClaw workflows |
+| **Zalo Personal** | [GitHub](https://github.com/darkamenosa/openzalo) | Zalo account credentials | Zalo personal messaging plugin using openzca. Review platform policy before enabling account automation. |
+| **WeChat Customer Service** | [GitHub](https://github.com/pawastation/wechat-kf) | WeChat Customer Service credentials | Channel plugin for WeChat Customer Service workflows. Review platform policy before enabling account automation. |
+| **WeChat KF** | [GitHub](https://github.com/aooyoo/openclaw-wechat-kf) | WeChat KF credentials | OpenClaw channel plugin for WeChat KF customer-service messaging |
+| **WPS Xiezuo** | [GitHub](https://github.com/skyispainted/openclaw-channel-wps-xiezuo) | WPS 365 bot credentials | Enterprise bot channel plugin for WPS Xiezuo and OpenClaw |
+| **Mist MFA Gate** | [GitHub](https://github.com/percent-20/openclaw-mfa-gate) | MFA policy config | OpenClaw channel plugin for MFA-gated agent access |
+| **OCTO Adapters** | [GitHub](https://github.com/Mininglamp-OSS/octo-adapters) | OCTO workplace credentials | Adapter set that bridges IM platforms and external services into OCTO through OpenClaw channels and WebSocket |
+| **Olvid** | [GitHub](https://github.com/olvid-io/openclaw-channel-olvid) | Olvid channel credentials | Olvid channel plugin for OpenClaw |
+| **TrueConf** | [GitHub](https://github.com/TrueConf/trueconf-openclaw-channel) | TrueConf app credentials | TrueConf channel plugin for OpenClaw |
+| **XMTP** | [GitHub](https://github.com/tantodefi/xmtp-openclaw-channel) | XMTP wallet / app credentials | XMTP channel plugin for OpenClaw messaging workflows |
+| **Discord npm package** | [npm](https://www.npmjs.com/package/@openclaw/discord) | Discord bot credentials | OpenClaw Discord channel plugin published through npm |
+| **QQ Bot npm package** | [npm](https://www.npmjs.com/package/@openclaw/qqbot) | QQ bot credentials | OpenClaw QQ Bot channel plugin published through npm |
+| **Twitch npm package** | [npm](https://www.npmjs.com/package/@openclaw/twitch) | Twitch app credentials | OpenClaw Twitch channel plugin for routing chat events into an OpenClaw agent |
+| **Tlon / Urbit npm package** | [npm](https://www.npmjs.com/package/@openclaw/tlon) | Tlon / Urbit credentials | OpenClaw Tlon/Urbit channel plugin |
+| **Voice Call npm package** | [npm](https://www.npmjs.com/package/@openclaw/voice-call) | Voice provider credentials | OpenClaw voice-call plugin published through npm |
+| **Brave plugin package** | [npm](https://www.npmjs.com/package/@openclaw/brave-plugin) | Browser plugin config | OpenClaw Brave plugin package |
+| **Diff Viewer package** | [npm](https://www.npmjs.com/package/@openclaw/diffs) | Plugin config | OpenClaw diff viewer plugin package |
+| **Diagnostics OTEL package** | [npm](https://www.npmjs.com/package/@openclaw/diagnostics-otel) | OpenTelemetry config | OpenClaw diagnostics OpenTelemetry exporter package |
+| **LarkSuite npm package** | [npm](https://www.npmjs.com/package/@larksuite/openclaw-lark) | Lark / Feishu app credentials | Official Lark/Feishu channel plugin package with documented security warnings |
+| **OriginTrail DKG Adapter** | [npm](https://www.npmjs.com/package/@origintrail-official/dkg-adapter-openclaw) | DKG node config | Adapter that connects a DKG V10 node and chat bridge to an OpenClaw agent |
+| **Dragon Workbench Channel** | [npm](https://www.npmjs.com/package/@efengx/openclaw-channel-dragon) | Dragon workbench config | Channel plugin that bridges OpenClaw outbound text to the Dragon workbench WebSocket protocol |
+| **DMWork Channel** | [npm](https://www.npmjs.com/package/openclaw-channel-dmwork) | DMWork credentials | WuKongIM WebSocket channel plugin for OpenClaw messaging workflows |
+| **Ozaiya Chat Channel** | [npm](https://www.npmjs.com/package/@ozaiya/openclaw-channel) | Ozaiya account credentials | Channel plugin for connecting OpenClaw agents to Ozaiya encrypted group chats |
+| **Zalo npm package** | [npm](https://www.npmjs.com/package/@openclaw/zalo) | Zalo credentials | OpenClaw Zalo channel plugin published through npm |
+| **OpenClaw QQBot Send Skill** | [GitHub](https://github.com/ZJunCher/openclaw-qqbot-send-skill) | QQBot media relay | Skill for staging and sending local files, images, audio, and video through a QQBot media relay, with temporary-copy cleanup. |
+| **Octo Channel** | [GitHub](https://github.com/Mininglamp-OSS/openclaw-channel-octo) | Octo WebSocket | ClawHub-published channel plugin that connects OpenClaw to Octo through WebSocket messaging. |
+| **Agent QQ Sandbox Bot** | [GitHub](https://github.com/CeylanCLC/agent-qq-sandbox-bot) | NapCat OneBot / QQ | Python bridge that routes QQ group and private messages through OpenClaw Gateway for sandboxed bot experiments. |
+| **OpenClaw Team in Feishu** | [GitHub](https://github.com/nativeProductor/openclaw-team-in-feishu) | Feishu group chats | Coordination daemon for multiple OpenClaw agents in Feishu groups with round-robin and free-speak discussion modes. |
+| **WeClaws** | [GitHub](https://github.com/baseclaw/weclaws) | WeChat team console | Self-hosted multi-user WeChat agent control plane with web management, sandboxes, skills, memory, and scheduled tasks. |
+| **WeCom OpenClaw Integration** | [GitHub](https://github.com/11haonb/wecom-openclaw-plugin) | WeCom app credentials | WeCom channel plugin that connects WeChat Work messages to an OpenClaw agent workflow. |
+| **OpenClaw Matrix Voice** | [GitHub](https://github.com/scottgl9/openclaw-matrix-voice) | Matrix / LiveKit config | Matrix voice-call bot that routes speech-to-text turns through an OpenClaw Gateway agent. |
+| **clawd-feishu** | [GitHub](https://github.com/m1heng/clawdbot-feishu) | Lark / Feishu app credentials | Feishu and Lark channel plugin for OpenClaw with Chinese setup wiki and contribution docs. |
+| **OpenClaw QQ OneBot** | [GitHub](https://github.com/constansino/openclaw_qq) | OneBot v11 / QQ credentials | QQ channel extension for OpenClaw with quickstart, configuration reference, and OneBot v11 bridge docs (canonical repo renamed from `constansino/moltbot_qq`). Review platform policy before enabling account automation. |
+| **OpenClaw Kakao** | [GitHub](https://github.com/tornado1014/openclaw-kakao) | KakaoTalk / bridge config | KakaoTalk bridge that routes messages through an OpenClaw Gateway. Review platform policy before enabling account automation. |
+| **clawdbot-channel-linq** | [GitHub](https://github.com/nickvasilescu/clawdbot-channel-linq) | Linq Partner API credentials | iMessage, RCS, and SMS channel for Clawdbot through the Linq Partner API, with webhook-based inbound delivery. |
+| **Relay Spine** | [GitHub](https://github.com/CzsGit/wechat-openclaw-plugin) | WeChat / webhook credentials | OpenClaw WeChat channel bridge with QR-authenticated socket sessions and encrypted webhook handling. Review platform policy before enabling account automation. |
+| **VK npm package** | [npm](https://www.npmjs.com/package/@openclaw-vk/vk) | VK community bot credentials | VKontakte channel plugin for OpenClaw using the VK Bots Long Poll API |
+| **Twilio WhatsApp Channel** | [npm](https://www.npmjs.com/package/@srinathh/openclaw-channel-twilio-whatsapp) | Twilio account and webhook config | Twilio WhatsApp channel plugin for OpenClaw with deployment notes for public HTTPS webhooks |
+| **Lansenger Channel** | [npm](https://www.npmjs.com/package/@lansenger-pm/openclaw-lansenger-channel) | Lansenger app credentials | Lansenger enterprise messaging channel plugin for OpenClaw with WebSocket inbound and HTTP outbound delivery |
+| **DingTalk Stream Package** | [npm](https://www.npmjs.com/package/@largezhou/ddingtalk) | DingTalk robot credentials | DingTalk channel package for OpenClaw using Stream mode and multi-account routing |
+| **DingClaw Package** | [npm](https://www.npmjs.com/package/@soimy/dingtalk) | DingTalk app credentials | DingTalk channel plugin for OpenClaw with documented OpenClaw version compatibility |
+| **BridgeX Channel** | [npm](https://www.npmjs.com/package/@transplane/openclaw-bridgex) | BridgeX endpoint config | BridgeX channel plugin for agent-to-agent and human-to-agent OpenClaw messaging |
+| **OpenClaw WebSocket Channel** | [npm](https://www.npmjs.com/package/@zf-tech/openclaw-websocket) | WebSocket channel config | JSON-over-WebSocket chat channel plugin for custom OpenClaw clients |
+| **MeepaChat Channel** | [npm](https://www.npmjs.com/package/@meepa/meepachat-openclaw) | MeepaChat gateway credentials | Self-hosted MeepaChat channel plugin for OpenClaw using WebSocket inbound and REST outbound paths |
+| **NIM Channel** | [npm](https://www.npmjs.com/package/@nimsuite/openclaw-nim-channel) | NetEase IM credentials | NetEase IM channel plugin for OpenClaw P2P, group, and QChat conversations |
+| **HelloAgent Channel** | [npm](https://www.npmjs.com/package/@helloagentai/openclaw) | HelloAgent relay config | Relay-backed messaging channel plugin for connecting OpenClaw assistants to HelloAgent |
+| **Friday Next Channel** | [npm](https://www.npmjs.com/package/@syengup/friday-channel-next) | Apple channel config | Friday Next Apple channel plugin for OpenClaw messaging workflows |
+| **Sider Chrome Channel** | [npm](https://www.npmjs.com/package/@hywkp/test-openclaw-sider) | Chrome extension config | Chrome channel plugin package for connecting OpenClaw through the Sider Chrome extension |
+| **WorkClaw Channel** | [npm](https://www.npmjs.com/package/@workclaw/openclaw-workclaw) | WorkClaw platform credentials | Enterprise communications channel plugin for OpenClaw workflows |
+| **Chat4000 Channel** | [npm](https://www.npmjs.com/package/@chat4000/openclaw-plugin) | Chat4000 relay config | E2E relay-based channel plugin for routing Chat4000 messages through OpenClaw |
+| **Aephix Channel** | [npm](https://www.npmjs.com/package/@fateinabox/aephix-openclaw) | Aephix chat config | Native Aephix chat channel provider for OpenClaw integrations |
+| **Xiaoyi Channel** | [npm](https://www.npmjs.com/package/@ynhcj/xiaoyi-channel) | Xiaoyi A2A config | Xiaoyi A2A protocol channel plugin for OpenClaw |
+
+### Local LLM Integration
+
+#### Ollama
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.1
+```
+
+```json
+{ "provider": "openai", "baseUrl": "http://localhost:11434/v1", "model": "llama3.1" }
+```
+
+#### LM Studio
+
+```json
+{ "provider": "openai", "baseUrl": "http://localhost:1234/v1", "model": "your-model-name" }
+```
+
+#### vLLM (GPU-Accelerated)
+
+```json
+{ "provider": "openai", "baseUrl": "http://localhost:8000/v1", "model": "your-model-name" }
+```
+
+- [OpenClaw + Ollama Guide](https://codersera.com/blog/openclaw-ollama-setup-guide-2026/)
+- [OpenClaw + LM Studio Guide](https://codersera.com/blog/openclaw-lm-studio-setup-guide-2026/)
+- [OpenClaw + vLLM on AMD](https://www.amd.com/en/developer/resources/technical-articles/2026/openclaw-with-vllm-running-for-free-on-amd-developer-cloud-.html)
+
+### MCP Server Integration
+
+| Plugin | Source | Features |
+|--------|--------|----------|
+| **openclaw-mcp-plugin** | [GitHub](https://github.com/lunarpulse/openclaw-mcp-plugin) | HTTP/SSE transport, multi-server, unified interface |
+| **openclaw-mcp-adapter** | [npm](https://www.npmjs.com/package/openclaw-mcp-adapter) | Registers MCP tools as native agent tools |
+| **openclaw-mcp** | [GitHub](https://github.com/freema/openclaw-mcp) | Secure Claude.ai ↔ OpenClaw bridge with OAuth 2.1 authentication |
+| **openclaw-mcp-server** | [GitHub](https://github.com/Helms-AI/openclaw-mcp-server) | Exposes OpenClaw Gateway tools to Claude Code and MCP clients |
+| **openclaw-vscode** | [GitHub](https://github.com/xiaoyaner-home/openclaw-vscode) | Connects VS Code or Cursor to an OpenClaw Gateway as a node with IDE command surfaces |
+| **AIWerk MCP Bridge** | [GitHub](https://github.com/AIWerk/openclaw-mcp-bridge) | OpenClaw plugin that registers MCP server tools through `registerTool` with lifecycle configuration |
+| **Streamable HTTP MCP Bridge** | [GitHub](https://github.com/ChrisLAS/openclaw-mcp-bridge) | Plugin that discovers Streamable HTTP MCP tools and exposes them as native OpenClaw tools |
+| **Good0007 MCP Server** | [GitHub](https://github.com/Good0007/openclaw-mcp) | MCP server wrapper around the OpenClaw Gateway WebSocket API with built-in tools |
+| **Native MCP Contribution** | [GitHub](https://github.com/amor71/openclaw-mcp) | Community contribution prototype for configuring MCP servers directly from OpenClaw settings |
+| **Enhanced MCP Bridge Skill** | [GitHub](https://github.com/cc-fuyu/openclaw-mcp-bridge) | Skill that documents MCP server discovery, search, installation, and native tool calls from OpenClaw |
+| **MCP Bootstrap** | [GitHub](https://github.com/keoy7am/openclaw-mcp-bootstrap) | Bootstrap package for adding Sequential Thinking and Context7 MCP servers to OpenClaw |
+| **MCP Router** | [GitHub](https://github.com/lunarmoon26/openclaw-mcp-router) | Dynamic MCP tool router that searches large MCP catalogs before calling tools from OpenClaw |
+
+---
+
+## Integrations & Features
+
+### Voice Assistant
+
+| Feature | Description |
+|---------|-------------|
+| **OpenClaw Voice** | Self-hosted browser-based voice chat (Whisper STT + ElevenLabs TTS) |
+| **Android App** | Customizable wake words, long-press home button activation |
+| **Voice Call Plugin** | Telephony via Twilio, Telnyx, Plivo |
+| **ClawdTalk** | Phone calling and SMS for OpenClaw. Call your agent from any phone, with deep tool integration for calendar, Jira, web search, and more. Powered by Telnyx. |
+| **Always-On Speech** | macOS/iOS/Android with ElevenLabs |
+
+- [OpenClaw Voice](https://openclawvoice.com/)
+- [VoxClaw](https://github.com/malpern/VoxClaw) - Voice output for OpenClaw from a Mac on the local network.
+- [openclaw-voice](https://github.com/Purple-Horizons/openclaw-voice) - Browser-based voice chat for assistants using Whisper STT and ElevenLabs TTS.
+- [openclaw-assistant](https://github.com/yuga-hashimoto/openclaw-assistant) - Android voice assistant app with wake word and system assistant integration.
+- [OpenClaw Termux](https://github.com/androidmalware/OpenClaw_Termux) - Android phone install guide with WhatsApp control.
+- [ClawGPT Android app](https://github.com/craihub/clawgpt-app) - Mobile companion app for OpenClaw.
+- [AnveVoice](https://anvevoice.app) - Website voice assistant that can navigate pages, fill forms, and complete site actions, with MCP support noted by the provider.
+- [Voice Call Plugin Docs](https://docs.openclaw.ai/plugins/voice-call)
+- [@openclaw/voice-call](https://www.npmjs.com/package/@openclaw/voice-call) - Official OpenClaw voice-call plugin package for Twilio, Telnyx, Plivo, and mock call providers.
+- [ClawdTalk](https://clawdtalk.com/) - Phone calls and SMS for OpenClaw agents. Dedicated number, WebSocket client, agentic deep tools. ([GitHub](https://github.com/team-telnyx/clawdtalk-client) | [ClawHub](https://clawhub.ai/skills/clawdtalk-client))
+- [openclaw-voice](https://github.com/kyaukyuai/openclaw-voice) - Voice client for OpenClaw Gateway with hold-to-record, transcript editing, and streaming response views.
+- [claw-voice-chat](https://github.com/GreenSheep01201/claw-voice-chat) - Push-to-talk voice chat interface for OpenClaw channels.
+- [TryclawChat](https://github.com/kingsrui/tryclawchat) - Browser voice chat client for OpenClaw Gateway with push-to-talk, wake-word, STT, and TTS support.
+
+### Home Automation
+
+- **Home Assistant** custom add-on with ha-mcp integration
+- Control lights, thermostats, IoT devices via messaging
+- Adjust boilers based on weather forecasts
+- Voice commands through WhatsApp/Telegram
+
+- [OpenClaw on Home Assistant](https://community.home-assistant.io/t/openclaw-clawdbot-on-home-assistant/981467)
+- [OpenClaw Gave My Home Assistant an AI Agent](https://www.dan-malone.com/blog/openclaw-home-assistant)
+- [ROSClaw](https://github.com/PlaiPin/rosclaw) - ROS2 integration project for connecting OpenClaw workflows to robotics systems.
+- [Casa](https://github.com/openclaw/casa) - Mac Catalyst app that exposes local HomeKit data through a localhost-only REST API and CLI for OpenClaw automation workflows.
+
+### Email & Calendar
+
+- **Gmail**: Real-time processing via Pub/Sub, smart filtering, auto-responses
+- **Google Calendar**: Event creation, viewing, sync, daily briefings
+- **Apple Calendar**: Via khal/vdirsyncer integration
+- **Outlook**: Calendar sync and management
+- **[BotEmail.ai](https://botemail.ai)** - Instant @botemail.ai email inboxes for AI agents. One API call creates a dedicated inbox with no human setup required. Includes an OpenClaw skill ([ClawHub](https://clawhub.ai/skills/bot-email)), MCP server, and OpenAI GPT Actions support.
+- **[Openmail](https://openmail.sh)** - Email infrastructure for AI agents with reliable sending, receiving, and routing. Includes an OpenClaw skill ([ClawHub](https://clawhub.ai/armandokun/openmail)) for direct integration into OpenClaw-based workflows.
+
+- [Gmail Automation Guide](https://zenvanriel.nl/ai-engineer-blog/openclaw-gmail-pubsub-automation-guide/)
+- [Google Calendar Sync](https://martin.hjartmyr.se/articles/openclaw-google-calendar-sync/)
+- [Apple PIM Agent Plugin](https://github.com/omarshahine/Apple-PIM-Agent-Plugin) - Native macOS plugin for exposing Calendar, Reminders, Contacts, and Mail workflows to OpenClaw tool registration.
+
+### Google Workspace
+
+Full suite access: Gmail, Calendar, Drive, Docs, Sheets. All data stays local - never passes through third-party services.
+
+- [Google Workspace Integration Guide](https://www.getopenclaw.ai/integrations/google-workspace)
+
+### Webhooks & Cron Jobs
+
+**Webhooks**: POST to `/hooks/wake` or `/hooks/agent` with Bearer token authentication. [Hookdeck](https://hookdeck.com/webhooks/platforms/using-hookdeck-with-openclaw-reliable-webhooks-for-your-ai-agent) for secure tunnels with retries.
+
+**Cron Jobs**: Interval-based (`every 30 minutes`) or Unix cron expressions (`0 9 * * 1`). Stored at `~/.openclaw/cron/jobs.json`. Exponential retry backoff.
+
+**Heartbeat**: Agent wakes every 30 min (configurable), reads `HEARTBEAT.md`, decides if action needed. Different from cron - "check these things periodically" vs "do this specific thing at this time."
+
+- [Webhooks Docs](https://docs.openclaw.ai/automation/webhook)
+- [Cron Jobs Docs](https://docs.openclaw.ai/automation/cron-jobs)
+- [Heartbeat Docs](https://docs.openclaw.ai/gateway/heartbeat)
+- **[ClawTick](https://clawtick.com/)** - Cloud scheduler for OpenClaw agents with performance monitoring and uptime checks.
+- [Send to OpenClaw](https://github.com/Nateliason/send-to-openclaw) - Chrome extension and local webhook server for sending page content or selected text into a Clawdbot session.
+- [clawhip](https://github.com/Yeachan-Heo/clawhip) - Event-to-channel notification router for OpenClaw-related workflows that keeps alerts out of gateway chat sessions.
+
+### Live Canvas
+
+A2UI (Agent-to-UI) visual workspace - agent can render real-time UI, charts, and diagrams. Embedded in macOS menu bar app using WKWebView. Borderless, resizable, auto-reloads on file changes.
+
+- [Canvas Docs](https://docs.openclaw.ai/platforms/mac/canvas)
+
+### Multi-Agent Setup
+
+Configure multiple agents with separate workspaces, personas, auth profiles, and sessions (no cross-talk). Route by channel, phone number, or personality.
+
+- [Multi-Agent Docs](https://docs.openclaw.ai/concepts/multi-agent)
+- [Build Your Own AI Agent Team in 15 Minutes](https://ai2sql.io/how-to-build-your-own-ai-agent-team-with-openclaw-in-15-minutes)
+- [Antfarm](https://github.com/snarktank/antfarm) - Create an OpenClaw agent team from a command-line workflow.
+- [Agency Agents OpenClaw integration](https://github.com/msitarzewski/agency-agents/tree/main/integrations/openclaw) - Integration guide for converting agency-agent workspaces into OpenClaw agents and registering them with the local gateway.
+- [ClawTeam-OpenClaw](https://github.com/win4r/ClawTeam-OpenClaw) - Multi-agent swarm coordination adapted for OpenClaw.
+- [OpenClaw-RL](https://github.com/Gen-Verse/OpenClaw-RL) - Research project for training agents through conversational feedback.
+- [openclaw-multi-agent-kit](https://github.com/raulvidis/openclaw-multi-agent-kit) - Templates for multi-agent teams, Telegram supergroups, shared context, and bot-to-bot workflows.
+- [BMAD OpenClaw](https://github.com/ErwanLorteau/BMAD_Openclaw) - Structured development workflow bridge that adapts BMad Method agent roles for OpenClaw.
+- [openclaw-pm](https://github.com/1va7/openclaw-pm) - Project-manager configuration upgrade tool for OpenClaw agents.
+- [OpenClaw Agents](https://github.com/shenhao-stu/openclaw-agents) - One-command multi-agent setup with specialized agents, group routing, and safe config merge.
+- [Claw Orchestrator](https://github.com/Enderfga/claw-orchestrator) - Runtime for wrapping multiple coding CLIs as persistent sessions, with OpenClaw plugin support documented by the project.
+- [openclaw-skill-claude-code](https://github.com/VsevolodUstinov/openclaw-skill-claude-code) - OpenClaw skill for running long coding tasks in the background and returning progress notifications to chat.
+- [claude-code-clawdbot-skill](https://github.com/win4r/claude-code-clawdbot-skill) - Clawdbot skill wrapper for running host CLI coding tasks through a pseudo-terminal in headless sessions.
+- [HiClaw](https://github.com/agentscope-ai/HiClaw) - Collaborative multi-agent OS with human-in-the-loop coordination through Matrix rooms.
+- [Aurogen](https://github.com/UniRound-Tec/Aurogen) - OpenClaw-compatible multi-agent reimplementation with web-panel configuration, dynamic modules, and ClawHub skill import support.
+- [edict](https://github.com/cft0808/edict) - OpenClaw multi-agent orchestration system with specialized agent roles, a dashboard, model configuration, and audit logs.
+- [Golutra](https://github.com/golutra/golutra) - Multi-agent orchestration workspace that includes OpenClaw alongside other CLI agents for parallel tasks and long-running workflows.
+- [linear-agent-bridge](https://github.com/tokezooo/linear-agent-bridge) - OpenClaw plugin that maps Linear issues into a multi-agent workspace with delegation, progress tracking, and review surfaces.
+- [openclaw-swarm](https://github.com/kddige/openclaw-swarm) - Gateway management project for coordinating multiple OpenClaw gateways at scale.
+- [ClawChief](https://github.com/snarktank/clawchief) - Chief-of-staff workspace pattern for organizing OpenClaw agent responsibilities.
+- [MultiUserClaw](https://github.com/johnson7788/MultiUserClaw) - Multi-user wrapper around OpenClaw that keeps the upstream gateway unchanged while adding user-level routing.
+- [ClawSwarm](https://github.com/1Panel-dev/ClawSwarm) - Multi-agent orchestration system for OpenClaw that coordinates swarm-style work through group chat.
+- [openclaw-superpowers](https://github.com/rqlangley/openclaw-superpowers) - Native OpenClaw port of a three-agent software-development framework with install guidance for agent-led setup.
+- [openclaw_agent_party](https://github.com/mixmash11/openclaw_agent_party) - OpenClaw skill for talking to multiple agents in one conversation.
+- [openclaw-hawkins](https://github.com/parijatmukherjee/openclaw-hawkins) - OpenClaw plugin for durable orchestration state and shared multi-agent memory backed by MariaDB.
+
+### Companion Apps
+
+| App | Platform | Status | Features |
+|-----|----------|--------|----------|
+| **Menu Bar App** | macOS | Available | Pixel lobster icon, voice wake, Canvas panel, TCC permissions |
+| **Crabwalk** | Cross-platform | Available | Open-source companion app ([crabwalk.app](https://crabwalk.app/)) |
+| **iOS/Android** | Mobile | Beta | Camera, screen recording, notifications |
+| **[Expo OpenClaw Chat](https://github.com/brunobar79/expo-openclaw-chat)** | iOS/Android (Expo) | Available | React Native chat SDK for building native mobile OpenClaw clients |
+| **[OpenClawgotchi](https://github.com/turmyshevd/openclawgotchi)** | Raspberry Pi | Available | AI Tamagotchi with E-Ink face - agentic life-form hardware |
+| **[VisionClaw](https://github.com/sseanliu/VisionClaw)** | Meta Ray-Ban (iOS) | Available | Voice + vision + agentic actions via Gemini Live + OpenClaw (796 stars) |
+| **[PinchChat](https://github.com/MarlBurroW/pinchchat)** | Web (PWA) | Available | Open-source webchat UI with ChatGPT-like interface, live tool calls, multi-session, token tracking, streaming, 8 languages, theming |
+| **[VibeClaw](https://vibeclaw.dev)** | Web | Available | Runs a full OpenClaw instance entirely in the browser: visual server builder, in-browser sandbox with free AI models, server library with import/export. No install, no server required ([source](https://github.com/jasonkneen/vibeclaw)) |
+| **[cc-switch-cli](https://github.com/SaladDay/cc-switch-cli)** | Cross-platform (CLI/TUI) | Available | All-in-one TUI for managing OpenClaw providers, workspace files, agents, tools, env, and daily memory. Also supports Claude Code, Codex, and Gemini CLI. |
+| **[Claw3D](https://github.com/iamlukethedev/Claw3D)** | Web / 3D office | Available | 3D virtual office and studio UI that can connect to an OpenClaw Gateway for visualizing and interacting with agent work |
+| **[MobileClaw](https://github.com/wende/mobileclaw)** | Web PWA / iOS | Available | Mobile-first OpenClaw and LM Studio chat UI with streaming, tool call views, inline diffs, sub-agent activity, and embeddable widget mode |
+| **[OpenClaw Termux](https://github.com/mithun50/openclaw-termux)** | Android / Termux | Available | Flutter app and Termux CLI for running OpenClaw Gateway on Android with built-in terminal, web dashboard, and setup controls |
+| **[OpenClaw Android](https://github.com/AidanPark/openclaw-android)** | Android / Termux | Available | Lightweight Termux setup for OpenClaw on Android using a glibc linker path instead of a full Linux proot install |
+| **[WebClaw](https://github.com/ibelick/webclaw)** | Web | Available | Web client for OpenClaw conversations |
+| **[Clawra](https://github.com/SumeLabs/clawra)** | Companion skill | Available | OpenClaw companion setup that installs a selfie skill and visual-response workflow for chat platforms |
+| **[HappyClaw](https://github.com/riba2534/happyclaw)** | Web | Available | Self-hosted multi-user local AI agent system inspired by OpenClaw-style agent operations |
+| **[CC Switch](https://github.com/farion1231/cc-switch)** | Desktop | Available | Tauri desktop manager for OpenClaw and other coding CLIs, with provider switching, MCP and skills management, sessions, and workspace editing. |
+| **[lucinate](https://github.com/lucinate-ai/lucinate)** | Cross-platform CLI/TUI | Available | Terminal-native chat client for OpenClaw Gateway and OpenAI-compatible endpoints with streaming responses, tool-call cards, agent management, cron browsing, and session workflows |
+| **[Qclaw](https://github.com/qiuzhi2046/Qclaw)** | Desktop | Available | GUI helper for OpenClaw setup, environment checks, model configuration, and update workflows. |
+| **[nexu](https://github.com/nexu-io/nexu)** | Desktop | Available | Local-first desktop client for connecting OpenClaw agents to WeChat, Feishu, Slack, Discord, and related IM channels. |
+| **[BlueClaw](https://github.com/brandon-dacrib/blueclaw)** | iOS | Available | Native iOS client for OpenClaw gateways with SSH tunneling and direct WebSocket modes |
+| **[openclaw-gateway-client](https://github.com/Brani5/openclaw-gateway-client)** | Reference client | Available | Minimal custom Gateway WebSocket client with V3 device-auth challenge-response flow |
+| **[ClawApp](https://github.com/qingchencloud/clawapp)** | Mobile / PWA | Available | Mobile chat client for OpenClaw agents with streaming conversations, image handling, tool calls, PWA support, and APK packaging |
+| **[ClawdbotMenu](https://github.com/magimetal/moltbot-menubar)** | macOS | Available | Menu bar app for starting, stopping, restarting, and checking the status of a local Clawdbot or OpenClaw gateway |
+| **[CloudToLocalLLM](https://github.com/CloudToLocalLLM-online/CloudToLocalLLM)** | Desktop | Available | Privacy-focused desktop companion that includes OpenClaw Gateway connectivity, local desktop control, chat, avatar, and vision modules |
+| **[ClawPal](https://github.com/zhixianio/clawpal)** | Desktop / visual manager | Available | Visual interface for managing OpenClaw agents, models, and configuration files |
+| **[EasyClaw](https://github.com/ybgwon96/easyclaw)** | macOS / Windows | Available | One-click OpenClaw installer for desktop operators |
+| **[OpenClaw Desktop](https://github.com/wzdavid/openclaw-desktop)** | Desktop | Available | Cross-platform desktop client that connects to OpenClaw Gateway and packages a local app experience. |
+| **[MicroClaw](https://github.com/microsofthackathons/MicroClaw)** | Windows | Experimental | Windows package for installing and running OpenClaw with a desktop client, local runtime, skills, and permission-controlled sandbox. |
+| **[iClaw](https://github.com/iClawApp/iClaw)** | Web | Available | Local chat UI for a running OpenClaw Gateway, with local history storage. |
+| **[OpenClaw Manager](https://github.com/Nixer-2301/OpenClaw-Manager)** | Desktop / web manager | Available | Vue, TypeScript, and Python GUI manager for OpenClaw with Chinese and English interface support. |
+| **[SuperClaw](https://github.com/youF4/SuperClaw)** | Windows | Available | Chinese desktop client that embeds an OpenClaw Gateway runtime with a separate data directory. |
+| **[AI Memory Reader](https://github.com/nvwalj/ai-memory-reader)** | macOS / iOS | Available | Native viewer for local agent memory and session files, including OpenClaw memory paths. |
+| **[Jorgut OpenClaw Desktop](https://github.com/Jorgut/openclaw-desktop)** | Desktop | Available | Tauri desktop wrapper that starts OpenClaw Gateway and guides first-run setup. |
+| **[Claw Companion Android](https://github.com/alnoori1/claw-companion-android)** | Android | Available | Android client for connecting to OpenClaw gateways through QR setup payloads, Tailscale Funnel, or manual endpoints. |
+| **[ClawChat](https://github.com/CarolLILI/clawchat)** | Mobile | Available | Flutter chat client for OpenClaw Gateway conversations. |
+
+### Monitoring & Dashboards
+
+| Tool | Type | Features |
+|------|------|----------|
+| **openclaw dashboard** | Built-in | Gateway info, stats, web UI |
+| **[ClawController](https://www.clawcontroller.com/)** | Third-party | Real-time monitoring, task orchestration, agent chat |
+| **claw-dash** | Community | Sessions, tokens, costs, CPU/RAM/disk metrics |
+| **Mission Control** | Community | Convex + React, live logs, task tracking |
+| **[OpenClaw Mission Control](https://github.com/abhi1693/openclaw-mission-control)** | Community | RBAC, Kanban board, War Room, transcripts, Telegram output (37 stars) |
+| **[OpenClaw Studio](https://github.com/grp06/openclaw-studio)** | Community | Visual agent management with cron jobs, tool extraction, mentions (410 stars) |
+| **[Hawk Eye](https://github.com/benfoxsb/hawk-eye)** | Community | Workspace sentinel & operational dashboard |
+| **[ClawTick](https://clawtick.com/)** | Third-party | Performance monitoring, uptime checks, and real-time analytics for OpenClaw instances. |
+| **[Opik OpenClaw](https://github.com/comet-ml/opik-openclaw)** | Observability | Exports agent traces to Opik for monitoring cost, tokens, errors, and behavior |
+| **[openclaw-dashboard](https://github.com/tugcantopaloglu/openclaw-dashboard)** | Community dashboard | Real-time dashboard with auth, MFA, cost tracking, live feed, and memory browser |
+| **[OpenClaw Control Center](https://github.com/TianyiDataScience/openclaw-control-center)** | Local dashboard | Local-first dashboard for OpenClaw health, usage, staff, collaboration, tasks, documents, memory, and settings |
+| **[OpenClaw CTL](https://github.com/byJoey/openclawctl)** | Management script | Menu-driven macOS, Linux, and Windows script for OpenClaw install, service control, provider setup, plugins, backup, and repair |
+| **[OpenClaw Bot Review](https://github.com/xmanrui/OpenClaw-bot-review)** | Community dashboard | Lightweight dashboard for reviewing OpenClaw bots, agents, models, and session status |
+| **[OpenClaw Manager](https://github.com/miaoxworld/openclaw-manager)** | Community dashboard | Web management UI for OpenClaw configuration, service control, logs, and runtime status |
+| **[OpenClaw Nerve](https://github.com/daggerhashimoto/openclaw-nerve)** | Community cockpit | Web cockpit for voice conversations, workspace files, kanban-style tasks, sub-agent sessions, charts, and usage visibility |
+| **[LobsterBoard](https://github.com/Curbob/LobsterBoard)** | Dashboard builder | Dashboard builder for creating custom OpenClaw monitoring views |
+| **[OpenClaw Office](https://github.com/WW-AI-Lab/openclaw-office)** | Community console | Visual monitoring and management frontend for OpenClaw multi-agent systems through the Gateway WebSocket |
+| **[Mission Control GUI](https://github.com/robsannaa/openclaw-mission-control)** | Community dashboard | Browser GUI for monitoring OpenClaw agents, sessions, scheduled jobs, costs, and memory on the host machine |
+| **[OpenClaw Dashboard](https://github.com/mudrii/openclaw-dashboard)** | Local dashboard | Go-based command center for OpenClaw gateway health, costs, cron jobs, sessions, and sub-agent activity |
+| **[OpenClaw Admin](https://github.com/itq5/OpenClaw-Admin)** | Admin console | Vue-based web console for OpenClaw Gateway agents, sessions, models, channels, skills, and terminal access |
+| **[Autensa Mission Control](https://github.com/crshdn/mission-control)** | Product workflow console | Self-hosted OpenClaw Gateway product-engine workflow for market research, feature generation, PR creation, and run visibility |
+| **[TenacitOS](https://github.com/carlosazaustre/tenacitOS)** | Local dashboard | Next.js control center that reads OpenClaw agents, sessions, memory, logs, cron jobs, costs, and workspace files from the local installation. |
+| **[agenttrace](https://github.com/luoyuctl/agenttrace)** | Local TUI | Local-first session inspector for OpenClaw-style and other AI coding-agent logs, showing tokens, estimated cost, tool failures, latency, health, diffs, and CI gates |
+| **[Monitoring OpenClaw](https://github.com/vincentlefort/monitoring-openclaw)** | Community dashboard | Dashboard for an OpenClaw infrastructure stack with service status, trading bot status, recent trades, and capital history views |
+| **[OpenClaw Dash](https://github.com/Micar2024/openclaw-dash)** | Local macOS dashboard | Local diagnostic toolkit for monitoring OpenClaw Gateway, exporting privacy-masked support reports, and running pre-upgrade health checks |
+| **[OpenClaw Monitor](https://github.com/flik2002/openclaw-monitor)** | Community dashboard | Vue and Node.js dashboard for OpenClaw Gateway status, sessions, token usage, message trends, and monitor API endpoints |
+| **[laboon-self-healing](https://github.com/aretaafandi16-ui/laboon-self-healing)** | Community | Self-healing OpenClaw health-check workflow with restart, remediation, and alert notification steps |
+| **[AgentPulse](https://agentpulse.dev)** | Third-party | LLM cost and observability dashboard for tokens, latency, errors, and model usage across agent workloads |
+| **[tokscale](https://github.com/junhoyeo/tokscale)** | Usage CLI | Token-usage tracker that reads OpenClaw agent data paths alongside other coding-agent tools and renders CLI usage reports. |
+| **[ClawPanel](https://github.com/zhaoxinyi02/ClawPanel)** | Management panel | Go-based OpenClaw management panel for channel runtime management, logs, and external gateway operations. |
+| **[Mission Control Center](https://github.com/YJ-Software/mission-control-center)** | Operations dashboard | Ubuntu-focused dashboard for OpenClaw agent conversations, scheduled tasks, daily reports, service status, and local MCP services |
+| **[ClawMetry](https://github.com/vivekchand/clawmetry)** | Observability dashboard | Reads local OpenClaw configuration and renders channel activity, session flow, and agent monitoring views |
+| **[costclaw-telemetry](https://github.com/queenvest0-ux/costclaw-telemetry)** | Cost dashboard | Local dashboard for tracking OpenClaw LLM calls, run-level cost estimates, and usage breakdowns |
+| **[AgentBridge](https://github.com/Vann-Dev/AgentBridge)** | Coordination dashboard | OpenClaw-first dashboard and API for assigning, tracking, and reviewing work across AI agent teams |
+| **[VibeLens](https://github.com/CHATS-lab/VibeLens)** | Session analytics | Session visualization and analytics tool that documents OpenClaw JSONL paths alongside other agent hosts |
+| **[openclaw-observability-monitor](https://github.com/jason-allen-oneal/openclaw-observability-monitor)** | Local monitor | Lightweight localhost monitor for OpenClaw gateway status, event feeds, and snapshots |
+| **[OpenClaw Watchdog](https://github.com/Yash-Kavaiya/openclaw-watchdog)** | Windows service monitor | Windows service monitor that restarts OpenClaw Gateway when it stops responding |
+| **[clawctl](https://github.com/TimBeyer/clawctl)** | VM manager | Tooling for running OpenClaw gateways inside isolated virtual machines |
+| **[clawdhome](https://github.com/ThinkInAIXYZ/clawdhome)** | Multi-instance manager | Mac-focused manager for isolating multiple OpenClaw gateway instances on one host |
+| **[Crabwalk](https://github.com/crabwise-ai/crabwalk)** | Companion monitor | Real-time companion monitor for OpenClaw agents |
+| **[ClawLibrary](https://github.com/shengyu-meng/ClawLibrary)** | Visual asset dashboard | 2D library interface for browsing OpenClaw generated assets, runtime activity, and working state |
+| **[ClawProBench](https://github.com/suyoumo/ClawProBench)** | Benchmark harness | Live-first benchmark harness for evaluating agents in the OpenClaw runtime with deterministic grading and repeated trials |
+| **[botmaker](https://github.com/jgarzik/botmaker)** | Bot builder | UI for creating containerized OpenClaw bots |
+| **[openclaw-models-ui](https://github.com/oneles/openclaw-models-ui)** | Model UI | Visual model-priority manager for OpenClaw Gateway Dashboard |
+| **[openclaw-quickfix](https://github.com/myyxfishcat/openclaw-quickfix)** | Diagnostics toolkit | Quick diagnostic and repair toolkit for OpenClaw Gateway configuration and runtime issues |
+| **[RuView Presence](https://github.com/DevvGwardo/openclaw-ruview-presence)** | Presence plugin | Presence-aware behavior plugin for OpenClaw using RuView WiFi sensing signals |
+| **[AgentTown Observer](https://www.npmjs.com/package/@shaoweiz/openclaw-agenttown-observer)** | Read-only observer | OpenClaw Gateway plugin for observing AgentTown state without write actions |
+| **[ClawLens](https://github.com/nk3750/clawlens)** | Observability and guardrails | Local OpenClaw plugin that records tool calls, scores risky behavior, shows sessions in a dashboard, and supports guardrail actions |
+| **[OpenClaw MC](https://github.com/imadaitelarabi/openclaw-mc)** | Gateway control UI | Real-time control interface for OpenClaw Gateway agents, chats, sessions, and automation features |
+| **[Watchclaw](https://github.com/jarvis4wang/watchclaw)** | Watchdog CLI | Bash watchdog for checking and recovering OpenClaw Gateway processes on macOS and Linux |
+| **[OpenClaw Rescue](https://github.com/adamccastro/openclaw-rescue)** | Recovery watchdog | Watchdog and emergency Telegram bot for gateway health checks, doctor runs, alerts, and restart flows |
+| **[Lobstertank](https://github.com/AdamPippert/Lobstertank)** | Multi-gateway control plane | Registry and orchestration interface for multiple OpenClaw Gateway instances across local and cloud infrastructure |
+| **[OpenClaw Dashboard](https://github.com/actionagentai/openclaw-dashboard)** | Web dashboard | React and Next.js dashboard that maps OpenClaw Gateway commands into visual pages |
+| **[clawlyx Dashboard](https://github.com/clawlyx/openclaw-dashboard)** | Workstation dashboard | Dashboard for OpenClaw agents, mission control, usage, scheduler health, and history views |
+| **[Single-file OpenClaw Dashboard](https://github.com/anis-marrouchi/openclaw-dashboard)** | Lightweight dashboard | Single HTML and Node.js dashboard for agent fleet, cron, sessions, and conversation visibility |
+| **[Mission Control Board](https://github.com/jamesxu81/openclaw-dashboard)** | Mission-control dashboard | Visual board for OpenClaw agent tasks, cron jobs, team status, and daily digest workflows |
+| **[OpenClaw Command Center v2](https://github.com/alexandremaciel-ai/openclaw-dashboard-v2)** | Orchestration dashboard | WebSocket RPC dashboard for sessions, cron jobs, kanban tasks, and chat against OpenClaw Gateway |
+| **[OpenClaw Probe Rust](https://github.com/Edison94hu/openclaw-probe-rs)** | Host agent | Rust host probe for OpenClaw health checks, restarts, session token scanning, system metrics, and backup tasks |
+| **[clawdbot-cost-monitor](https://github.com/bokonon23/clawdbot-cost-monitor)** | Cost dashboard | Local dashboard for parsing OpenClaw session files and showing token and cost history |
+| **[Moltcraft](https://github.com/askmojo/moltcraft)** | Visual dashboard | Isometric dashboard that connects to a Moltbot or OpenClaw gateway to visualize agent activity |
+
+### Backup & Restore
+
+```bash
+openclaw config backup
+openclaw config restore config-2026-02-01-1600.yaml
+
+# Manual backup
+tar -czvf ~/openclaw_backup_$(date +%Y%m%d).tar.gz -C "$HOME" .openclaw
+```
+
+> Never commit `~/.openclaw/` to Git (contains secrets).
+
+- [Keep My Claw](https://keepmyclaw.com) - Encrypted OpenClaw backup and restore service with client-side encryption, scheduled snapshots, and Cloudflare R2 storage.
+- [soul-upload.com](https://soul-upload.com) - Encrypted backup storage for OpenClaw workspace artifacts, using local encryption before upload and recovery by URL plus password.
+- [openclaw-backup](https://github.com/LeoYeAI/openclaw-backup) - Backup and restore skill for OpenClaw instance migration. Review credential scope before use.
+- [openclaw-infra](https://github.com/basi163/openclaw-infra) - Disaster-recovery bootstrap for exporting OpenClaw settings, versioning infrastructure state, and restoring a server profile.
+- [openclaw-killer](https://github.com/orange2ai/openclaw-killer) - Uninstall and cleanup script for removing OpenClaw components from a host after review.
+- [backup-openclaw](https://github.com/OleksiyM/backup-openclaw) - Python CLI for compressed OpenClaw installation backups with metadata files and optional encrypted upload paths. Review backup contents before remote storage.
+
+---
+
+## Performance Benchmarks
+
+### Inference Speed
+
+| Hardware | Tokens/sec | Notes |
+|----------|-----------|-------|
+| **RTX 4090** | ~80 t/s | Best GPU performance |
+| **AMD MI300X** | High | 192 GB memory, free credits available |
+| **Apple M2 Pro 64GB** | Good | Large memory pool for bigger models |
+| **MacBook Air M2** | ~3.2 t/s | CPU-only, usable |
+| **Typical CPU** | ~13.5 t/s | Non-time-critical tasks |
+| **Oracle ARM (7B)** | 5-10 t/s | Free tier, acceptable |
+| **Raspberry Pi 5** | 2-5 t/s | Slow but works |
+| **ESP32-S3 (MimiClaw)** | Cloud API | No local inference, calls Claude API via Wi-Fi |
+| **RISC-V (PicoClaw)** | Cloud API | 10 MB RAM, single Go binary, 1s boot, $10 board |
+
+### Memory for Local Models
+
+| Model Size | RAM Required | GPU VRAM |
+|------------|-------------|----------|
+| 3B (quantized) | 4 GB | 4 GB |
+| 7B (quantized) | 8 GB | 8 GB |
+| 13B (quantized) | 16 GB | 12-16 GB |
+| 70B (quantized) | 64 GB | 48 GB+ |
+
+**Bottleneck**: Memory bandwidth and VRAM capacity, not CPU speed. Sweet spot: 7B models.
+
+---
+
+## OpenClaw vs Claude Code
+
+**Complementary tools**, not competitors. Many engineers run both simultaneously.
+
+| Feature | Claude Code | OpenClaw |
+|---------|------------|----------|
+| **Lives in** | Terminal / IDE | Messaging apps |
+| **Focus** | Coding, development | Automation, integration |
+| **Memory** | Session-based | Persistent (24/7) |
+| **Operation** | Interactive | Autonomous |
+| **Runtime** | Per-session | Always-on daemon |
+| **Integration** | Git, tests, dev tools | Email, calendar, messaging, home automation |
+| **Best for** | Multi-file refactoring, tests | Inbox monitoring, reminders, web scraping |
+
+---
+
+## Alternatives & Competitors
+
+| Alternative | Type | Best For | Key Advantage |
+|-------------|------|----------|---------------|
+| **[Nanobot](https://github.com/HKUDS/nanobot)** | Lightweight (4K lines) | Minimalists | 99% smaller codebase, 45 MB RAM, MCP-native |
+| **[PicoClaw](https://github.com/sipeed/picoclaw)** | Ultra-lightweight (Go) | Embedded/hardware | 10 MB RAM, $10 RISC-V, single binary, 1s boot |
+| **[Archestra](https://github.com/archestra-ai/archestra)** | Enterprise | Security/compliance | MCP registry, A2A, agentic security (3.5K stars) |
+| **NanoClaw** | Security-first | Security-conscious | Isolated Apple containers |
+| **memU** | Memory-focused | Budget users | Local knowledge graph |
+| **Jan.ai** | Offline chat | Privacy absolutists | 100% offline |
+| **AnythingLLM** | Doc-to-chatbot | Knowledge bases | Turn PDFs into chatbots |
+| **Claude Code** | Coding agent | Developers | Best coding assistant |
+| **Microsoft Copilot** | Enterprise AI | Enterprise | Compliance, security |
+| **eesel AI** | Business agent | Help desks | Customer service |
+| **Emergent** | Personal AI | WhatsApp/Telegram | Simpler OpenClaw alternative |
+| **memU bot** | Memory-first agent | 24/7 proactive assistant | Learns habits, acts without commands |
+| **Knolli.ai** | Safe agentic AI | Security-first | [Best OpenClaw alternative](https://www.knolli.ai/post/clawdbot-alterantive) |
+| **Dify** | LLM app platform | Agents, RAG, MLOps | Best debugging, workflow visualization |
+| **Langflow** | RAG pipelines | Vector stores, MongoDB | MIT licensed, Astra DB native |
+| **Flowise** | Chatbot builder | Rapid development | Prebuilt conversational templates |
+| **n8n** | Workflow automation | Business processes | Visual workflow builder |
+| **LangBot** | Multi-platform bots | IM integration | [GitHub](https://github.com/langbot-app/LangBot) |
+| [**LobsterX**](https://github.com/AstraBert/workflows-acp/blob/main/packages/lobsterx) | Document-related OpenClaw-like agent | Document workflows | Self-hostable (Docker, uv tool), Telegram bot support, lightweight codebase (2-3K LoC) |
+| [**IronClaw**](https://github.com/nearai/ironclaw) | Rust rewrite | Privacy & security | OpenClaw-inspired, built by NEAR AI, Rust-native (1.3K stars) |
+| [**ZeroClaw**](https://github.com/theonlyhennygod/zeroclaw) | Rust ultra-fast | Speed-first users | 3.4 MB binary, <10ms startup, 22+ providers, swappable Rust traits, hybrid SQLite memory |
+| [**TinyClaw**](https://github.com/jlia0/tinyclaw) | Shell script (400 LoC) | Stability-first | Claude Code + tmux, WhatsApp, heartbeat, cron, self-healing (1.3K stars) |
+| [**Mini-Claw**](https://github.com/htlin222/mini-claw) | Minimalist | Subscription users | Uses Claude Pro/Max or ChatGPT Plus directly in Telegram, zero API cost |
+| [**Ralv**](https://ralv.ai/) | 3D agent orchestration | Multi-agent management | StarCraft-like spatial UI for commanding 100+ agents |
+| [**GitClaw**](https://github.com/SawyerHood/gitclaw) | GitHub Actions agent | Serverless | Zero-infra OpenClaw via GitHub Issues & Actions |
+| [**BankrBot Skills**](https://github.com/BankrBot/openclaw-skills) | DeFi/crypto agent | Web3 traders | Polymarket, token trading, NFTs, on-chain messaging |
+| [**ClosedClaw**](https://github.com/asafelobotomy/ClosedClaw) | Desktop GUI fork | GTK users | GTK GUI + Ollama integration + enhanced lite mode |
+| [**OpenGlass**](https://github.com/DarlingtonDeveloper/OpenGlass) | Smart glasses | Wearable hardware | Meta Ray-Bans + Gemini Live + OpenClaw real-time AI |
+| [**Scallopbot**](https://github.com/tashfeenahmed/scallopbot) | Cost-optimized agent | Budget users | Multi-provider routing, budget controls, voice I/O |
+| [**VisionClaw**](https://github.com/sseanliu/VisionClaw) | Smart glasses | Wearable AR | Meta Ray-Ban + Gemini Live + OpenClaw, iOS/Swift (796 stars) |
+| **[PinchChat](https://github.com/MarlBurroW/pinchchat)** | Web (PWA) | Available | Open-source webchat UI with ChatGPT-like interface, live tool calls, multi-session, token tracking, streaming, 8 languages, theming |
+| [**Debot**](https://github.com/BotMesh/debot) | Rust lightweight | Cost-conscious | Rust+Python, auto conversation compaction, smart LLM router |
+| [**NanoClaw (original)**](https://github.com/qwibitai/nanoclaw) | Security-first | Apple container | 500 lines TypeScript, WhatsApp, Anthropic Agent SDK (7K+ stars) |
+| [**Autobot**](https://github.com/crystal-autobot/autobot) | Crystal ultra-fast | Speed and security oriented users | 2MB binary, ~5MB RAM, <10ms startup |
+| [**Secure OpenClaw**](https://github.com/ComposioHQ/secure-openclaw) | Messaging assistant | Messaging-platform operators | OpenClaw-like assistant gateway with allowlists, tool-use approvals, scheduled reminders, and Composio app integrations |
+| **[NullClaw](https://github.com/nullclaw/nullclaw)** | Zig lightweight runtime | Embedded and low-resource users | OpenClaw-style assistant infrastructure implemented as a Zig static binary with provider, channel, memory, tool, and gateway docs |
+
+---
+
+## Moltbook (AI Social Network)
+
+Created by OpenClaw agent "Clawd Clawderberg" (built by Matt Schlicht, Cofounder of Octane AI).
+
+| Stat | Value |
+|------|-------|
+| **Launched** | January 28, 2026 |
+| **Registered AI agents** | 1.6M+ |
+| **Posts & responses** | 7.5M+ AI-generated |
+| **Format** | Reddit-style forum for AI agents |
+| **Human access** | Read-only observation |
+
+> *"Most interesting place on the internet right now"* - Fortune
+
+- [TechCrunch](https://techcrunch.com/2026/01/30/openclaws-ai-assistants-are-now-building-their-own-social-network/)
+- [Fortune](https://fortune.com/2026/01/31/ai-agent-moltbot-clawdbot-openclaw-data-privacy-security-nightmare-moltbook-social-network/)
+- [CNBC](https://www.cnbc.com/2026/02/02/openclaw-open-source-ai-agent-rise-controversy-clawdbot-moltbot-moltbook.html)
+- [IBM - OpenClaw and the future of AI agents](https://www.ibm.com/think/news/clawdbot-ai-agent-testing-limits-vertical-integration)
+- [Proof of Lobster](https://proofoflobster.ai) - Verify if Moltbook profiles are AI-generated, and launch fully on-chain sovereign agents with their own wallets. By Theseus AI Labs. ([GitHub](https://github.com/Theseuschain/proof-of-lobster))
+
+---
+
+## Skills & Plugins
+
+### ClawHub (Official Registry)
+
+- **URL**: [clawhub.ai](https://clawhub.ai/) | **Skills**: 5,705+ | **GitHub**: [openclaw/clawhub](https://github.com/openclaw/clawhub)
+
+### Awesome OpenClaw Skills
+
+- **URL**: [VoltAgent/awesome-openclaw-skills](https://github.com/VoltAgent/awesome-openclaw-skills) | **Skills**: 3,009 curated
+
+### Lobster Workflow Runtime
+
+[Lobster](https://github.com/openclaw/lobster) - typed workflow runtime with resumable approvals. Turns skills/tools into composable pipelines.
+
+### Notable Skills & Plugins
+
+| Skill | Description | Source |
+|-------|-------------|--------|
+| **Mixpost** | Social media management integration | [ClawHub](https://mixpost.app/blog/openclaw-skill) |
+| **AIsa Skills** | Streamlined AI agent deployment | [PheMex](https://phemex.com/news/article/aisa-skills-launches-on-openclaws-plugin-marketplace-streamlining-ai-agent-deployment-57375) |
+| **Luma Events** | Search events, RSVP, sync to Google Calendar (no API needed) | [X/@bilbeny](https://x.com/bilbeny/status/2017046033759686929) |
+| **QMD Skill** | Cuts token usage by 95% | [X/@milesdeutscher](https://x.com/milesdeutscher/status/2018768974872449100) |
+| **Supermemory** | Unlimited memory for OpenClaw | ClawHub |
+| **Cognee** | Graph-based memory with auto-recall, semantic search | [GitHub](https://github.com/topoteretes/cognee-integrations/tree/main/integrations/openclaw) \| [npm](https://www.npmjs.com/package/@cognee/cognee-openclaw) |
+| **Claude Team** | Spawns visible terminal sessions instead of background | [X/@jlehman_](https://x.com/jlehman_/status/2008644506951053492) |
+| **ClawRouter** | Smart LLM router - save 78% on inference costs, 30+ models | [GitHub](https://github.com/BlockRunAI/ClawRouter) |
+| **Honcho** | Persistent cross-session memory with user modeling and dual-peer context | [ClawHub](https://clawhub.ai/ajspig/honcho-setup) \| [GitHub](https://github.com/plastic-labs/openclaw-honcho/tree/main/clawhub/honcho-setup) |
+| **memory-mem0** | Self-hosted memory plugin using Mem0 for semantic fact extraction. Local Ollama embeddings, Qdrant vector storage, Gemini Flash extraction. | [GitHub](https://github.com/serenichron/openclaw-memory-mem0) |
+| **Agent Sessions** | Session browser + analytics + limits tracker for Codex CLI, Claude Code, OpenCode, Gemini CLI (245 stars) | [GitHub](https://github.com/jazzyalex/agent-sessions) |
+| **Announcer** | House-wide TTS announcements via AirPlay speakers | [GitHub](https://github.com/odrobnik/announcer-skill) |
+| **TweetClaw** | Safety-first X/Twitter plugin via Xquik. Read-only search/extract by default; posting, follow & DM actions are opt-in, gated behind per-account rate limits, exponential backoff on 429/5xx and conservative daily caps to respect X's automation rules. Review X's Developer Policy before enabling writes. | [GitHub](https://github.com/Xquik-dev/tweetclaw) \| [npm](https://www.npmjs.com/package/@xquik/tweetclaw) |
+| **GitHub Search Skills** | Deep GitHub project analysis and exploration | [GitHub](https://github.com/blessonism/openclaw-search-skills) |
+| **Unbrowse** | Self-learning API skill generator - auto-discovers APIs from browser traffic, 100x faster than browser automation | [GitHub](https://github.com/lekt9/unbrowse-openclaw) |
+| **Foundry** | Self-writing meta-extension - learns how you work, researches docs, writes new capabilities into itself | [GitHub](https://github.com/lekt9/openclaw-foundry) |
+| **Supermemory (Official)** | Official Supermemory integration - perfect memory and recall, auto-stores conversations | [GitHub](https://github.com/supermemoryai/openclaw-supermemory) |
+| **AfrexAI Skills** | 13 free business skills: prospect research, cold email, competitor analysis, meeting prep, LinkedIn, ICP builder, CRM, invoicing, SEO, daily briefing, objection handling, email triage, humanizer | [Setup Wizard](https://afrexai-cto.github.io/agent-setup/) \| [Revenue Calculator](https://afrexai-cto.github.io/ai-revenue-calculator/) \| [Context Packs](https://afrexai-cto.github.io/context-packs/) |
+| **Apify OpenClaw Plugin** | Connects OpenClaw workflows to Apify actors and web automation tasks | [GitHub](https://github.com/apify/apify-openclaw-plugin) |
+| **MemOS Cloud OpenClaw Plugin** | Long-term memory plugin that recalls context before execution and stores conversations after runs | [GitHub](https://github.com/MemTensor/MemOS-Cloud-OpenClaw-Plugin) |
+| **OpenClaw Codex App Server** | Plugin that brings Codex App Server workflows to Telegram and Discord through OpenClaw | [GitHub](https://github.com/pwrdrvr/openclaw-codex-app-server) |
+| **Northstar** | OpenClaw and ClawHub skill for daily business briefings from Stripe, Shopify, Lemon Squeezy, and Gumroad metrics | [GitHub](https://github.com/Daveglaser0823/northstar-skill) |
+| **Product Manager Skills** | Markdown-first PM skill pack that can be loaded by OpenClaw and other local-file AI tools for PRD review, SaaS metrics, discovery, and roadmap work | [GitHub](https://github.com/Digidai/product-manager-skills) |
+| **Before You Build Skill** | Pre-build product risk review skill for checking demand, positioning, monetization, retention, trust, distribution, and feature-adoption risk before implementation | [ClawHub](https://clawhub.ai/bin1874/before-you-build) \| [GitHub](https://github.com/bin1874/before-you-build-skill) |
+| **TweetClaw** | X/Twitter plugin for OpenClaw using Xquik. Treat write, follow, and DM actions as opt-in and review platform policy before enabling automation. | [GitHub](https://github.com/Xquik-dev/tweetclaw) \| [npm](https://www.npmjs.com/package/@xquik/tweetclaw) |
+| **ToolRouter** | Tool gateway that exposes external tools to AI assistants through MCP-style workflows. Verify OpenClaw compatibility and requested permissions before use. | [Website](https://toolrouter.com) |
+| **OpenClaw Medical Skills** | Biomedical and clinical skill library for OpenClaw and NanoClaw, organized as installable `SKILL.md` modules | [GitHub](https://github.com/FreedomIntelligence/OpenClaw-Medical-Skills) |
+| **OpenClaw agent templates** | Collection of OpenClaw agent templates and `SOUL.md` configurations with a machine-readable index | [GitHub](https://github.com/mergisi/awesome-openclaw-agents) |
+| **OpenClaw Skills zh** | Chinese OpenClaw skills collection translated and organized by use case | [GitHub](https://github.com/clawdbot-ai/awesome-openclaw-skills-zh) |
+| **OpenClaw Master Skills** | Curated OpenClaw skills collection maintained as a public GitHub repository | [GitHub](https://github.com/LeoYeAI/openclaw-master-skills) |
+| **Lossless Claw** | Lossless Context Management plugin for OpenClaw context compression and retention workflows | [GitHub](https://github.com/Martian-Engineering/lossless-claw) |
+| **Parley** | ClawHub plugin for durable coordination state, obligations, plans, artifacts, scoped identity, and recovery across long-running multi-agent work | [ClawHub](https://clawhub.ai/plugins/@nkuhanas/parley) \| [GitHub](https://github.com/nkuhanas/Parley) |
+| **mem9** | Memory plugin for OpenClaw agents | [GitHub](https://github.com/mem9-ai/mem9) |
+| **OpenViking OpenClaw Plugin** | Context-engine plugin that connects OpenClaw to OpenViking for remote memory, session archiving, semantic retrieval, and resource import workflows | [GitHub](https://github.com/volcengine/OpenViking/tree/main/examples/openclaw-plugin) |
+| **memory-lancedb-pro** | LanceDB memory plugin for OpenClaw with hybrid retrieval, reranking, multi-scope isolation, and a management CLI | [GitHub](https://github.com/CortexReach/memory-lancedb-pro) |
+| **MetaClaw** | Research project for conversational agent learning and evolution on OpenClaw-style agents | [GitHub](https://github.com/aiming-lab/MetaClaw) \| [paper](https://arxiv.org/abs/2603.17187) |
+| **AutoResearchClaw** | Research workflow project for idea-to-paper agents using OpenClaw and MetaClaw patterns | [GitHub](https://github.com/aiming-lab/AutoResearchClaw) |
+| **memU** | Memory layer for long-running proactive agents such as OpenClaw, with a Python package and public docs | [GitHub](https://github.com/NevaMind-AI/memU) |
+| **Sundial Awesome OpenClaw Skills** | Curated OpenClaw skill collection organized by category with an install command for `sundial-hub` users | [GitHub](https://github.com/sundial-org/awesome-openclaw-skills) |
+| **Memori OpenClaw Plugin** | Persistent structured memory plugin for OpenClaw Gateway agents, with hosted and bring-your-own-database paths documented by Memori | [GitHub](https://github.com/MemoriLabs/Memori) |
+| **OpenClaw Plugin Inspector** | Offline compatibility checker for OpenClaw plugin packages, manifests, hooks, registration calls, and CI artifacts | [GitHub](https://github.com/openclaw/plugin-inspector) |
+| **OpenClaw Kitchen Sink Plugin** | Credential-free fixture plugin that covers public OpenClaw plugin API surfaces for examples and compatibility testing | [GitHub](https://github.com/openclaw/kitchen-sink) |
+| **crabpot** | Compatibility testbed that pins community plugins and checks OpenClaw plugin API seams with plugin-inspector | [GitHub](https://github.com/openclaw/crabpot) |
+| **ClawBio** | Bioinformatics-native OpenClaw skill library with local-first workflows and installable skills for research tasks | [GitHub](https://github.com/ClawBio/ClawBio) |
+| **OpenClaw Materials Lab** | Native OpenClaw plugin for materials-science search, structure analysis, candidate comparison, notes, and report export | [GitHub](https://github.com/cranesun1226/openclaw-materials-lab) |
+| **Skysearch** | Flight-search skill for OpenClaw that uses browser automation across booking and airline sites without requiring API keys | [GitHub](https://github.com/Steve-reyes/Skysearch) |
+| **OpenClaw Documentation Skill** | Auto-syncing documentation skill that gives coding assistants installable OpenClaw reference material and workflows | [GitHub](https://github.com/tbdavid2019/openclaw-docs-skill) |
+| **OpenClaw Offline Seed** | Config-driven offline plugin and skill seeding tool for OpenClaw runtimes on Kubernetes, Helm, and Docker | [GitHub](https://github.com/weak-fox/openclaw-offline-seed) |
+| **AxonHub OpenClaw Plugin** | Provider plugin that routes OpenClaw model requests through a self-hosted or hosted AxonHub AI gateway | [GitHub](https://github.com/Ruelya/axonhub-openclaw-plugin) |
+| **Remnic** | Local-first memory plugin for OpenClaw-compatible agents that stores extracted memory as plain Markdown with search support | [GitHub](https://github.com/joshuaswarren/remnic) |
+| **openclaw-memory-libravdb** | Local-first memory plugin backed by LibraVDB for scoped session, user, and workspace recall in OpenClaw | [GitHub](https://github.com/xDarkicex/openclaw-memory-libravdb) |
+| **openclaw-parcel** | Parcel delivery-tracking plugin for OpenClaw with API-key configuration through environment or secret-reference patterns | [GitHub](https://github.com/omarshahine/openclaw-parcel) |
+| **@ollama/openclaw-web-search** | Ollama web search plugin package for OpenClaw, with slash-command and config-based authentication paths | [npm](https://www.npmjs.com/package/@ollama/openclaw-web-search) |
+| **Claw Earn** | Agent bounty and marketplace workflow for OpenClaw-style agents. Review task, wallet, and policy assumptions before enabling autonomous payments. | [Website](https://aiagentstore.ai/claw-earn) |
+| **@tloncorp/tlon-skill** | Tlon and Urbit skill package with CLI installation and OpenClaw agent usage notes | [npm](https://www.npmjs.com/package/@tloncorp/tlon-skill) |
+| **OpenClaw Meeting Minutes** | Public meeting-minutes repository generated by an OpenClaw workflow from transcripts, structured summaries, and action items | [GitHub](https://github.com/shinogw/openclaw-meeting-minutes) |
+| **Paperclip OpenClaw Gateway Adapter** | Adapter package that documents how Paperclip invokes OpenClaw through the Gateway protocol | [npm](https://www.npmjs.com/package/@paperclipai/adapter-openclaw-gateway) |
+| **openclaw-cortex** | Long-term memory plugin for OpenClaw with Cortex knowledge-graph recall, capture hooks, session goals, and health commands | [GitHub](https://github.com/Ubundi/openclaw-cortex) |
+| **xworkmate-artifacts** | Gateway plugin that exports structured workspace artifact manifests for XWorkmate bridge workflows | [GitHub](https://github.com/x-evor/xworkmate-artifacts) |
+| **Pinclaw** | Wearable AI clip ecosystem with hardware, firmware, and an OpenClaw plugin for push-to-talk agent dispatch | [GitHub](https://github.com/ericshang98/pinclaw) |
+| **OpenClaw.NET** | Independent .NET gateway and agent runtime inspired by OpenClaw, with NativeAOT-friendly CLI, desktop bundles, MCP, and channel adapters | [GitHub](https://github.com/clawdotnet/openclaw.net) |
+| **OpenClaw A2A Gateway** | Plugin that implements Agent-to-Agent protocol messaging between OpenClaw agents with peer discovery and per-message agent targeting | [GitHub](https://github.com/win4r/openclaw-a2a-gateway) |
+| **MCP Adapter** | OpenClaw plugin that discovers MCP server tools at startup and exposes them as native agent tools | [GitHub](https://github.com/androidStern-personal/openclaw-mcp-adapter) |
+| **Feishu Bot Chat Plugin** | Feishu group-chat plugin that lets multiple OpenClaw bots discover each other and communicate through bot mentions | [GitHub](https://github.com/Leochens/feishu-bot-chat-plugin) |
+| **SearXNG Search Plugin** | OpenClaw web-search plugin for self-hosted SearXNG instances | [GitHub](https://github.com/5p00kyy/openclaw-plugin-searxng) |
+| **Oxylabs AI Studio Plugin** | OpenClaw plugin that adds Oxylabs AI Studio web search and fetch tools | [GitHub](https://github.com/oxylabs/oxylabs-ai-studio-openclaw) |
+| **[Membase OpenClaw Plugin](https://github.com/aristoapp/openclaw-membase)** | Persistent-memory plugin for OpenClaw using hybrid vector search and a knowledge graph | [GitHub](https://github.com/aristoapp/openclaw-membase) |
+| **[n8n OpenClaw Nodes](https://github.com/karmaniverous/n8n-nodes-openclaw)** | n8n community nodes for controlling OpenClaw Gateway sessions, messages, cron jobs, search, and commands from workflows | [GitHub](https://github.com/karmaniverous/n8n-nodes-openclaw) |
+| **[skillshare](https://github.com/runkids/skillshare)** | Cross-tool skill sync CLI with OpenClaw support for sharing skill installs across machines and agent tools | [GitHub](https://github.com/runkids/skillshare) |
+| **[Build With Claude](https://github.com/davepoon/buildwithclaude)** | Public directory for skills, agents, commands, hooks, plugins, and marketplace collections that includes OpenClaw-related entries | [GitHub](https://github.com/davepoon/buildwithclaude) |
+| **[EDAMAME for OpenClaw](https://github.com/edamametechnologies/edamame_openclaw)** | Security integration for OpenClaw agents with MCP plugin, skills, provisioning, and host-side behavioral monitoring docs | [GitHub](https://github.com/edamametechnologies/edamame_openclaw) |
+| **[Zenzap OpenClaw Plugin](https://github.com/zenzap-co/zenzap-public-openclaw-plugin)** | Channel plugin that connects OpenClaw to Zenzap team topics, tasks, and messages | [GitHub](https://github.com/zenzap-co/zenzap-public-openclaw-plugin) |
+| **[quality-guard](https://github.com/Timelaglepomispunctatus405/quality-guard)** | OpenClaw plugin that blocks dangerous shell commands and checks tool output quality before agent dispatch | [GitHub](https://github.com/Timelaglepomispunctatus405/quality-guard) |
+| **[weixin-agent-gateway](https://github.com/cyberg0bl1n/weixin-agent-gateway)** | WeChat gateway that routes messages to OpenClaw and other local agent backends. Review platform policy before enabling account automation. | [GitHub](https://github.com/cyberg0bl1n/weixin-agent-gateway) |
+| **[openclaw-plugin-a2a](https://github.com/jinwon-int/openclaw-plugin-a2a)** | Plugin adapter for A2A broker integration with task request, status, cancel, and monitoring bridge boundaries | [GitHub](https://github.com/jinwon-int/openclaw-plugin-a2a) |
+| **[openclaw-multi-session-plugins](https://github.com/x-evor/openclaw-multi-session-plugins)** | Plugin support for logical multi-session isolation and scoped XWorkmate artifact manifests in OpenClaw runtimes | [GitHub](https://github.com/x-evor/openclaw-multi-session-plugins) |
+| **[Guardrail Bridge Plugin](https://github.com/guardrail-bridge/guardrail-bridge-plugin)** | Pre-agent security plugin for OpenClaw with compatibility metadata and policy checks before agent dispatch | [GitHub](https://github.com/guardrail-bridge/guardrail-bridge-plugin) |
+| **[openclaw-adapter](https://github.com/windows150/openclaw-adapter)** | Adapter that wraps Eliza plugin actions, providers, and services for use from OpenClaw | [GitHub](https://github.com/windows150/openclaw-adapter) |
+| **[PowerMem](https://github.com/oceanbase/powermem)** | Long-term memory system with documented OpenClaw integration through the `memory-powermem` plugin | [GitHub](https://github.com/oceanbase/powermem) |
+| **[localsetup](https://github.com/CruxExperts/localsetup)** | Repo-local workflow engine that can install shared skills and context across Cursor, Claude Code, Codex, OpenClaw, Kilo, and OpenCode | [GitHub](https://github.com/CruxExperts/localsetup) |
+| **[SkillNote](https://github.com/luna-prompts/skillnote)** | Skill registry for creating, versioning, and sharing `SKILL.md` files with OpenClaw connection docs | [GitHub](https://github.com/luna-prompts/skillnote) |
+| **[customs-skill](https://github.com/yak33/customs-skill)** | Chinese customs-service OpenClaw skill for Feishu-connected read workflows, controlled writes, document handling, and status notifications | [GitHub](https://github.com/yak33/customs-skill) |
+| **[zenodo-skill](https://github.com/Georgiannebedded725/zenodo-skill)** | Research artifact skill for Zenodo deposits and DOI workflows that documents use from OpenClaw-compatible agent hosts | [GitHub](https://github.com/Georgiannebedded725/zenodo-skill) |
+| **[llm-wiki-skill](https://github.com/v3x709/llm-wiki-skill)** | OpenClaw and Codex Agent skill for compiling source material into persistent cross-linked Markdown knowledge bases | [GitHub](https://github.com/v3x709/llm-wiki-skill) |
+| **[bibigpt-skill](https://github.com/JimmyLv/bibigpt-skill)** | BibiGPT Desktop and CLI skill with documented OpenClaw installation for summarizing video and audio sources | [GitHub](https://github.com/JimmyLv/bibigpt-skill) |
+| **[huskylens2-mcp-skill](https://github.com/zaowuworld/huskylens2-mcp-skill)** | DFRobot HUSKYLENS 2 MCP service skill with OpenClaw endpoint setup notes | [GitHub](https://github.com/zaowuworld/huskylens2-mcp-skill) |
+| **[openclaw-plugin-claude-code](https://github.com/13rac1/openclaw-plugin-claude-code)** | Plugin for running Claude Code in Podman or Docker containers from OpenClaw. Verify subscription and container permissions before use. | [GitHub](https://github.com/13rac1/openclaw-plugin-claude-code) |
+| **[openclaw-open-webui-channels](https://github.com/Skyzi000/openclaw-open-webui-channels)** | Plugin for connecting OpenClaw to Open WebUI Channels | [GitHub](https://github.com/Skyzi000/openclaw-open-webui-channels) |
+| **[openclaw-plugin-wiki-memory](https://github.com/h104651/openclaw-plugin-wiki-memory)** | Memory plugin backed by a Markdown LLM Wiki with hybrid semantic and full-text search | [GitHub](https://github.com/h104651/openclaw-plugin-wiki-memory) |
+| **[openclaw-telegram-approval-buttons](https://github.com/JairFC/openclaw-telegram-approval-buttons)** | Telegram approval-button plugin for OpenClaw exec approval messages | [GitHub](https://github.com/JairFC/openclaw-telegram-approval-buttons) |
+| **[ObsidianClaw](https://github.com/humanitylabs-org/obsidianclaw)** | Obsidian plugin for chatting with an OpenClaw agent from inside a vault | [GitHub](https://github.com/humanitylabs-org/obsidianclaw) |
+| **[openclaw-plugin-llm-trace-phoenix](https://github.com/pingshian0131/openclaw-plugin-llm-trace-phoenix)** | Plugin that sends OpenClaw LLM traces to Arize Phoenix for prompt, response, and token inspection | [GitHub](https://github.com/pingshian0131/openclaw-plugin-llm-trace-phoenix) |
+| **[openclaw-channel](https://github.com/chsword/openclaw-channel)** | OpenClaw Channel SDK for building channel integrations | [GitHub](https://github.com/chsword/openclaw-channel) |
+| **[tuya-openclaw-skills](https://github.com/tuya/tuya-openclaw-skills)** | Tuya AI skill library for OpenClaw and TuyaClaw smart-ecosystem device workflows | [GitHub](https://github.com/tuya/tuya-openclaw-skills) |
+| **[model-hierarchy-skill](https://github.com/zscole/model-hierarchy-skill)** | OpenClaw skill for routing model choice by task complexity and cost profile | [GitHub](https://github.com/zscole/model-hierarchy-skill) |
+| **[openclaw-skills-security](https://github.com/UseAI-pro/openclaw-skills-security)** | Markdown-based security skills for prompt-injection checks, supply-chain review, and credential-leak detection | [GitHub](https://github.com/UseAI-pro/openclaw-skills-security) |
+| **[decodo-openclaw-skill](https://github.com/Decodo/decodo-openclaw-skill)** | OpenClaw skill for URL scraping through the Decodo Web Scraping API | [GitHub](https://github.com/Decodo/decodo-openclaw-skill) |
+| **[obsidian-openclaw-memory](https://github.com/Samin12/obsidian-openclaw-memory)** | OpenClaw skill for using Obsidian as an AI memory system with a knowledge graph | [GitHub](https://github.com/Samin12/obsidian-openclaw-memory) |
+| **[openclaw-skills](https://github.com/blessonism/openclaw-skills)** | Collection of OpenClaw agent skills for search, analysis, and content extraction | [GitHub](https://github.com/blessonism/openclaw-skills) |
+| **[jincai openclaw-skills](https://github.com/jincai/openclaw-skills)** | Reusable OpenClaw skills collection for local agent workflows | [GitHub](https://github.com/jincai/openclaw-skills) |
+| **[agent flywheel skills](https://github.com/Dicklesworthstone/agent_flywheel_clawdbot_skills_and_integrations)** | Clawdbot skill collection for agentic coding workflows, cloud CLIs, and development tools | [GitHub](https://github.com/Dicklesworthstone/agent_flywheel_clawdbot_skills_and_integrations) |
+| **[Plugin-GBT](https://github.com/PeiranLi0930/Plugin-GBT)** | OpenClaw plugin for compressing agent context and reducing repeated prompt tokens | [GitHub](https://github.com/PeiranLi0930/Plugin-GBT) |
+| **[Claw Sama](https://github.com/luckybugqqq/claw-sama)** | VRM avatar desktop-pet plugin for connecting OpenClaw workflows to a local character surface | [GitHub](https://github.com/luckybugqqq/claw-sama) |
+| **[openclaw-codex-image-gen](https://github.com/jkf87/openclaw-codex-image-gen)** | OpenClaw plugin that adds a Codex CLI image-generation command workflow | [GitHub](https://github.com/jkf87/openclaw-codex-image-gen) |
+| **[Coze OpenClaw Plugin](https://github.com/coze-dev/coze-openclaw-plugin)** | Plugin for connecting Coze workflows to OpenClaw | [GitHub](https://github.com/coze-dev/coze-openclaw-plugin) |
+| **[mkhlab](https://github.com/Moshe-ship/mkhlab)** | Arabic-first OpenClaw plugin with dialect-aware skills and localized workflows | [GitHub](https://github.com/Moshe-ship/mkhlab) |
+| **[openclaw-better-gateway](https://github.com/ThisIsJeron/openclaw-better-gateway)** | Gateway UI enhancement plugin with automatic refresh and WebSocket handling improvements | [GitHub](https://github.com/ThisIsJeron/openclaw-better-gateway) |
+| **[openclaw-memory-auto-recall](https://github.com/code-yeongyu/openclaw-memory-auto-recall)** | Memory plugin that injects relevant stored context before each OpenClaw prompt | [GitHub](https://github.com/code-yeongyu/openclaw-memory-auto-recall) |
+| **[web-search-plus-plugin](https://github.com/robbyczgw-cla/web-search-plus-plugin)** | Multi-provider web search and extraction plugin for OpenClaw research workflows | [GitHub](https://github.com/robbyczgw-cla/web-search-plus-plugin) |
+| **[openclaw-langfuse](https://github.com/MCKRUZ/openclaw-langfuse)** | Langfuse observability plugin for tracing OpenClaw agent turns, sessions, token use, latency, and cost | [GitHub](https://github.com/MCKRUZ/openclaw-langfuse) |
+| **[GetNote OpenClaw](https://github.com/iswalle/getnote-openclaw)** | OpenClaw skill for GetNote note workflows | [GitHub](https://github.com/iswalle/getnote-openclaw) |
+| **[scholar-skill](https://github.com/EESJGong/scholar-skill)** | Academic reading and knowledge-linking skill for OpenClaw with Obsidian-oriented workflows | [GitHub](https://github.com/EESJGong/scholar-skill) |
+| **[dingtalk-ai-table](https://github.com/aliramw/dingtalk-ai-table)** | DingTalk AI table operation skill for OpenClaw workflows | [GitHub](https://github.com/aliramw/dingtalk-ai-table) |
+| **[openclaw-chat-history-import](https://github.com/dashhuang/openclaw-chat-history-import)** | Skill for importing external chat history into OpenClaw archive, daily memory, and `MEMORY.md` workflows | [GitHub](https://github.com/dashhuang/openclaw-chat-history-import) |
+| **[openclaw-skill-n8n](https://github.com/RamithaW/openclaw-skill-n8n)** | OpenClaw skill for n8n workflow operations | [GitHub](https://github.com/RamithaW/openclaw-skill-n8n) |
+| **[jobradar](https://github.com/jason-huanghao/jobradar)** | Job-search skill that documents OpenClaw usage for Germany and China tech-role workflows | [GitHub](https://github.com/jason-huanghao/jobradar) |
+| **[Clawlett](https://github.com/Creator-Bid/Clawlett)** | OpenClaw skill for permissioned on-chain actions with human control boundaries | [GitHub](https://github.com/Creator-Bid/Clawlett) |
+| **[principles-disciple](https://www.npmjs.com/package/principles-disciple)** | Native OpenClaw plugin package for Principles Disciple workflows | [npm](https://www.npmjs.com/package/principles-disciple) |
+| **[openclaw-ynabro](https://www.npmjs.com/package/openclaw-ynabro)** | OpenClaw plugin that registers YNABro tools for budget workflows | [npm](https://www.npmjs.com/package/openclaw-ynabro) |
+| **[n8n-as-code OpenClaw plugin](https://www.npmjs.com/package/@n8n-as-code/n8nac)** | Plugin for creating and managing n8n workflows from OpenClaw | [npm](https://www.npmjs.com/package/@n8n-as-code/n8nac) |
+| **[agent-changelog](https://www.npmjs.com/package/agent-changelog)** | Installable OpenClaw skill for keeping an agent changelog in a workspace | [npm](https://www.npmjs.com/package/agent-changelog) |
+| **[openclaw-skill-easy-learn](https://www.npmjs.com/package/openclaw-skill-easy-learn)** | OpenClaw skill for generating beginner-friendly learning notes | [npm](https://www.npmjs.com/package/openclaw-skill-easy-learn) |
+| **[openclaw-skill-article-summarizer](https://www.npmjs.com/package/openclaw-skill-article-summarizer)** | Skill for summarizing articles, web pages, PDFs, and Feishu docs with opt-in note saving | [npm](https://www.npmjs.com/package/openclaw-skill-article-summarizer) |
+| **[openclaw-skill-optimizer](https://www.npmjs.com/package/openclaw-skill-optimizer)** | Package for analyzing and optimizing OpenClaw skill performance | [npm](https://www.npmjs.com/package/openclaw-skill-optimizer) |
+| **[openclaw-crawleo-skill](https://www.npmjs.com/package/openclaw-crawleo-skill)** | Self-contained OpenClaw skill package for Crawleo web search and crawling workflows | [npm](https://www.npmjs.com/package/openclaw-crawleo-skill) |
+| **[rugbyclaw](https://www.npmjs.com/package/rugbyclaw)** | Rugby scores, fixtures, and results CLI with an OpenClaw skill package | [npm](https://www.npmjs.com/package/rugbyclaw) |
+| **[@indexnetwork/openclaw-plugin](https://www.npmjs.com/package/@indexnetwork/openclaw-plugin)** | OpenClaw plugin for Index Network people-discovery workflows | [npm](https://www.npmjs.com/package/@indexnetwork/openclaw-plugin) |
+| **[@clawchatsai/connector](https://www.npmjs.com/package/@clawchatsai/connector)** | OpenClaw plugin for a P2P tunnel and local API bridge to ClawChats | [npm](https://www.npmjs.com/package/@clawchatsai/connector) |
+| **[aamp-openclaw-plugin](https://www.npmjs.com/package/aamp-openclaw-plugin)** | Agent Mail Protocol plugin that gives OpenClaw an AAMP mailbox identity for receiving and replying to task messages | [npm](https://www.npmjs.com/package/aamp-openclaw-plugin) |
+| **[@aauth/mcp-openclaw](https://www.npmjs.com/package/@aauth/mcp-openclaw)** | OpenClaw plugin for connecting to AAuth-authenticated MCP servers | [npm](https://www.npmjs.com/package/@aauth/mcp-openclaw) |
+| **[orca-openclaw-plugin](https://www.npmjs.com/package/orca-openclaw-plugin)** | OpenClaw plugin wrapper for Orca runtime guardrail checks | [npm](https://www.npmjs.com/package/orca-openclaw-plugin) |
+| **[agent-control-openclaw-plugin](https://www.npmjs.com/package/agent-control-openclaw-plugin)** | Plugin that connects OpenClaw tool catalogs and calls to Agent Control policy workflows | [npm](https://www.npmjs.com/package/agent-control-openclaw-plugin) |
+| **[imclaw](https://www.npmjs.com/package/imclaw)** | Agent-to-agent instant messaging channel extension for OpenClaw | [npm](https://www.npmjs.com/package/imclaw) |
+| **[@perkos/perkos-a2a](https://www.npmjs.com/package/@perkos/perkos-a2a)** | A2A protocol communication plugin for OpenClaw agent-to-agent workflows | [npm](https://www.npmjs.com/package/@perkos/perkos-a2a) |
+| **[@agnt-rcpt/openclaw](https://www.npmjs.com/package/@agnt-rcpt/openclaw)** | Plugin for cryptographically signed audit trails for OpenClaw agent actions | [npm](https://www.npmjs.com/package/@agnt-rcpt/openclaw) |
+| **[@spikelabs/lobster-shell-plugin](https://www.npmjs.com/package/@spikelabs/lobster-shell-plugin)** | Plugin for connecting an OpenClaw agent to Lobster Shell cloud workflows | [npm](https://www.npmjs.com/package/@spikelabs/lobster-shell-plugin) |
+| **[@jiggai/kitchen](https://www.npmjs.com/package/@jiggai/kitchen)** | Web dashboard package for OpenClaw agent teams, workflows, and automation | [npm](https://www.npmjs.com/package/@jiggai/kitchen) |
+| **[@meego-harness/openclaw-worker](https://www.npmjs.com/package/@meego-harness/openclaw-worker)** | Native OpenClaw plugin that bridges a fixed OpenClaw agent to Meego harness workers | [npm](https://www.npmjs.com/package/@meego-harness/openclaw-worker) |
+| **[@clawlauncher/claw-activity-monitor](https://www.npmjs.com/package/@clawlauncher/claw-activity-monitor)** | Plugin that streams OpenClaw agent activity to the Claw Launcher dashboard | [npm](https://www.npmjs.com/package/@clawlauncher/claw-activity-monitor) |
+| **[@inline-openclaw/inline](https://www.npmjs.com/package/@inline-openclaw/inline)** | Channel plugin for interacting with an OpenClaw agent through Inline | [npm](https://www.npmjs.com/package/@inline-openclaw/inline) |
+| **[@synadia-ai/nats-channel](https://www.npmjs.com/package/@synadia-ai/nats-channel)** | NATS channel plugin that makes OpenClaw agents discoverable through Synadia Agent Protocol workflows | [npm](https://www.npmjs.com/package/@synadia-ai/nats-channel) |
+| **[@gitopenclaw/connect](https://www.npmjs.com/package/@gitopenclaw/connect)** | Runtime connector that streams OpenClaw agent events for monitoring, alerting, and kill-switch control | [npm](https://www.npmjs.com/package/@gitopenclaw/connect) |
+| **[clawcal](https://www.npmjs.com/package/clawcal)** | iCal feed package for OpenClaw agent activity | [npm](https://www.npmjs.com/package/clawcal) |
+| **[@handlebar/openclaw](https://www.npmjs.com/package/@handlebar/openclaw)** | Governance plugin package for OpenClaw agents | [npm](https://www.npmjs.com/package/@handlebar/openclaw) |
+| **[@cogineai/clawpacker](https://www.npmjs.com/package/@cogineai/clawpacker)** | CLI for inspecting, exporting, importing, and validating portable OpenClaw agent and workspace templates | [npm](https://www.npmjs.com/package/@cogineai/clawpacker) |
+| **[playclaw](https://www.npmjs.com/package/playclaw)** | Plugin package for connecting OpenClaw agents to PlayClaw testing playground workflows | [npm](https://www.npmjs.com/package/playclaw) |
+| **[openclaw-agent-dashboard](https://www.npmjs.com/package/openclaw-agent-dashboard)** | Visual multi-agent dashboard plugin package for OpenClaw | [npm](https://www.npmjs.com/package/openclaw-agent-dashboard) |
+| **[@botmem/openclaw-plugin](https://www.npmjs.com/package/@botmem/openclaw-plugin)** | OpenClaw plugin for Botmem personal-memory search across connected user data sources | [npm](https://www.npmjs.com/package/@botmem/openclaw-plugin) |
+| **[@oda-agent/openclaw-plugin](https://www.npmjs.com/package/@oda-agent/openclaw-plugin)** | OpenClaw plugin for grocery-planning workflows with Oda automation boundaries | [npm](https://www.npmjs.com/package/@oda-agent/openclaw-plugin) |
+| **[@gdpisen/openclaw-pisen](https://www.npmjs.com/package/@gdpisen/openclaw-pisen)** | Pisen enterprise-workspace channel plugin for OpenClaw private-message workflows | [npm](https://www.npmjs.com/package/@gdpisen/openclaw-pisen) |
+| **[@newbase-clawchat/openclaw-clawchat](https://www.npmjs.com/package/@newbase-clawchat/openclaw-clawchat)** | ClawChat Protocol channel plugin for OpenClaw with plugin-owned WebSocket transport | [npm](https://www.npmjs.com/package/@newbase-clawchat/openclaw-clawchat) |
+| **[openclaw-xiaoyou](https://www.npmjs.com/package/openclaw-xiaoyou)** | Xiaoyou enterprise-service channel plugin that bridges OpenClaw through an outbound WebSocket | [npm](https://www.npmjs.com/package/openclaw-xiaoyou) |
+| **[@openswitchy/openclaw-channel-openswitchy](https://www.npmjs.com/package/@openswitchy/openclaw-channel-openswitchy)** | OpenSwitchy channel plugin for receiving messages and returning OpenClaw agent responses | [npm](https://www.npmjs.com/package/@openswitchy/openclaw-channel-openswitchy) |
+| **[@43world/43chat-openclaw-plugin](https://www.npmjs.com/package/@43world/43chat-openclaw-plugin)** | 43Chat inbound-notification plugin that writes chat events into the OpenClaw main session | [npm](https://www.npmjs.com/package/@43world/43chat-openclaw-plugin) |
+| **[@model-hub/openclaw-cli](https://www.npmjs.com/package/@model-hub/openclaw-cli)** | CLI package for connecting OpenClaw installations to ModelHub bridge workflows | [npm](https://www.npmjs.com/package/@model-hub/openclaw-cli) |
+| **[@h-ear/openclaw](https://www.npmjs.com/package/@h-ear/openclaw)** | OpenClaw skill for H-ear World audio classification commands | [npm](https://www.npmjs.com/package/@h-ear/openclaw) |
+| **[@dcentralab/skills](https://www.npmjs.com/package/@dcentralab/skills)** | SkillHub CLI for searching, installing, publishing, and managing OpenClaw skills | [npm](https://www.npmjs.com/package/@dcentralab/skills) |
+| **[@memorymerge/openclaw](https://www.npmjs.com/package/@memorymerge/openclaw)** | MemoryMerge OpenClaw integration with turn hooks for remember, recall, and reflect workflows | [npm](https://www.npmjs.com/package/@memorymerge/openclaw) |
+| **[@lynqn/openclaw-skill](https://www.npmjs.com/package/@lynqn/openclaw-skill)** | OpenClaw skill for sharing text, generating QR codes, and shortening URLs through LYNQN | [npm](https://www.npmjs.com/package/@lynqn/openclaw-skill) |
+| **[clawfee-sdk](https://www.npmjs.com/package/clawfee-sdk)** | Billing SDK for OpenClaw skill developers adding per-call, subscription, or one-time payment flows | [npm](https://www.npmjs.com/package/clawfee-sdk) |
+| **[@mtt-open/openclaw-mttsports](https://www.npmjs.com/package/@mtt-open/openclaw-mttsports)** | MTTSports OpenClaw skill package for room workflows, session lifecycle control, and event watching | [npm](https://www.npmjs.com/package/@mtt-open/openclaw-mttsports) |
+| **[finebi-openclaw-skill](https://www.npmjs.com/package/finebi-openclaw-skill)** | FineBI skill package for OpenClaw data analysis, visualization, and reporting workflows | [npm](https://www.npmjs.com/package/finebi-openclaw-skill) |
+| **[repo2skill](https://www.npmjs.com/package/repo2skill)** | CLI that converts GitHub repositories into OpenClaw skill packages | [npm](https://www.npmjs.com/package/repo2skill) |
+| **[secureskills](https://www.npmjs.com/package/secureskills)** | CLI for browsing a security-rated OpenClaw skill directory and inspecting skill requirements | [npm](https://www.npmjs.com/package/secureskills) |
+| **[@cly-org/switchbot-openclaw-skill](https://www.npmjs.com/package/@cly-org/switchbot-openclaw-skill)** | SwitchBot smart-home plugin exposing device and scene tools to OpenClaw | [npm](https://www.npmjs.com/package/@cly-org/switchbot-openclaw-skill) |
+| **[@agent-pulse/openclaw-skill](https://www.npmjs.com/package/@agent-pulse/openclaw-skill)** | AgentPulse skill integration for liveness-based gate checks around OpenClaw requests | [npm](https://www.npmjs.com/package/@agent-pulse/openclaw-skill) |
+| **[@censgate/openclaw-redact](https://www.npmjs.com/package/@censgate/openclaw-redact)** | Privacy plugin for redacting PII before OpenClaw sends content to model workflows | [npm](https://www.npmjs.com/package/@censgate/openclaw-redact) |
+| **[@agentseo/openclaw-plugin](https://www.npmjs.com/package/@agentseo/openclaw-plugin)** | AgentSEO plugin package for connecting OpenClaw agents to AgentSEO tools | [npm](https://www.npmjs.com/package/@agentseo/openclaw-plugin) |
+| **Research Paper Push Skill** | Scheduled OpenAlex paper alerts and concise daily Chinese summaries through OpenClaw cron | [GitHub](https://github.com/ZJunCher/openclaw-research-paper-push-skill) |
+| **Research Papers Skill** | OpenAlex paper search, DOI lookup, citation inspection, open-access PDF discovery, and Markdown literature reviews for OpenClaw | [GitHub](https://github.com/ZJunCher/openclaw-research-papers-skill) |
+| **Intention Hint Plugin** | Pre-agent intent scanner that injects routing hints through the `before_prompt_build` hook | [GitHub](https://github.com/ani6439walc/openclaw-plugin-intention-hint) |
+| **carapace-plugin-sdk** | SDK for generating typed OpenClaw plugin manifests, helper code, and standalone CLIs | [GitHub](https://github.com/JeffSteinbok/carapace-plugin-sdk) |
+| **unCAGd memory** | Validated decision-memory skill for OpenClaw tools and skills, published as `@uncagd/openclaw-cag-memory` | [GitHub](https://github.com/GuideboardLabs/openclaw-cag-memory) |
+| **Engram OpenClaw Skill** | Skill that exposes Engram memory operations to OpenClaw through an MCP server bridge | [GitHub](https://github.com/lumetra-io/engram-openclaw-skill) |
+| **Nutty** | Knowledge-collection OpenClaw skill for saving links, ideas, projects, and tasks to Feishu Bitable | [GitHub](https://github.com/dethan3/openclaw-nutty) |
+| **OpenClaw HDU Skill** | Campus assistant skill package for Hangzhou Dianzi University workflows such as schedules, exams, seats, and campus services | [GitHub](https://github.com/wither0526/openclaw-HDU-skill) |
+| **TencentDB Agent Memory** | Local memory package with documented OpenClaw integration for symbolic short-term memory and layered long-term memory | [GitHub](https://github.com/Tencent/TencentDB-Agent-Memory) |
+| **memX** | Self-maintaining memory layer with native OpenClaw support and MCP-compatible access | [GitHub](https://github.com/NeoLi00/memX) |
+| **Open Second Brain** | Filesystem-first second-brain toolkit with OpenClaw and MCP-aware client support for Markdown vault workflows | [GitHub](https://github.com/itechmeat/open-second-brain) |
+| **SkillLens** | Self-hosted web tool for evaluating Agent Skills, including skills intended for OpenClaw-style ecosystems | [GitHub](https://github.com/AndrewNgGirl/SkillLens) |
+| **OpenClaw Memory Fusion** | Cron-based memory extraction, distillation, and Markdown consolidation workflow for OpenClaw sessions | [GitHub](https://github.com/dztabel-happy/openclaw-memory-fusion) |
+| **memU Engine for OpenClaw** | Community memory plugin that connects OpenClaw sessions to the MemU engine with per-agent storage layout notes | [GitHub](https://github.com/duxiaoxiong/memu-engine-for-OpenClaw) |
+| **OpenClaw Memory Graphiti** | Memory plugin that pairs SpiceDB authorization with Graphiti knowledge-graph storage | [GitHub](https://github.com/Contextable/openclaw-memory-graphiti) |
+| **OpenClaw Memory Qdrant** | Local semantic-memory plugin for OpenClaw using Qdrant and Transformers.js | [GitHub](https://github.com/zuiho-kai/openclaw-memory-qdrant) |
+| **OpenViking Memory Backend** | OpenClaw memory backend plugin that exposes OpenViking search and content-read workflows | [GitHub](https://github.com/clawd20130/openclaw-memory-openviking) |
+| **OpenClaw Memory pgvector** | Memory plugin backed by PostgreSQL or YugabyteDB with pgvector semantic search | [GitHub](https://github.com/bchan77/openclaw-memory-pgvector) |
+| **openclaw-mem0-memory** | Self-hosted Mem0-backed memory plugin for OpenClaw lifecycle hooks | [GitHub](https://github.com/rhadu/openclaw-mem0-memory) |
+| **openclaw-memory-engram** | Engram memory plugin for OpenClaw using SQLite and FTS5 persistent storage | [GitHub](https://github.com/nikolicjakov/openclaw-memory-engram) |
+| **Memory Manager** | Structured long-term memory skill for OpenClaw with capture, trimming, and retrieval workflows | [GitHub](https://github.com/Arxchibobo/openclaw-memory-manager) |
+| **openclaw-memory-local** | Local memory plugin suite for checkpoints, Qdrant recall, and auto-capture in OpenClaw | [GitHub](https://github.com/rockywuest/openclaw-memory-local) |
+| **OpenClaw Memory LanceDB** | LanceDB-backed memory plugin for auto-recall, auto-capture, and active memory tools | [GitHub](https://github.com/noncelogic/openclaw-memory-lancedb) |
+| **OpenClaw Memory RAG** | Hybrid vector and BM25 memory search package for OpenClaw cross-session recall | [GitHub](https://github.com/YIING99/openclaw-memory-rag) |
+| **memory-convex** | Convex-backed persistent-memory plugin for OpenClaw Gateway workflows | [GitHub](https://github.com/Primo-Studio/openclaw-memory-convex) |
+| **OpenClaw Memory Search** | Local-first SQLite FTS5 memory-search architecture built for OpenClaw message stores | [GitHub](https://github.com/jacklevin74/openclaw-memory) |
+| **OpenClaw Plugin Continuity** | Persistent-memory plugin that archives conversations and retrieves relevant cross-session context for OpenClaw agents | [GitHub](https://github.com/CoderofTheWest/openclaw-plugin-continuity) |
+| **OpenClaw Plugin Stability** | Introspection and loop-guard plugin for OpenClaw agents, with entropy monitoring and structured heartbeat decision support | [GitHub](https://github.com/CoderofTheWest/openclaw-plugin-stability) |
+| **Awesome OpenClaw Plugins** | Community-maintained plugin directory with inspectable plugin folders and install notes for OpenClaw users | [GitHub](https://github.com/composio-community/awesome-openclaw-plugins) |
+| **Awesome OpenClaw Skills CN** | Chinese OpenClaw skills directory organized for local model, workflow, and plugin discovery | [GitHub](https://github.com/AIPMAndy/awesome-openclaw-skills-CN) |
+| **gstack OpenClaw Skills** | OpenClaw-adapted development workflow skill suite with planning, implementation, testing, review, and release roles | [GitHub](https://github.com/AICreator-Wind/gstack-openclaw-skills) |
+| **[brewpage-publish](https://clawhub.ai/kochetkov-ma/brewpage-publish)** | Publishes HTML, Markdown, JSON, files, or multi-file sites to brewpage.app and returns a public URL | [ClawHub](https://clawhub.ai/kochetkov-ma/brewpage-publish) |
+| **OpenClaw Skill Scanner** | Security gate that scans local folders or ClawHub skills before adding them to an OpenClaw environment | [GitHub](https://github.com/jason-allen-oneal/openclaw-skill-scanner) |
+| **PaperClaw** | OpenClaw skill framework for generating field-specific paper review and critique agents from research topics | [GitHub](https://github.com/guhaohao0991/PaperClaw) |
+| **NEIS School CLI** | Korean school search, meal, and timetable CLI with an OpenClaw skill adapter and ClawHub publishing notes | [GitHub](https://github.com/techkwon/neis-school-cli) |
+| **OpenClaw Rocket.Chat Plugin** | Rocket.Chat plugin that routes inbound messages and OpenClaw replies through a native channel bridge | [GitHub](https://github.com/RocketChat/OpenClaw.Plugin) |
+| **SmartThingsClaw** | OpenClaw skill for listing, checking, and controlling Samsung SmartThings devices through documented scripts | [GitHub](https://github.com/danbryant201/SmartThingsClaw) |
+| **OpenClaw Radware Agentic Protection** | Security integration for routing OpenClaw provider traffic or lifecycle hooks through Radware checks | [GitHub](https://github.com/rdwr-seanr/openclaw-radware-agentic-protection) |
+| **Lightpanda Agent Skill** | Browser automation and extraction skill that documents Lightpanda usage from OpenClaw-compatible agents | [GitHub](https://github.com/lightpanda-io/agent-skill) |
+| **ask-search** | Self-hosted web search skill for OpenClaw agents using SearxNG as the search backend | [GitHub](https://github.com/ythx-101/ask-search) |
+| **Bruce Draw.io** | Draw.io diagram-generation skill for OpenClaw-compatible agents with XML self-check and image export workflow | [GitHub](https://github.com/bruc3van/bruce-drawio) |
+| **OpenClaw Odoo ERP Connector** | Odoo ERP integration skill for OpenClaw covering CRM, sales, purchasing, inventory, projects, HR, and fleet modules | [GitHub](https://github.com/NullNaveen/openclaw-odoo-skill) |
+| **Skill Checkup OpenClaw** | OpenClaw-only audit skill that returns an executive readiness report with risks and next actions | [GitHub](https://github.com/okjpg/skill-checkup-openclaw) |
+| **OpenClaw Vertex AI Memory Bank** | Memory plugin that connects OpenClaw agents to Vertex AI Memory Bank with user-scoped recall | [GitHub](https://github.com/Shubhamsaboo/openclaw-vertexai-memorybank) |
+| **openclaw-autoresearch** | OpenClaw plugin for autonomous edit, benchmark, measurement, and experiment logging loops | [GitHub](https://github.com/gianfrancopiana/openclaw-autoresearch) |
+| **OpenClaw Unity Plugin** | Unity Editor plugin that exposes HTTP controls for OpenClaw-assisted game-development workflows | [GitHub](https://github.com/TomLeeLive/openclaw-unity-plugin) |
+| **Composio for OpenClaw** | Marketplace plugin entry that points OpenClaw users to Composio CLI tool access and setup flow | [GitHub](https://github.com/ComposioHQ/openclaw-composio-plugin) |
+| **OpenClaw Observability** | OpenTelemetry observability plugin for OpenClaw agents with version-track documentation and backend examples | [GitHub](https://github.com/henrikrexed/openclaw-observability-plugin) |
+| **OpenClaw Shield** | Security plugin for checking secret leaks, PII exposure, and destructive-command risk in OpenClaw environments | [GitHub](https://github.com/knostic/openclaw-shield) |
+| **AgentAegis** | Runtime protection plugin for OpenClaw-style agents with lifecycle security checks and bilingual documentation | [GitHub](https://github.com/antgroup/agent-aegis) |
+| **openclaw-linear** | Linear integration plugin that receives webhooks, maintains a work queue, and exposes issue tools to OpenClaw agents | [GitHub](https://github.com/stepandel/openclaw-linear) |
+| **openclaw-simplex** | SimpleX Chat channel plugin for OpenClaw with invite-based contact paths and channel-policy integration | [GitHub](https://github.com/dangoldbj/openclaw-simplex) |
+| **Telnyx SMS/MMS Channel** | OpenClaw channel extension for Telnyx SMS and MMS webhooks, including inbound media handling and outbound reply flow | [GitHub](https://github.com/pcitalian/openclaw-channel-telnyx-sms) |
+| **openclaw-whatsapp-kapso** | WhatsApp Business Cloud API channel plugin for OpenClaw through Kapso, with cron, announce, and approval workflows | [GitHub](https://github.com/TomasWard1/openclaw-whatsapp-kapso) |
+| **esp32-openclaw** | Channel plugin that bridges OpenClaw Gateway to ESP32 xiaozhi voice devices through an intermediate WebSocket server | [GitHub](https://github.com/yetio/esp32-openclaw) |
+| **EClaw** | Agent-to-agent OpenClaw channel that provides an external persona, MCP, and A2A communication layer | [GitHub](https://github.com/HankHuang0516/EClaw) |
+| **OpenClaw Channel Oleap** | Oleap enterprise messaging channel plugin for OpenClaw with WebSocket and HTTP polling modes | [GitHub](https://github.com/OleapAI/openclaw-channel-oleap) |
+| **ZTM Chat Channel Plugin** | Channel plugin that connects OpenClaw to ZTM Chat for decentralized peer messaging over a zero-trust mesh | [GitHub](https://github.com/clawparty-ai/openclaw-channel-plugin-ztm) |
+| **DingTalk Bot Channel** | OpenClaw channel plugin for DingTalk robots using webhook callbacks and signed per-session responses | [GitHub](https://github.com/jeasonstudio/openclaw-channel-dingtalk-bot) |
+| **Awesome OpenClaw Plugins (Jeron)** | Community plugin directory organized by official plugins, channels, smart home, utility, memory, and security categories | [GitHub](https://github.com/ThisIsJeron/awesome-openclaw-plugins) |
+| **AxonFlow OpenClaw Plugin** | Governance plugin for OpenClaw agents covering tool-call policy, MCP access control, PII redaction, and audit trails | [GitHub](https://github.com/getaxonflow/axonflow-openclaw-plugin) |
+| **Memory Crystal** | Persistent-memory project with an OpenClaw plugin and MCP server for cross-session recall workflows | [GitHub](https://github.com/memorycrystal/memorycrystal) |
+| **OpenClaw Dify Auth Plugin** | Provider plugin that forwards OpenClaw messages to Dify and allows Dify apps to invoke local OpenClaw tools | [GitHub](https://github.com/taichuy/openclaw-plugin-dify-auth) |
+| **OpenClaw Contemplation Plugin** | Plugin for capturing open questions and returning multi-pass reflection results to OpenClaw context | [GitHub](https://github.com/CoderofTheWest/openclaw-plugin-contemplation) |
+| **LOCOMO OpenClaw Memory Eval** | Minimal harness for evaluating OpenClaw memory backends against LOCOMO-style recall tasks | [GitHub](https://github.com/lancedb/locomo-eval) |
+| **OpenClaw Offline Memory SQLite** | Offline-first memory search package for OpenClaw using SQLite FTS5, BM25, and optional local embeddings | [GitHub](https://github.com/AkashaBot/openclaw-memory-offline-sqlite) |
+| **Bamdra OpenClaw Memory** | Continuity-first memory runtime that installs OpenClaw memory, user binding, and vector-memory components | [GitHub](https://github.com/bamdra/bamdra-openclaw-memory) |
+| **OpenClaw Memory** | Markdown-first memory server for saving and searching OpenClaw conversation history through local files and MCP access | [GitHub](https://github.com/liuhao6741/openclaw-memory) |
+| **MemoryBox** | Memory health CLI for markdown-based agents including OpenClaw, with cleanup and maintenance workflows | [GitHub](https://github.com/Ramsbaby/openclaw-memorybox) |
+| **OpenClaw Memory Kit** | Template and runtime kit for OpenClaw context persistence, memory files, and session continuity | [GitHub](https://github.com/AlekseiUL/openclaw-memory-kit) |
+| **OpenClaw Dashboard Chat Mark Plugin** | Browser-side dashboard plugin for bookmarking OpenClaw chat messages and reinserting marked context later | [GitHub](https://github.com/TinaQian2017/openclaw-dashboard-chat-mark-plugin) |
+| **@openclaw/memory-lancedb** | LanceDB-backed long-term memory plugin for OpenClaw with auto-recall, auto-capture, and vector search | [npm](https://www.npmjs.com/package/@openclaw/memory-lancedb) |
+| **@lyriel/openclaw-plugin** | OpenClaw integration for the Lyriel substrate with a native npm package and setup notes | [npm](https://www.npmjs.com/package/@lyriel/openclaw-plugin) |
+| **@openclaw/synology-chat** | Synology Chat channel plugin for OpenClaw conversations and direct messages | [npm](https://www.npmjs.com/package/@openclaw/synology-chat) |
+| **@openclaw/amazon-bedrock-provider** | Amazon Bedrock provider plugin for OpenClaw model discovery, embeddings, and guardrail configuration | [npm](https://www.npmjs.com/package/@openclaw/amazon-bedrock-provider) |
+| **@evermore.work/adapter-openclaw-gateway** | Adapter package that invokes OpenClaw through the Gateway protocol for Evermore Work runtime integrations | [npm](https://www.npmjs.com/package/@evermore.work/adapter-openclaw-gateway) |
+| **@shareclz/openclaw-mem0-plugin** | OpenClaw memory plugin that connects Gateway workflows to a mem0-backed recall layer | [npm](https://www.npmjs.com/package/@shareclz/openclaw-mem0-plugin) |
+| **@wangbren/memoxxx-openclaw-plugin** | Lifecycle memory plugin that adds recall and add-memory hooks for OpenClaw agents | [npm](https://www.npmjs.com/package/@wangbren/memoxxx-openclaw-plugin) |
+| **@lobu/openclaw-plugin** | Lobu memory plugin for OpenClaw agents with an npm-distributed install path | [npm](https://www.npmjs.com/package/@lobu/openclaw-plugin) |
+| **@openclaw/openshell-sandbox** | Sandbox backend that mirrors local workspaces and exposes SSH command execution for OpenClaw sessions | [npm](https://www.npmjs.com/package/@openclaw/openshell-sandbox) |
+| **@supermemory/openclaw-supermemory** | Supermemory plugin that adds memory capture and recall workflows to OpenClaw agents | [npm](https://www.npmjs.com/package/@supermemory/openclaw-supermemory) |
+| **@openclaw/tokenjuice** | Exec output compaction plugin for OpenClaw sessions that need shorter command-output context | [npm](https://www.npmjs.com/package/@openclaw/tokenjuice) |
+| **openclaw-channel-cocraft** | CoCraft LaTeX editor channel plugin for OpenClaw collaboration workflows | [npm](https://www.npmjs.com/package/openclaw-channel-cocraft) |
+| **@openclaw/amazon-bedrock-mantle-provider** | Amazon Bedrock Mantle provider plugin for OpenClaw model routing through OpenAI-compatible endpoints | [npm](https://www.npmjs.com/package/@openclaw/amazon-bedrock-mantle-provider) |
+| **@openclaw/anthropic-vertex-provider** | Vertex AI provider plugin that routes OpenClaw model calls to Anthropic models on Google Vertex AI | [npm](https://www.npmjs.com/package/@openclaw/anthropic-vertex-provider) |
+| **openclaw-weiyuan-init** | One-command initializer for the Weiyuan OpenClaw skill package | [npm](https://www.npmjs.com/package/openclaw-weiyuan-init) |
+| **@ubundi/openclaw-cortex** | Cortex memory plugin for OpenClaw auto-recall, auto-capture, and memory tooling | [npm](https://www.npmjs.com/package/@ubundi/openclaw-cortex) |
+| **@roamhq/openclaw-roam** | Roam HQ channel plugin for connecting OpenClaw to Roam HQ chat workflows | [npm](https://www.npmjs.com/package/@roamhq/openclaw-roam) |
+| **@vulcanen/openclaw-monitor** | Real-time monitoring console package for OpenClaw runtime status and telemetry views | [npm](https://www.npmjs.com/package/@vulcanen/openclaw-monitor) |
+| **@a1hvdy/cc-openclaw** | OpenClaw bridge plugin for routing CLI assistant traffic through an OpenAI-compatible HTTP interface | [npm](https://www.npmjs.com/package/@a1hvdy/cc-openclaw) |
+| **@openclaw/voice-call** | Voice-call channel plugin for OpenClaw integrations using Twilio, Telnyx, and Plivo transports | [npm](https://www.npmjs.com/package/@openclaw/voice-call) |
+| **@persistio/openclaw-plugin** | OpenClaw-native long-term memory plugin with explicit recall and store tools backed by Persistio | [npm](https://www.npmjs.com/package/@persistio/openclaw-plugin) |
+| **@posthog/openclaw** | PostHog LLM Analytics plugin for capturing OpenClaw model-generation and tool-call telemetry | [npm](https://www.npmjs.com/package/@posthog/openclaw) |
+| **@paleo/openclaw-slack-mock** | Synthetic Slack-shaped channel plugin for automated OpenClaw test scenarios without sending live Slack messages | [npm](https://www.npmjs.com/package/@paleo/openclaw-slack-mock) |
+| **openclaw-tavily** | Tavily web tools plugin exposing search, extract, crawl, map, and research tools to OpenClaw | [npm](https://www.npmjs.com/package/openclaw-tavily) |
+| **@korveo/openclaw** | Local-first OpenClaw span exporter for viewing diagnostics from the OpenTelemetry pipeline in Korveo | [npm](https://www.npmjs.com/package/@korveo/openclaw) |
+| **@agentlas/openclaw** | Plugin package for connecting OpenClaw to Agentlas notes and knowledge-extraction workflows | [npm](https://www.npmjs.com/package/@agentlas/openclaw) |
+| **@nextclaw/openclaw-compat** | Compatibility layer for using OpenClaw plugin interfaces from NextClaw projects | [npm](https://www.npmjs.com/package/@nextclaw/openclaw-compat) |
+| **@scholai/openclaw-scholai** | Courseware plugin package for OpenClaw article-generation workflows through Scholai | [npm](https://www.npmjs.com/package/@scholai/openclaw-scholai) |
+| **@scholai/openclaw-scholai-tools** | Onboarding CLI for installing, inspecting, and updating Scholai OpenClaw plugins | [npm](https://www.npmjs.com/package/@scholai/openclaw-scholai-tools) |
+| **@listenai/openclaw-xiaoling** | Xiaoling AI plugin package for OpenClaw voice and assistant workflows | [npm](https://www.npmjs.com/package/@listenai/openclaw-xiaoling) |
+| **@a5c-ai/hooks-mux-adapter-openclaw** | Harness adapter that connects OpenClaw to the hooks-mux system | [npm](https://www.npmjs.com/package/@a5c-ai/hooks-mux-adapter-openclaw) |
+| **@agent-vm/openclaw-gateway** | Package for running the OpenClaw gateway lifecycle inside an Agent VM environment | [npm](https://www.npmjs.com/package/@agent-vm/openclaw-gateway) |
+| **@alfe.ai/openclaw-sync** | Backup and sync skill for OpenClaw agent workspaces | [npm](https://www.npmjs.com/package/@alfe.ai/openclaw-sync) |
+| **openclaw-webchat-server** | Browser WebSocket relay server for connecting webchat users to OpenClaw agents | [npm](https://www.npmjs.com/package/openclaw-webchat-server) |
+| **@riddledc/openclaw-riddledc** | OpenClaw integration package for RiddleDC workflows with no-secrets setup notes | [npm](https://www.npmjs.com/package/@riddledc/openclaw-riddledc) |
+| **@onequery/openclaw-plugin** | OneQuery plugin package for OpenClaw workflows | [npm](https://www.npmjs.com/package/@onequery/openclaw-plugin) |
+| **@parall/openclaw-agent** | Bootstrap wrapper that prepares per-agent OpenClaw state before launching Parall agents | [npm](https://www.npmjs.com/package/@parall/openclaw-agent) |
+| **@watchline/openclaw-plugin** | Delivery adapter for receiving matched Watchline events in OpenClaw workflows | [npm](https://www.npmjs.com/package/@watchline/openclaw-plugin) |
+| **EQVPS** | API-native, pay-per-use VPS skill for OpenClaw with MCP tools for listing plans, ordering servers after confirmation, power control, reinstall, hostname updates, and cancellation. | [ClawHub](https://clawhub.ai/poiuyhje/eqvps) |
+
+### Setup Guides & Starters
+
+- [OpenClaw Personal Agent Starter Free](https://github.com/rbezumoff/openclaw-personal-agent-starter-free) - Starter repository for building a private Telegram assistant with OpenClaw, including setup checklist material and AGENTS.md/SOUL.md templates.
+- [OpenClaw setup guide I wish I had](https://github.com/ishwarjha/openclaw-setup-guide-i-wish-i-had) - Step-by-step OpenClaw setup and optimization guide covering install, models, memory, heartbeat, cron, channels, security, and use-case building.
+- [NetworkChuck OpenClaw setup](https://github.com/theNetworkChuck/openclaw-setup) - Companion guide for a VPS-based OpenClaw setup video, with ordered commands for install, Telegram pairing, cron jobs, skills, browser access, sub-agents, and security checks.
+- [openclaw-n8n-stack](https://github.com/foot8319/openclaw-n8n-stack) - Docker stack for running OpenClaw with n8n, MCP, and workflow automation components in one local setup.
+- [awesome-openclaw-configs](https://github.com/AbdNour627/awesome-openclaw-configs) - OpenClaw configuration templates for Chinese LLM providers, multi-channel chat, and automation setups.
+- [OpenClaw Push-to-Talk Client](https://github.com/Venando/openclaw-ptt-client) - Desktop console client for microphone push-to-talk interaction with an OpenClaw Gateway.
+- [AgentServer](https://github.com/agentserver/agentserver) - Self-hosted browser environment with Helm values for OpenClaw gateway image, port, and sandbox subdomain configuration.
+- [openclaw-gcp](https://github.com/eilonmore/openclaw-gcp) - One-command deployment guide for running OpenClaw Gateway on a GCP Compute Engine VM.
+- [openclaw-sandboxed](https://github.com/jhaertf/openclaw-sandboxed) - Hardened OpenClaw gateway setup with sandbox isolation, nftables firewalling, and local LLM integration.
+- [ruby_llm-openclaw](https://github.com/kieranklaassen/ruby_llm-openclaw) - RubyLLM provider gem for OpenClaw Gateway using WebSocket and Ed25519 authentication.
+- [openclaw-quickstart](https://github.com/akamai-developers/openclaw-quickstart) - Akamai Cloud quickstart for running OpenClaw, Moltbot, or ClawdBot.
+- [openclaw-kubernetes](https://github.com/feiskyer/openclaw-kubernetes) - Kubernetes Helm chart for OpenClaw deployments.
+- [moltbot-azure-container-apps](https://github.com/BandaruDheeraj/moltbot-azure-container-apps) - Azure Container Apps deployment template for ClawdBot.
+- [cloud-claw](https://github.com/miantiao-me/cloud-claw) - Cloudflare Containers deployment path for running OpenClaw with one-click setup.
+- [OpenClaw Android Setup Guide](https://github.com/AbuZar-Ansarii/Clawbot) - Termux and Ubuntu proot guide for running OpenClaw on Android devices without a PC or cloud server.
+- [OpenClaw WSL Guide](https://github.com/spoto-team/openclaw-wsl-guide) - Windows 11 WSL installation guide for OpenClaw.
+- [openclaw-setup](https://github.com/tuanminhhole/openclaw-setup) - Docker-based Telegram bot setup path for OpenClaw with Gemini configuration.
+- [OpenClaw Dev Guide](https://github.com/MindDock/OpenClaw-Dev-Guide) - Chinese architecture and secondary-development manual for OpenClaw.
+- [OpenClaw Java](https://github.com/yuenkang/openclaw-java) - Spring Boot based Java implementation of an OpenClaw-style AI Agent Gateway.
+- [openclaw-docker-config](https://github.com/andreesg/openclaw-docker-config) - Docker configuration for OpenClaw Gateway, paired with a Hetzner Terraform setup path.
+- [openclaw-remote-minimax-setup-skill](https://github.com/win4r/openclaw-remote-minimax-setup-skill) - Reusable skill for remote Linux OpenClaw deployment with MiniMax M2.1 and Telegram setup notes.
+- [volcengine diagnostics TLS skill](https://www.npmjs.com/package/@volcengine/diagnostics-tls-skill) - OpenClaw skill package for installing or updating Volcengine diagnostics TLS tooling.
+- [OpenClaw Quickstart Skill](https://github.com/ariel198989/openclaw-quickstart-skill) - Interactive Playwright walkthrough for setting up OpenClaw on a Hostinger VPS with checkpoints for sensitive steps.
+- [OpenClaw Update Runbook](https://github.com/BKF-Gitty/openclaw-update-runbook) - Operator-focused skill and reference pack for updating OpenClaw and debugging post-update regressions.
+- [OpenClaw Clean-Room Recovery](https://github.com/tyc0on/openclaw-clean-room-recovery) - Recovery runbook for rebuilding a contaminated OpenClaw install without editing global package files.
+- [OpenClaw Nix](https://github.com/Scout-DJ/openclaw-nix) - NixOS module for deploying OpenClaw with firewall, service, sandbox, and rollback-oriented configuration.
+- [OpenClaw OrbStack](https://github.com/aaajiao/openclaw-orbstack) - macOS OrbStack VM deployment tool for OpenClaw with Chinese documentation and architecture notes.
+- [OpenClaw Infrastructure](https://github.com/pandysp/openclaw-infra) - Pulumi and Tailscale reference template for a self-hosted OpenClaw Gateway on Hetzner.
+- [AutoClaw](https://github.com/datopian/autoclaw.sh) - Open-source OpenClaw deployment playbook repository with local, Cloudflare, and operations examples.
+- [OpenClaw ClawCloud adaptation](https://github.com/wan7up/openclaw-clawcloud) - Container image adaptation for running OpenClaw on ClawCloud Run and ARM64 environments.
+- [OpenClaw Containerization](https://github.com/accorvin/openclaw-container) - Podman multi-container OpenClaw deployment pattern with separate gateway, transcription, and proxy services.
+- [OpenClaw one-click deployment scripts](https://github.com/Fuppppping/openclaw-deploy) - Cross-platform install scripts for macOS, Linux, Windows, and Android OpenClaw setups.
+- [OpenClaw Deployment Toolkit](https://github.com/t2krew/openclaw-toolkit) - Deployment and management toolkit for OpenClaw Gateway with Docker, Nginx, Tailscale, and service controls.
+- [clawdbot-docker](https://github.com/CrocSwap/clawdbot-docker) - Docker Compose runtime for running Clawdbot or OpenClaw with persistent storage, configurable environment variables, and container isolation.
+- [openclaw-fly-template](https://github.com/kentcdodds/flying-jarvis) - Fly.io deployment template with persistent volume, GitHub Actions deploys, Cloudflare Tunnel, and an operations runbook.
+- [lobsterd](https://github.com/tsconfigdotjson/lobsterd) - Firecracker MicroVM tenant orchestrator that can launch isolated guests with an OpenClaw gateway in each VM.
+- [clawdinators](https://github.com/openclaw/clawdinators) - Declarative NixOS-on-AWS reference for OpenClaw maintainer hosts and image-based provisioning.
+- [OpenClaw EC2 Bedrock Deploy](https://github.com/workstanleypan/openclaw-deploy) - EC2 deployment helper for OpenClaw with Amazon Bedrock configuration and IAM policy setup steps.
+- [OpenClaw Northflank Deploy](https://github.com/ChatWithLabs/openclaw-deploy) - Northflank wrapper that builds OpenClaw from source, reverse-proxies the gateway, and includes a setup wizard.
+- [OpenClaw on Hetzner VPS](https://github.com/tardigrde/openclaw-deploy) - Terraform and Ansible deployment pattern for running OpenClaw on Hetzner Cloud.
+- [OpenClaw Railway Template](https://github.com/chrysb/openclaw-railway-template) - Railway deployment template for OpenClaw with GitHub-backed configuration and workspace storage notes.
+- [OpenClaw Render Template](https://github.com/chrysb/openclaw-render-template) - Render deployment template for OpenClaw with setup guidance and persistent configuration notes.
+- [OpenClaw GCP IAP Deploy](https://github.com/geoffscott/openclaw-deploy-to-gcp) - Google Cloud deploy path that uses Identity-Aware Proxy access and Secret Manager injection for OpenClaw hosts.
+- [OpenClaw Sprite Builder](https://github.com/superfly/openclaw-sprite-builder) - Web app for provisioning Sprites that install OpenClaw and expose the Gateway service.
+- [OpenClawIT](https://github.com/JarvisDeLaAri/OpenClawIT) - IT guide collection covering OpenClaw install, remote dashboard access, OAuth setup, and deployment hardening.
+
+### Third-Party Platforms
+
+| Platform | Integration | Description |
+|----------|------------|-------------|
+| **[LangBot](https://github.com/langbot-app/LangBot)** | Multi-platform | Agentic IM bots with OpenClaw, Dify, n8n, Langflow, Coze |
+| **[OpenRouter](https://openrouter.ai/docs/guides/guides/openclaw-integration)** | LLM routing | Access 30+ models with smart routing (`openrouter/<author>/<slug>`) |
+| **[You.com](https://you.com/resources/openclaw-integration)** | Search/AI | OpenClaw skill for You.com search and AI integration |
+| **[ClawSec](https://github.com/prompt-security/clawsec)** | Security | Complete security skill suite by Prompt Security |
+| **[unRAID Community App](https://www.reddit.com/r/unRAID/comments/1qv4tky/openclaw_ai_assistant_gateway_now_available_on/)** | NAS/Server | Official Community Apps template for unRAID |
+| **[Expo OpenClaw Chat](https://github.com/brunobar79/expo-openclaw-chat)** | Mobile SDK | React Native / Expo chat SDK for building native iOS/Android OpenClaw clients |
+| **[Airstore](https://github.com/beam-cloud/airstore)** | Agent Storage | The filesystem for AI agents - persistent storage layer (89 stars) |
+| **[NemoClaw](https://github.com/NVIDIA/NemoClaw)** | Hardened runtime | NVIDIA early-preview reference stack for running OpenClaw inside OpenShell with sandboxing, network policy, and managed inference routing |
+| **[nix-openclaw](https://github.com/openclaw/nix-openclaw)** | Nix packaging | Declarative OpenClaw flake for macOS and Linux with pinned dependencies, services, plugins, and rollback through Home Manager |
+| **[OpenClaw Ansible Installer](https://github.com/openclaw/openclaw-ansible)** | Ansible deployment | Hardened Debian and Ubuntu install path with Docker, Tailscale, UFW, Fail2ban, unattended upgrades, Node.js, pnpm, and systemd support |
+| **[OpenClaw China Docker](https://github.com/justlovemaki/openclaw-china-docker)** | Docker bundle | China IM-focused Docker packaging that bundles OpenClaw with Feishu, DingTalk, QQ, WeCom, WeChat, and related deployment docs |
+| **[OpenClawInstaller](https://github.com/miaoxworld/OpenClawInstaller)** | Installer | macOS and Linux installer with interactive configuration for model providers, channels, service management, and optional GUI manager |
+| **[VelaClaw](https://github.com/Zavianx/velaclaw)** | Team control plane | Local-first AI runtime for teams with isolated member runtimes, governed shared assets, review/publish workflows, audit trails, backup/restore, and ClawHub skill distribution |
+| **[openclaw-mini](https://github.com/voocel/openclaw-mini)** | Reference implementation | Minimal OpenClaw-style core covering session keys, serial queues, memory retrieval, context loading, skills, and heartbeat wakeups |
+| **[acpx](https://github.com/openclaw/acpx)** | ACP CLI | Headless CLI client for stateful Agent Client Protocol sessions |
+| **[ClawSweeper](https://github.com/openclaw/clawsweeper)** | Maintenance bot | OpenClaw issue and PR triage bot that suggests stale or closable items |
+| **[ClawX](https://github.com/ValueCell-ai/ClawX)** | Desktop app | Graphical desktop interface for OpenClaw agents and CLI-based orchestration |
+| **[clawport-ui](https://github.com/JohnRiceML/clawport-ui)** | Command center | Open-source command center for OpenClaw-backed coding agent teams |
+| **[Star Office UI](https://github.com/ringhyacinth/Star-Office-UI)** | Visual office | Pixel-office interface for showing OpenClaw work states, daily notes, and guest agents |
+| **[AlphaClaw](https://github.com/chrysb/alphaclaw)** | Setup harness | Setup UI and watchdog harness for deploying and keeping OpenClaw instances running |
+| **[OpenClaw Skills Explorer](https://github.com/Cluka-399/openclaw-skills-explorer)** | Skill browser | Static skill discovery interface for browsing, categorizing, and copying OpenClaw skill install commands |
+| **[OpenClaw Windows Hub](https://github.com/openclaw/openclaw-windows-node)** | Windows companion | Windows tray app, shared Gateway client library, CLI validator, and PowerToys Command Palette extension for OpenClaw |
+| **[OpenClaw Chat Gateway](https://github.com/liandu2024/OpenClaw-Chat-Gateway)** | Web client | Linux-hosted OpenClaw web client for managing agents, teams, model settings, browser checks, and chat history |
+| **[OpenClaw Node](https://github.com/heypinchy/openclaw-node)** | Gateway SDK | Node.js client for connecting applications to the OpenClaw Gateway WebSocket protocol |
+| **[OpenClaw WebChat SDK](https://github.com/raw34/openclaw-webchat)** | Web SDK | Framework-agnostic, React, and Vue chat SDK packages for building web interfaces on the OpenClaw Gateway |
+| **[Chatu WebHub](https://github.com/chatu-ai/webhub)** | Website channel | Channel plugin that connects OpenClaw to custom websites through HTTP and WebSocket interfaces |
+| **[MeshClaw](https://github.com/Seeed-Solution/MeshClaw)** | Meshtastic channel | OpenClaw channel plugin that bridges agents with Meshtastic LoRa mesh networks |
+| **[FoloToy OpenClaw Plugin](https://github.com/FoloToy/folotoy-openclaw-plugin)** | Smart toy channel | MQTT channel plugin that connects FoloToy devices to OpenClaw agents |
+| **[Umbrel](https://github.com/getumbrel/umbrel)** | Home server OS | Self-hosted home-server OS whose App Store description includes running OpenClaw alongside other local apps. |
+| **[CordysCRM](https://github.com/1Panel-dev/CordysCRM)** | CRM platform | Open-source CRM with documented OpenClaw skills support for AI sales-assistant workflows. |
+| **[Casdoor](https://github.com/casdoor/casdoor)** | IAM and gateway | Agent-first IAM, MCP gateway, and authentication server whose public metadata lists OpenClaw support. |
+| **[MateClaw](https://github.com/matevip/mateclaw)** | Team agent runtime | Spring AI Alibaba based agent runtime with multi-agent orchestration, memory, skills, and multi-channel support |
+| **[Paperclip OpenClaw Bridge](https://www.npmjs.com/package/paperclip-openclaw-bridge)** | Gateway adapter | Third-party adapter package for connecting Paperclip workflows to OpenClaw Gateway |
+| **[BeeOS Claw](https://www.npmjs.com/package/beeos-claw)** | Local platform bridge | OpenClaw plugin that bridges BeeOS with the local Gateway for file transfer, ACP bridge, and observability workflows |
+| **[openclaw-client](https://www.npmjs.com/package/openclaw-client)** | TypeScript SDK | Lightweight TypeScript client for OpenClaw Gateway WebSocket RPC |
+| **[clawg-ui](https://www.npmjs.com/package/@contextableai/clawg-ui)** | AG-UI channel | AG-UI protocol channel plugin for connecting CopilotKit and AG-UI clients to OpenClaw Gateway |
+| **[openclaw-control-mcp](https://www.npmjs.com/package/openclaw-control-mcp)** | MCP bridge | MCP server for OpenClaw Gateway management-plane operations through WebSocket JSON-RPC |
+| **[ChatBuddy OpenClaw Plugin](https://www.npmjs.com/package/@onethum/openclaw-plugin-chatbuddy)** | Mobile bridge | Package for connecting ChatBuddy iOS to an OpenClaw Gateway without VPN or port forwarding |
+| **[OpenClaw Kubernetes Operator](https://github.com/openclaw-rocks/openclaw-operator)** | Kubernetes operator | Operator for deploying and managing OpenClaw agent instances on Kubernetes with lifecycle, isolation, storage, and observability controls |
+| **[ClawHub CLI](https://www.npmjs.com/package/clawhub)** | Skill registry CLI | CLI for installing, updating, searching, and publishing skills and OpenClaw packages |
+| **[OpenClaw Plugin Inspector](https://www.npmjs.com/package/@openclaw/plugin-inspector)** | Compatibility checker | Offline compatibility checker for OpenClaw plugin packages and fixture suites |
+| **[OpenClaw Composio](https://github.com/ComposioHQ/openclaw-composio)** | Tool-auth fork | OpenClaw fork with an integrated Composio plugin for tool authentication and provider setup experiments |
+| **[OpenClaw Docker Sync](https://github.com/dr34m-cn/openclaw-docker)** | Docker image sync | GitHub Actions based sync from the official OpenClaw container image to Docker Hub |
+| **[OpenClaw Lark Multi-Agent](https://github.com/hackerphysics/openclaw-lark-multi-agent)** | Lark bridge | Multi-bot Lark/Feishu bridge that routes bot identities to OpenClaw Gateway sessions with isolated conversation state |
+| **[OpenClaw Dashboard Live Data](https://github.com/natanaelhx/openclaw-dashboard-live-data)** | Dashboard data feed | JSON data feed repository for an OpenClaw Vercel dashboard |
+| **[OpenClaw Shared Docs](https://github.com/dnd5fj5gjy-bit/openclaw-shared-docs)** | Workspace docs | Auto-published documentation from OpenClaw agent workspaces |
+| **[OpenClaw Cloud](https://github.com/openperf/openclaw-cloud)** | Cloud runtime | Cloud-native deployment surface for OpenClaw agents with a deploy-once, converse-through-channels model |
+| **[openclaw-onebot](https://github.com/LSTM-Kirigaya/openclaw-onebot)** | OneBot channel | OneBot framework for connecting OpenClaw to QQ-compatible bot surfaces |
+| **[graph-memory](https://github.com/adoresever/graph-memory)** | Memory plugin | Knowledge-graph memory engine for OpenClaw that extracts structured triples from conversations and reuses context across sessions |
+| **[ComfyUI-OpenClaw](https://github.com/rookiestar28/ComfyUI-OpenClaw)** | Media workflow | ComfyUI-oriented OpenClaw project for image and video generation workflows |
+| **[OpenUtter](https://github.com/sumansid/openutter)** | Meeting channel | Meeting assistant that lets OpenClaw join meetings and send updates |
+| **[@tencent-weixin/openclaw-weixin-cli](https://www.npmjs.com/package/@tencent-weixin/openclaw-weixin-cli)** | Weixin installer | Lightweight installer for the OpenClaw Weixin channel plugin |
+| **[@lark-apaas/openclaw-scripts-diagnose-cli](https://www.npmjs.com/package/@lark-apaas/openclaw-scripts-diagnose-cli)** | Config diagnostics | CLI for diagnosing and repairing OpenClaw config files with JSON5 support |
+| **[@rudderhq/agent-runtime-openclaw-gateway](https://www.npmjs.com/package/@rudderhq/agent-runtime-openclaw-gateway)** | Gateway adapter | Agent runtime adapter that invokes OpenClaw through the Gateway protocol |
+| **[@lark-apaas/openclaw-extension-miaoda](https://www.npmjs.com/package/@lark-apaas/openclaw-extension-miaoda)** | Miaoda plugin | Miaoda OpenClaw extension package |
+| **[@volcengine/apmplus-openclaw-plugin](https://www.npmjs.com/package/@volcengine/apmplus-openclaw-plugin)** | Observability plugin | OpenClaw plugin for reporting traces through OpenTelemetry |
+| **[superpowers-openclaw-plugin](https://www.npmjs.com/package/superpowers-openclaw-plugin)** | Workflow bridge | OpenClaw plugin that bridges to Superpowers workflow skills |
+| **[@vincentwei1021/synapse-openclaw-plugin](https://www.npmjs.com/package/@vincentwei1021/synapse-openclaw-plugin)** | Research orchestration | OpenClaw plugin for Synapse research orchestration, SSE notifications, MCP tools, and experiment lifecycle flows |
+| **[@2en/clawly-plugins](https://www.npmjs.com/package/@2en/clawly-plugins)** | Utility RPC | OpenClaw plugin package that provides Clawly utility RPC methods |
+| **[ofiere-openclaw-plugin](https://www.npmjs.com/package/ofiere-openclaw-plugin)** | Project management | OpenClaw plugin for Ofiere PM task, agent, project, scheduling, knowledge, workflow, and notification tools |
+| **[@ryzome-ai/openclaw-ryzome](https://www.npmjs.com/package/@ryzome-ai/openclaw-ryzome)** | Canvas plugin | Ryzome Canvas plugin for OpenClaw |
+| **[@memorycrystal/crystal-memory](https://www.npmjs.com/package/@memorycrystal/crystal-memory)** | Memory plugin | Memory Crystal plugin for OpenClaw memory workflows |
+| **[openclaw-dna](https://www.npmjs.com/package/openclaw-dna)** | Governance plugin | DNA governance system plugin for OpenClaw and agentic-dna workflows |
+| **[@feeble/blay-openclaw-plugin](https://www.npmjs.com/package/@feeble/blay-openclaw-plugin)** | Project collaboration | OpenClaw plugin for Blay project management tools, real-time events, and agent collaboration |
+| **[@volcengine/apmplus-openclaw-plugin-onboard-cli](https://www.npmjs.com/package/@volcengine/apmplus-openclaw-plugin-onboard-cli)** | Observability installer | Installer CLI for onboarding the APMPlus OpenClaw plugin |
+| **[OpenClaw Plugin Marketplace](https://github.com/Douglas88/openclaw-plugins)** | Plugin registry | Git-based registry project for OpenClaw community skills and MCP server scripts |
+| **[Bricks](https://github.com/askman-dev/bricks)** | Agent console | Native console with OpenClaw plugin integration docs for connecting local agents to cloud-visible control surfaces |
+| **[TH Fleet Dashboard](https://github.com/thtopher/th-fleet-dashboard)** | Fleet dashboard | GitHub Pages dashboard and workflow controls for monitoring OpenClaw gateway health across an agent fleet |
+| **[JClaw](https://github.com/tsukhani/jclaw)** | Java implementation | Java-based assistant platform that documents OpenClaw-derived feature designs and gateway concepts |
+| **[HoneyBadge](https://github.com/xiaohanarch/HoneyBadge)** | ERP knowledge graph | Enterprise ERP knowledge-graph assistant whose MVP documents OpenClaw with an MCP Neo4j plugin as part of the validation stack |
+| **[@openclaw/bluebubbles](https://www.npmjs.com/package/@openclaw/bluebubbles)** | BlueBubbles channel | OpenClaw channel plugin for connecting agents to BlueBubbles messaging surfaces |
+| **[@openclaw/whatsapp](https://www.npmjs.com/package/@openclaw/whatsapp)** | WhatsApp channel | OpenClaw WhatsApp channel plugin for Gateway deployments that use approved messaging access |
+| **[@openclaw/acpx](https://www.npmjs.com/package/@openclaw/acpx)** | ACP backend | Runtime backend package for connecting OpenClaw workflows to Agent Client Protocol sessions |
+| **[@openclaw/codex](https://www.npmjs.com/package/@openclaw/codex)** | Codex provider | OpenClaw harness and model-provider plugin package for Codex-oriented agent workflows |
+| **[@openclaw/feishu](https://www.npmjs.com/package/@openclaw/feishu)** | Feishu channel | Community-maintained Feishu and Lark channel plugin for OpenClaw |
+| **[create-openclaw-bot](https://www.npmjs.com/package/create-openclaw-bot)** | Bot installer | Interactive CLI installer for creating an OpenClaw bot project |
+| **[atel-mcp-openclaw](https://www.npmjs.com/package/atel-mcp-openclaw)** | MCP bridge | OpenClaw plugin that bridges the runtime to ATEL Remote MCP with DID-Sig authentication |
+| **[@wecom/wecom-openclaw-cli](https://www.npmjs.com/package/@wecom/wecom-openclaw-cli)** | WeCom installer | CLI package for managing the official WeCom OpenClaw plugin |
+| **[openclaw-diagnostics-metrics-cls](https://www.npmjs.com/package/openclaw-diagnostics-metrics-cls)** | Diagnostics exporter | OpenClaw diagnostics exporter with Prometheus metrics and trace reporting support |
+| **[@dingtalk-real-ai/dingtalk-connector](https://www.npmjs.com/package/@dingtalk-real-ai/dingtalk-connector)** | DingTalk channel | DingTalk channel plugin package for OpenClaw connector deployments |
+| **[openclaw-cn](https://www.npmjs.com/package/openclaw-cn)** | Chinese distribution | Chinese OpenClaw community package with a WhatsApp gateway CLI and Pi RPC agent support |
+| **[openclaw-proxy-protocol](https://www.npmjs.com/package/openclaw-proxy-protocol)** | Protocol types | Shared semantic turn transport protocol types for OpenClaw and OpenClaw Hub integrations |
+| **[@riddledc/openclaw-riddle-proof](https://www.npmjs.com/package/@riddledc/openclaw-riddle-proof)** | Change evidence | OpenClaw wrapper for Riddle Proof evidence-backed agent change workflows |
+| **[@flyinghub/openclaw-plugin](https://www.npmjs.com/package/@flyinghub/openclaw-plugin)** | FlyingHub plugin | OpenClaw plugin package for connecting agents to FlyingHub workflows |
+| **[openclaw-xiaodu](https://www.npmjs.com/package/openclaw-xiaodu)** | Xiaodu channel | OpenClaw channel plugin package for Xiaodu devices or services |
+| **[@qingchencloud/openclaw-zh](https://www.npmjs.com/package/@qingchencloud/openclaw-zh)** | Chinese distribution | OpenClaw Chinese distribution package maintained by Qingchen Cloud |
+| **[ylib-openclaw-weixin](https://www.npmjs.com/package/ylib-openclaw-weixin)** | Weixin channel | Weixin channel plugin package for OpenClaw |
+| **[@openclaw/nostr](https://www.npmjs.com/package/@openclaw/nostr)** | Nostr channel | OpenClaw Nostr channel plugin for NIP-04 encrypted direct-message workflows |
+| **[@xiaopaitek/openclaw-xiaopai](https://www.npmjs.com/package/@xiaopaitek/openclaw-xiaopai)** | Xiaopai channel | OpenClaw Xiaopaitek channel plugin with custom WebSocket support for enterprise messaging |
+| **[@lark-apaas/openclaw-dev-cli](https://www.npmjs.com/package/@lark-apaas/openclaw-dev-cli)** | Development CLI | CLI tooling for OpenClaw plugin and integration development workflows |
+| **[@openclaw/msteams](https://www.npmjs.com/package/@openclaw/msteams)** | Teams channel | Microsoft Teams channel plugin package for OpenClaw Gateway deployments |
+| **[@qqvu/openclaw-channel](https://www.npmjs.com/package/@qqvu/openclaw-channel)** | QQvu channel | OpenClaw channel plugin for the QQvu platform |
+| **[@openclaw/zalouser](https://www.npmjs.com/package/@openclaw/zalouser)** | Zalo account channel | OpenClaw Zalo personal-account plugin using native zca-js integration |
+| **[@openclaw/line](https://www.npmjs.com/package/@openclaw/line)** | LINE channel | LINE channel plugin package for OpenClaw |
+| **[@goplausible/ac2-plugin-openclaw](https://www.npmjs.com/package/@goplausible/ac2-plugin-openclaw)** | WebRTC channel | OpenClaw channel plugin that connects Gateway sessions to AC2 peers over WebRTC |
+| **[@coclaw/openclaw-coclaw](https://www.npmjs.com/package/@coclaw/openclaw-coclaw)** | CoClaw channel | OpenClaw remote-chat channel plugin with an enrollment flow for CoClaw |
+| **[openclaw-config-guardian](https://www.npmjs.com/package/openclaw-config-guardian)** | Config backup | OpenClaw Config Guardian package for configuration backup and rollback workflows |
+| **[@openclaw/googlechat](https://www.npmjs.com/package/@openclaw/googlechat)** | Google Chat channel | Google Chat channel plugin package for OpenClaw |
+| **[@lingyao037/openclaw-lingyao-cli](https://www.npmjs.com/package/@lingyao037/openclaw-lingyao-cli)** | Lingyao channel | Lingyao channel plugin CLI for bidirectional relay through the lingyao.live service |
+| **[@larksuiteoapi/feishu-openclaw-plugin](https://www.npmjs.com/package/@larksuiteoapi/feishu-openclaw-plugin)** | Official Feishu channel | Feishu and Lark channel plugin package published for OpenClaw integrations |
+| **[@mem0/openclaw-mem0](https://www.npmjs.com/package/@mem0/openclaw-mem0)** | Memory backend | Mem0 memory backend plugin for OpenClaw, with platform and self-hosted paths documented by the package |
+| **[@volcengine/openclaw-volcengine-rtc](https://www.npmjs.com/package/@volcengine/openclaw-volcengine-rtc)** | RTC channel | VolcEngine RTC channel plugin package for OpenClaw |
+| **[openclaw-agent-orchestration](https://www.npmjs.com/package/openclaw-agent-orchestration)** | Orchestration helpers | Shared agent tool-selection and orchestration strategy helpers for OpenClaw packages |
+| **[openclaw-reminders](https://www.npmjs.com/package/openclaw-reminders)** | Reminder installer | Cron-native reminder skill installer and CLI for OpenClaw |
+| **[@agent-relay/openclaw](https://www.npmjs.com/package/@agent-relay/openclaw)** | Relay bridge | Relaycast bridge for OpenClaw messaging, identity, runtime setup, and local spawning |
+| **[openclaw-hybrid-memory-install](https://www.npmjs.com/package/openclaw-hybrid-memory-install)** | Memory installer | Standalone installer for OpenClaw hybrid-memory setup when config validation needs repair |
+| **[@useclawlink/openclaw-plugin](https://www.npmjs.com/package/@useclawlink/openclaw-plugin)** | SaaS integration plugin | ClawLink plugin package for connecting OpenClaw agents to trusted SaaS integration flows |
+| **[@remnic/plugin-openclaw](https://www.npmjs.com/package/@remnic/plugin-openclaw)** | Memory adapter | OpenClaw adapter for Remnic memory with the bundled Remnic runtime |
+| **[openclaw-opincer](https://www.npmjs.com/package/openclaw-opincer)** | Opincer channel | Opincer channel plugin package for OpenClaw |
+| **[@openclaw/diagnostics-prometheus](https://www.npmjs.com/package/@openclaw/diagnostics-prometheus)** | Prometheus exporter | OpenClaw diagnostics exporter package for Prometheus metric pipelines |
+| **[ylib-openclaw-lark](https://www.npmjs.com/package/ylib-openclaw-lark)** | Lark channel | Lark and Feishu channel plugin package for OpenClaw |
+| **[@crewspaceai/adapter-openclaw-gateway](https://www.npmjs.com/package/@crewspaceai/adapter-openclaw-gateway)** | Gateway adapter | Adapter package that invokes OpenClaw through the Gateway protocol for Crewspace workflows |
+| **[@wps365/openclaw-wpsxiezuo](https://www.npmjs.com/package/@wps365/openclaw-wpsxiezuo)** | WPS channel | WPS Xiezuo plugin connecting OpenClaw agents to the WPS Open Platform enterprise robot |
+| **[@heyamiko/openclaw-amiko](https://www.npmjs.com/package/@heyamiko/openclaw-amiko)** | Amiko channel | OpenClaw channel plugin for connecting agents to the Amiko platform by webhook |
+| **[scope-openclaw](https://www.npmjs.com/package/scope-openclaw)** | Scope channel | OpenClaw channel adapter for Scope chat, task management, and agent dispatch |
+| **[@oneainexus/openclaw-connector](https://www.npmjs.com/package/@oneainexus/openclaw-connector)** | Chat connector | OpenClaw channel plugin for the oneainexus-openclaw-chat project |
+| **[@fideliosai/adapter-openclaw-gateway](https://www.npmjs.com/package/@fideliosai/adapter-openclaw-gateway)** | Gateway adapter | Adapter package that invokes OpenClaw through the Gateway protocol for Fidelios workflows |
+| **[@dbsheet/openclaw-team-plugin](https://www.npmjs.com/package/@dbsheet/openclaw-team-plugin)** | Team bridge | OpenClaw channel plugin that bridges an external agent into a multi-agent collaborative team |
+| **[@aoagents/ao-plugin-notifier-openclaw](https://www.npmjs.com/package/@aoagents/ao-plugin-notifier-openclaw)** | Notifier plugin | OpenClaw webhook notification plugin for AO Agents workflows |
+| **[@engram-mem/openclaw](https://www.npmjs.com/package/@engram-mem/openclaw)** | Memory plugin | Engram persistent cross-session memory plugin for OpenClaw agents |
+| **[@composio/openclaw-plugin](https://www.npmjs.com/package/@composio/openclaw-plugin)** | Integration router | OpenClaw Composio plugin package that routes setup through the Composio CLI |
+| **[@openclaw/matrix](https://www.npmjs.com/package/@openclaw/matrix)** | Matrix channel | Matrix channel plugin package for OpenClaw |
+| **[@hyperspell/openclaw-hyperspell](https://www.npmjs.com/package/@hyperspell/openclaw-hyperspell)** | Memory plugin | Hyperspell memory plugin package for OpenClaw |
+| **[@openclaw/slack](https://www.npmjs.com/package/@openclaw/slack)** | Slack channel | Slack channel plugin package for OpenClaw |
+| **[memorylake-openclaw](https://www.npmjs.com/package/memorylake-openclaw)** | Memory backend | MemoryLake memory backend package for OpenClaw |
+| **[@openclaw/nextcloud-talk](https://www.npmjs.com/package/@openclaw/nextcloud-talk)** | Nextcloud Talk channel | Nextcloud Talk channel plugin package for OpenClaw |
+| **[@openclaw/google-meet](https://www.npmjs.com/package/@openclaw/google-meet)** | Meeting participant | Google Meet participant plugin package for OpenClaw |
+| **[@sabha-co/openclaw-sabha](https://www.npmjs.com/package/@sabha-co/openclaw-sabha)** | Sabha channel | Sabha channel plugin package for OpenClaw integrations |
+| **[openclaw-threema](https://www.npmjs.com/package/openclaw-threema)** | Threema channel | Threema Gateway channel plugin package for OpenClaw |
+| **[@peac/adapter-openclaw](https://www.npmjs.com/package/@peac/adapter-openclaw)** | Evidence adapter | OpenClaw adapter for PEAC interaction evidence capture workflows |
+| **[ClawLens](https://github.com/nk3750/clawlens)** | Guardrails | OpenClaw observability and guardrail plugin for tool-call audit trails and risk scoring |
+| **[OpenClaw Exposure Guard](https://github.com/Dragon-Lady/openclaw-exposure-guard)** | Security checker | Read-only checker for OpenClaw server exposure, vulnerable versions, risky configs, and credential-adjacent surfaces |
+| **[OpenClaw on OpenShift](https://github.com/ryannix123/openclaw-on-openshift)** | OpenShift deployment | Container and Ansible pattern for running OpenClaw on Red Hat UBI or OpenShift environments |
+| **[Hyperlift OpenClaw Template](https://github.com/NCCloud/hyperlift-openclaw)** | Deployment template | Spaceship Hyperlift template for deploying OpenClaw Gateway with optional git-synced workspace state |
+| **[Openclaw-Android](https://github.com/ChaceLcq/Openclaw-Android)** | Android gateway fork | Experimental rooted-Android local gateway fork with app-managed startup and provider configuration |
+| **[Paperclip OpenClaw Kubernetes Operator](https://github.com/paperclipinc/openclaw-operator)** | Kubernetes operator | Operator for deploying and managing OpenClaw agent instances on Kubernetes with CRDs, lifecycle controls, and observability docs |
+| **[OpenClaw official website repo](https://github.com/openclaw/openclaw.ai)** | Website source | Astro source for the OpenClaw public website, including landing, integrations, and shoutouts pages |
+| **[Awesome OpenClaw by alvinreal](https://github.com/alvinreal/awesome-openclaw)** | Resource directory | Independent OpenClaw resource list covering official projects, skills, plugins, dashboards, deployment tooling, memory, and guides |
+| **[Awesome OpenClaw Skills 中文版](https://github.com/Rito-w/awesome-openclaw-skills-zh)** | Skills directory | Chinese translation and categorization of OpenClaw skills for local-language discovery |
+| **[VidClaw](https://github.com/madrzak/vidclaw)** | Dashboard | Self-hosted OpenClaw command center with Kanban tasks, usage tracking, model switching, and runtime monitoring views |
+| **[Terminal OpenClaw Dashboard](https://github.com/yusenthebot/openclaw-dashboard)** | Dashboard | Terminal-style control panel for OpenClaw Gateway sessions, file uploads, cost display, and agent monitoring |
+| **[OpenClaw Dashboard Plus](https://github.com/Cloud-11/openclaw-dashboard-plus)** | Browser extension | Dashboard extension focused on multilingual UI support, theme fixes, font controls, and chat navigation |
+| **[OCD OpenClaw Dashboard](https://github.com/Keeeeeeeks/opencode-dashboard)** | Kanban dashboard | Self-hosted dashboard where OpenClaw and related agents can push task status updates to a live board |
+| **[Little Hammer Monitor](https://github.com/kdnsna/openclaw-dashboard)** | Local dashboard | OpenClaw local monitoring console for sessions, usage, cost tracking, mobile PWA access, and automation diagnostics |
+| **[OpenClaw Dashboard v2](https://github.com/rockylam0706/openclaw-dashboard)** | Local dashboard | Node, React, and Vite dashboard for OpenClaw status, tasks, sessions, memory files, cron jobs, and command execution |
+| **[@openclaw/pixverse-provider](https://www.npmjs.com/package/@openclaw/pixverse-provider)** | Video provider | PixVerse video generation provider plugin for OpenClaw model and media workflows |
+| **[@kvasar/openclaw-storyblok-plugin](https://www.npmjs.com/package/@kvasar/openclaw-storyblok-plugin)** | CMS plugin | Storyblok CMS plugin for OpenClaw interactions with Management API and Delivery API surfaces |
+| **[fastgrc-openclaw](https://www.npmjs.com/package/fastgrc-openclaw)** | Policy plugin | Tool-call compliance plugin that evaluates OpenClaw actions against policy before execution |
+| **[openclaw-smartpi](https://www.npmjs.com/package/openclaw-smartpi)** | Voice control | SmartPi voice-control plugin package for OpenClaw |
+| **[@honcho-ai/openclaw-honcho](https://www.npmjs.com/package/@honcho-ai/openclaw-honcho)** | Memory plugin | Honcho memory integration package for OpenClaw agents |
+| **[@kynver-app/openclaw-agent-os](https://www.npmjs.com/package/@kynver-app/openclaw-agent-os)** | AgentOS tools | Plugin package that exposes Kynver AgentOS tools to OpenClaw |
+| **[forge-openclaw-plugin](https://www.npmjs.com/package/forge-openclaw-plugin)** | Collaboration adapter | Forge collaboration API adapter with an OpenClaw UI entrypoint and localhost runtime setup |
+| **[openclaw-diag-cli](https://www.npmjs.com/package/openclaw-diag-cli)** | Diagnostic CLI | Observer-only diagnostic CLI for OpenClaw runtime checks through an npx-friendly package |
+| **[openclaw-channel-bgos](https://www.npmjs.com/package/openclaw-channel-bgos)** | BGOS channel | Channel plugin for connecting OpenClaw agents to BGOS chat workflows |
+| **[@signetai/signet-memory-openclaw](https://www.npmjs.com/package/@signetai/signet-memory-openclaw)** | Memory adapter | Signet runtime memory adapter package for OpenClaw agents |
+| **[@looki-ai/openclaw-looki-cli](https://www.npmjs.com/package/@looki-ai/openclaw-looki-cli)** | Looki installer | Lightweight installer for the OpenClaw Looki channel plugin |
+| **[@memorilabs/openclaw-memori](https://www.npmjs.com/package/@memorilabs/openclaw-memori)** | Memory plugin | MemoriLabs long-term memory plugin package for OpenClaw |
+| **[@memtensor/memos-cloud-openclaw-plugin](https://www.npmjs.com/package/@memtensor/memos-cloud-openclaw-plugin)** | Cloud memory | MemOS Cloud lifecycle memory plugin for OpenClaw add and recall flows |
+| **[@vectorize-io/hindsight-openclaw](https://www.npmjs.com/package/@vectorize-io/hindsight-openclaw)** | Memory plugin | Hindsight memory plugin for OpenClaw fact extraction and long-term recall workflows |
+| **[openclaw-channel-voice-sip](https://www.npmjs.com/package/openclaw-channel-voice-sip)** | SIP voice channel | SIP telephony channel plugin for OpenClaw with STT, agent, and TTS call handling |
+| **[@opik/opik-openclaw](https://www.npmjs.com/package/@opik/opik-openclaw)** | Trace exporter | Opik exporter package for sending OpenClaw LLM traces to Opik |
+| **[@martian-engineering/lossless-claw](https://www.npmjs.com/package/@martian-engineering/lossless-claw)** | Context management | Lossless context-management plugin for OpenClaw conversation compaction workflows |
+| **[openclaw-channel-agentclub](https://www.npmjs.com/package/openclaw-channel-agentclub)** | Agent Club channel | Channel plugin connecting OpenClaw agents to an Agent Club IM server |
+| **[@openclaw/diffs-language-pack](https://www.npmjs.com/package/@openclaw/diffs-language-pack)** | Diff viewer extension | Syntax-highlighting language pack for the OpenClaw diffs viewer |
+| **[@teith/openclaw-runware-provider](https://www.npmjs.com/package/@teith/openclaw-runware-provider)** | Model provider | Runware provider plugin for routing OpenClaw model calls through an OpenAI-compatible interface |
+| **[@partme.ai/openclaw-nacos](https://www.npmjs.com/package/@partme.ai/openclaw-nacos)** | Config center plugin | Nacos Config Center plugin for OpenClaw Gateway and hooks naming workflows |
+| **[@agent-vm/openclaw-mcp-portal-plugin](https://www.npmjs.com/package/@agent-vm/openclaw-mcp-portal-plugin)** | MCP portal plugin | Plugin package that registers OpenClaw tools over configured upstream MCP servers |
+| **[@atbash/openclaw](https://www.npmjs.com/package/@atbash/openclaw)** | Tool-audit plugin | ATBASH tool-audit adapter that maps OpenClaw before-tool-call hooks to policy checks |
+| **[@kaiporalabs/openclaw-memory-zvec](https://www.npmjs.com/package/@kaiporalabs/openclaw-memory-zvec)** | Vector memory | Long-term memory plugin for OpenClaw backed by Alibaba Zvec dense-vector search |
+| **[@memmachine/openclaw-memmachine](https://www.npmjs.com/package/@memmachine/openclaw-memmachine)** | Memory plugin | MemMachine memory plugin package for OpenClaw |
+| **[openclaw-hy-memory](https://www.npmjs.com/package/openclaw-hy-memory)** | Memory backend | HY Memory backend for OpenClaw with extraction, memory evolution, and layered recall flows |
+| **[@meego-harness/openclaw-integration](https://www.npmjs.com/package/@meego-harness/openclaw-integration)** | Harness integration | Native OpenClaw plugin package for Meego Harness integrations |
+| **[@coremail/lunkr-openclaw](https://www.npmjs.com/package/@coremail/lunkr-openclaw)** | Coremail channel | Lunkr and Coremail channel plugin package for OpenClaw setup flows |
+| **[@memtensor/memos-local-openclaw-plugin](https://www.npmjs.com/package/@memtensor/memos-local-openclaw-plugin)** | Local memory | MemOS Local memory plugin for OpenClaw full-write, hybrid-recall, and progressive retrieval flows |
+| **[openclaw-swarm-layer](https://www.npmjs.com/package/openclaw-swarm-layer)** | Workflow orchestration | Spec-driven workflow orchestrator package for OpenClaw |
+| **[snipara-openclaw-install](https://www.npmjs.com/package/snipara-openclaw-install)** | MCP onboarding | Snipara onboarding wrapper for Hosted MCP and OpenClaw hooks setup |
+| **[@paleo/openclaw-discord-mock](https://www.npmjs.com/package/@paleo/openclaw-discord-mock)** | Test fixture channel | Synthetic Discord-shaped channel plugin for OpenClaw automated test scenarios |
+| **[@twsxtd/hapi-openclaw](https://www.npmjs.com/package/@twsxtd/hapi-openclaw)** | Gateway bridge | HAPI bridge plugin that maps native tools to the OpenClaw Gateway route surface |
+
+### Install a Skill
+
+```bash
+openclaw skill install <skill-name>
+```
+
+> Always audit skills before installation. ~15% contain malicious instructions. Use VirusTotal-scanned ClawHub skills only.
+
+---
+
+## Browser Automation
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Extension Relay** | Control existing Chrome tabs with logged-in sessions | Personal browsing |
+| **OpenClaw-managed** | Isolated automation in dedicated browser | Web scraping, testing |
+| **Remote CDP** | Distributed cloud deployments | Scale at cloud level |
+
+Capabilities: CDP, ARIA snapshots, screenshots, tab management, click/type/drag, PDF export, video recording.
+
+- [Browser Docs](https://docs.openclaw.ai/tools/browser)
+- [Browser Automation Guide](https://help.apiyi.com/en/openclaw-browser-automation-guide-en.html)
+
+---
+
+## Real-World Use Cases
+
+### Productivity
+- **Morning brief**: Weather, calendar, headlines before checking your phone
+- **Inbox management**: Process thousands of emails autonomously, unsubscribe from spam
+- **Grocery list**: Auto-add items from household texts to shared documents
+
+### Development
+- Review PRs from your phone, run tests remotely, merge code
+- Multi-instance Claude Code supervised by OpenClaw via Telegram + Tailscale
+- Run coding agents while sleeping
+- Coordinate multiple OpenClaw personas or worker agents from a single messaging channel.
+- Connect Codex App Server style coding workflows to Telegram or Discord through OpenClaw.
+
+### Smart Home
+- Control Philips Hue, Elgato, Home Assistant via messaging
+- Adjust heating based on weather forecasts
+- Security camera monitoring with alerts
+
+### Financial
+- Calculate position sizes, manage stop-loss rules
+- Trade alert logging and automation
+- Integrate with on-chain token deployment and liquidity provisioning on Base (e.g., [PumpClaw](https://pumpclaw.com) via Uniswap V4)
+
+### Creative
+- Voice notes to clean journal entries
+- Turn voice chat, phone, and mobile companion apps into OpenClaw command surfaces.
+- Platform-specific content: X threads, LinkedIn posts, blog articles
+- Weekly meal planning in Notion (saves 1 hour/week)
+- **AI-Powered Daily Digest & Content Pipeline** - Production OpenClaw setup with 20+ cron jobs for automated news aggregation, multi-model content creation, social monitoring, and n8n webhook integration. Hosted on Oracle Cloud Free Tier. By Dr. Gaurav Caprihan.
+
+### Family
+- Monitor school WhatsApp groups, filter noise
+- Run face recognition on photos, send daily digest to parents
+
+- [25 OpenClaw Use Cases - Hostinger](https://www.hostinger.com/tutorials/openclaw-use-cases)
+- [20 Genius Use Cases](https://ucstrategies.com/news/20-genius-openclaw-use-cases-people-are-using-right-now/)
+- [33 Automations in 30 Minutes](https://medium.com/@rentierdigital/33-openclaw-automations-you-can-set-up-in-30-minutes-that-start-making-you-money-tonight-f8c3b8a402f1)
+- [awesome-openclaw-usecases](https://github.com/hesamsheikh/awesome-openclaw-usecases) - Community use-case collection for day-to-day OpenClaw workflows.
+- [awesome-openclaw-usecases-zh](https://github.com/AlexAnys/awesome-openclaw-usecases-zh) - Chinese OpenClaw use-case catalog organized around office automation, content, operations, assistants, and knowledge-management scenarios.
+- [awesome-openclaw-usecases-moltbook](https://github.com/EvoLinkAI/awesome-openclaw-usecases-moltbook) - OpenClaw automation example collection sourced from Moltbook-style workflows. Verify examples and provider claims before adopting.
+
+---
+
+## Current OpenClaw Operating Patterns
+
+These sections summarize where current OpenClaw usage has moved beyond early setup and hosting guides. Keep these as a bridge between the original comprehensive README format and the newer gateway/plugin ecosystem.
+
+### Personal assistant and messaging gateway
+
+OpenClaw is commonly used as a personal assistant reachable from existing channels: Telegram, WhatsApp, Discord, Slack, Signal, iMessage, Matrix, Teams, Zalo, WebChat, Lark/Feishu, DingTalk, WeCom, WeChat, and other channel plugins. The useful pattern is not just chat integration, it is durable access to files, shell, tools, memory, approvals, and long-running workflows from the messaging surface people already use.
+
+### Automation and scheduling
+
+OpenClaw use cases increasingly combine cron jobs, webhook triggers, Gmail Pub/Sub style event delivery, heartbeat/background tasks, and manual chat approvals. Good examples include daily briefs, source monitoring, repo checks, support triage, calendar/task reviews, and notification-driven automation.
+
+### Memory and knowledge systems
+
+Current projects around OpenClaw include active memory, Memory Wiki style systems, QMD memory, long-term memory plugins, skill collections, personas, and context databases. Directory entries in this area should explain what is stored, where it is stored, and what approval or deletion controls exist.
+
+### Web, network, and remote access
+
+Current OpenClaw setups often include WebChat, Control UI pairing, Tailscale or trusted-proxy access, local browser automation, remote workers, and private dashboards. Public entries should avoid implying a hosted service is safe by default unless the source documents auth, network boundaries, and secrets handling.
+
+### Observability, model ops, and safety
+
+Current OpenClaw operations include OpenTelemetry, Prometheus, dashboards, model-provider switching, fallback routing, auth rotation, sandbox/tool policy, and elevated-mode safeguards. Add monitoring/security tools only when there is a concrete public repo or docs page and the description is neutral.
+
+### Maintenance pattern for this repository
+
+- Prefer official OpenClaw docs, upstream source, public GitHub repos, package pages, and concrete guides.
+- Treat search and social discovery as leads, not evidence.
+- Preserve contributor PR credit first, then normalize or reorganize after merge.
+- Keep old launch history and cost notes clearly historical when they are not current.
+- Avoid unsupported star, pricing, uptime, benchmark, growth, or adoption claims.
+- Add community resources at the end of the most relevant existing section instead of creating promotional top-level sections.
+- Parallel discovery found active public work around channels, observability, memory, mobile/voice, hosting, and multi-agent coordination; add only entries with public repos, packages, or docs.
+- Run `python3 scripts/validate_static.py` before opening or merging PRs.
+
+## Tutorials & Guides
+
+### Getting Started
+
+- [Official Getting Started](https://docs.openclaw.ai/start/getting-started)
+- [Codecademy Tutorial (20 min)](https://www.codecademy.com/article/open-claw-tutorial-installation-to-first-chat-setup)
+- [freeCodeCamp Full Tutorial](https://www.freecodecamp.org/news/openclaw-full-tutorial-for-beginners/)
+- [Master OpenClaw in 30 Minutes](https://creatoreconomy.so/p/master-openclaw-in-30-minutes-full-tutorial)
+- [How to Actually Tame It](https://medium.com/activated-thinker/stop-watching-openclaw-install-tutorials-this-is-how-you-actually-tame-it-f3416f5d80bc)
+- [Beginner's Guide (5 min)](https://help.apiyi.com/en/openclaw-beginner-guide-en.html)
+- [40 Tips & Tricks](https://mlearning.substack.com/p/40-tips-and-tricks-from-first-install-to-production-nanoclaw-nano-claw-openclaw-open-2026-2-1-self-learning-skill-that-actually-work-vps-docker-security-ai-agent-swarm-readme-md-memory-architecture-cron-hearbeat-sessions-slack-telegram-whatsapp)
+- [DataCamp - Control Your PC from WhatsApp](https://www.datacamp.com/tutorial/moltbot-clawdbot-tutorial)
+- [DEV - Ultimate Guide for Developers 2026](https://dev.to/mechcloud_academy/unleashing-openclaw-the-ultimate-guide-to-local-ai-agents-for-developers-in-2026-3k0h)
+- [Macaron - Clean Setup + Verification](https://macaron.im/blog/install-openclaw)
+- [BitLaunch - Install on macOS, Linux, Windows](https://bitlaunch.io/blog/install-configure-openclaw/)
+- [StackViv - Complete 2026 Guide](https://stackviv.ai/blog/how-to-set-up-openclaw-guide)
+- [Habr - Don't Launch Before Reading This](https://habr.com/en/articles/992720/)
+- [AI/ML API - Secure Local Docker Setup](https://aimlapi.com/blog/running-openclaw-in-docker-secure-local-setup-and-practical-workflow-guide)
+- [OpenClaw/ClawdBot Masterclass](https://blog.dailydoseofds.com/p/openclawclawdbot-masterclass) - In-depth written guide by Akshay Pachaar covering installation, Telegram, skills, cron jobs, scaling
+- [NxCode - Complete Guide 2026](https://www.nxcode.io/resources/news/openclaw-complete-guide-2026) - Clawdbot to Moltbot to OpenClaw story, breaking changes, what's next
+- [AI Product Playbook - Get Clawdbot Set Up in an Afternoon](https://amankhan1.substack.com/p/how-to-get-clawdbotmoltbotopenclaw) - Practical companion to official docs
+- [Complete Guide by Aakash](https://www.news.aakashg.com/p/openclaw-fka-moltbot-fka-clawdbot) - VPS setup, wizard walkthrough, messaging config
+- [Jitendra Zaa - Complete Guide](https://www.jitendrazaa.com/blog/ai/clawdbot-complete-guide-open-source-ai-assistant-2026/) - 147K+ stars overview, WhatsApp, API costs, skills
+- [AI/ML API - Practical Guide for Developers](https://aimlapi.com/blog/openclaw-a-practical-guide-to-local-ai-agents-for-developers) - Shift from chatbots to autonomous agents
+- [Pi: The Minimal Agent Within OpenClaw](https://lucumr.pocoo.org/2026/1/31/pi/) - Armin Ronacher's deep dive into Pi agent architecture
+- [OpenClaw 101](https://github.com/mengjian-github/openclaw101) - Chinese OpenClaw resource site with a seven-day learning path, resource index, and setup guidance.
+- [OpenClaw Chinese Docs](https://github.com/yeuxuan/openclaw-docs) - Chinese documentation site covering installation, source walkthroughs, Gateway configuration, and multi-channel setup.
+- [OpenClaw Runbook](https://github.com/digitalknk/openclaw-runbook) - Practical operations runbook for running OpenClaw with cost control, memory boundaries, coordinator/worker roles, and guardrails.
+- [OpenClaw Personal Agent Starter Free](https://github.com/rbezumoff/openclaw-personal-agent-starter-free) - Free starter path for building a private Telegram assistant with OpenClaw, including a Telegram setup checklist and starter AGENTS.md/SOUL.md workspace files.
+- [OpenClaw Course](https://github.com/kiankyars/openclawcourse) - One-hour crash course with a public lesson index for learning OpenClaw basics.
+- [Build Your Own OpenClaw](https://github.com/czl9707/build-your-own-openclaw) - Step-by-step tutorial with runnable code that builds a lightweight OpenClaw-style agent across chat, tools, skills, channels, cron, multi-agent routing, and memory.
+- [Awesome OpenClaw Tutorial](https://github.com/xianyu110/awesome-openclaw-tutorial) - Chinese OpenClaw tutorial repository with installation, configuration, current-version notes, and scenario walkthroughs.
+- [AI Coding Guide Zh](https://github.com/KimYx0207/AI-Coding-Guide-Zh) - Chinese tutorial collection that covers OpenClaw alongside Claude Code and Codex learning paths.
+- [hello-claw](https://github.com/datawhalechina/hello-claw) - Chinese OpenClaw learning path covering setup, skills, channels, source walkthroughs, and multi-agent patterns.
+
+### Reviews
+
+- [AImaker - Is OpenClaw Worth the Hype? 10 Days](https://aimaker.substack.com/p/openclaw-review-setup-guide)
+- [AI/ML API - Real-World Use on $5 VPS](https://aimlapi.com/blog/openclaw-review-real-world-use-setup-on-a-5-vps-and-what-actually-works)
+- [DEV - I Tried the 'Free' AI Agent - $500 Reality Check](https://dev.to/thegdsks/i-tried-the-free-ai-agent-with-124k-github-stars-heres-my-500-reality-check-2885)
+
+### Cloud Provider Guides
+
+- [DigitalOcean](https://www.digitalocean.com/community/tutorials/how-to-run-openclaw) | [AWS](https://dev.to/brayanarrieta/how-to-set-up-openclaw-ai-on-aws-3a0j) | [AWS Bedrock (Official Sample)](https://github.com/aws-samples/sample-OpenClaw-on-AWS-with-Bedrock) | [Pulumi + Tailscale](https://www.pulumi.com/blog/deploy-openclaw-aws-hetzner/)
+- [GCP](https://rizwantheanalyst.com/2026/02/04/openclaw-on-google/) | [Azure](https://techcommunity.microsoft.com/blog/azuredevcommunityblog/complete-guide-to-deploying-openclaw-on-azure-windows-11-virtual-machine/4492001) | [Oracle Free Tier](https://ryanshook.org/blog/posts/openclaw-on-oracle-free-tier-always-on-ai-for-free/)
+- [Hostinger](https://www.hostinger.com/tutorials/how-to-set-up-openclaw) | [Alibaba Cloud](https://www.alibabacloud.com/en/campaign/ai-openclaw)
+- [Vultr](https://docs.vultr.com/how-to-deploy-openclaw-autonomous-ai-agent-platform) | [Milvus/Slack](https://milvus.io/blog/stepbystep-guide-to-setting-up-openclaw-previously-clawdbotmoltbot-with-slack.md)
+
+### Serverless & Docker
+
+- [Cloudflare Moltworker](https://blog.cloudflare.com/moltworker-self-hosted-ai-agent/) | [Docker - Simon Willison](https://til.simonwillison.net/llms/openclaw-docker)
+- [Coolify OpenClaw](https://github.com/essamamdani/openclaw-coolify) - Coolify deployment template for OpenClaw.
+- [coollabsio/openclaw](https://github.com/coollabsio/openclaw) - Automated Docker image for OpenClaw.
+- [phioranex/openclaw-docker](https://github.com/phioranex/openclaw-docker) - Pre-built Docker image and install scripts for OpenClaw.
+- [serverless-openclaw](https://github.com/serithemage/serverless-openclaw) - AWS serverless deployment for OpenClaw with Web UI and Telegram interfaces.
+- [openclaw-in-docker](https://github.com/ozbillwang/openclaw-in-docker) - Beginner-oriented Docker guide for running OpenClaw in a safer container setup.
+- [clawbox](https://github.com/joshavant/clawbox) - OpenClaw-ready macOS virtual machine tooling.
+
+### Local Hardware
+
+- [Raspberry Pi - ajfisher](https://ajfisher.me/2026/02/03/openclaw-raspberrypi-howto/) | [Adafruit](https://learn.adafruit.com/openclaw-on-raspberry-pi)
+- [ESP32-S3 MimiClaw](https://github.com/memovai/mimiclaw) - OpenClaw core on a $5 chip, pure C, no Linux/Node.js
+- [PicoClaw](https://github.com/sipeed/picoclaw) - Ultra-lightweight Go agent, 10 MB RAM, $10 RISC-V board, single binary | [CNX Software](https://www.cnx-software.com/2026/02/10/picoclaw-ultra-lightweight-personal-ai-assistant-run-on-just-10mb-of-ram/)
+- [Ollama Guide](https://codersera.com/blog/openclaw-ollama-setup-guide-2026/) | [LM Studio](https://codersera.com/blog/openclaw-lm-studio-setup-guide-2026/)
+- [vLLM on AMD Free](https://www.amd.com/en/developer/resources/technical-articles/2026/openclaw-with-vllm-running-for-free-on-amd-developer-cloud-.html)
+- [pizero-openclaw](https://github.com/sebastianvkl/pizero-openclaw) - Raspberry Pi Zero voice assistant that streams transcribed speech through an OpenClaw gateway and renders responses on a PiSugar WhisPlay LCD.
+- [luci-app-openclaw](https://github.com/10000ge10000/luci-app-openclaw) - OpenWrt LuCI management plugin for installing, configuring, and controlling OpenClaw on router hardware.
+- [bailing](https://github.com/wwbin2017/bailing) - Chinese voice-assistant project that uses OpenClaw as a tool orchestration layer for higher-level agent tasks.
+
+### Integration Guides
+
+- [Slack Integration](https://lumadock.com/tutorials/openclaw-slack-integration) | [Notion Integration](https://www.openclawexperts.io/guides/integrations/how-to-connect-openclaw-to-notion)
+- [GitHub PR Automation](https://zenvanriel.nl/ai-engineer-blog/openclaw-github-pr-review-automation-guide/)
+- [Tailscale VPN Setup](https://dev.to/nunc/self-hosting-openclaw-ai-assistant-on-a-vps-with-tailscale-vpn-zero-public-ports-35fn)
+- [Custom Skill Creation](https://zenvanriel.nl/ai-engineer-blog/openclaw-custom-skill-creation-guide/)
+- [OpenRouter Integration](https://openrouter.ai/docs/guides/guides/openclaw-integration) | [DeepSeek via OpenRouter](https://medium.com/@oo.kaymolly/connect-deepseek-to-openclaw-via-openrouter-7eb19ef61a84)
+- [Kimi K2.5 + OpenClaw Guide](https://medium.com/coding-nexus/how-to-connect-kimi-k2-5-to-openclaw-clawdbot-bf7ed5a31743) | [Kimi K2.5 Free Setup](https://apidog.com/blog/how-to-use-kimi-k2-5-for-free-with-openclaw/) | [Moonshot Official Docs](https://platform.moonshot.ai/docs/guide/use-kimi-in-openclaw)
+- [Kimi K2.5 on Baseten](https://www.baseten.co/blog/openclaw-kimi-k2-5-on-baseten-frontier-agent-performance-with-oss/) | [Kimi on Fireworks AI](https://fireworks.ai/blog/openclaw-using-kimi2p5-on-fireworks-ai)
+- [50+ Official Extensions Guide](https://help.apiyi.com/en/openclaw-extensions-ecosystem-guide-en.html)
+- [OpenClaw Feishu Guide](https://github.com/AlexAnys/openclaw-feishu) - Chinese setup guide for Feishu and Lark channel integration.
+- [OpenClaw Guide](https://github.com/liyupi/openclaw-guide) - Chinese documentation site covering setup, messaging channels, agent architecture, skills, model providers, CLI commands, gateway operations, and sandbox guidance.
+
+### Security Guides
+
+- [Secure on Cloudflare](https://medium.com/@williamogou/deploy-openclaw-securely-on-cloudflare) | [Proflead Guide](https://proflead.com/blog/openclaw-install-secure/)
+- [Security & Cost Control](https://www.moltbook-ai.com/blog/openclaw-guide-2026) | [Composio Controls](https://composio.dev/blog/secure-openclaw-moltbot-clawdbot-setup)
+- [7 Security Best Practices](https://xcloud.host/openclaw-security-best-practices)
+- [OpenClaw Security Practice Guide](https://github.com/slowmist/openclaw-security-practice-guide) - Agent-facing security practice guide for OpenClaw deployments.
+- [openclaw-guardian](https://github.com/LeoYeAI/openclaw-guardian) - Watchdog and operations hardening scripts for OpenClaw Gateway with checks, rollback, snapshots, and alerts.
+- [OpenClaw Exposure Guard](https://github.com/Dragon-Lady/openclaw-exposure-guard) - Read-only local checker for OpenClaw exposure, version, and risky configuration review.
+- [byebyeclaw](https://github.com/wanikua/byebyeclaw) - Uninstall and cleanup scripts for Claw-family agents, with dry-run and keep-config modes documented before destructive cleanup.
+
+### X/Twitter Community Guides
+
+- [@ihtesham2005 - Setup Guide That Should Have Existed](https://x.com/ihtesham2005/status/2019791183296471368)
+- [@VittoStack - Security-First Setup on Raspberry Pi via Tailscale](https://x.com/VittoStack/status/2018326274440073499)
+- [@JordanLyall - The Security-First Guide I Wish Existed](https://x.com/JordanLyall/status/2019595380963627236)
+- [@harshil1712 - How I Setup OpenClaw on Raspberry Pi](https://x.com/harshil1712/status/2018770026975609139)
+- [@BillDA - My Safe, Sandboxed Setup for OpenClaw](https://x.com/BillDA/status/2017650241101598872)
+
+### Deep Dives
+
+- [Architecture: OpenClaw vs Claude Code](https://claude-world.com/articles/openclaw-vs-claude-code/)
+- [Memory Architecture Explained](https://medium.com/@shivam.agarwal.in/agentic-ai-openclaw-moltbot-clawdbots-memory-architecture-explained-61c3b9697488)
+- [How Memory System Works](https://snowan.gitbook.io/study-notes/ai-blogs/openclaw-memory-system-deep-dive)
+- [centminmod/explain-openclaw](https://github.com/centminmod/explain-openclaw) - Multi-AI security analysis (73 files)
+- [Cron Jobs Automation Guide](https://zenvanriel.nl/ai-engineer-blog/openclaw-cron-jobs-proactive-ai-guide/)
+- [Beyond Babel: Bridging AI's Communication Gap with MCP, A2A, and ACP](https://medium.com/@gaurav.caprihan/beyond-babel-bridging-ais-communication-gap-with-mcp-a2a-and-acp-35e348bb4233) - Deep analysis of AI agent interoperability protocols with practical MCP server integration using Melbourne open data. By Dr. Gaurav Caprihan.
+- [OpenClaw use cases zh](https://github.com/AlexAnys/awesome-openclaw-usecases-zh) - Chinese use-case catalog for office automation, content workflows, operations, personal assistants, and knowledge management.
+- [Claude Code x OpenClaw Guide Zh](https://github.com/KimYx0207/Claude-Code-x-OpenClaw-Guide-Zh) - Chinese guide series for pairing Claude Code workflows with OpenClaw.
+- [OpenClaw Chinese Docs](https://github.com/yeuxuan/openclaw-docs) - Chinese documentation site covering source analysis, setup, WhatsApp, Telegram, Discord, Feishu, and multi-channel usage.
+- [Moltbook OpenClaw use cases](https://github.com/EvoLinkAI/awesome-openclaw-usecases-moltbook) - Community collection of OpenClaw automation examples gathered from Moltbook posts.
+
+---
+
+## Video Tutorials
+
+| Title | Platform | Duration | Topics |
+|-------|----------|----------|--------|
+| **Master OpenClaw in 30 Minutes** | Creator Economy (YouTube) | 30 min | Safe setup, 5 real use cases, memory |
+| **How OpenClaw's Creator Uses AI** | Creator Economy | 1 hour | Full demo with Peter Steinberger |
+| **OpenClaw Google Workspace Setup** | YouTube | Medium | Gmail, Calendar, Drive integration |
+| **Udemy - OpenClaw on Azure Linux VM** | [Udemy](https://www.udemy.com/course/openclaw/) | Medium | Azure deployment |
+| **Udemy - OpenClaw Complete (Japanese)** | [Udemy](https://www.udemy.com/course/openclaw-clawdbot/) | Long | LINE + Docker, comprehensive |
+| **OpenClaw Full Tutorial for Beginners** | [freeCodeCamp (YouTube)](https://www.youtube.com/watch?v=n1sfrc-RjyM) | Long | Installation, models, memory, Docker, skills |
+| **The Wild Rise of OpenClaw** | [Fireship (YouTube)](https://www.youtube.com/watch?v=ssYt09bCgUY) | Short | History, architecture, why it matters |
+| **ClawdBot Is the Most Powerful AI Tool** | [Alex Finn (YouTube)](https://www.youtube.com/watch?v=Qkqe-uRhQJE) | Medium | ClawdBot deep dive, real-world demos |
+| **How to Setup OpenClaw in 5 Minutes** | [Julian Goldie (YouTube)](https://www.youtube.com/watch?v=1luvvYcpSJ8) | 5 min | Quick start, beginner-friendly |
+| **Clawdbot: Complete Beginner Guide!** | [YouTube](https://www.youtube.com/watch?v=VQiGJRBkkSQ) | Medium | Install, connect to messaging platforms |
+| **Full OpenClaw Setup Tutorial** | [YouTube](https://www.youtube.com/watch?v=fcZMmP5dsl4) | Medium | Step-by-step walkthrough, Hostinger VPS |
+| **The ONLY OpenClaw Guide You Need** | [YouTube](https://www.youtube.com/watch?v=pjiuQnEVges) | Long | VPS setup, security, best workflows |
+| **OpenClaw Course 2026: Beginner to Advanced** | [YouTube](https://www.youtube.com/watch?v=-dThk2fNObk) | Long | Comprehensive beginner-to-advanced course |
+| **How to Use & Set up OpenClaw (Docker)** | [YouTube](https://www.youtube.com/watch?v=Zo7Putdga_4) | Medium | Docker on VPS deployment |
+| **OpenClaw Tutorial For Beginners (2026)** | [YouTube](https://www.youtube.com/watch?v=Gc4fyY0_8Rc) | Medium | Step-by-step from scratch |
+| **This Open-Source AI Agent Is INSANE** | [YouTube](https://m.youtube.com/watch?v=KqTs7QvknDo) | Medium | Review, Live Canvas, A2UI demo |
+| **ClawCon SF: Live Interviews** | [YouTube](https://www.youtube.com/watch?v=jMnLqGU-Ds4) | Long | Builder interviews, demos from ClawCon |
+| **OpenClaw, Moltbook and the Rise of Personal AI** | [YouTube](https://www.youtube.com/watch?v=LqT4n7XQHDo) | Medium | AI social network, personal agents |
+| **ClawCon 2026 Raw Footage** | [YouTube](https://www.youtube.com/watch?v=gT98KNkoLGM) | Long | Community event, builder demos |
+
+---
+
+## Courses & Learning Platforms
+
+| Platform | URL | Cost | Description |
+|----------|-----|------|-------------|
+| **OpenClaw Academy** | [openclaw.academy](https://openclaw.academy/) | **Free** | All courses free, no signup, interactive quizzes |
+| **OpenClaw Academy Viewer** | [learn.openclaw.academy](https://learn.openclaw.academy/) | **Free** | Interactive course viewer |
+| **freeCodeCamp** | [YouTube](https://www.freecodecamp.org/news/openclaw-full-tutorial-for-beginners/) | **Free** | Comprehensive 1-hour course |
+| **Codecademy** | [Tutorial](https://www.codecademy.com/article/open-claw-tutorial-installation-to-first-chat-setup) | **Free** | 20-minute install guide |
+| **GitHub Course** | [kiankyars/openclawcourse](https://github.com/kiankyars/openclawcourse) | **Free** | 1-hour crash course |
+| **Udemy** | [Azure VM Course](https://www.udemy.com/course/openclaw/) | Paid | Azure Linux VM deployment |
+| **Gripsy Learn** | [OpenClaw Mastery](https://gripsy.com.au/learn/openclaw/) | Free/Paid | 11-module course: setup, skills, multi-model, security, automation. Quizzes & certificates. |
+
+---
+
+## Events & Hackathons
+
+| Event | Date | Location | Details |
+|-------|------|----------|---------|
+| **[ClawCon: 1st OpenClaw SF Show & Tell](https://trymimetic.com/events/sf/clawcon-1st-openclaw-sf-show-tell-open-registration-feb-2026)** | Feb 5, 2026 | San Francisco | Builder demos, live interviews |
+| **[OpenClaw Unhackathon](https://sf.aitinkerers.org/p/openclaw-unhackathon)** | Feb 7, 2026 | San Francisco (AI Tinkerers) | Build & compete, 2-6 PM |
+| **[OpenClaw Micro Hackathon](https://www.eventbrite.co.uk/e/openclaw-micro-hackathon-tickets-1982409167184)** | Feb 7, 2026 | Hong Kong (Dim Sum Labs) | Community hackathon |
+| **[OpenClaw/Moltbook Hackathon at MIT](https://x.com/SantanuB01/status/2018608892591395079)** | Feb 3, 2026 | MIT, Cambridge | Serious coders, agent building |
+| **[Circle/USDC Hackathon on Moltbook](https://www.circle.com/blog/openclaw-usdc-hackathon-on-moltbook)** | 2026 | Online (Moltbook) | USDC, onchain payments, cross-chain flows |
+
+---
+
+## Community
+
+| Platform | URL | Members | Best For |
+|----------|-----|---------|----------|
+| **Discord** | [OpenClaw Discord](https://docs.openclaw.ai/channels/discord) | 8,000+ | Quick questions, troubleshooting |
+| **Discourse (CoClaw)** | [coclaw.com](https://coclaw.com/) | 15,000+ | Long-form discussion, bug reports |
+| **X/Twitter Community** | [OpenClaw Community](https://x.com/i/communities/2013441068562325602) | 12,200+ | News, updates, demos |
+| **GitHub Issues** | [openclaw/openclaw/issues](https://github.com/openclaw/openclaw/issues) | N/A | Bug reports, feature requests |
+| **GitHub Discussions** | [openclaw/openclaw/discussions](https://github.com/openclaw/openclaw/discussions) | N/A | Q&A, show-and-tell |
+| **Hacker News** | [Search](https://hn.algolia.com/?q=openclaw) | N/A | Technical discussion |
+
+---
+
+## Media Coverage
+
+### Mainstream
+
+- [CNBC - From Clawdbot to Moltbot to OpenClaw](https://www.cnbc.com/2026/02/02/openclaw-open-source-ai-agent-rise-controversy-clawdbot-moltbot-moltbook.html)
+- [TechCrunch - AI assistants building their own social network](https://techcrunch.com/2026/01/30/openclaws-ai-assistants-are-now-building-their-own-social-network/)
+- [Fortune - 'Most interesting place on the internet'](https://fortune.com/2026/01/31/ai-agent-moltbot-clawdbot-openclaw-data-privacy-security-nightmare-moltbook-social-network/)
+- [VentureBeat - What the OpenClaw moment means for enterprises](https://venturebeat.com/technology/what-the-openclaw-moment-means-for-enterprises-5-big-takeaways)
+- [Forbes - OpenClaw, Moltbook & The Birth of a Machine Society](https://www.forbes.com/sites/jonmarkman/2026/02/06/openclaw-moltbook--the-birth-of-a-machine-society/)
+- [Bloomberg - AI Sensation, Security a Work in Progress](https://www.bloomberg.com/news/articles/2026-02-04/openclaw-s-an-ai-sensation-but-its-security-a-work-in-progress)
+- [Axios - Moltbook highlights how far behind AI security is](https://www.axios.com/2026/02/03/moltbook-openclaw-security-threats)
+- [BBC Science Focus - Calls, bills and life admin taken care of](https://www.sciencefocus.com/future-technology/openclaw-first-agentic-ai)
+- [PCMag - Hot New AI Agent, But Is It Safe?](https://www.pcmag.com/news/openclaw-is-the-hot-new-ai-agent-but-is-it-safe-to-use)
+- [CNET - New AI Assistant Acts Like Your Digital Servant](https://www.cnet.com/tech/services-and-software/from-clawdbot-to-moltbot-to-openclaw/)
+- [Tom's Guide - Viral AI assistant that lives on your device](https://www.tomsguide.com/ai/openclaw-is-the-viral-ai-assistant-that-lives-on-your-device-what-you-need-to-know)
+- [Business Insider - Security Researchers Worried](https://www.businessinsider.com/openclaw-moltbook-cybersecurity-risks-researchers-ai-2026-2)
+- [MacStories - What the Future of Personal AI Assistants Looks Like](https://www.macstories.net/stories/clawdbot-showed-me-what-the-future-of-personal-ai-assistants-looks-like/)
+- [Nature - OpenClaw AI chatbots are running amok](https://www.nature.com/articles/d41586-026-00439-0)
+- [The Register - Clouds rush to deliver OpenClaw](https://www.theregister.com/2026/02/04/cloud_hosted_openclaw/)
+
+### Security
+
+- [The Register - Security issues](https://www.theregister.com/2026/02/02/openclaw_security_issues/) | [Skills marketplace leak](https://www.theregister.com/2026/02/05/openclaw_skills_marketplace_leaky_security/)
+- [Hacker News - One-Click RCE](https://thehackernews.com/2026/02/openclaw-bug-enables-one-click-remote.html) | [VirusTotal scanning](https://thehackernews.com/2026/02/openclaw-integrates-virustotal-scanning.html)
+- [Cisco - Security Nightmare](https://blogs.cisco.com/ai/personal-ai-agents-like-openclaw-are-a-security-nightmare)
+- [Bitdefender - Malicious Skills](https://www.bitdefender.com/en-us/blog/labs/helpful-skills-or-hidden-payloads-bitdefender-labs-dives-deep-into-the-openclaw-malicious-skill-trap)
+- [Snyk - 280+ Leaky Skills](https://snyk.io/blog/openclaw-skills-credential-leaks-research/)
+- [CrowdStrike - What Security Teams Need to Know](https://www.crowdstrike.com/en-us/resources/crowdcasts/what-security-teams-need-to-know-about-openclaw/)
+- [VentureBeat - OpenClaw proves agentic AI works, security model doesn't](https://venturebeat.com/security/openclaw-agentic-ai-security-risk-ciso-guide)
+- [Censys - 135,000+ AI Instances Exposed](https://censys.com/blog/openclaw-in-the-wild-mapping-the-public-exposure-of-a-viral-ai-assistant)
+- [runZero - CVE-2026-25253 RCE Vulnerability](https://www.runzero.com/blog/openclaw/)
+- [SiliconANGLE - Tens of thousands of systems exposed](https://siliconangle.com/2026/02/09/tens-thousands-openclaw-systems-exposed-due-misconfiguration-known-exploits/)
+- [Cyera - How AI Adoption Outpaced Security Boundaries](https://www.cyera.com/research-labs/the-openclaw-security-saga-how-ai-adoption-outpaced-security-boundaries)
+- [Astrix - First AI Agent Security Nightmare](https://astrix.security/learn/blog/openclaw-moltbot-the-rise-chaos-and-security-nightmare-of-the-first-real-ai-agent/)
+- [VirusTotal Blog - Detecting Malicious OpenClaw Skills](https://blog.virustotal.com/2026/02/)
+- [Bitdefender - Enterprise Network Technical Advisory](https://businessinsights.bitdefender.com/technical-advisory-openclaw-exploitation-enterprise-networks)
+- [Bitsight - Risks of Exposed AI Agents](https://www.bitsight.com/blog/openclaw-ai-security-risks-exposed-instances)
+
+### Global & Enterprise
+
+- [Rest of World - Moltbot Finds Fans in China and Silicon Valley](https://restofworld.org/2026/moltbot-china-ai-agent/)
+- [Trending Topics EU - Weekend Project Became Open-Source Sensation](https://www.trendingtopics.eu/openclaw-2-million-visitors-in-a-week/)
+- [SlashGear - The Hottest New AI Agent Is Here](https://www.slashgear.com/2095067/openclaw-ai-agent-popularity-security-concerns/)
+- [Wikipedia - OpenClaw](https://en.wikipedia.org/wiki/OpenClaw)
+- [Wikipedia - Moltbook](https://en.wikipedia.org/wiki/Moltbook)
+- [The Conversation - Why DIY AI Agent Feels New But Isn't](https://theconversation.com/openclaw-and-moltbook-why-a-diy-ai-agent-and-social-media-for-bots-feel-so-new-but-really-arent-274744)
+- [Citrix - OpenClaw and Moltbook preview corporate AI governance changes](https://www.citrix.com/blogs/2026/02/04/openclaw-and-moltbook-preview-the-changes-needed-with-corporate-ai-governance/)
+
+### Opinion
+
+- [XDA - Please stop using OpenClaw](https://www.xda-developers.com/please-stop-using-openclaw/)
+- [Pragmatic Engineer - "I ship code I don't read"](https://newsletter.pragmaticengineer.com/p/the-creator-of-clawd-i-ship-code)
+- [Scientific American - AI Agent That Runs Your Computer](https://www.scientificamerican.com/article/moltbot-is-an-open-source-ai-agent-that-runs-your-computer/)
+
+### Naming History
+
+- [Forkable - Clawdbot, Moltbot, OpenClaw... oh my!](https://www.forkable.io/p/clawdbot-moltbot-openclaw-oh-my)
+- [HN - OpenClaw Renamed Again](https://news.ycombinator.com/item?id=46820783)
+- [DEV - From Moltbot to OpenClaw](https://dev.to/sivarampg/from-moltbot-to-openclaw-when-the-dust-settles-the-project-survived-5h6o)
+
+---
+
+## Common Issues & Troubleshooting
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Crash during onboarding | < 2 GB RAM | Upgrade to 4 GB+ RAM |
+| API key not working | Incorrect format or expired | Re-enter via `openclaw auth set` |
+| Telegram not connecting | Using Cloudflare Workers | Switch to VPS (needs persistent connection) |
+| Slow inference (3.5s/token) | CPU-only with large model | Use smaller model or add GPU |
+| Port conflict on 18789 | Another service using port | `openclaw gateway --port 18790` |
+| Docker sandbox issues | Permissions or config | Run `openclaw doctor` |
+| Skills not loading | Corrupt installation | Reinstall skill |
+| Messages lost between channels | Known bug | Update to latest version |
+| High token consumption | ~35,600 tokens per message overhead | Reduce workspace files |
+| Rate limiting (#5159) | Aggressive retry loops | Update (exponential backoff fix) |
+
+### Diagnostic Commands
+
+```bash
+openclaw doctor                    # Common issues
+openclaw security audit --deep     # Deep security scan
+openclaw security audit --fix      # Auto-fix safe issues
+node --version                     # Must be 22+
+```
+
+---
+
+## Cost Calculator & Optimization
+
+- [OpenClaw Cost Calculator](https://calculator.vlvt.sh/)
+- [OpenClaw Setup Cost Calculator](https://calculator.guardclaw.dev/) - Estimates setup costs across model usage, heartbeat behavior, fallback behavior, and multi-agent setups.
+- [API Usage and Costs Docs](https://docs.openclaw.ai/reference/api-usage-costs)
+- [eesel.ai Pricing Guide](https://www.eesel.ai/blog/openclaw-ai-pricing)
+- [Deploy Cost Guide: $0-8/month](https://yu-wenhao.com/en/blog/2026-02-01-openclaw-deploy-cost-guide/)
+- [Cost Governor](https://github.com/AtlasPA/openclaw-cost-governor) - First OpenClaw skill with x402 agent payments. Track LLM costs in real-time, enforce budget limits with circuit breakers, enable AI agents to autonomously pay for Pro features (0.5 USDT/month).
+- [llm-prices](https://github.com/benbencodes/llm-prices) - CLI, Python library, and MCP server for comparing LLM API costs across published provider price tables. No API key is required because pricing data ships with the package.
+
+### Monthly Budget Targets
+
+| Budget | Strategy |
+|--------|----------|
+| **$0** | Oracle Cloud + Gemini free tier + Ollama |
+| **$6** | Agent37 ($1) + Claude Haiku ($5) |
+| **$19** | Hetzner ($4) + mixed models ($15) |
+| **$50** | DigitalOcean ($12) + Claude Sonnet ($38) |
+| **$100** | Managed hosting ($24) + heavy API ($76) |
+
+---
+
+## Key Contributors
+
+| Contributor | Role | GitHub |
+|-------------|------|--------|
+| **Peter Steinberger** | Creator | [@steipete](https://github.com/steipete) |
+| **Mario Zechner** | Pi creator, security pen-tester | [@badlogicc](https://github.com/badlogicc) |
+| **Maxim Vovshin** | Blogwatcher skill | [@Hyaxia](https://github.com/Hyaxia) |
+| **Nacho Iacovino** | Location parsing | [@nachoiacovino](https://github.com/nachoiacovino) |
+| **600+ contributors** | Community | [All contributors](https://github.com/openclaw/openclaw/graphs/contributors) |
+
+---
+
+## Related Repositories
+
+| Repository | Description |
+|------------|-------------|
+| [openclaw/openclaw](https://github.com/openclaw/openclaw) | Main repository (195K+ stars) |
+| [openclaw/clawhub](https://github.com/openclaw/clawhub) | Official skill directory |
+| [openclaw/lobster](https://github.com/openclaw/lobster) | Typed workflow runtime |
+| [cloudflare/moltworker](https://github.com/cloudflare/moltworker) | Cloudflare Workers adaptation |
+| [VoltAgent/awesome-openclaw-skills](https://github.com/VoltAgent/awesome-openclaw-skills) | 3,009 curated skills |
+| [centminmod/explain-openclaw](https://github.com/centminmod/explain-openclaw) | Deep security analysis (73 files) |
+| [lunarpulse/openclaw-mcp-plugin](https://github.com/lunarpulse/openclaw-mcp-plugin) | MCP server integration |
+| [essamamdani/openclaw-coolify](https://github.com/essamamdani/openclaw-coolify) | Coolify PaaS template |
+| [phioranex/openclaw-docker](https://github.com/phioranex/openclaw-docker) | Docker deployment configs |
+| [gavrielc/nanoclaw](https://github.com/gavrielc/nanoclaw) | Security-first alternative |
+| [BlockRunAI/ClawRouter](https://github.com/BlockRunAI/ClawRouter) | Smart LLM router (save 78% on costs) |
+| [langbot-app/LangBot](https://github.com/langbot-app/LangBot) | Multi-platform IM bot with OpenClaw |
+| [kiankyars/openclawcourse](https://github.com/kiankyars/openclawcourse) | 1-hour crash course |
+| [memovai/mimiclaw](https://github.com/memovai/mimiclaw) | Implements OpenClaw's core principles (ReAct agent loop, persistent memory, tool use, Telegram) in pure C on a $5 ESP32-S3 - no Linux, no Node.js, no server required |
+| [nearai/ironclaw](https://github.com/nearai/ironclaw) | OpenClaw-inspired implementation in Rust focused on privacy and security, by NEAR AI |
+| [SawyerHood/gitclaw](https://github.com/SawyerHood/gitclaw) | OpenClaw on GitHub Actions - every issue becomes an AI chat thread, no servers needed |
+| [BankrBot/openclaw-skills](https://github.com/BankrBot/openclaw-skills) | DeFi/crypto skill library - Polymarket, token trading, NFTs, on-chain messaging |
+| [clawd800/pumpclaw](https://github.com/clawd800/pumpclaw) | Token launcher for AI agents on Base - Uniswap V4 pools, on-chain registry, CLI and Farcaster deploy bot |
+| [SamurAIGPT/awesome-openclaw](https://github.com/SamurAIGPT/awesome-openclaw) | Community-curated list of OpenClaw resources, tools, and tutorials |
+| [swarmclawai/swarmclaw](https://github.com/swarmclawai/swarmclaw) | Self-hosted AI agent orchestration dashboard with multi-provider support, task scheduling, and per-agent OpenClaw gateway bridging |
+| [nearai/private-ml-sdk](https://github.com/nearai/private-ml-sdk) | Run LLMs and agents on TEEs (NVIDIA GPU TEE, Intel TDX) for private inference |
+| [eltociear/awesome-molt-ecosystem](https://github.com/eltociear/awesome-molt-ecosystem) | Curated list of Molt ecosystem services - Moltbook, MoltCities, Molthunt, MoltMatch |
+| [kelkalot/moltbook-observatory](https://github.com/kelkalot/moltbook-observatory) | Data collection from Moltbook - tracking agents, posts, and trends over time |
+| [grp06/openclaw-studio](https://github.com/grp06/moltbot-agent-ui) | Visual agent management UI with cron jobs, tool extraction, mentions |
+| [prompt-security/clawsec](https://github.com/prompt-security/clawsec) | Complete security skill suite for OpenClaw family (Moltbot, Clawdbot, clones) |
+| [aws-samples/sample-OpenClaw-on-AWS-with-Bedrock](https://github.com/aws-samples/sample-OpenClaw-on-AWS-with-Bedrock) | AWS-native deployment using Amazon Bedrock - no multi-API key management |
+| [constansino/openclaw_qq](https://github.com/constansino/openclaw_qq) | QQ messaging channel support via OneBot v11 (WebSocket), canonical repo renamed from `constansino/moltbot_qq` |
+| [sipeed/picoclaw](https://github.com/sipeed/picoclaw) | Ultra-lightweight AI assistant in Go - 10 MB RAM, $10 RISC-V board, 1s boot, single binary (5K stars) |
+| [HKUDS/nanobot](https://github.com/HKUDS/nanobot) | Ultra-lightweight OpenClaw alternative in Python - 4K lines, 45 MB RAM, 0.8s cold start, MCP-native (15K+ stars) |
+| [brunobar79/expo-openclaw-chat](https://github.com/brunobar79/expo-openclaw-chat) | Expo / React Native chat SDK for building native iOS/Android OpenClaw clients |
+| [archestra-ai/archestra](https://github.com/archestra-ai/archestra) | OpenClaw for Enterprise - agentic security, MCP registry & orchestrator, A2A (3.5K stars) |
+| [abhi1693/openclaw-mission-control](https://github.com/abhi1693/openclaw-mission-control) | Mission control with RBAC, Kanban board, War Room, transcripts, Telegram outputs |
+| [turmyshevd/openclawgotchi](https://github.com/turmyshevd/openclawgotchi) | AI Tamagotchi on Raspberry Pi - agentic life-form with an E-Ink face |
+| [DarlingtonDeveloper/OpenGlass](https://github.com/DarlingtonDeveloper/OpenGlass) | Real-time AI-powered smart glasses - Meta Ray-Bans + Gemini Live + OpenClaw |
+| [deeqyaqub1-cmd/zero-rules-openclaw](https://github.com/deeqyaqub1-cmd/zero-rules-openclaw) | Deterministic engine for OpenClaw - skips LLM for math/time/files, saves 50-70% on tokens |
+| [RyanLisse/engram](https://github.com/RyanLisse/engram) | Unified multi-agent memory for OpenClaw - local-first, Convex-synced, agent-native |
+| [asafelobotomy/ClosedClaw](https://github.com/asafelobotomy/ClosedClaw) | OpenClaw fork with GTK GUI, Ollama integration, and enhanced lite mode |
+| [MarlBurroW/pinchchat](https://github.com/MarlBurroW/pinchchat) | Sleek, dark-themed webchat UI for OpenClaw agents |
+| [jazzyalex/agent-sessions](https://github.com/jazzyalex/agent-sessions) | Session browser + analytics + limits tracker for Codex CLI, Claude Code, OpenCode, Gemini CLI (245 stars) |
+| [openclaw/barnacle](https://github.com/openclaw/barnacle) | Official OpenClaw companion bot - persistent utility bot |
+| [openclaw/trust](https://github.com/openclaw/trust) | Official open threat model with community-contributed risk assessments and mitigations |
+| [freema/openclaw-mcp](https://github.com/freema/openclaw-mcp) | MCP server bridging Claude.ai to self-hosted OpenClaw with OAuth 2.1 authentication |
+| [beam-cloud/airstore](https://github.com/beam-cloud/airstore) | The filesystem for AI agents - persistent agent storage layer (89 stars) |
+| [sseanliu/VisionClaw](https://github.com/sseanliu/VisionClaw) | Real-time AI assistant for Meta Ray-Ban smart glasses - voice + vision + agentic actions, iOS/Swift (796 stars) |
+| [MarlBurroW/pinchchat](https://github.com/MarlBurroW/pinchchat) | Open-source webchat UI for OpenClaw - ChatGPT-like interface, live tool calls, multi-session, token tracking, streaming, PWA, 8 languages, theming |
+| [qwibitai/nanoclaw](https://github.com/qwibitai/nanoclaw) | Original NanoClaw - 500 lines TypeScript, Apple containers for security, WhatsApp, Anthropic Agent SDK (7K+ stars) |
+| [SeyZ/clawbands](https://github.com/SeyZ/clawbands) | Security middleware - intercepts tool execution, human-in-the-loop approval for dangerous actions |
+| [newtro/ClawGuard](https://github.com/newtro/ClawGuard) | Permission manifests, runtime enforcement, sandboxing, and audit logging for OpenClaw skills |
+| [backslash-security/Claw-Hunter](https://github.com/backslash-security/Claw-Hunter) | MDM-ready detection and monitoring of shadow OpenClaw agents on managed endpoints |
+| [tech4242/aquaman](https://github.com/tech4242/aquaman) | Credential isolation proxy - API keys never enter the agent process, injected via UDS from Keychain/1Password/Vault |
+| [BotMesh/debot](https://github.com/BotMesh/debot) | Rust+Python lightweight alternative - auto conversation compaction, intelligent LLM router |
+| [lekt9/unbrowse-openclaw](https://github.com/lekt9/unbrowse-openclaw) | Self-learning API skill generator - auto-discovers APIs from browser traffic, 100x faster |
+| [lekt9/openclaw-foundry](https://github.com/lekt9/openclaw-foundry) | Self-writing meta-extension - learns how you work, writes new capabilities into itself (97 stars) |
+| [supermemoryai/openclaw-supermemory](https://github.com/supermemoryai/openclaw-supermemory) | Official Supermemory integration - perfect memory and recall for OpenClaw agents |
+| [clawdeckio/clawdeck](https://github.com/clawdeckio/clawdeck) | Open-source mission control dashboard - Kanban, agent monitoring, REST API |
+| [Ramsbaby/openclaw-self-healing](https://github.com/Ramsbaby/openclaw-self-healing) | 4-tier autonomous self-healing system - Claude Code as "emergency doctor" for Gateway |
+| [willbullen/openclaw-docker](https://github.com/willbullen/openclaw-docker) | Security-hardened Docker Compose - non-root, dropped caps, read-only rootfs, MCP isolation |
+| [coollabsio/openclaw](https://github.com/coollabsio/openclaw) | Auto-built Docker images by CoolLabs - multi-arch, nginx + basic auth, 6-hour rebuild cycle |
+| [hesamsheikh/awesome-openclaw-usecases](https://github.com/hesamsheikh/awesome-openclaw-usecases) | Real-life OpenClaw use cases - Reddit digests, X analysis, YouTube summaries, multi-agent coordination |
+| [theonlyhennygod/zeroclaw](https://github.com/theonlyhennygod/zeroclaw) | ZeroClaw - pure Rust, 3.4 MB binary, <10ms startup, 22+ providers, swappable trait-based architecture |
+| [jlia0/tinyclaw](https://github.com/jlia0/tinyclaw) | TinyClaw - OpenClaw in ~400 lines of shell script, Claude Code + tmux, self-healing, WhatsApp (1.3K stars) |
+| [crystal-autobot/autobot](https://github.com/crystal-autobot/autobot) | Autobot - Ultra-efficient personal AI assistant in Crystal, 2 MB binary, ~5 MB RAM, <10ms startup, kernel-enforced sandboxing |
+| [htlin222/mini-claw](https://github.com/htlin222/mini-claw) | Mini-Claw - minimalist OpenClaw alternative using Claude Pro/Max or ChatGPT Plus directly in Telegram |
+| [Theseuschain/proof-of-lobster](https://github.com/Theseuschain/proof-of-lobster) | Proof of Lobster - verify Moltbook profiles as AI/human, launch on-chain sovereign agents with wallets |
+| [WecomTeam/wecom-openclaw-plugin](https://github.com/WecomTeam/wecom-openclaw-plugin) | Tencent WeCom channel plugin for OpenClaw |
+| [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) | Official Lark/Feishu channel plugin for OpenClaw |
+| [openimsdk/openclaw-channel](https://github.com/openimsdk/openclaw-channel) | OpenIM channel plugin for OpenClaw gateway |
+| [soimy/openclaw-channel-dingtalk](https://github.com/soimy/openclaw-channel-dingtalk) | DingTalk channel plugin for OpenClaw |
+| [comet-ml/opik-openclaw](https://github.com/comet-ml/opik-openclaw) | Exports OpenClaw agent traces to Opik |
+| [apify/apify-openclaw-plugin](https://github.com/apify/apify-openclaw-plugin) | OpenClaw integration for Apify actors and web automation workflows |
+| [MemTensor/MemOS-Cloud-OpenClaw-Plugin](https://github.com/MemTensor/MemOS-Cloud-OpenClaw-Plugin) | MemOS Cloud long-term memory plugin for OpenClaw |
+| [malpern/VoxClaw](https://github.com/malpern/VoxClaw) | Voice output for OpenClaw agents on a local Mac network |
+| [Purple-Horizons/openclaw-voice](https://github.com/Purple-Horizons/openclaw-voice) | Browser-based voice chat for AI assistants and OpenClaw-style agents |
+| [yuga-hashimoto/openclaw-assistant](https://github.com/yuga-hashimoto/openclaw-assistant) | Android voice assistant app for OpenClaw |
+| [androidmalware/OpenClaw_Termux](https://github.com/androidmalware/OpenClaw_Termux) | Android Termux setup for OpenClaw with WhatsApp control |
+| [craihub/clawgpt-app](https://github.com/craihub/clawgpt-app) | Android companion app for OpenClaw |
+| [nearai/openclaw-nearai-worker](https://github.com/nearai/openclaw-nearai-worker) | Worker for hosting OpenClaw in NEAR AI Cloud |
+| [andreesg/openclaw-terraform-hetzner](https://github.com/andreesg/openclaw-terraform-hetzner) | Terraform modules for deploying OpenClaw on Hetzner Cloud |
+| [hitsub2/openclaw-on-eks](https://github.com/hitsub2/openclaw-on-eks) | OpenClaw deployment example for Amazon EKS |
+| [tugcantopaloglu/openclaw-dashboard](https://github.com/tugcantopaloglu/openclaw-dashboard) | Secure monitoring dashboard for OpenClaw agents |
+| [pwrdrvr/openclaw-codex-app-server](https://github.com/pwrdrvr/openclaw-codex-app-server) | OpenClaw plugin for Codex App Server workflows over Telegram and Discord |
+| [snarktank/antfarm](https://github.com/snarktank/antfarm) | Command-line workflow for building OpenClaw agent teams |
+| [win4r/ClawTeam-OpenClaw](https://github.com/win4r/ClawTeam-OpenClaw) | Multi-agent swarm coordination adapted for OpenClaw |
+| [Gen-Verse/OpenClaw-RL](https://github.com/Gen-Verse/OpenClaw-RL) | Research project for training agents through conversational feedback |
+| [raulvidis/openclaw-multi-agent-kit](https://github.com/raulvidis/openclaw-multi-agent-kit) | Templates for multi-agent OpenClaw teams and Telegram supergroup workflows |
+
+---
+
+## Kubernetes & Helm Charts
+
+| Chart | Source | Features |
+|-------|--------|----------|
+| **serhanekicii/openclaw-helm** | [GitHub](https://github.com/serhanekicii/openclaw-helm) | Built on bjw-s app-template |
+| **waTeim/openclaw-helm** | [GitHub](https://github.com/waTeim/openclaw-helm) | Multi-channel support |
+| **khal3d/openclaw** | [GitHub](https://github.com/khal3d/openclaw) | Docker & HELM deployment |
+| **openclaw-on-openshift** | [GitHub](https://github.com/ryannix123/openclaw-on-openshift) | OpenShift-oriented image and Ansible deployment path |
+
+- [Running OpenClaw on Kubernetes - Metoro Blog](https://metoro.io/blog/openclaw-kubernetes)
+- [openclaw-on-eks](https://github.com/hitsub2/openclaw-on-eks) - Example deployment pattern for OpenClaw on Amazon EKS.
+
+- [Hyperlift OpenClaw Template](https://github.com/NCCloud/hyperlift-openclaw) - Deployable OpenClaw Gateway container template with optional git-synced agent workspace.
+
+---
+
+## PicoClaw (RISC-V / Ultra-Lightweight)
+
+[PicoClaw](https://github.com/sipeed/picoclaw) is an ultra-lightweight AI assistant written in Go that runs on less than **10 MB RAM**. Boots in **1 second** on a **$10 RISC-V board** (Sipeed LicheeRV Nano with SOPHGO SG2002). Single binary - no Docker, no Node.js, no Python required.
+
+| Spec | Detail |
+|------|--------|
+| **Language** | Go |
+| **RAM** | < 10 MB |
+| **Hardware** | Sipeed LicheeRV Nano ($10), also ARM64 and x86-64 |
+| **Boot Time** | ~1 second |
+| **Stars** | 5,000+ (gained 5K in 4 days) |
+| **Messaging** | Telegram, Discord, QQ, DingTalk |
+| **AI Providers** | Gemini, Anthropic, OpenRouter, local LLMs |
+| **Features** | Persistent memory, scheduled tasks, web search, multi-provider routing |
+
+> Sipeed claims PicoClaw matches OpenClaw's core features with 1% of the code and 1% of the memory. 95% of the codebase was AI-generated.
+
+- [GitHub - sipeed/picoclaw](https://github.com/sipeed/picoclaw)
+- [CNX Software - PicoClaw runs on just 10MB of RAM](https://www.cnx-software.com/2026/02/10/picoclaw-ultra-lightweight-personal-ai-assistant-run-on-just-10mb-of-ram/)
+
+---
+
+## Enterprise Considerations
+
+> *"It is not enterprise software. There is no promise of quality, no vendor support, no SLA… it ships without authentication enforced by default."* - **Gartner**
+
+### Risk Assessments
+
+- [Vectra - When Automation Becomes a Digital Backdoor](https://www.vectra.ai/blog/clawdbot-to-moltbot-to-openclaw-when-automation-becomes-a-digital-backdoor)
+- [Palo Alto Networks](https://www.paloaltonetworks.com/) - OpenClaw presents a "lethal trifecta": access to private data + exposure to untrusted content + ability to communicate externally while retaining memory
+- [Cyera - How AI Adoption Outpaced Security Boundaries](https://www.cyera.com/research-labs/the-openclaw-security-saga-how-ai-adoption-outpaced-security-boundaries)
+
+### Enterprise Alternatives
+
+For organizations needing compliance, SLAs, and vendor support, consider:
+- **Kilo Claw** - SSO, audit logs, pay-as-you-go
+- **ClawCloud Business** - $129/mo, dedicated resources
+- **OpenClaw Hosting Business** - Team/Business tiers
+- Self-hosted with **NanoClaw** (security-first fork) in isolated containers
+
+---
+
+## China & Global Adoption
+
+OpenClaw has seen explosive adoption in China with support from major tech companies.
+
+| Company | Integration | Details |
+|---------|------------|---------|
+| **Alibaba Cloud** | [Simple Application Server](https://www.alibabacloud.com/en/campaign/ai-openclaw) | 19 regions, from $4/mo |
+| **Tencent Cloud** | Lighthouse Service | One-click install |
+| **ByteDance** | Volcano Engine | Cloud hosting support |
+
+### v2026.2.2 - China Support
+
+- Native **Feishu** (飞书) and **Lark** support - first official Chinese chat client integration
+- [EvolutionAI Hub - OpenClaw v2026.2.2](https://evolutionaihub.com/openclaw-2026-2-2-ai-agent-framework-onchain/)
+
+### Coverage
+
+- [Rest of World - Moltbot Finds Fans in China and Silicon Valley](https://restofworld.org/2026/moltbot-china-ai-agent/)
+- [China's Tech Giants Opening Doors to OpenClaw](https://dnyuz.com/2026/02/05/chinas-tech-giants-are-opening-their-doors-to-openclaw-the-chinese-internet-is-lapping-it-up/)
+
+---
+
+## Latest Releases
+
+| Version | Date | Key Changes |
+|---------|------|-------------|
+| **v2026.2.12** | Feb 12, 2026 | 40+ security vulnerabilities patched, SSRF protection, prompt injection prevention, directory traversal fixes, enhanced sandbox isolation |
+| **v2026.2.9** | Feb 9, 2026 | iOS alpha node app, device pairing/phone control plugins, Grok (xAI) web search, agent management RPC |
+| **v2026.2.6** | Feb 7, 2026 | Anthropic Opus 4.6 support, Voyage AI native memory support, built-in safety scanner for skills |
+| **v2026.2.3** | Feb 5, 2026 | Performance improvements, bug fixes |
+| **v2026.2.2** | Feb 2026 | Feishu/Lark support, onchain integrations |
+| **v2026.2.1** | Feb 2026 | Security hardening, streaming stability, path traversal fixes |
+| **v2026.1.30** | Jan 30, 2026 | CVE-2026-25593 & CVE-2026-25475 patches |
+| **v2026.1.29** | Jan 29, 2026 | CVE-2026-24763, CVE-2026-25253 patches, VirusTotal scanning |
+| **v2026.1.24-1** | Jan 24, 2026 | DigitalOcean 1-Click base version |
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=openclaw/openclaw,facebook/react,vercel/next.js,torvalds/linux,kubernetes/kubernetes&type=Date)](https://star-history.com/#openclaw/openclaw&facebook/react&vercel/next.js&torvalds/linux&kubernetes/kubernetes&Date)
+
+### Growth Comparison
+
+| Project | Stars | Age | Time to 100K Stars | Stars/Day (avg) |
+|---------|-------|-----|---------------------|-----------------|
+| **OpenClaw** | **195K** | **~4 months** | **~2 days** | **~1,625** |
+| React | 242K | 12 years | ~8 years | ~55 |
+| Linux | 216K | 15 years | ~12 years | ~39 |
+| Next.js | 137K | 9 years | ~8 years | ~41 |
+| Kubernetes | 120K | 11 years | ~10 years | ~29 |
+| Vue | 52K | 7 years | - | ~20 |
+
+> OpenClaw reached 100K stars in ~2 days (Jan 29-30, 2026) - a feat that took React ~8 years, Linux ~12 years, and Kubernetes ~10 years. Peak growth hit **710 stars/hour** on Jan 30, 2026. It is the fastest GitHub repo to reach 100K stars in history.
+
+---
+
+## Website
+
+This repo powers **[openclawsearch.com](https://openclawsearch.com)** - the website automatically renders this README, so any change here updates the site.
+
+- [Ecosystem Directory](https://openclawsearch.com/directory.html) - 80+ curated projects built with OpenClaw
+
+## Contributing
+
+Contributions welcome! Please read the [contribution guidelines](CONTRIBUTING.md) first.
+
+- Add a resource via pull request to `README.md` (auto-updates the website)
+- Add a project to the [Ecosystem Directory](https://openclawsearch.com/directory.html) via pull request to `directory.html`
+- Report broken links via issues
+- Suggest new sections or improvements
+
+---
+
+## License
+
+[![CC0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
+
+This list is released under CC0 1.0 Universal (Public Domain).

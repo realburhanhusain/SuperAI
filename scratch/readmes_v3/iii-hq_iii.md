@@ -1,0 +1,224 @@
+# iii
+
+![iii: point-to-point integrations vs zero-integration via shared runtime](.github/assets/zero-integration.png)
+
+<p align="center">
+<a href="https://trendshift.io/repositories/22583?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-22583" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/22583" alt="iii-hq%2Fiii | Trendshift" width="250" height="55"/></a>
+</p>
+
+
+<!-- Release -->
+<p align="center">
+  <a href="https://hub.docker.com/r/iiidev/iii"><img src="https://img.shields.io/docker/v/iiidev/iii?label=docker" alt="Docker"></a>
+  <a href="https://www.npmjs.com/package/iii-sdk"><img src="https://img.shields.io/npm/v/iii-sdk?label=npm" alt="npm"></a>
+  <a href="https://pypi.org/project/iii-sdk/"><img src="https://img.shields.io/pypi/v/iii-sdk?label=pypi" alt="PyPI"></a>
+  <a href="https://crates.io/crates/iii-sdk"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcrates.io%2Fapi%2Fv1%2Fcrates%2Fiii-sdk&query=%24.crate.max_stable_version&label=crates.io&prefix=v&color=orange" alt="Crates.io"></a>
+  <a href="https://discord.gg/iiidev"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+</p>
+
+<!-- Downloads -->
+<p align="center">
+  <a href="https://workers.iii.dev/"><img src="https://workers.iii.dev/badge/downloads.svg" alt="Worker downloads"></a>
+  <a href="https://workers.iii.dev/"><img src="https://workers.iii.dev/badge/weekly.svg" alt="Weekly worker downloads"></a>
+  <a href="https://hub.docker.com/r/iiidev/iii"><img src="https://img.shields.io/docker/pulls/iiidev/iii?label=docker%20pulls&color=2496ed" alt="Docker pulls"></a>
+  <a href="https://www.npmjs.com/package/iii-sdk"><img src="https://img.shields.io/npm/dt/iii-sdk?label=npm%20downloads&color=cb3837" alt="npm downloads"></a>
+  <a href="https://pepy.tech/projects/iii-sdk"><img src="https://static.pepy.tech/personalized-badge/iii-sdk?period=total&units=international_system&left_color=grey&right_color=blue&left_text=pypi%20downloads" alt="PyPI downloads"></a>
+  <a href="https://crates.io/crates/iii-sdk"><img src="https://img.shields.io/crates/d/iii-sdk?label=crates.io%20downloads&color=e6a04c" alt="Crates.io downloads"></a>
+</p>
+
+<!-- Index -->
+<p align="center">
+  <a href="#what-is-iii">What is iii?</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#add-workers">Add Workers</a> ·
+  <a href="#sdks">SDKs</a> ·
+  <a href="#agent-skills">Agent Skills</a> ·
+  <a href="#console">Console</a> ·
+  <a href="#resources">Resources</a>
+</p>
+
+## What is iii?
+
+iii is the easiest way to compose, extend, and observe every service in your stack in real time.
+
+Every backend starts as a project before the first line of business logic. Queues, cron, HTTP,
+state, observability, agents, and sandboxes each usually bring their own integration story. iii
+collapses that into one live system surface.
+
+```bash
+iii worker add queue
+iii worker add agent
+iii worker add sandbox
+iii worker add <anything>
+```
+
+Each worker joins the live catalog. Every other worker is notified and can call it immediately.
+Browse available workers at [workers.iii.dev](https://workers.iii.dev/).
+
+That is the agent story too: when a task needs a capability the system does not have, an agent can
+add a worker, discover its functions, call them, and trace what happened. Same interface a developer
+uses.
+
+### Three Primitives
+
+Worker _ Function _ Trigger is the entire mental model.
+
+**Workers** are processes that register with the iii engine and then register triggers and
+functions. A TypeScript API service is a worker. A Python data pipeline is a worker. A Rust
+microservice is a worker. Any functionality can be transformed into a worker with a few lines of
+code. Workers can also create other workers at runtime, so agents and applications can extend the
+system while it is running.
+
+**Triggers** are anything that causes a function to run. A trigger can be a direct call to a
+function, an HTTP endpoint, a cron schedule, a queue subscription, a state change, a stream event,
+or anything else. Triggers are declarative: the Worker defines "this function runs when this thing
+happens," and iii handles routing, serialization, and delivery.
+
+**Functions** are units of work with a stable identifier (e.g., `content::classify`,
+`orders::validate`). It receives input, does work, and optionally returns output. Functions exist in
+workers.
+
+By mapping everything a service can do to these three primitives iii creates a development process
+that is both effortlessly composable, and completely observable.
+
+## What Changes
+
+Before iii:
+
+- New observability tool: uncountable integrations
+- New agent harness: separate retry config, separate traces, separate timeouts
+- New queue: vendor evaluation, procurement, and weeks of integration
+
+After iii:
+
+- `iii worker add observability`
+- `iii worker add queue`
+- Done. It is in the system, traceable, and callable.
+
+Platform teams publish workers. Application teams register functions and declare triggers. Agents
+use the same catalog and the same function calls.
+
+Extending iii is `iii worker add`. Composing iii is calling functions. Observing iii is opening the
+trace.
+
+## Quick Start
+
+<a href="https://assets.motia.dev/videos/mp4/site/v1/iii-intro.mp4">
+  <img src=".github/assets/iii-intro-preview.gif" alt="Watch the iii intro (click to play)" width="720"/>
+</a>
+
+Install `iii`:
+
+```bash
+curl -fsSL https://install.iii.dev/iii/main/install.sh | sh
+```
+
+Then scaffold and start a project:
+
+```bash
+iii project init myapp    # scaffold a project
+cd myapp
+iii                       # start the engine
+```
+
+Full walkthrough at the [Quickstart guide](https://iii.dev/docs/quickstart).
+
+## Add Workers
+
+Install new capabilities into a project with `iii worker add`:
+
+[![Adding a worker with iii worker add](.github/assets/workers-add.gif)](https://workers.iii.dev/)
+
+## SDKs
+
+| Language | Package                                            | Install                                     |
+| -------- | -------------------------------------------------- | ------------------------------------------- |
+| Node.js  | [`iii-sdk`](https://www.npmjs.com/package/iii-sdk) | `pnpm add iii-sdk` or `npm install iii-sdk` |
+| Python   | [`iii-sdk`](https://pypi.org/project/iii-sdk/)     | `pip install iii-sdk`                       |
+| Rust     | [`iii-sdk`](https://crates.io/crates/iii-sdk)      | Add to `Cargo.toml`                         |
+| Go       | [`iii-sdk`](sdk/packages/go/iii)                       | `go get github.com/iii-hq/iii/sdk/packages/go/iii` |
+
+## Agent Skills
+
+Install iii's agent-readable reference material for the engine primitives:
+
+```bash
+npx skills add iii-hq/iii/skills
+```
+
+These cover every iii primitive: HTTP endpoints, queues, cron, state, streams, custom triggers, and
+more. See [skills/](skills/) for the full list.
+
+Each worker in [iii-hq/workers](https://github.com/iii-hq/workers) also ships its own skill. Install
+them alongside the worker itself:
+
+```bash
+npx skills add iii-hq/workers --list        # list available worker skills
+npx skills add iii-hq/workers --skill database # one worker
+npx skills add iii-hq/workers --all         # every worker skill
+```
+
+The engine's built-in workers (`iii-queue`, `iii-state`, `iii-pubsub`, `iii-stream`, `iii-cron`,
+`iii-http`, `iii-observability`, `iii-bridge`, `iii-exec`, `configuration`) ship their skills in
+this repo. Install one with `npx skills add iii-hq/iii --full-depth --skill <name>`; each worker's README under
+[`engine/src/workers/`](engine/src/workers/) lists the exact `iii worker add` and skill command.
+
+## Console
+
+The [iii-console](console/) is a developer and operations console for inspecting workers, functions,
+triggers, queues, traces, logs, and real-time state. See the
+[Console docs](https://iii.dev/docs/using-iii/console) for setup and usage.
+
+## Repository Structure
+
+| Directory  | What it is                                              | README                                 |
+| ---------- | ------------------------------------------------------- | -------------------------------------- |
+| `engine/`  | iii Engine (Rust) - core runtime, modules, and protocol | [engine/README.md](engine/README.md)   |
+| `sdk/`     | SDKs for Node.js, Python, Rust, and Go                  | [sdk/README.md](sdk/README.md)         |
+| `console/` | Developer console (React + Rust)                        | [console/README.md](console/README.md) |
+| `skills/`  | Agent-readable reference material                       | [skills/README.md](skills/README.md)   |
+| `website/` | iii website                                             | [website/](website/)                   |
+| `docs/`    | Documentation site (Mintlify/MDX)                       | [docs/README.md](docs/README.md)       |
+
+See [STRUCTURE.md](STRUCTURE.md) for the full monorepo layout, dependency chain, and CI/CD details.
+
+## Examples
+
+See the [Quickstart guide](https://iii.dev/docs/quickstart) for step-by-step tutorials.
+
+## Resources
+
+- [Documentation](https://iii.dev/docs)
+- [CLI & Engine](https://github.com/iii-hq/iii)
+- [Console](console/)
+- [Examples](https://github.com/iii-hq/iii-examples)
+- [Contributing](CONTRIBUTING.md)
+
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/?repos=iii-hq%2Fiii&type=date&legend=top-left">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=iii-hq/iii&type=date&theme=dark&legend=bottom-right" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=iii-hq/iii&type=date&legend=bottom-right" />
+      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=iii-hq/iii&type=date&legend=bottom-right" />
+    </picture>
+  </a>
+</p>
+
+## License
+
+The iii is licensed as such:
+
+| Directory  | License                               |
+| ---------- | ------------------------------------- |
+| `engine/`  | [Elastic License 2.0](engine/LICENSE) |
+| `sdk/`     | [Apache License 2.0](sdk/LICENSE)     |
+| `console/` | [Apache License 2.0](console/LICENSE) |
+| `docs/`    | [Apache License 2.0](docs/LICENSE)    |
+| `website/` | [Apache License 2.0](website/LICENSE) |
+
+The engine runtime is licensed under the Elastic License 2.0 (ELv2). All SDKs, CLI, console,
+documentation, and the website are licensed under the Apache License 2.0.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for additional details.

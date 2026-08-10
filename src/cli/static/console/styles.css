@@ -46,14 +46,50 @@ body {
     background-color: var(--bg-dark);
     color: var(--text-primary);
     display: flex;
+    flex-direction: column;
     height: 100vh;
     overflow: hidden;
 }
 
-.app-container {
-    display: flex;
+.app-background {
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.ambient-glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.15;
+}
+
+.glow-1 {
+    top: -10%;
+    left: -10%;
+    width: 50vw;
+    height: 50vw;
+    background: var(--accent);
+}
+
+.glow-2 {
+    bottom: -10%;
+    right: -10%;
+    width: 40vw;
+    height: 40vw;
+    background: #4285f4;
+}
+
+.app-container {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    height: calc(100vh - 30px); /* Adjust for footer */
+    overflow: hidden;
 }
 
 /* Sidebar */
@@ -173,7 +209,7 @@ body {
 .input-glass {
     background: var(--bg-dark);
     border: 1px solid var(--glass-border);
-    color: #fff;
+    color: var(--text-primary);
     padding: 0.5rem 1rem 0.5rem 2.2rem;
     border-radius: 6px;
     font-family: var(--font-sans);

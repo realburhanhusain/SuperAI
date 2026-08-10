@@ -56,6 +56,39 @@ writing to this repo:
   `src/core/chrome_profile.py` — it is **needed by C6.1b**, do not delete it.
   `temp_*/`, `find_path*.py` and `smoke_out.json` are someone else's scratch.
 
+### `master` is protection-ruled — every wave goes through a PR
+
+Confirmed on 2026-08-10 via the GitHub API:
+
+```
+required_pull_request_reviews : YES (1 approving review)
+enforce_admins                : false     ← admins can bypass; the push is only LOGGED
+allow_force_pushes            : false
+required_status_checks        : none
+```
+
+**Nothing warns you locally.** `git push` to `master` succeeds and prints
+`Bypassed rule violations for refs/heads/master` *after the fact*. The audit
+commit `113cf56` was landed that way before the rule was discovered — it is a
+docs-only commit, and `allow_force_pushes: false` means it cannot be rewound,
+so it stands.
+
+**For every code wave in this plan, use a PR:**
+
+```bash
+gh api repos/:owner/:repo/branches/master/protection   # check first — it's one call
+git checkout -b fix/audit-c6-mcp-classification
+# ...edit, verify, commit explicit paths...
+git push -u origin HEAD
+gh pr create --fill
+```
+
+Two reasons this matters more for the fixes than it did for the docs: the code
+waves touch argv handling and route registration — the two dispatch layers this
+audit found are invisible to the test suite — and `required_status_checks` is
+**none**, so nothing runs automatically on a PR. The review *is* the gate.
+Paste each item's verification output into the PR body.
+
 **Verification standard for this plan:** no item is done until its stated
 command has been run and its real output pasted into the commit or the board.
 That is the repo's own Rule 2, and not following it is how we got here.

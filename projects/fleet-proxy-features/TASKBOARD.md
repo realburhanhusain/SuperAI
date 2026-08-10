@@ -25,11 +25,11 @@ This project board tracks the implementation of advanced orchestration and proxy
 | T22 | Clean House (Remove Vendored UI) | `cli/web_app.py` | 1h | `[x]` | agent-fleet |
 | T23 | Setup Static Hosting | `cli/web_app.py` | 0.5h | `[x]` | agent-fleet |
 | T24 | Native Management APIs | `cli/web_app.py` | 2h | `[x]` | agent-fleet |
-| T25 | Core Design System (Vanilla CSS) | `cli/static/styles.css` | 2h | `[x]` | agent-fleet |
-| T26 | Dashboard Modules (Vanilla JS) | `cli/static/app.js` | 3h | `[x]` | agent-fleet |
-| T27 | SuperAI Bar (System Tray) | `cli/tray.py` | 2h | `[x]` | agent-fleet |
+| T25 | Core Design System (Vanilla CSS) | `cli/static/console/styles.css` | 2h | `[x]` | agent-fleet |
+| T26 | Dashboard Modules (Vanilla JS) | `cli/static/console/app.js` | 3h | `[x]` | agent-fleet |
+| T27 | SuperAI Bar (System Tray) | `cli/tray.py` | 2h | `[~]` | agent-fleet |
 | T28 | Shorthand Model Profiling | `cli/main.py` | 1h | `[x]` | agent-fleet |
-| T29 | Browser Automation Tools | `core/browser.py` | 2h | `[x]` | agent-fleet |
+| T29 | Browser Automation Tools | `core/browser.py` | 2h | `[~]` | agent-fleet |
 
 **Total estimate:** ~8.5 hours.
 

@@ -49,13 +49,13 @@ at any wave boundary without leaving the repo in a half-state.
 | [T06](tasks/T06-config-atomic-write.md) | `Config.save()` atomic write + backup | W2 | T01 | 1.5h | `[x]` | self |
 | [T07](tasks/T07-config-validation-diff.md) | Config validation + diff helper | W2 | T06 | 1.5h | `[x]` | self |
 | [T08](tasks/T08-management-auth-gate.md) | `SUPERAI_WEB_MANAGEMENT_TOKEN` + feature flag | W2 | T01 | 1h | `[x]` | - |
-| [T09](tasks/T09-api-config-read-write.md) | `GET`/`POST /api/config` + redaction + audit | W2 | T06, T07, T08 | 2h | `[ ]` | — |
+| [T09](tasks/T09-api-config-read-write.md) | `GET`/`POST /api/config` + redaction + audit | W2 | T06, T07, T08 | 2h | `[x]` | — |
 | [T10](tasks/T10-api-config-backups-rollback.md) | `/api/config/backups` + `/api/config/rollback` | W2 | T09 | 1h | `[x]` | self |
-| [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[ ]` | — |
+| [T11](tasks/T11-api-audit.md) | `GET /api/audit` — management-gated | W2 | T08 | 30m | `[x]` | — |
 | [T12](tasks/T12-api-models-write.md) | `POST /api/models` — user-level registry only | W3 | T08, T09 | 1.5h | `[x]` | self |
-| [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[ ]` | — |
-| [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[ ]` | — |
-| [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[x]` | self |
+| [T13](tasks/T13-gitattributes.md) | Verify CRLF protection covers `vendor/mgmt-ui/` | W4 | — | 15m | `[x]` | — |
+| [T14](tasks/T14-vendor-management-html.md) | Vendor `management.html` + manifest + LICENSE | W4 | T13 | 1.5h | `[x]` | — |
+| [T15](tasks/T15-cliproxy-admin-mount.md) | `/cliproxy-admin` mount + ToS banner | W4 | T14, T05 | 1h | `[ ]` | self |
 | [T16](tasks/T16-docs.md) | `docs/WEB_MANAGEMENT_CENTER.md` + cross-links | W5 | T05 | 1h | `[x]` | self |
 
 **Total estimate:** ~15.5 hours.

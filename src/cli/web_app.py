@@ -29,6 +29,24 @@ except ImportError:
     StaticFiles = object  # type: ignore
 
 
+from pydantic import BaseModel, Field
+
+class MemoryQuery(BaseModel):
+    query: str = Field(..., min_length=1)
+    top_k: int = Field(8, ge=1, le=50)
+    tags: Optional[str] = Field(
+        None, description="Comma-separated tags filter"
+    )
+
+class PreferenceBody(BaseModel):
+    key: str
+    value: Any
+
+class FeedbackBody(BaseModel):
+    message: str
+    surface: str = "web"
+    task_id: Optional[str] = None
+
 def create_app() -> Any:
     if not HAS_FASTAPI:
         raise RuntimeError(
@@ -206,6 +224,64 @@ def create_app() -> Any:
             raise HTTPException(status_code=401, detail="Unauthorized management token")
 
     if enable_config_write:
+        @app.post("/api/sync/cliproxy")
+        async def api_sync_cliproxy(request: Request) -> Dict[str, Any]:
+            """
+            Bidirectional auto-sync: query CLIProxyAPI's active models and sync them
+            into SuperAI's ~/.superai/config/models.json & ModelRegistry.
+            """
+            _check_management_auth(request)
+            from core.model_registry import ModelRegistry
+            from core.provider_catalog import OPENAI_COMPAT_PROVIDERS
+            from core.audit_log import AuditLog
+            import json
+            import urllib.request
+
+            cfg = OPENAI_COMPAT_PROVIDERS.get("cliproxy", {})
+            base_url = cfg.get("base_url", "http://127.0.0.1:8317/v1")
+            models_url = f"{base_url.rstrip('/')}/models"
+
+            discovered_models = []
+            is_live_sync = False
+            try:
+                req = urllib.request.Request(models_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=3.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if isinstance(data, dict) and "data" in data:
+                        discovered_models = data["data"]
+                    elif isinstance(data, list):
+                        discovered_models = data
+                    is_live_sync = True
+            except Exception:
+                # Fallback to vendored reference models if daemon is not currently active
+                vendor_models_file = Path(__file__).resolve().parents[2] / "vendor" / "cliproxy-models" / "models.json"
+                if vendor_models_file.is_file():
+                    try:
+                        vdata = json.loads(vendor_models_file.read_text(encoding="utf-8"))
+                        for key, mlist in vdata.items():
+                            if isinstance(mlist, list):
+                                for m in mlist:
+                                    if isinstance(m, dict) and "id" in m:
+                                        discovered_models.append(m)
+                                    elif isinstance(m, str):
+                                        discovered_models.append({"id": m})
+                    except Exception:
+                        pass
+
+            registry = ModelRegistry()
+            result = registry.sync_cliproxy_models(discovered_models)
+            result["live_sync"] = is_live_sync
+            result["source_url"] = models_url if is_live_sync else "vendored_fallback"
+
+            AuditLog().record(
+                "cliproxy.sync",
+                detail={"count": len(discovered_models), "live": is_live_sync},
+                actor="web",
+                outcome="success",
+            )
+
+            return result
+
         if not management_token:
             import logging
             logging.getLogger("superai.web_app").error("SUPERAI_WEB_ENABLE_CONFIG_WRITE is on but SUPERAI_WEB_MANAGEMENT_TOKEN is unset. Write routes will NOT be enabled.")
@@ -474,16 +550,6 @@ def create_app() -> Any:
         from core.audit_log import AuditLog
         return {"ok": True, "entries": AuditLog().recent(limit=limit)}
 
-    class MemoryQuery(BaseModel):
-        query: str = Field(..., min_length=1)
-        top_k: int = Field(8, ge=1, le=50)
-        tags: Optional[str] = Field(
-            None, description="Comma-separated tags filter"
-        )
-
-    class PreferenceBody(BaseModel):
-        key: str
-        value: Any
 
     @app.get("/", response_class=HTMLResponse)
     def home() -> str:
@@ -696,62 +762,6 @@ async function status(){
             body_bytes = await request.body()
         return _proxy_cliproxy_request(f"v1/{target_path}", request, request.method, body_bytes)
 
-    @app.post("/api/sync/cliproxy")
-    async def api_sync_cliproxy(request: Request) -> Dict[str, Any]:
-        """
-        Bidirectional auto-sync: query CLIProxyAPI's active models and sync them
-        into SuperAI's ~/.superai/config/models.json & ModelRegistry.
-        """
-        from core.model_registry import ModelRegistry
-        from core.provider_catalog import OPENAI_COMPAT_PROVIDERS
-        from core.audit_log import AuditLog
-        import json
-        import urllib.request
-
-        cfg = OPENAI_COMPAT_PROVIDERS.get("cliproxy", {})
-        base_url = cfg.get("base_url", "http://127.0.0.1:8317/v1")
-        models_url = f"{base_url.rstrip('/')}/models"
-
-        discovered_models = []
-        is_live_sync = False
-        try:
-            req = urllib.request.Request(models_url, headers={"Accept": "application/json"})
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                if isinstance(data, dict) and "data" in data:
-                    discovered_models = data["data"]
-                elif isinstance(data, list):
-                    discovered_models = data
-                is_live_sync = True
-        except Exception:
-            # Fallback to vendored reference models if daemon is not currently active
-            vendor_models_file = Path(__file__).resolve().parents[2] / "vendor" / "cliproxy-models" / "models.json"
-            if vendor_models_file.is_file():
-                try:
-                    vdata = json.loads(vendor_models_file.read_text(encoding="utf-8"))
-                    for key, mlist in vdata.items():
-                        if isinstance(mlist, list):
-                            for m in mlist:
-                                if isinstance(m, dict) and "id" in m:
-                                    discovered_models.append(m)
-                                elif isinstance(m, str):
-                                    discovered_models.append({"id": m})
-                except Exception:
-                    pass
-
-        registry = ModelRegistry()
-        result = registry.sync_cliproxy_models(discovered_models)
-        result["live_sync"] = is_live_sync
-        result["source_url"] = models_url if is_live_sync else "vendored_fallback"
-
-        AuditLog().record(
-            "cliproxy.sync",
-            detail={"count": len(discovered_models), "live": is_live_sync},
-            actor="web",
-            outcome="success",
-        )
-
-        return result
 
     @app.get("/api/sync/status")
     def api_sync_status() -> Dict[str, Any]:
@@ -1188,10 +1198,6 @@ async function render(){
         snap["feedback"] = recent_feedback(10)
         return snap
 
-    class FeedbackBody(BaseModel):
-        message: str
-        surface: str = "web"
-        task_id: Optional[str] = None
 
     @app.post("/api/feedback")
     def api_feedback(body: FeedbackBody) -> Dict[str, Any]:

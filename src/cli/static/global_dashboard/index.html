@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Activity Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glass-container">
+        <header>
+            <h1>Global Activity Dashboard</h1>
+            <p>Real-time fleet monitoring and token spend analysis.</p>
+        </header>
+        
+        <main>
+            <section class="metrics-grid">
+                <div class="card metric-card">
+                    <h3>Active Agents</h3>
+                    <div class="value" id="active-agents">0</div>
+                </div>
+                <div class="card metric-card">
+                    <h3>Total Token Spend</h3>
+                    <div class="value" id="token-spend">$0.00</div>
+                </div>
+                <div class="card metric-card">
+                    <h3>Success Rate</h3>
+                    <div class="value" id="success-rate">0%</div>
+                </div>
+            </section>
+            
+            <section class="table-section">
+                <div class="card">
+                    <h2>Active Worktrees & Agents</h2>
+                    <table id="agents-table">
+                        <thead>
+                            <tr>
+                                <th>Agent ID</th>
+                                <th>Status</th>
+                                <th>Current Task</th>
+                                <th>Spend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

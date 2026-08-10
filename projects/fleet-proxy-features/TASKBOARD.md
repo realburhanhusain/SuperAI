@@ -27,6 +27,9 @@ This project board tracks the implementation of advanced orchestration and proxy
 | T24 | Native Management APIs | `cli/web_app.py` | 2h | `[x]` | agent-fleet |
 | T25 | Core Design System (Vanilla CSS) | `cli/static/styles.css` | 2h | `[x]` | agent-fleet |
 | T26 | Dashboard Modules (Vanilla JS) | `cli/static/app.js` | 3h | `[x]` | agent-fleet |
+| T27 | SuperAI Bar (System Tray) | `cli/tray.py` | 2h | `[x]` | agent-fleet |
+| T28 | Shorthand Model Profiling | `cli/main.py` | 1h | `[ ]` | |
+| T29 | Browser Automation Tools | `core/browser.py` | 2h | `[ ]` | |
 
 **Total estimate:** ~8.5 hours.
 
@@ -53,3 +56,15 @@ This project board tracks the implementation of advanced orchestration and proxy
 ### T21: Model Payload Rules & Interceptors
 - **Goal:** Add middleware to SuperAI that can automatically inject a global "Safety System Prompt" or filter out specific keywords before requests leave the machine.
 - **Why:** Enforces global guardrails on all agent actions natively.
+
+### T27: SuperAI Bar (System Tray Companion)
+- **Goal:** Build a system tray app using `pystray` (or similar) to show token spend, quota usage, and a launch button for the Web Management Center.
+- **Why:** Brings SuperAI metrics natively to the macOS/Windows desktop, inspired by CCS Bar.
+
+### T28: Shorthand Model Profiling CLI Syntax
+- **Goal:** Support CLI invocations like `superai o1 "refactor this"` by parsing the first argument against `AliasRouter`.
+- **Why:** Significantly improves CLI UX by reducing typing overhead compared to `--model`.
+
+### T29: Automatic Browser Automation Provisioning
+- **Goal:** Expose Playwright-based browser rendering as an integrated Tool (fallback) for Agent models.
+- **Why:** Allows agents to scrape and parse complex websites on-demand.

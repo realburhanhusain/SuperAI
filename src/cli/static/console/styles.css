@@ -22,6 +22,19 @@
     --font-sans: 'Inter', -apple-system, sans-serif;
 }
 
+:root.light-theme {
+    --bg-base: #F8F9FA;
+    --bg-dark: #E9ECEF;
+    --bg-panel: #FFFFFF;
+    --bg-panel-hover: #F1F3F5;
+    --glass-border: #DEE2E6;
+    --glass-border-highlight: #CED4DA;
+    
+    --text-primary: #212529;
+    --text-secondary: #495057;
+    --text-tertiary: #868E96;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -60,7 +73,7 @@ body {
     gap: 0.5rem;
     font-size: 1.2rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--text-primary);
     margin-bottom: 2rem;
     padding: 0 0.5rem;
 }

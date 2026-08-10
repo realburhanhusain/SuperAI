@@ -28,6 +28,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load initial tab
     switchTab(state.currentTab);
+    
+    // Theme Toggle
+    const themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('light-theme');
+            const isLight = document.documentElement.classList.contains('light-theme');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            
+            // Re-init charts if needed
+            if (state.chartsInitialized) {
+                Chart.defaults.color = isLight ? '#495057' : '#9ca3af';
+                Chart.defaults.scale.grid.color = isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255, 255, 255, 0.05)';
+                // We'd ideally re-render the charts here, but changing defaults works for next load
+            }
+        });
+        
+        // Restore theme
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.add('light-theme');
+        }
+    }
+    
+    // Basic i18n
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect) {
+        langSelect.addEventListener('change', (e) => {
+            const lang = e.target.value;
+            localStorage.setItem('lang', lang);
+            showToast(`Language switched to ${lang.toUpperCase()} (Translations pending)`, "success");
+        });
+        if (localStorage.getItem('lang')) {
+            langSelect.value = localStorage.getItem('lang');
+        }
+    }
 });
 
 function initCharts() {

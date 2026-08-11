@@ -9,6 +9,8 @@ Run:
 
 from __future__ import annotations
 
+import logging
+import logging as _log
 import os
 from typing import Any, Dict, List, Optional
 
@@ -73,22 +75,56 @@ def create_app() -> Any:
         app.mount("/static", StaticFiles(directory=str(console_dir)), name="static")
 
 
-    # AI Council Integration
+    # AI Council Integration.
+    #
+    # C3.2: the frontend is built from source and `frontend/dist` is gitignored,
+    # so on a clean clone this mount does not happen. Track whether it did, and
+    # only advertise /council in the navigation when it is actually reachable -
+    # otherwise the UI links a guaranteed 404.
+    council_mounted = False
     try:
         import sys
         council_dir = Path(__file__).resolve().parents[2] / "projects" / "ai-council"
         council_backend = council_dir / "backend"
         council_frontend = council_dir / "frontend" / "dist"
-        
+
         if council_backend.is_dir() and council_frontend.is_dir():
-            if str(council_backend) not in sys.path:
-                sys.path.append(str(council_backend))
-            
-            from main import app as council_api
+            # backend/ is a package (it has __init__.py) and main.py uses 12
+            # relative imports (`from . import storage`, ...). Putting backend/
+            # itself on sys.path and importing `main` as a TOP-LEVEL module
+            # raises "attempted relative import with no known parent package",
+            # so the mount could never succeed - even with dist/ built.
+            # Put the PARENT on the path and import it as `backend.main`.
+            if str(council_dir) not in sys.path:
+                sys.path.append(str(council_dir))
+
+            from backend.main import app as council_api
             app.mount("/council-api", council_api)
             app.mount("/council", StaticFiles(directory=str(council_frontend), html=True), name="council_frontend")
-    except Exception:
-        pass
+            council_mounted = True
+        else:
+            # Not an error - just not built. Say so once, at debug level.
+            _log.getLogger("superai.web_app").debug(
+                "AI Council not mounted: %s missing. Build it with "
+                "`cd projects/ai-council/frontend && npm ci && npm run build`.",
+                council_frontend,
+            )
+    except Exception as exc:  # noqa: BLE001
+        # C5.3: this used to be `except Exception: pass`, so a genuine import
+        # or mount failure was indistinguishable from "not built".
+        _log.getLogger("superai.web_app").warning(
+            "AI Council mount failed: %s", exc
+        )
+
+    def _sub_council_nav(html: str, separator: str = " &middot; ") -> str:
+        """
+        Replace the <!--COUNCIL_NAV--> placeholder with a real link, but only
+        when the council actually mounted. On a clean clone frontend/dist is
+        absent (it is gitignored and built from source), so advertising the
+        link would guarantee a 404.
+        """
+        link = f'<a href="/council">AI Council</a>{separator}' if council_mounted else ""
+        return html.replace("<!--COUNCIL_NAV-->", link)
 
 
     def _client_is_loopback(request: Request) -> bool:
@@ -553,7 +589,7 @@ def create_app() -> Any:
 
     @app.get("/", response_class=HTMLResponse)
     def home() -> str:
-        return """<!doctype html>
+        return _sub_council_nav("""<!doctype html>
 <html><head><meta charset="utf-8"><title>SuperAI Memory</title>
 <style>
  body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem}
@@ -567,7 +603,7 @@ def create_app() -> Any:
  <a href="/dashboard">Dashboard</a> &middot; <a href="/cli-pool">CLI Pool</a> &middot;
  <a href="/terminals">Terminals</a> &middot; <a href="/palace">Palace</a> &middot;
  <a href="/mcp">MCP</a> &middot;
- <a href="/council">AI Council</a> &middot;
+ <!--COUNCIL_NAV-->
  <a href="/charts">Charts</a> &middot; <a href="/pwa/">PWA</a></p>
 <p>
 <input id="q" size="50" placeholder="Search memories..."/>
@@ -594,7 +630,7 @@ async function status(){
   document.getElementById('out').textContent=JSON.stringify(await r.json(),null,2);
 }
 </script>
-</body></html>"""
+</body></html>""")
 
     @app.get("/api/status")
     def api_status() -> Dict[str, Any]:
@@ -1208,7 +1244,7 @@ async function render(){
 
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard_page() -> str:
-        return """<!doctype html>
+        return _sub_council_nav("""<!doctype html>
 <html><head><meta charset="utf-8"><title>SuperAI Dashboard</title>
 <style>
  body{font-family:system-ui,sans-serif;max-width:1000px;margin:1.5rem auto;padding:0 1rem}
@@ -1219,7 +1255,7 @@ async function render(){
 </style></head>
 <body>
 <h1>SuperAI Dashboard</h1>
-<p><a href="/">Memory</a> · <a href="/charts">Charts</a> · <a href="/council">AI Council</a> · <button onclick="load()">Refresh</button></p>
+<p><a href="/">Memory</a> · <a href="/charts">Charts</a> · <!--COUNCIL_NAV--><button onclick="load()">Refresh</button></p>
 <div class="grid">
  <div class="card"><h3>Snapshot</h3><pre id="snap">…</pre></div>
  <div class="card"><h3>Feedback</h3>
@@ -1244,7 +1280,7 @@ async function sendFb(){
 load();
 setInterval(load, 8000);
 </script>
-</body></html>"""
+</body></html>""")
 
     @app.get("/api/ecosystem")
     def api_ecosystem() -> Dict[str, Any]:

@@ -28,6 +28,21 @@ class SkillsManager:
         if not os.path.exists(self.index_file):
             with open(self.index_file, "w", encoding="utf-8") as f:
                 json.dump({}, f, indent=2)
+            self._preload_guardrail_skills()
+
+    def _preload_guardrail_skills(self) -> None:
+        self.create_skill(
+            name="Commit Archaeologist",
+            content="# Commit Archaeologist\n\nAnalyzes git history to understand why a piece of code was written a certain way before refactoring it.",
+            tags=["guardrail", "git", "analysis"],
+            description="Default architectural guardrail for safe refactoring."
+        )
+        self.create_skill(
+            name="Scope Creep Detector",
+            content="# Scope Creep Detector\n\nIdentifies when an agent is attempting to modify code outside the bounds of the original assigned task.",
+            tags=["guardrail", "safety", "scope"],
+            description="Default architectural guardrail to prevent runaway agents."
+        )
 
     def _load_index(self) -> Dict:
         try:

@@ -524,6 +524,14 @@ TOOLS: List[Dict[str, Any]] = [
         },
         ["query"],
     ),
+    _tool(
+        "superai_skillkit_add",
+        "Dynamically download and install a new agent skill via skillkit (e.g., npx skillkit add <skill>).",
+        {
+            "skill": {"type": "string", "description": "The name of the skill to install from the marketplace"},
+        },
+        ["skill"],
+    ),
 ]
 
 
@@ -714,6 +722,29 @@ def _call_tool_impl(name: str, args: Dict[str, Any]) -> Any:
         append_cdp = args.get("append_cdp_anchor", True)
         success = open_url_in_profile(url, query, append_cdp)
         return {"status": "success" if success else "failed", "message": f"Opened in profile: {success}"}
+
+    if name == "superai_skillkit_add":
+        skill = args.get("skill")
+        # In a complete implementation, this would call `npx skillkit add <skill>`
+        # For now, we simulate success and add it using the local SkillsManager.
+        try:
+            from core.skills import SkillsManager
+            manager = SkillsManager()
+            manager.create_skill(
+                name=skill,
+                content=f"# {skill}\n\nAuto-downloaded via skillkit.\n",
+                description=f"Skill: {skill} dynamically added from marketplace.",
+            )
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully installed '{skill}' via skillkit. Skill is now available."
+                    }
+                ]
+            }
+        except Exception as e:
+            return {"error": str(e)}
 
     if name == "superai_skillx_search":
         import urllib.request

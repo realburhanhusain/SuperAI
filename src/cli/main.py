@@ -9417,6 +9417,26 @@ def host_hook_checklist_cmd(
         console.print(f"  {step.get('step')}. {step.get('title')} — [dim]{step.get('check')}[/dim]")
 
 
+company_app = typer.Typer(name="company", help="Corporate Swarm Deployments (Phase 7)")
+app.add_typer(company_app, name="company")
+
+@company_app.command("import")
+def company_import(
+    name: str = typer.Argument(..., help="Name of the corporate swarm to import (e.g. security-audit)")
+):
+    """Import a predefined corporate swarm deployment."""
+    from core.company import import_company
+    from core.public_surface import emit_public, json_mode
+    
+    out = import_company(name)
+    if json_mode():
+        emit_public(out, print_json=True, record_spend=False)
+        return
+    console.print(f"[bold green]{out['message']}[/bold green]")
+    for idx, agent in enumerate(out['company']['agents']):
+        console.print(f"  {idx + 1}. [cyan]{agent['role']}[/cyan] — {agent['prompt']}")
+
+
 def main() -> None:
     """CLI entry with M080 exception → exit-code mapping."""
     import sys

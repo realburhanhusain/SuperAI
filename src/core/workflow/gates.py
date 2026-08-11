@@ -28,8 +28,20 @@ class DiffAwareGate(QualityGate):
                 text=True,
                 timeout=30,
             )
+            # Fail closed. Without this, a failed `git diff` (not a repo, a
+            # corrupt index, git misconfigured) yields empty stdout, which
+            # reads as "no staged files" and the gate PASSES - a safety gate
+            # silently approving a commit it never actually inspected.
+            if result.returncode != 0:
+                logger.error(
+                    "Validation failed: `git diff --cached` exited %s: %s",
+                    result.returncode,
+                    (result.stderr or "").strip()[:200],
+                )
+                return False
+
             files = result.stdout.strip().split("\n") if result.stdout.strip() else []
-            
+
             if not files:
                 logger.info("No staged files found for diff-aware validation.")
                 return True
